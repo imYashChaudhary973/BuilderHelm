@@ -1,0 +1,50 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider,
+} from '@tanstack/react-router';
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+
+import { App } from './App.js';
+import { ProvidersPage } from './routes/settings/providers.js';
+import { TodayPage } from './routes/today.js';
+import './styles.css';
+
+const rootRoute = createRootRoute({ component: App });
+const todayRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/',
+  component: TodayPage,
+});
+const providersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/providers',
+  component: ProvidersPage,
+});
+const routeTree = rootRoute.addChildren([todayRoute, providersRoute]);
+const router = createRouter({
+  routeTree,
+  history: createMemoryHistory({ initialEntries: ['/'] }),
+});
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router;
+  }
+}
+
+const root = document.getElementById('root');
+if (root === null) throw new Error('Renderer root element is missing');
+
+createRoot(root).render(
+  <StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  </StrictMode>,
+);

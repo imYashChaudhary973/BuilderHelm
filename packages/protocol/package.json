@@ -1,0 +1,28 @@
+{
+  "name": "@zero/protocol",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./src/index.ts"
+    },
+    "./ipc": {
+      "types": "./dist/ipc.d.ts",
+      "import": "./src/ipc.ts"
+    },
+    "./providers": {
+      "types": "./dist/providers.d.ts",
+      "import": "./src/providers.ts"
+    }
+  },
+  "dependencies": {
+    "@zero/shared": "workspace:*",
+    "zod": "^4.0.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false"
+  }
+}

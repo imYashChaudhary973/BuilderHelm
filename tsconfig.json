@@ -1,0 +1,12 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/shared" },
+    { "path": "packages/protocol" },
+    { "path": "packages/db" },
+    { "path": "packages/observability" },
+    { "path": "packages/core" },
+    { "path": "apps/desktop/tsconfig.node.json" },
+    { "path": "apps/desktop/tsconfig.web.json" }
+  ]
+}

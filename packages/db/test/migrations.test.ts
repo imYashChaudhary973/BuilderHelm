@@ -1,0 +1,108 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterEach, describe, expect, it } from 'vitest';
+
+import {
+  migrations,
+  openDatabase,
+  runMigrations,
+  type ZeroDatabase,
+} from '../src/index.js';
+
+const openDatabases: ZeroDatabase[] = [];
+const temporaryDirectories: string[] = [];
+
+function createTestDatabase(): ZeroDatabase {
+  const database = openDatabase(':memory:');
+  openDatabases.push(database);
+  return database;
+}
+
+afterEach(() => {
+  for (const database of openDatabases.splice(0)) {
+    database.close();
+  }
+  for (const directory of temporaryDirectories.splice(0)) {
+    rmSync(directory, { force: true, recursive: true });
+  }
+});
+
+describe('migration runner', () => {
+  it('migrates a clean database and records the version', () => {
+    const database = createTestDatabase();
+    const result = runMigrations(database, migrations);
+
+    expect(result).toEqual({ applied: [1, 2], currentVersion: 2 });
+    expect(
+      database.queryOne<{ count: number }>(
+        "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'zero_metadata'",
+      ),
+    ).toEqual({ count: 1 });
+  });
+
+  it('is idempotent after the latest migration', () => {
+    const database = createTestDatabase();
+    runMigrations(database, migrations);
+
+    expect(runMigrations(database, migrations)).toEqual({
+      applied: [],
+      currentVersion: 2,
+    });
+  });
+
+  it('migrates and reopens a clean database file', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'zero-db-'));
+    temporaryDirectories.push(directory);
+    const path = join(directory, 'clean.sqlite');
+    const first = openDatabase(path);
+    runMigrations(first, migrations);
+    first.close();
+
+    const reopened = openDatabase(path);
+    openDatabases.push(reopened);
+    expect(runMigrations(reopened, migrations)).toEqual({
+      applied: [],
+      currentVersion: 2,
+    });
+  });
+
+  it('rejects a migration history with a gap', () => {
+    const database = createTestDatabase();
+
+    expect(() =>
+      runMigrations(database, [
+        {
+          version: 2,
+          name: 'invalid-start',
+          up: () => undefined,
+        },
+      ]),
+    ).toThrow('Migration sequence is invalid');
+  });
+
+  it('rolls back a failed migration', () => {
+    const database = createTestDatabase();
+
+    expect(() =>
+      runMigrations(database, [
+        {
+          version: 1,
+          name: 'broken',
+          up: (migrationDatabase) => {
+            migrationDatabase.execute(
+              'CREATE TABLE transient_record (id TEXT PRIMARY KEY)',
+            );
+            throw new Error('stop');
+          },
+        },
+      ]),
+    ).toThrow('Failed to apply migration');
+    expect(
+      database.queryOne<{ count: number }>(
+        "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'transient_record'",
+      ),
+    ).toEqual({ count: 0 });
+  });
+});

@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "outDir": "dist-types/web",
+    "rootDir": "src/renderer/src",
+    "tsBuildInfoFile": "dist-types/web.tsbuildinfo",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "types": ["vite/client"]
+  },
+  "include": ["src/renderer/src/**/*.ts", "src/renderer/src/**/*.tsx"],
+  "references": [{ "path": "../../packages/protocol" }]
+}

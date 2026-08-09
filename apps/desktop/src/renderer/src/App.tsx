@@ -1,0 +1,54 @@
+import { Link, Outlet } from '@tanstack/react-router';
+
+const futureSections = [
+  'Chat',
+  'Projects',
+  'Code',
+  'Research',
+  'Knowledge',
+  'Health',
+  'Content',
+  'Automations',
+  'Activity',
+];
+
+export function App(): React.JSX.Element {
+  return (
+    <div className="shell">
+      <aside className="sidebar">
+        <div className="brand" aria-label="Zero OS">
+          <span className="brandMark">0</span>
+          <span>Zero</span>
+        </div>
+        <nav aria-label="Primary navigation">
+          <Link
+            className="navItem"
+            activeProps={{ className: 'navItem navItemActive' }}
+            to="/"
+          >
+            Today
+          </Link>
+          {futureSections.map((section) => (
+            <button className="navItem" type="button" disabled key={section}>
+              {section}
+            </button>
+          ))}
+          <Link
+            className="navItem"
+            activeProps={{ className: 'navItem navItemActive' }}
+            to="/settings/providers"
+          >
+            Settings
+          </Link>
+        </nav>
+        <div className="privacyBadge">
+          <span className="privacyDot" aria-hidden="true" />
+          Keychain protected
+        </div>
+      </aside>
+      <main className="content">
+        <Outlet />
+      </main>
+    </div>
+  );
+}
