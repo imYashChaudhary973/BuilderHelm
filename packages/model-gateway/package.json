@@ -1,5 +1,5 @@
 {
-  "name": "@zero/protocol",
+  "name": "@zero/model-gateway",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,21 +7,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./src/index.ts"
-    },
-    "./ipc": {
-      "types": "./dist/ipc.d.ts",
-      "import": "./src/ipc.ts"
-    },
-    "./model": {
-      "types": "./dist/model.d.ts",
-      "import": "./src/model.ts"
-    },
-    "./providers": {
-      "types": "./dist/providers.d.ts",
-      "import": "./src/providers.ts"
     }
   },
   "dependencies": {
+    "@zero/protocol": "workspace:*",
     "@zero/shared": "workspace:*",
     "zod": "^4.0.0"
   },

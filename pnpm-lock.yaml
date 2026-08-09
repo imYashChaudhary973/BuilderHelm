@@ -99,6 +99,18 @@ importers:
         specifier: workspace:*
         version: link:../shared
 
+  packages/model-gateway:
+    dependencies:
+      '@zero/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@zero/shared':
+        specifier: workspace:*
+        version: link:../shared
+      zod:
+        specifier: ^4.0.0
+        version: 4.4.3
+
   packages/observability:
     dependencies:
       '@zero/shared':

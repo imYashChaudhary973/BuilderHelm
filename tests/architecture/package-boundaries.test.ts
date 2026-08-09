@@ -9,6 +9,7 @@ const allowedDependencies: Readonly<Record<string, readonly string[]>> = {
   protocol: ['shared'],
   db: ['shared'],
   observability: ['shared'],
+  'model-gateway': ['protocol', 'shared'],
   core: ['db', 'observability', 'protocol', 'shared'],
 };
 
