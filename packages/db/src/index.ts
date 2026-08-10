@@ -6,9 +6,11 @@ export {
   type MigrationResult,
 } from './migration-runner.js';
 export {
+  chatPersistenceMigration,
   migrations,
   phaseZeroMigration,
   providerSettingsMigration,
 } from './migrations/index.js';
+export * from './chat-repository.js';
 export * from './model-repository.js';
 export * from './provider-repository.js';

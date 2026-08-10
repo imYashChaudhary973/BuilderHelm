@@ -32,6 +32,18 @@
 - Added a 15-second provider request deadline and bounded discovery responses to
   10,000 models.
 
+### Canonical chat persistence
+
+- Added strict provider-independent contracts for chat threads, ordered turns,
+  optional provider continuation metadata, and normalized token usage.
+- Added migration 3 with `chat_threads`, `chat_turns`, and `chat_usage` tables.
+- Added atomic turn-and-usage persistence and restart-safe transcript loading.
+- Snapshotted model references without foreign-keying history to the mutable
+  provider catalog, so model refreshes and provider deletion cannot erase chat
+  history.
+- Added a core chat service that validates complete turns before writing and
+  logs identifiers only, never message content or opaque continuation values.
+
 ## Security invariants retained
 
 - Provider credentials remain in macOS Keychain and are resolved only after the
@@ -49,7 +61,7 @@
 | `pnpm format:check`               | Passed                           |
 | `pnpm lint`                       | Passed                           |
 | `pnpm typecheck`                  | Passed                           |
-| `pnpm test`                       | Passed: 19 files, 62 tests       |
+| `pnpm test`                       | Passed: 22 files, 70 tests       |
 | `pnpm build`                      | Passed                           |
 | `pnpm smoke:desktop`              | Passed                           |
 | Built preload Node-primitive scan | Passed: no `node:crypto` import  |
@@ -60,9 +72,8 @@ provider request or real provider credential was used for this checkpoint.
 
 ## Remaining Phase 2 work
 
-1. Persist canonical chat threads, turns, and usage records.
-2. Add a minimal streamed chat UI using the stored OpenAI model catalog.
-3. Support model switching per turn while keeping Zero-owned canonical history.
-4. Add Anthropic, generic OpenAI-compatible, and Ollama adapters.
-5. Add capability metadata packs/manual overrides and finish the Phase 2
+1. Add a minimal streamed chat UI using the stored OpenAI model catalog.
+2. Connect per-turn model switching to the canonical history now stored by Zero.
+3. Add Anthropic, generic OpenAI-compatible, and Ollama adapters.
+4. Add capability metadata packs/manual overrides and finish the Phase 2
    closure gate.

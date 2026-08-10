@@ -3,6 +3,11 @@ import { z } from 'zod';
 
 import { jsonValueSchema } from './json.js';
 
+export const modelRefSchema = z
+  .string()
+  .max(500)
+  .regex(/^[^:]+:.+$/);
+
 export const dataClassificationSchema = z.enum([
   'public',
   'personal',
@@ -71,7 +76,7 @@ export const modelCapabilitiesSchema = z
 
 export const modelRecordSchema = z
   .object({
-    ref: z.string().regex(/^[^:]+:.+$/),
+    ref: modelRefSchema,
     providerId: z.string().uuid(),
     modelId: z.string().min(1).max(300),
     label: z.string().min(1).max(300),
@@ -91,7 +96,7 @@ export const toolDefinitionSchema = z
 
 export const modelRequestSchema = z
   .object({
-    modelRef: z.string().regex(/^[^:]+:.+$/),
+    modelRef: modelRefSchema,
     messages: z.array(zeroMessageSchema).min(1).max(10_000),
     tools: z.array(toolDefinitionSchema).max(128).optional(),
     responseSchema: jsonValueSchema.optional(),
@@ -121,6 +126,13 @@ export const finishReasonSchema = z.enum([
   'unknown',
 ]);
 
+export const providerContinuationSchema = z
+  .object({
+    providerId: z.string().uuid(),
+    responseId: z.string().min(1).max(1_000),
+  })
+  .strict();
+
 export const modelResponseSchema = z
   .object({
     text: z.string(),
@@ -128,10 +140,7 @@ export const modelResponseSchema = z
     toolCalls: z.array(normalizedToolCallSchema),
     usage: tokenUsageSchema.optional(),
     finishReason: finishReasonSchema,
-    providerContinuation: z
-      .object({ providerId: z.string().uuid(), responseId: z.string().min(1).max(1_000) })
-      .strict()
-      .optional(),
+    providerContinuation: providerContinuationSchema.optional(),
   })
   .strict();
 

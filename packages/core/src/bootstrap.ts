@@ -1,4 +1,5 @@
 import {
+  ChatRepository,
   migrations,
   ModelRepository,
   openDatabase,
@@ -11,6 +12,7 @@ import type { SystemHealthResponse } from '@zero/protocol';
 import { createCorrelationId, utcNow, type CorrelationId } from '@zero/shared';
 
 import { ProviderService } from './providers/provider-service.js';
+import { ChatService } from './chat/chat-service.js';
 import { ModelService } from './models/model-service.js';
 import type { SecretStore } from './secrets/secret-store.js';
 
@@ -23,6 +25,7 @@ export interface CoreOptions {
 
 export interface CoreRuntime {
   readonly logger: Logger;
+  readonly chats: ChatService;
   readonly providers: ProviderService;
   readonly models: ModelService;
   health(correlationId: CorrelationId): SystemHealthResponse;
@@ -51,6 +54,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
 
   let closed = false;
   const providerRepository = new ProviderRepository(database);
+  const chats = new ChatService(new ChatRepository(database), logger);
   const providers = new ProviderService(providerRepository, options.secretStore, logger);
   const models = new ModelService(
     providerRepository,
@@ -62,6 +66,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
 
   return {
     logger,
+    chats,
     providers,
     models,
     health(correlationId) {

@@ -21,10 +21,10 @@ sync_cursors
 ### Conversation
 
 ```text
-conversations
-messages
+chat_threads
+chat_turns
+chat_usage
 message_attachments
-model_invocations
 tool_calls
 tool_results
 citations
@@ -178,23 +178,25 @@ created_at TEXT NOT NULL,
 updated_at TEXT NOT NULL
 ```
 
-### `model_invocations`
+### `chat_usage`
 
 ```sql
 id TEXT PRIMARY KEY,
-conversation_id TEXT,
-agent_run_id TEXT,
+thread_id TEXT NOT NULL,
+turn_id TEXT NOT NULL UNIQUE,
 provider_id TEXT NOT NULL,
 model_ref TEXT NOT NULL,
-started_at TEXT NOT NULL,
-ended_at TEXT,
-input_tokens INTEGER,
-output_tokens INTEGER,
-cached_tokens INTEGER,
-estimated_cost REAL,
-status TEXT NOT NULL,
-error_code TEXT
+input_tokens INTEGER NOT NULL,
+output_tokens INTEGER NOT NULL,
+cached_input_tokens INTEGER,
+reasoning_tokens INTEGER,
+created_at TEXT NOT NULL
 ```
+
+`provider_id` and `model_ref` are historical snapshots rather than foreign keys
+to the mutable provider catalog. This preserves canonical threads after model
+rediscovery or provider deletion. Usage remains transactionally linked to its
+assistant turn.
 
 ### `audit_events`
 
