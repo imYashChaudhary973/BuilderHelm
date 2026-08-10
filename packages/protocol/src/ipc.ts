@@ -11,6 +11,13 @@ import type {
   UpdateProviderInput,
 } from './providers.js';
 import type { ModelRecord } from './model.js';
+import type {
+  ChatClientStreamEvent,
+  ChatStreamInput,
+  ChatThread,
+  ChatTranscript,
+  CreateChatThreadInput,
+} from './chat.js';
 
 export const ipcChannels = {
   systemHealth: 'zero:system:health',
@@ -21,6 +28,12 @@ export const ipcChannels = {
   providerTestConnection: 'zero:provider:test-connection',
   modelDiscover: 'zero:model:discover',
   modelList: 'zero:model:list',
+  chatList: 'zero:chat:list',
+  chatCreate: 'zero:chat:create',
+  chatGet: 'zero:chat:get',
+  chatStreamStart: 'zero:chat:stream-start',
+  chatStreamCancel: 'zero:chat:stream-cancel',
+  chatStreamEvent: 'zero:chat:stream-event',
 } as const;
 
 export const systemHealthRequestSchema = z
@@ -61,5 +74,17 @@ export interface ZeroDesktopApi {
   readonly models: {
     discover(input: ProviderOperationInput): Promise<ModelRecord[]>;
     list(input: ModelListInput): Promise<ModelRecord[]>;
+  };
+  readonly chat: {
+    list(): Promise<ChatThread[]>;
+    create(input: CreateChatThreadInput): Promise<ChatThread>;
+    get(input: { readonly threadId: string }): Promise<ChatTranscript>;
+    startStream(
+      input: ChatStreamInput,
+      onEvent: (event: ChatClientStreamEvent) => void,
+    ): Promise<{ readonly runId: string }>;
+    cancelStream(input: {
+      readonly runId: string;
+    }): Promise<{ readonly cancelled: boolean }>;
   };
 }

@@ -101,8 +101,16 @@ function requestHeaders(context: ProviderInvocationContext): HeadersInit {
   };
 }
 
-function messageContent(part: ModelContentPart): JsonValue | null {
-  if (part.type === 'text') return { type: 'input_text', text: part.text };
+function messageContent(
+  part: ModelContentPart,
+  role: ZeroMessage['role'],
+): JsonValue | null {
+  if (part.type === 'text') {
+    return {
+      type: role === 'assistant' ? 'output_text' : 'input_text',
+      text: part.text,
+    };
+  }
   if (part.type === 'image') {
     if (part.source.kind !== 'url') {
       throw new ZeroError(
@@ -118,7 +126,7 @@ function messageContent(part: ModelContentPart): JsonValue | null {
 function messageItems(message: ZeroMessage): JsonValue[] {
   const items: JsonValue[] = [];
   const content = message.content
-    .map(messageContent)
+    .map((part) => messageContent(part, message.role))
     .filter((part): part is JsonValue => part !== null);
   if (content.length > 0) {
     items.push({ type: 'message', role: message.role, content });
@@ -334,6 +342,10 @@ export class OpenAIResponsesAdapter implements ProviderAdapter {
         yield {
           type: 'done',
           finishReason: normalizeResponse(completed, context.providerId).finishReason,
+          providerContinuation: {
+            providerId: context.providerId,
+            responseId: completed.id,
+          },
         };
       } else if (event.type === 'error' || event.type === 'response.failed') {
         throw new ZeroError('MODEL_UNAVAILABLE', 'OpenAI response stream failed');

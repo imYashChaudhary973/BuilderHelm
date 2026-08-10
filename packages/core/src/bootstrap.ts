@@ -54,7 +54,6 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
 
   let closed = false;
   const providerRepository = new ProviderRepository(database);
-  const chats = new ChatService(new ChatRepository(database), logger);
   const providers = new ProviderService(providerRepository, options.secretStore, logger);
   const models = new ModelService(
     providerRepository,
@@ -63,6 +62,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     logger,
     options.modelGatewayFetch,
   );
+  const chats = new ChatService(new ChatRepository(database), logger, models);
 
   return {
     logger,

@@ -157,7 +157,13 @@ export const chatStreamEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('reasoning.summary'), text: z.string() }).strict(),
   z.object({ type: z.literal('tool.proposed'), call: normalizedToolCallSchema }).strict(),
   z.object({ type: z.literal('usage'), usage: tokenUsageSchema }).strict(),
-  z.object({ type: z.literal('done'), finishReason: finishReasonSchema }).strict(),
+  z
+    .object({
+      type: z.literal('done'),
+      finishReason: finishReasonSchema,
+      providerContinuation: providerContinuationSchema.optional(),
+    })
+    .strict(),
   z.object({ type: z.literal('error'), error: modelErrorSchema }).strict(),
 ]);
 
@@ -171,5 +177,6 @@ export type ToolDefinition = z.infer<typeof toolDefinitionSchema>;
 export type ModelRequest = z.infer<typeof modelRequestSchema>;
 export type TokenUsage = z.infer<typeof tokenUsageSchema>;
 export type FinishReason = z.infer<typeof finishReasonSchema>;
+export type ProviderContinuation = z.infer<typeof providerContinuationSchema>;
 export type ModelResponse = z.infer<typeof modelResponseSchema>;
 export type ChatStreamEvent = z.infer<typeof chatStreamEventSchema>;

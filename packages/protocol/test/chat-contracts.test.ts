@@ -1,7 +1,11 @@
 import { createId } from '@zero/shared';
 import { describe, expect, it } from 'vitest';
 
-import { appendChatTurnInputSchema } from '../src/index.js';
+import {
+  appendChatTurnInputSchema,
+  chatClientStreamEventSchema,
+  chatStreamStartRequestSchema,
+} from '../src/index.js';
 
 describe('canonical chat contracts', () => {
   it('defaults non-assistant response metadata to null', () => {
@@ -70,6 +74,43 @@ describe('canonical chat contracts', () => {
       appendChatTurnInputSchema.safeParse({
         ...base,
         role: 'user',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('strictly validates stream requests before they cross IPC', () => {
+    const request = {
+      correlationId: createId(),
+      runId: createId(),
+      input: {
+        threadId: createId(),
+        modelRef: `${createId()}:gpt-example`,
+        text: 'Hello',
+      },
+    };
+
+    expect(chatStreamStartRequestSchema.safeParse(request).success).toBe(true);
+    expect(
+      chatStreamStartRequestSchema.safeParse({
+        ...request,
+        input: { ...request.input, apiKey: 'must-not-cross-ipc' },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('keeps provider continuation identifiers out of renderer stream events', () => {
+    expect(
+      chatClientStreamEventSchema.safeParse({ type: 'done', finishReason: 'stop' })
+        .success,
+    ).toBe(true);
+    expect(
+      chatClientStreamEventSchema.safeParse({
+        type: 'done',
+        finishReason: 'stop',
+        providerContinuation: {
+          providerId: createId(),
+          responseId: 'private-provider-response-id',
+        },
       }).success,
     ).toBe(false);
   });

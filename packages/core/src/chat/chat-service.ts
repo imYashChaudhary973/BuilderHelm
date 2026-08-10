@@ -10,6 +10,8 @@ import type { Logger } from '@zero/observability';
 import {
   appendChatTurnInputSchema,
   appendedChatTurnSchema,
+  chatClientStreamEventSchema,
+  chatStreamInputSchema,
   chatThreadSchema,
   chatTranscriptSchema,
   chatTurnSchema,
@@ -17,11 +19,34 @@ import {
   createChatThreadInputSchema,
   type AppendChatTurnInput,
   type AppendedChatTurn,
+  type ChatClientStreamEvent,
+  type ChatStreamEvent,
+  type ChatStreamInput,
   type ChatThread,
   type ChatTranscript,
   type CreateChatThreadInput,
+  type FinishReason,
+  type ModelContentPart,
+  type ModelRequest,
+  type NormalizedToolCall,
+  type ProviderContinuation,
+  type TokenUsage,
 } from '@zero/protocol';
-import { createId, utcNow, ZeroError, type CorrelationId } from '@zero/shared';
+import {
+  createId,
+  normalizeError,
+  utcNow,
+  ZeroError,
+  type CorrelationId,
+} from '@zero/shared';
+
+export interface ChatModelStreamer {
+  stream(
+    request: ModelRequest,
+    correlationId: CorrelationId,
+    signal: AbortSignal,
+  ): AsyncIterable<ChatStreamEvent>;
+}
 
 function toThread(thread: StoredChatThread): ChatThread {
   return chatThreadSchema.parse(thread);
@@ -72,6 +97,7 @@ export class ChatService {
   constructor(
     private readonly repository: ChatRepository,
     private readonly logger: Logger,
+    private readonly models: ChatModelStreamer,
   ) {}
 
   list(): ChatThread[] {
@@ -185,5 +211,156 @@ export class ChatService {
     } catch (cause) {
       throw new ZeroError('DATABASE_FAILED', 'Failed to append chat turn', { cause });
     }
+  }
+
+  async *stream(
+    rawInput: ChatStreamInput,
+    correlationId: CorrelationId,
+    signal: AbortSignal,
+  ): AsyncIterable<ChatClientStreamEvent> {
+    const input = chatStreamInputSchema.parse(rawInput);
+    this.append(
+      {
+        threadId: input.threadId,
+        role: 'user',
+        content: [{ type: 'text', text: input.text }],
+      },
+      correlationId,
+    );
+    const transcript = this.get(input.threadId);
+    const request: ModelRequest = {
+      modelRef: input.modelRef,
+      messages: transcript.turns.map((turn) => ({
+        id: turn.id,
+        role: turn.role,
+        content: turn.content,
+        createdAt: turn.createdAt,
+      })),
+      dataClassifications: ['personal'],
+      stream: true,
+    };
+    let text = '';
+    const toolCalls: NormalizedToolCall[] = [];
+    let usage: TokenUsage | null = null;
+    let finishReason: FinishReason | null = null;
+    let continuation: ProviderContinuation | null = null;
+    let failure: ZeroError | null = null;
+
+    try {
+      for await (const event of this.models.stream(request, correlationId, signal)) {
+        if (event.type === 'text.delta') text += event.text;
+        if (event.type === 'tool.proposed') toolCalls.push(event.call);
+        if (event.type === 'usage') usage = event.usage;
+        if (event.type === 'error') {
+          throw new ZeroError(event.error.code, event.error.message, {
+            retryable: event.error.retryable,
+          });
+        }
+        if (event.type === 'done') {
+          finishReason = event.finishReason;
+          continuation = event.providerContinuation ?? null;
+          break;
+        }
+        yield chatClientStreamEventSchema.parse(event);
+      }
+    } catch (error) {
+      failure = normalizeError(error);
+    }
+
+    if (failure !== null) {
+      const cancelled = signal.aborted || failure.code === 'CANCELLED';
+      this.persistAssistant(
+        input.threadId,
+        input.modelRef,
+        text,
+        toolCalls,
+        cancelled ? 'cancelled' : 'error',
+        null,
+        usage,
+        correlationId,
+      );
+      this.logger.warn({
+        event: cancelled ? 'chat.stream_cancelled' : 'chat.stream_failed',
+        correlationId,
+        data: { threadId: input.threadId, modelRef: input.modelRef, code: failure.code },
+      });
+      if (cancelled) {
+        yield { type: 'done', finishReason: 'cancelled' };
+        return;
+      }
+      throw failure;
+    }
+
+    if (finishReason === null) {
+      const ended = new ZeroError(
+        'MODEL_UNAVAILABLE',
+        'Provider stream ended without completion',
+      );
+      this.persistAssistant(
+        input.threadId,
+        input.modelRef,
+        text,
+        toolCalls,
+        'error',
+        null,
+        usage,
+        correlationId,
+      );
+      this.logger.warn({
+        event: 'chat.stream_failed',
+        correlationId,
+        data: {
+          threadId: input.threadId,
+          modelRef: input.modelRef,
+          code: ended.code,
+        },
+      });
+      throw ended;
+    }
+    this.persistAssistant(
+      input.threadId,
+      input.modelRef,
+      text,
+      toolCalls,
+      finishReason,
+      continuation,
+      usage,
+      correlationId,
+    );
+    this.logger.info({
+      event: 'chat.stream_completed',
+      correlationId,
+      data: { threadId: input.threadId, modelRef: input.modelRef, finishReason },
+    });
+    yield { type: 'done', finishReason };
+  }
+
+  private persistAssistant(
+    threadId: string,
+    modelRef: string,
+    text: string,
+    toolCalls: readonly NormalizedToolCall[],
+    finishReason: FinishReason,
+    providerContinuation: ProviderContinuation | null,
+    usage: TokenUsage | null,
+    correlationId: CorrelationId,
+  ): void {
+    const content: ModelContentPart[] = [
+      ...(text.length === 0 ? [] : [{ type: 'text' as const, text }]),
+      ...toolCalls.map((call) => ({ type: 'tool_call' as const, call })),
+    ];
+    if (content.length === 0) return;
+    this.append(
+      {
+        threadId,
+        role: 'assistant',
+        content,
+        modelRef,
+        finishReason,
+        providerContinuation,
+        usage,
+      },
+      correlationId,
+    );
   }
 }

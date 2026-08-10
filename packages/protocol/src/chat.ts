@@ -1,15 +1,22 @@
+import type { CorrelationId } from '@zero/shared';
 import { z } from 'zod';
 
 import {
   finishReasonSchema,
+  modelErrorSchema,
   modelContentPartSchema,
   modelRefSchema,
+  normalizedToolCallSchema,
   providerContinuationSchema,
   tokenUsageSchema,
 } from './model.js';
 
 const chatRoleSchema = z.enum(['system', 'user', 'assistant', 'tool']);
 const timestampSchema = z.string().datetime({ offset: false });
+const correlationIdSchema = z
+  .string()
+  .uuid()
+  .transform((value) => value as CorrelationId);
 const chatContentSchema = z
   .array(modelContentPartSchema)
   .min(1)
@@ -142,6 +149,73 @@ export const appendedChatTurnSchema = z
   })
   .strict();
 
+export const chatStreamInputSchema = z
+  .object({
+    threadId: z.string().uuid(),
+    modelRef: modelRefSchema,
+    text: z.string().trim().min(1).max(100_000),
+  })
+  .strict();
+
+export const chatThreadInputSchema = z.object({ threadId: z.string().uuid() }).strict();
+export const chatStreamCancelInputSchema = z
+  .object({ runId: z.string().uuid() })
+  .strict();
+
+export const chatListRequestSchema = z
+  .object({ correlationId: correlationIdSchema })
+  .strict();
+export const chatCreateRequestSchema = z
+  .object({ correlationId: correlationIdSchema, input: createChatThreadInputSchema })
+  .strict();
+export const chatGetRequestSchema = z
+  .object({ correlationId: correlationIdSchema, input: chatThreadInputSchema })
+  .strict();
+export const chatStreamStartRequestSchema = z
+  .object({
+    correlationId: correlationIdSchema,
+    runId: z.string().uuid(),
+    input: chatStreamInputSchema,
+  })
+  .strict();
+export const chatStreamCancelRequestSchema = z
+  .object({ correlationId: correlationIdSchema, input: chatStreamCancelInputSchema })
+  .strict();
+
+export const chatClientStreamEventSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('text.delta'), text: z.string() }).strict(),
+  z.object({ type: z.literal('reasoning.summary'), text: z.string() }).strict(),
+  z.object({ type: z.literal('tool.proposed'), call: normalizedToolCallSchema }).strict(),
+  z.object({ type: z.literal('usage'), usage: tokenUsageSchema }).strict(),
+  z.object({ type: z.literal('done'), finishReason: finishReasonSchema }).strict(),
+  z.object({ type: z.literal('error'), error: modelErrorSchema }).strict(),
+]);
+
+export const chatStreamEnvelopeSchema = z
+  .object({ runId: z.string().uuid(), event: chatClientStreamEventSchema })
+  .strict();
+
+export const chatThreadListResponseSchema = z.array(chatThreadSchema);
+export const chatStreamStartResultSchema = z
+  .object({ runId: z.string().uuid() })
+  .strict();
+export const chatStreamCancelResultSchema = z.object({ cancelled: z.boolean() }).strict();
+
+function ipcResponse<T extends z.ZodType>(value: T) {
+  return z.discriminatedUnion('ok', [
+    z.object({ ok: z.literal(true), value }).strict(),
+    z.object({ ok: z.literal(false), error: modelErrorSchema }).strict(),
+  ]);
+}
+
+export const chatThreadListIpcResponseSchema = ipcResponse(chatThreadListResponseSchema);
+export const chatThreadIpcResponseSchema = ipcResponse(chatThreadSchema);
+export const chatTranscriptIpcResponseSchema = ipcResponse(chatTranscriptSchema);
+export const chatStreamStartIpcResponseSchema = ipcResponse(chatStreamStartResultSchema);
+export const chatStreamCancelIpcResponseSchema = ipcResponse(
+  chatStreamCancelResultSchema,
+);
+
 export type ChatThread = z.infer<typeof chatThreadSchema>;
 export type ChatTurn = z.infer<typeof chatTurnSchema>;
 export type ChatUsageRecord = z.infer<typeof chatUsageRecordSchema>;
@@ -149,3 +223,6 @@ export type ChatTranscript = z.infer<typeof chatTranscriptSchema>;
 export type CreateChatThreadInput = z.input<typeof createChatThreadInputSchema>;
 export type AppendChatTurnInput = z.input<typeof appendChatTurnInputSchema>;
 export type AppendedChatTurn = z.infer<typeof appendedChatTurnSchema>;
+export type ChatStreamInput = z.infer<typeof chatStreamInputSchema>;
+export type ChatClientStreamEvent = z.infer<typeof chatClientStreamEventSchema>;
+export type ChatStreamEnvelope = z.infer<typeof chatStreamEnvelopeSchema>;

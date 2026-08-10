@@ -1,7 +1,6 @@
 import { Link, Outlet } from '@tanstack/react-router';
 
 const futureSections = [
-  'Chat',
   'Projects',
   'Code',
   'Research',
@@ -27,6 +26,13 @@ export function App(): React.JSX.Element {
             to="/"
           >
             Today
+          </Link>
+          <Link
+            className="navItem"
+            activeProps={{ className: 'navItem navItemActive' }}
+            to="/chat"
+          >
+            Chat
           </Link>
           {futureSections.map((section) => (
             <button className="navItem" type="button" disabled key={section}>

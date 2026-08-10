@@ -35,6 +35,12 @@ function request(providerId: string, stream = false): ModelRequest {
         content: [{ type: 'text', text: 'Hello' }],
         createdAt: utcNow(),
       },
+      {
+        id: createId(),
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Prior answer.' }],
+        createdAt: utcNow(),
+      },
     ],
     tools: [
       {
@@ -73,6 +79,11 @@ describe('OpenAI Responses adapter', () => {
           type: 'message',
           role: 'user',
           content: [{ type: 'input_text', text: 'Hello' }],
+        },
+        {
+          type: 'message',
+          role: 'assistant',
+          content: [{ type: 'output_text', text: 'Prior answer.' }],
         },
       ]);
       return Response.json({
@@ -175,7 +186,14 @@ describe('OpenAI Responses adapter', () => {
         call: { id: 'call_1', name: 'lookup', arguments: { query: 'hello' } },
       },
       { type: 'usage', usage: { inputTokens: 4, outputTokens: 3 } },
-      { type: 'done', finishReason: 'stop' },
+      {
+        type: 'done',
+        finishReason: 'stop',
+        providerContinuation: {
+          providerId: provider.providerId,
+          responseId: 'resp_stream',
+        },
+      },
     ]);
   });
 

@@ -7,9 +7,12 @@ import {
 import type { Logger } from '@zero/observability';
 import {
   modelRecordSchema,
+  modelRequestSchema,
   providerHeaderSchema,
   providerProtocolSchema,
+  type ChatStreamEvent,
   type ModelRecord,
+  type ModelRequest,
   type ProviderHeader,
 } from '@zero/protocol';
 import { normalizeError, utcNow, ZeroError, type CorrelationId } from '@zero/shared';
@@ -114,6 +117,35 @@ export class ModelService {
       return this.models.list(providerId).map(storedModelToRecord);
     } catch (cause) {
       throw new ZeroError('DATABASE_FAILED', 'Failed to read stored models', { cause });
+    }
+  }
+
+  async *stream(
+    rawRequest: ModelRequest,
+    correlationId: CorrelationId,
+    signal: AbortSignal,
+  ): AsyncIterable<ChatStreamEvent> {
+    const request = modelRequestSchema.parse(rawRequest);
+    const providerId = request.modelRef.slice(0, request.modelRef.indexOf(':'));
+    try {
+      this.register(providerId);
+      this.gateway.replaceModels(providerId, this.list(providerId));
+      this.logger.info({
+        event: 'model.stream_started',
+        correlationId,
+        data: { providerId, modelRef: request.modelRef },
+      });
+      for await (const event of this.gateway.stream(request, signal)) {
+        yield event;
+      }
+    } catch (error) {
+      const normalized = normalizeError(error);
+      this.logger.warn({
+        event: 'model.stream_failed',
+        correlationId,
+        data: { providerId, modelRef: request.modelRef, code: normalized.code },
+      });
+      throw normalized;
     }
   }
 

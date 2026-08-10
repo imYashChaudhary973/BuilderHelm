@@ -27,10 +27,10 @@ validation boundaries before persistence.
 ## Consequences
 
 - Threads survive provider deletion and model rediscovery.
-- A later streamed-chat slice can rebuild provider requests from Zero-owned
-  canonical history and select a different model for each turn.
+- Streamed chat rebuilds provider requests from Zero-owned canonical history
+  and can select a different model for each turn.
 - Provider-specific response objects, credentials, and wire payloads do not
   become canonical state.
 - Completed assistant turns and their usage records are written atomically.
-- Streaming partial-response checkpoints remain deferred to the streamed-chat
-  slice.
+- A non-empty partial response is persisted when a stream is cancelled or
+  fails. Incremental checkpointing during a live stream remains out of scope.

@@ -1,4 +1,18 @@
 import type { CoreRuntime } from '@zero/core';
+import {
+  chatCreateRequestSchema,
+  chatGetRequestSchema,
+  chatListRequestSchema,
+  chatStreamCancelIpcResponseSchema,
+  chatStreamCancelRequestSchema,
+  chatStreamEnvelopeSchema,
+  chatStreamStartIpcResponseSchema,
+  chatStreamStartRequestSchema,
+  chatThreadIpcResponseSchema,
+  chatThreadListIpcResponseSchema,
+  chatTranscriptIpcResponseSchema,
+  type ChatClientStreamEvent,
+} from '@zero/protocol/chat';
 import { ipcChannels, systemHealthRequestSchema } from '@zero/protocol/ipc';
 import {
   modelListIpcResponseSchema,
@@ -13,13 +27,21 @@ import {
   providerUpdateRequestSchema,
 } from '@zero/protocol/providers';
 import { normalizeError, ZeroError } from '@zero/shared';
-import { ipcMain } from 'electron';
+import { ipcMain, type WebContents } from 'electron';
+import { ZodError } from 'zod';
 
 function ipcError(error: unknown): {
   readonly code: ReturnType<typeof normalizeError>['code'];
   readonly message: string;
   readonly retryable: boolean;
 } {
+  if (error instanceof ZodError) {
+    return {
+      code: 'VALIDATION_FAILED',
+      message: 'Request validation failed',
+      retryable: false,
+    };
+  }
   const normalized = normalizeError(error);
   return {
     code: normalized.code,
@@ -31,7 +53,23 @@ function ipcError(error: unknown): {
   };
 }
 
+function sendChatEvent(
+  sender: WebContents,
+  runId: string,
+  event: ChatClientStreamEvent,
+): void {
+  if (sender.isDestroyed()) return;
+  sender.send(
+    ipcChannels.chatStreamEvent,
+    chatStreamEnvelopeSchema.parse({ runId, event }),
+  );
+}
+
 export function registerIpcHandlers(core: CoreRuntime): () => void {
+  const activeStreams = new Map<
+    string,
+    { readonly controller: AbortController; readonly senderId: number }
+  >();
   ipcMain.handle(ipcChannels.systemHealth, (_event, input: unknown) => {
     const request = systemHealthRequestSchema.parse(input);
     return core.health(request.correlationId);
@@ -95,8 +133,105 @@ export function registerIpcHandlers(core: CoreRuntime): () => void {
       });
     }
   });
+  ipcMain.handle(ipcChannels.chatList, (_event, input: unknown) => {
+    try {
+      chatListRequestSchema.parse(input);
+      return chatThreadListIpcResponseSchema.parse({
+        ok: true,
+        value: core.chats.list(),
+      });
+    } catch (error) {
+      return chatThreadListIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.chatCreate, (_event, input: unknown) => {
+    try {
+      const request = chatCreateRequestSchema.parse(input);
+      return chatThreadIpcResponseSchema.parse({
+        ok: true,
+        value: core.chats.create(request.input, request.correlationId),
+      });
+    } catch (error) {
+      return chatThreadIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.chatGet, (_event, input: unknown) => {
+    try {
+      const request = chatGetRequestSchema.parse(input);
+      return chatTranscriptIpcResponseSchema.parse({
+        ok: true,
+        value: core.chats.get(request.input.threadId),
+      });
+    } catch (error) {
+      return chatTranscriptIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.chatStreamStart, (event, input: unknown) => {
+    try {
+      const request = chatStreamStartRequestSchema.parse(input);
+      if (activeStreams.has(request.runId)) {
+        throw new ZeroError('VALIDATION_FAILED', 'Chat stream is already active');
+      }
+      const controller = new AbortController();
+      const sender = event.sender;
+      const abort = () => controller.abort();
+      activeStreams.set(request.runId, { controller, senderId: sender.id });
+      sender.once('destroyed', abort);
+
+      void (async () => {
+        try {
+          for await (const streamEvent of core.chats.stream(
+            request.input,
+            request.correlationId,
+            controller.signal,
+          )) {
+            sendChatEvent(sender, request.runId, streamEvent);
+          }
+        } catch (error) {
+          sendChatEvent(sender, request.runId, { type: 'error', error: ipcError(error) });
+        } finally {
+          activeStreams.delete(request.runId);
+          sender.removeListener('destroyed', abort);
+        }
+      })();
+
+      return chatStreamStartIpcResponseSchema.parse({
+        ok: true,
+        value: { runId: request.runId },
+      });
+    } catch (error) {
+      return chatStreamStartIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.chatStreamCancel, (event, input: unknown) => {
+    try {
+      const request = chatStreamCancelRequestSchema.parse(input);
+      const active = activeStreams.get(request.input.runId);
+      if (active !== undefined && active.senderId !== event.sender.id) {
+        throw new ZeroError(
+          'PERMISSION_DENIED',
+          'Chat stream belongs to another renderer',
+        );
+      }
+      active?.controller.abort();
+      return chatStreamCancelIpcResponseSchema.parse({
+        ok: true,
+        value: { cancelled: active !== undefined },
+      });
+    } catch (error) {
+      return chatStreamCancelIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
 
   return () => {
+    for (const active of activeStreams.values()) active.controller.abort();
+    activeStreams.clear();
     ipcMain.removeHandler(ipcChannels.systemHealth);
     ipcMain.removeHandler(ipcChannels.providerList);
     ipcMain.removeHandler(ipcChannels.providerCreate);
@@ -105,5 +240,10 @@ export function registerIpcHandlers(core: CoreRuntime): () => void {
     ipcMain.removeHandler(ipcChannels.providerTestConnection);
     ipcMain.removeHandler(ipcChannels.modelDiscover);
     ipcMain.removeHandler(ipcChannels.modelList);
+    ipcMain.removeHandler(ipcChannels.chatList);
+    ipcMain.removeHandler(ipcChannels.chatCreate);
+    ipcMain.removeHandler(ipcChannels.chatGet);
+    ipcMain.removeHandler(ipcChannels.chatStreamStart);
+    ipcMain.removeHandler(ipcChannels.chatStreamCancel);
   };
 }
