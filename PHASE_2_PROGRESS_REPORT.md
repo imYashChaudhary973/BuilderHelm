@@ -44,16 +44,16 @@
 
 ## Verification
 
-| Gate | Result |
-| --- | --- |
-| `pnpm format:check` | Passed |
-| `pnpm lint` | Passed |
-| `pnpm typecheck` | Passed |
-| `pnpm test` | Passed: 19 files, 62 tests |
-| `pnpm build` | Passed |
-| `pnpm smoke:desktop` | Passed |
-| Built preload Node-primitive scan | Passed: no `node:crypto` import |
-| `pnpm audit --prod` | Passed: no known vulnerabilities |
+| Gate                              | Result                           |
+| --------------------------------- | -------------------------------- |
+| `pnpm format:check`               | Passed                           |
+| `pnpm lint`                       | Passed                           |
+| `pnpm typecheck`                  | Passed                           |
+| `pnpm test`                       | Passed: 19 files, 62 tests       |
+| `pnpm build`                      | Passed                           |
+| `pnpm smoke:desktop`              | Passed                           |
+| Built preload Node-primitive scan | Passed: no `node:crypto` import  |
+| `pnpm audit --prod`               | Passed: no known vulnerabilities |
 
 Provider network behavior is covered with deterministic fetch fixtures. No paid
 provider request or real provider credential was used for this checkpoint.
