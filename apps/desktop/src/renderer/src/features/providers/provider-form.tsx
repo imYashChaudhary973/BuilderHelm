@@ -170,14 +170,14 @@ export function ProviderForm(props: ProviderFormProps): React.JSX.Element {
           type="button"
           disabled={
             existing === null ||
-            existing.protocol !== 'openai' ||
+            !['openai', 'anthropic'].includes(existing.protocol) ||
             props.busy ||
             props.testing
           }
           title={
             existing === null
               ? 'Save the provider before testing its connection'
-              : existing.protocol !== 'openai'
+              : !['openai', 'anthropic'].includes(existing.protocol)
                 ? 'This protocol adapter arrives later in Phase 2'
                 : 'Tests the last saved provider settings'
           }

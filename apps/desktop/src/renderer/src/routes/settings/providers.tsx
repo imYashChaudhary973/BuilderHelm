@@ -135,7 +135,7 @@ export function ProvidersPage(): React.JSX.Element {
               testProvider.isPending && testProvider.variables?.id === provider.id;
             const discovering =
               discoverModels.isPending && discoverModels.variables?.id === provider.id;
-            const protocolAvailable = provider.protocol === 'openai';
+            const protocolAvailable = ['openai', 'anthropic'].includes(provider.protocol);
 
             return (
               <article className="providerCard" key={provider.id}>

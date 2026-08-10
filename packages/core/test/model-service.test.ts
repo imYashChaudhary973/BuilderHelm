@@ -71,6 +71,47 @@ describe('model service', () => {
     expect(logs.join('\n')).not.toContain(sentinel);
   });
 
+  it('routes Anthropic providers through the native models endpoint', async () => {
+    const sentinel = 'anthropic-model-service-secret-sentinel';
+    const fetcher = vi.fn<GatewayFetch>(async (input, init) => {
+      const url = new URL(input);
+      expect(`${url.origin}${url.pathname}`).toBe('https://api.anthropic.com/v1/models');
+      const headers = new Headers(init?.headers);
+      expect(headers.get('x-api-key')).toBe(sentinel);
+      expect(headers.get('anthropic-version')).toBe('2023-06-01');
+      expect(headers.get('authorization')).toBeNull();
+      return Response.json({
+        data: [{ id: 'claude-example', display_name: 'Claude Example' }],
+        has_more: false,
+      });
+    });
+    const runtime = bootstrapCore({
+      databasePath: ':memory:',
+      secretStore: new MemorySecretStore(),
+      modelGatewayFetch: fetcher,
+    });
+    runtimes.push(runtime);
+    const provider = await runtime.providers.create(
+      providerInput(sentinel, {
+        label: 'Anthropic',
+        protocol: 'anthropic',
+        baseUrl: null,
+      }),
+      createCorrelationId(),
+    );
+
+    await expect(
+      runtime.models.testConnection(provider.id, createCorrelationId()),
+    ).resolves.toMatchObject({ ok: true });
+    await expect(
+      runtime.models.discover(provider.id, createCorrelationId()),
+    ).resolves.toMatchObject([{ modelId: 'claude-example', label: 'Claude Example' }]);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(String(fetcher.mock.calls[1]?.[0])).toBe(
+      'https://api.anthropic.com/v1/models?limit=1000',
+    );
+  });
+
   it('blocks unavailable, unsupported, and insecure providers before reading a credential', async () => {
     const get = vi.fn(async () => 'must-not-be-resolved');
     const secrets: SecretStore = {
@@ -98,8 +139,8 @@ describe('model service', () => {
     );
     const unsupported = await runtime.providers.create(
       providerInput('stored', {
-        label: 'Anthropic',
-        protocol: 'anthropic',
+        label: 'Ollama',
+        protocol: 'ollama',
       }),
       createCorrelationId(),
     );

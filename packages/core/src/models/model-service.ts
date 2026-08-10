@@ -1,7 +1,9 @@
 import {
+  AnthropicMessagesAdapter,
   ModelGateway,
   OpenAIResponsesAdapter,
   type GatewayFetch,
+  type ProviderAdapter,
   type ProviderConnectionResult,
 } from '@zero/model-gateway';
 import type { Logger } from '@zero/observability';
@@ -238,13 +240,16 @@ export class ModelService {
     } as const;
   }
 
-  private adapter(provider: StoredProvider): OpenAIResponsesAdapter {
-    if (provider.protocol !== 'openai') {
-      throw new ZeroError(
-        'MODEL_UNAVAILABLE',
-        'This provider protocol is not available in the current phase',
-      );
+  private adapter(provider: StoredProvider): ProviderAdapter {
+    if (provider.protocol === 'openai') {
+      return new OpenAIResponsesAdapter(this.fetcher);
     }
-    return new OpenAIResponsesAdapter(this.fetcher);
+    if (provider.protocol === 'anthropic') {
+      return new AnthropicMessagesAdapter(this.fetcher);
+    }
+    throw new ZeroError(
+      'MODEL_UNAVAILABLE',
+      'This provider protocol is not available in the current phase',
+    );
   }
 }

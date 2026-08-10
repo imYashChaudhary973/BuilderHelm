@@ -28,6 +28,9 @@ resolved and sent to a configured endpoint.
    contract tests. Normal CI does not require a paid provider call.
 8. Use OpenAI's Responses API with `store: false` for the native OpenAI adapter.
    Zero remains the owner of canonical conversation state.
+9. Use Anthropic's native Messages API with explicit API versioning, bounded
+   cursor-based discovery, and canonical message-role translation. Use model
+   capabilities returned by the provider and default missing fields to false.
 
 ## Consequences
 
@@ -37,3 +40,5 @@ resolved and sent to a configured endpoint.
 - Adapter tests can verify request, response, and stream mappings deterministically.
 - Model discovery remains conservative until known metadata packs, probes, or
   manual capability overrides provide stronger evidence.
+- Anthropic thinking blocks remain outside canonical chat output; only normalized
+  token counts are retained for reasoning usage.
