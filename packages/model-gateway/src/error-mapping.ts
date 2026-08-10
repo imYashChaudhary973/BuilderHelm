@@ -12,6 +12,11 @@ export function normalizeProviderError(error: unknown): ZeroError {
   if (candidate?.name === 'AbortError') {
     return new ZeroError('CANCELLED', 'Model request was cancelled');
   }
+  if (candidate?.name === 'TimeoutError') {
+    return new ZeroError('INTEGRATION_OFFLINE', 'Provider request timed out', {
+      retryable: true,
+    });
+  }
 
   const status = typeof candidate?.status === 'number' ? candidate.status : undefined;
   if (status === 401 || status === 403) {

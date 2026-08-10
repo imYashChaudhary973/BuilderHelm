@@ -1,6 +1,8 @@
 import type { CorrelationId } from '@zero/shared';
 import { z } from 'zod';
 
+import { modelErrorSchema, modelRecordSchema } from './model.js';
+
 export const providerProtocols = [
   'openai',
   'anthropic',
@@ -112,11 +114,39 @@ export const providerDeleteRequestSchema = z
   .object({ correlationId: correlationIdSchema, input: deleteProviderInputSchema })
   .strict();
 
+export const providerOperationInputSchema = z
+  .object({ providerId: z.string().uuid() })
+  .strict();
+export const modelListInputSchema = z
+  .object({ providerId: z.string().uuid().optional() })
+  .strict();
+export const providerTestConnectionRequestSchema = z
+  .object({ correlationId: correlationIdSchema, input: providerOperationInputSchema })
+  .strict();
+export const providerDiscoverModelsRequestSchema = z
+  .object({ correlationId: correlationIdSchema, input: providerOperationInputSchema })
+  .strict();
+export const modelListRequestSchema = z
+  .object({ correlationId: correlationIdSchema, input: modelListInputSchema })
+  .strict();
+
 export const providerListResponseSchema = z.array(providerSummarySchema);
 export const providerMutationResponseSchema = providerSummarySchema;
 export const providerDeleteResponseSchema = z
   .object({ deleted: z.literal(true) })
   .strict();
+export const providerConnectionResultSchema = z
+  .object({ ok: z.literal(true), latencyMs: z.number().int().nonnegative() })
+  .strict();
+export const modelListResponseSchema = z.array(modelRecordSchema);
+export const providerTestConnectionIpcResponseSchema = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), value: providerConnectionResultSchema }).strict(),
+  z.object({ ok: z.literal(false), error: modelErrorSchema }).strict(),
+]);
+export const modelListIpcResponseSchema = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), value: modelListResponseSchema }).strict(),
+  z.object({ ok: z.literal(false), error: modelErrorSchema }).strict(),
+]);
 
 export type ProviderProtocol = z.infer<typeof providerProtocolSchema>;
 export type ProviderHeader = z.infer<typeof providerHeaderSchema>;
@@ -125,3 +155,6 @@ export type CreateProviderInput = z.infer<typeof createProviderInputSchema>;
 export type UpdateProviderInput = z.infer<typeof updateProviderInputSchema>;
 export type DeleteProviderInput = z.infer<typeof deleteProviderInputSchema>;
 export type ProviderSummary = z.infer<typeof providerSummarySchema>;
+export type ProviderOperationInput = z.infer<typeof providerOperationInputSchema>;
+export type ModelListInput = z.infer<typeof modelListInputSchema>;
+export type ProviderConnectionResult = z.infer<typeof providerConnectionResultSchema>;

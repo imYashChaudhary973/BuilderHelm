@@ -4,9 +4,13 @@ import { z } from 'zod';
 import type {
   CreateProviderInput,
   DeleteProviderInput,
+  ModelListInput,
+  ProviderConnectionResult,
+  ProviderOperationInput,
   ProviderSummary,
   UpdateProviderInput,
 } from './providers.js';
+import type { ModelRecord } from './model.js';
 
 export const ipcChannels = {
   systemHealth: 'zero:system:health',
@@ -14,6 +18,9 @@ export const ipcChannels = {
   providerCreate: 'zero:provider:create',
   providerUpdate: 'zero:provider:update',
   providerDelete: 'zero:provider:delete',
+  providerTestConnection: 'zero:provider:test-connection',
+  modelDiscover: 'zero:model:discover',
+  modelList: 'zero:model:list',
 } as const;
 
 export const systemHealthRequestSchema = z
@@ -49,5 +56,10 @@ export interface ZeroDesktopApi {
     create(input: CreateProviderInput): Promise<ProviderSummary>;
     update(input: UpdateProviderInput): Promise<ProviderSummary>;
     delete(input: DeleteProviderInput): Promise<{ deleted: true }>;
+    testConnection(input: ProviderOperationInput): Promise<ProviderConnectionResult>;
+  };
+  readonly models: {
+    discover(input: ProviderOperationInput): Promise<ModelRecord[]>;
+    list(input: ModelListInput): Promise<ModelRecord[]>;
   };
 }

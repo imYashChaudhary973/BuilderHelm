@@ -83,6 +83,9 @@ importers:
       '@zero/db':
         specifier: workspace:*
         version: link:../db
+      '@zero/model-gateway':
+        specifier: workspace:*
+        version: link:../model-gateway
       '@zero/observability':
         specifier: workspace:*
         version: link:../observability

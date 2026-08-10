@@ -2,7 +2,7 @@
 
 - Date: 2026-08-09
 - Scope: secure settings and provider registry
-- Status: Complete locally; not committed or pushed
+- Status: Complete; committed and pushed to `origin/main`
 
 ## Delivered
 
@@ -67,9 +67,7 @@
 
 ## Git state
 
-- Local branch: `main`
+- Baseline branch: `main`
 - Remote: `origin` → `https://github.com/imYashChaudhary973/Axiom-Zero.git`
-- Commit: none created
-- Push: not performed
-
-Committing or pushing requires separate user authorization.
+- Commit: `fef6212` (`feat: establish secure desktop foundation`)
+- Push: completed to `origin/main`

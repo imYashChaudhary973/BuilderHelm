@@ -218,4 +218,15 @@ describe('provider error mapping', () => {
       message: 'Model request was cancelled',
     });
   });
+
+  it('maps request deadlines to a retryable timeout without leaking details', () => {
+    const error = Object.assign(new Error('sensitive timeout detail'), {
+      name: 'TimeoutError',
+    });
+    expect(normalizeProviderError(error)).toMatchObject({
+      code: 'INTEGRATION_OFFLINE',
+      message: 'Provider request timed out',
+      retryable: true,
+    });
+  });
 });

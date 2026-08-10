@@ -10,4 +10,5 @@ export {
   phaseZeroMigration,
   providerSettingsMigration,
 } from './migrations/index.js';
+export * from './model-repository.js';
 export * from './provider-repository.js';

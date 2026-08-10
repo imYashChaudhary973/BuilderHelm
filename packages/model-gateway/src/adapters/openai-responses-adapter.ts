@@ -81,9 +81,13 @@ const openAIResponseSchema = z
 
 const openAIModelsSchema = z
   .object({
-    data: z.array(
-      z.object({ id: z.string().min(1), owned_by: z.string().optional() }).passthrough(),
-    ),
+    data: z
+      .array(
+        z
+          .object({ id: z.string().min(1), owned_by: z.string().optional() })
+          .passthrough(),
+      )
+      .max(10_000),
   })
   .passthrough();
 

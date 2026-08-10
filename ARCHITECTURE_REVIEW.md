@@ -79,7 +79,7 @@ uses this concrete direction:
 
 ```text
 desktop -> core, protocol
-core -> db, observability, protocol, shared
+core -> db, model-gateway, observability, protocol, shared
 protocol -> shared
 db -> shared
 observability -> shared

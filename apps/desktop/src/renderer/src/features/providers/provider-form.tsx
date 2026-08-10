@@ -19,8 +19,10 @@ const protocolOptions: ReadonlyArray<{ value: ProviderProtocol; label: string }>
 interface ProviderFormProps {
   readonly editing: ProviderSummary | null;
   readonly busy: boolean;
+  readonly testing: boolean;
   readonly onCancel: () => void;
   readonly onCreate: (input: CreateProviderInput) => void;
+  readonly onTest: (providerId: string) => void;
   readonly onUpdate: (input: UpdateProviderInput) => void;
 }
 
@@ -166,10 +168,24 @@ export function ProviderForm(props: ProviderFormProps): React.JSX.Element {
         <button
           className="secondaryButton"
           type="button"
-          disabled
-          title="Available in Phase 2"
+          disabled={
+            existing === null ||
+            existing.protocol !== 'openai' ||
+            props.busy ||
+            props.testing
+          }
+          title={
+            existing === null
+              ? 'Save the provider before testing its connection'
+              : existing.protocol !== 'openai'
+                ? 'This protocol adapter arrives later in Phase 2'
+                : 'Tests the last saved provider settings'
+          }
+          onClick={() => {
+            if (existing !== null) props.onTest(existing.id);
+          }}
         >
-          Test connection · Phase 2
+          {props.testing ? 'Testing…' : 'Test saved connection'}
         </button>
         <button className="primaryButton" type="submit" disabled={props.busy}>
           {props.busy ? 'Saving…' : existing === null ? 'Save provider' : 'Save changes'}

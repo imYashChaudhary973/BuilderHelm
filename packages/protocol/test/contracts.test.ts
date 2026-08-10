@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createEvent,
+  modelListIpcResponseSchema,
+  providerTestConnectionRequestSchema,
   systemHealthRequestSchema,
   systemHealthResponseSchema,
   zeroEventSchema,
@@ -49,5 +51,31 @@ describe('IPC contracts', () => {
         databasePath: '/Users/example/private.sqlite',
       }).success,
     ).toBe(false);
+  });
+
+  it('validates provider operations and sanitized IPC failures', () => {
+    const providerId = createCorrelationId();
+    expect(
+      providerTestConnectionRequestSchema.parse({
+        correlationId: createCorrelationId(),
+        input: { providerId },
+      }),
+    ).toMatchObject({ input: { providerId } });
+    expect(
+      providerTestConnectionRequestSchema.safeParse({
+        correlationId: createCorrelationId(),
+        input: { providerId, apiKey: 'must-not-cross' },
+      }).success,
+    ).toBe(false);
+    expect(
+      modelListIpcResponseSchema.parse({
+        ok: false,
+        error: {
+          code: 'AUTH_FAILED',
+          message: 'Provider authentication failed',
+          retryable: false,
+        },
+      }),
+    ).toMatchObject({ ok: false, error: { code: 'AUTH_FAILED' } });
   });
 });

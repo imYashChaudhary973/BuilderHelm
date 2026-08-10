@@ -32,5 +32,6 @@ describe('preload bridge boundary', () => {
     expect(config).toContain("format: 'cjs'");
     expect(config).toContain("entryFileNames: '[name].cjs'");
     expect(config).toMatch(/exclude: \[[^\]]*'zod'[^\]]*\]/s);
+    expect(config).toContain("'@zero/shared/error'");
   });
 });

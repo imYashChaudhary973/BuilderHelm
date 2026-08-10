@@ -1,7 +1,7 @@
-import { zeroErrorCodes } from '@zero/shared';
+import { zeroErrorCodes } from '@zero/shared/error';
 import { z } from 'zod';
 
-import { jsonValueSchema } from './events.js';
+import { jsonValueSchema } from './json.js';
 
 export const dataClassificationSchema = z.enum([
   'public',

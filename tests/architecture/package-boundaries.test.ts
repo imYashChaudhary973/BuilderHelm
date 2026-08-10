@@ -10,7 +10,7 @@ const allowedDependencies: Readonly<Record<string, readonly string[]>> = {
   db: ['shared'],
   observability: ['shared'],
   'model-gateway': ['protocol', 'shared'],
-  core: ['db', 'observability', 'protocol', 'shared'],
+  core: ['db', 'model-gateway', 'observability', 'protocol', 'shared'],
 };
 
 function sourceFiles(directory: string): string[] {
@@ -33,7 +33,8 @@ describe('foundation package boundaries', () => {
         ];
         for (const match of imports) {
           const dependency = match[1];
-          if (dependency !== undefined && !allowed.includes(dependency)) {
+          const dependencyPackage = dependency?.split('/')[0];
+          if (dependencyPackage !== undefined && !allowed.includes(dependencyPackage)) {
             violations.push(`${packageName} -> ${dependency}`);
           }
         }
