@@ -6,6 +6,7 @@ import type {
 } from '@zero/protocol/providers';
 import { useState } from 'react';
 
+import { ModelCapabilityEditor } from '../../features/providers/model-capability-editor.js';
 import { ProviderForm } from '../../features/providers/provider-form.js';
 
 export function ProvidersPage(): React.JSX.Element {
@@ -21,6 +22,10 @@ export function ProvidersPage(): React.JSX.Element {
   const models = useQuery({
     queryKey: ['models'],
     queryFn: () => window.zero.models.list({}),
+  });
+  const capabilityOverrides = useQuery({
+    queryKey: ['model-capability-overrides'],
+    queryFn: () => window.zero.models.listCapabilityOverrides({}),
   });
 
   async function refresh(): Promise<void> {
@@ -86,6 +91,29 @@ export function ProvidersPage(): React.JSX.Element {
         `${provider.label} models could not be discovered. Its previous catalog was preserved.`,
       ),
   });
+  const updateCapabilityOverride = useMutation({
+    mutationFn: (input: {
+      modelRef: string;
+      overrides: Parameters<
+        typeof window.zero.models.updateCapabilityOverride
+      >[0]['overrides'];
+    }) => window.zero.models.updateCapabilityOverride(input),
+    onMutate: () => {
+      setError(null);
+      setNotice(null);
+    },
+    onSuccess: async (model) => {
+      setNotice(`${model.label} capabilities were updated.`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['models'] }),
+        queryClient.invalidateQueries({ queryKey: ['model-capability-overrides'] }),
+      ]);
+    },
+    onError: () =>
+      setError(
+        'Model capabilities could not be updated. Previous values were preserved.',
+      ),
+  });
   const busy = createProvider.isPending || updateProvider.isPending;
 
   return (
@@ -123,6 +151,11 @@ export function ProvidersPage(): React.JSX.Element {
               Stored model catalogs are unavailable.
             </p>
           )}
+          {capabilityOverrides.isError && (
+            <p className="catalogError" role="alert">
+              Capability overrides are unavailable.
+            </p>
+          )}
           {providers.data?.length === 0 && (
             <p className="emptyState">
               No providers yet. Add the first secure connection.
@@ -135,7 +168,12 @@ export function ProvidersPage(): React.JSX.Element {
               testProvider.isPending && testProvider.variables?.id === provider.id;
             const discovering =
               discoverModels.isPending && discoverModels.variables?.id === provider.id;
-            const protocolAvailable = ['openai', 'anthropic'].includes(provider.protocol);
+            const protocolAvailable = [
+              'openai',
+              'anthropic',
+              'openai-compatible',
+              'ollama',
+            ].includes(provider.protocol);
 
             return (
               <article className="providerCard" key={provider.id}>
@@ -206,11 +244,30 @@ export function ProvidersPage(): React.JSX.Element {
                       Last discovered · {providerModels.length} model
                       {providerModels.length === 1 ? '' : 's'}
                     </p>
-                    <ul>
-                      {providerModels.slice(0, 5).map((model) => (
-                        <li key={model.ref}>{model.label}</li>
-                      ))}
-                    </ul>
+                    <div className="modelCapabilityList">
+                      {providerModels.slice(0, 5).map((model) => {
+                        const override = capabilityOverrides.data?.find(
+                          (item) => item.modelRef === model.ref,
+                        );
+                        return (
+                          <ModelCapabilityEditor
+                            key={`${model.ref}-${override?.updatedAt ?? 'discovered'}`}
+                            model={model}
+                            overrides={override?.overrides}
+                            busy={
+                              updateCapabilityOverride.isPending &&
+                              updateCapabilityOverride.variables?.modelRef === model.ref
+                            }
+                            onSave={(overrides) =>
+                              updateCapabilityOverride.mutate({
+                                modelRef: model.ref,
+                                overrides,
+                              })
+                            }
+                          />
+                        );
+                      })}
+                    </div>
                     {providerModels.length > 5 && (
                       <p>+{providerModels.length - 5} more</p>
                     )}

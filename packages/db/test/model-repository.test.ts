@@ -1,4 +1,4 @@
-import { createId, utcNow } from '@zero/shared';
+import { createCorrelationId, createId, utcNow } from '@zero/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
@@ -78,6 +78,22 @@ function model(
   };
 }
 
+function audit(eventType: string) {
+  return {
+    id: createId(),
+    eventType,
+    actorType: 'user',
+    actorId: null,
+    correlationId: createCorrelationId(),
+    riskLevel: 'medium',
+    resourceRefsJson: '[]',
+    beforeJson: null,
+    afterJson: '{}',
+    approvalId: null,
+    createdAt: utcNow(),
+  };
+}
+
 afterEach(() => {
   while (databases.length > 0) databases.pop()?.close();
 });
@@ -127,5 +143,57 @@ describe('model repository', () => {
       repository.replaceForProvider(providerId, [model(createId(), 'wrong')]),
     ).toThrow(/different provider/);
     expect(repository.list(providerId).map((item) => item.modelId)).toEqual(['stable']);
+  });
+
+  it('persists capability overrides across catalog replacement and clears atomically', () => {
+    const { database, repository, providerId } = setup();
+    const initial = model(providerId, 'configurable');
+    repository.replaceForProvider(providerId, [initial]);
+    repository.setCapabilityOverride({
+      providerId,
+      modelId: 'configurable',
+      overridesJson: '{"vision":true}',
+      baseCapabilitiesJson: JSON.stringify({ vision: false }),
+      effectiveCapabilities: { ...initial.capabilities, vision: true },
+      updatedAt: utcNow(),
+      audit: audit('model.capability_override_updated'),
+    });
+
+    expect(repository.list(providerId)[0]?.vision).toBe(1);
+    expect(repository.listCapabilityOverrides(providerId)).toMatchObject([
+      { modelId: 'configurable', overridesJson: '{"vision":true}' },
+    ]);
+
+    repository.replaceForProvider(
+      providerId,
+      [{ ...initial, capabilities: { ...initial.capabilities, vision: true } }],
+      [
+        {
+          modelId: 'configurable',
+          capabilitiesJson: JSON.stringify({ vision: false, toolCalling: true }),
+        },
+      ],
+    );
+    expect(repository.listCapabilityOverrides(providerId)[0]).toMatchObject({
+      overridesJson: '{"vision":true}',
+      baseCapabilitiesJson: '{"vision":false,"toolCalling":true}',
+    });
+
+    repository.setCapabilityOverride({
+      providerId,
+      modelId: 'configurable',
+      overridesJson: null,
+      baseCapabilitiesJson: JSON.stringify({ vision: false }),
+      effectiveCapabilities: initial.capabilities,
+      updatedAt: utcNow(),
+      audit: audit('model.capability_override_cleared'),
+    });
+    expect(repository.listCapabilityOverrides(providerId)).toEqual([]);
+    expect(repository.list(providerId)[0]?.vision).toBe(0);
+    expect(
+      database.queryAll<{ eventType: string }>(
+        'SELECT event_type AS eventType FROM audit_events ORDER BY created_at, id',
+      ),
+    ).toHaveLength(2);
   });
 });

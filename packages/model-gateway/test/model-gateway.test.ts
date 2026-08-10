@@ -134,6 +134,15 @@ describe('model gateway', () => {
         new AbortController().signal,
       ),
     ).rejects.toMatchObject({ code: 'MODEL_CAPABILITY_MISMATCH' });
+    gateway.replaceModels(values.providerId, [
+      {
+        ...values.model,
+        capabilities: { ...values.model.capabilities, text: false },
+      },
+    ]);
+    await expect(
+      gateway.invoke(values.request, new AbortController().signal),
+    ).rejects.toMatchObject({ code: 'MODEL_CAPABILITY_MISMATCH' });
     expect(resolve).not.toHaveBeenCalled();
   });
 

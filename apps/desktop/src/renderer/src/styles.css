@@ -411,6 +411,88 @@ h1 {
   white-space: nowrap;
 }
 
+.modelCapabilityList {
+  display: grid;
+  gap: 7px;
+  margin: 10px 0;
+}
+
+.capabilityEditor {
+  border: 1px solid #333a2f;
+  border-radius: 7px;
+  color: #aab0a4;
+  background: #121510;
+}
+
+.capabilityEditor summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.capabilityEditor summary span:last-child {
+  color: #78816e;
+  font-family: inherit;
+}
+
+.capabilityEditor form {
+  padding: 2px 10px 10px;
+  border-top: 1px solid #292e26;
+}
+
+.capabilityEditor form > p {
+  margin: 9px 0;
+}
+
+.capabilityGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.capabilityGrid label span {
+  display: block;
+  margin-bottom: 4px;
+  color: #858b80;
+  font-size: 9px;
+}
+
+.capabilityGrid select,
+.capabilityGrid input {
+  width: 100%;
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid #333a2f;
+  border-radius: 5px;
+  color: #d8dbd1;
+  background: #0f110e;
+  font-size: 10px;
+}
+
+.capabilityActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.capabilityActions button {
+  padding: 0;
+  border: 0;
+  color: #a8aea2;
+  background: transparent;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.capabilityActions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .emptyState {
   margin-top: 26px;
   padding: 28px;

@@ -139,8 +139,8 @@ describe('model service', () => {
     );
     const unsupported = await runtime.providers.create(
       providerInput('stored', {
-        label: 'Ollama',
-        protocol: 'ollama',
+        label: 'Custom',
+        protocol: 'custom',
       }),
       createCorrelationId(),
     );
@@ -156,6 +156,107 @@ describe('model service', () => {
     ).rejects.toMatchObject({ code: 'MODEL_UNAVAILABLE' });
     expect(get).not.toHaveBeenCalled();
     expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('persists manual capability overrides across rediscovery and restores the baseline', async () => {
+    const fetcher = vi.fn<GatewayFetch>(async () =>
+      Response.json({ data: [{ id: 'configurable' }] }),
+    );
+    const runtime = bootstrapCore({
+      databasePath: ':memory:',
+      secretStore: new MemorySecretStore(),
+      modelGatewayFetch: fetcher,
+    });
+    runtimes.push(runtime);
+    const provider = await runtime.providers.create(
+      providerInput('fake-test-key'),
+      createCorrelationId(),
+    );
+    await runtime.models.discover(provider.id, createCorrelationId());
+    const modelRef = `${provider.id}:configurable`;
+
+    expect(
+      runtime.models.updateCapabilityOverride(
+        modelRef,
+        { toolCalling: true, structuredOutput: true, contextWindow: 32_768 },
+        createCorrelationId(),
+      ).capabilities,
+    ).toMatchObject({
+      toolCalling: true,
+      structuredOutput: true,
+      contextWindow: 32_768,
+    });
+    expect(runtime.models.listCapabilityOverrides(provider.id)).toMatchObject([
+      {
+        modelRef,
+        overrides: {
+          toolCalling: true,
+          structuredOutput: true,
+          contextWindow: 32_768,
+        },
+      },
+    ]);
+
+    await runtime.models.discover(provider.id, createCorrelationId());
+    expect(runtime.models.list(provider.id)[0]?.capabilities).toMatchObject({
+      toolCalling: true,
+      structuredOutput: true,
+      contextWindow: 32_768,
+    });
+
+    expect(
+      runtime.models.updateCapabilityOverride(modelRef, {}, createCorrelationId())
+        .capabilities,
+    ).toMatchObject({
+      toolCalling: false,
+      structuredOutput: false,
+    });
+    expect(runtime.models.listCapabilityOverrides(provider.id)).toEqual([]);
+  });
+
+  it('routes generic and local providers without leaking or inventing credentials', async () => {
+    const requests: Array<{ url: string; authorization: string | null }> = [];
+    const fetcher = vi.fn<GatewayFetch>(async (input, init) => {
+      const url = String(input);
+      requests.push({
+        url,
+        authorization: new Headers(init?.headers).get('authorization'),
+      });
+      return url.endsWith('/api/tags')
+        ? Response.json({ models: [{ name: 'qwen3:8b' }] })
+        : Response.json({ data: [{ id: 'vendor-chat' }] });
+    });
+    const runtime = bootstrapCore({
+      databasePath: ':memory:',
+      secretStore: new MemorySecretStore(),
+      modelGatewayFetch: fetcher,
+    });
+    runtimes.push(runtime);
+    const compatible = await runtime.providers.create(
+      providerInput('generic-secret', {
+        label: 'Compatible',
+        protocol: 'openai-compatible',
+      }),
+      createCorrelationId(),
+    );
+    const ollama = await runtime.providers.create(
+      providerInput('', {
+        label: 'Ollama',
+        protocol: 'ollama',
+        baseUrl: null,
+      }),
+      createCorrelationId(),
+    );
+
+    await runtime.models.discover(compatible.id, createCorrelationId());
+    await runtime.models.discover(ollama.id, createCorrelationId());
+    expect(requests).toEqual([
+      {
+        url: 'https://api.example.test/v1/models',
+        authorization: 'Bearer generic-secret',
+      },
+      { url: 'http://127.0.0.1:11434/api/tags', authorization: null },
+    ]);
   });
 
   it('preserves the last catalog when discovery returns duplicate model IDs', async () => {

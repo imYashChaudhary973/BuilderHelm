@@ -126,4 +126,52 @@ describe('provider IPC boundary', () => {
       error: { code: 'AUTH_FAILED', message: 'Provider authentication failed' },
     });
   });
+
+  it('validates capability overrides and passes only normalized values to core', async () => {
+    const modelRef = `${createCorrelationId()}:model`;
+    const updateCapabilityOverride = vi.fn(() => ({
+      ref: modelRef,
+      providerId: modelRef.slice(0, modelRef.indexOf(':')),
+      modelId: 'model',
+      label: 'Model',
+      capabilities: {
+        text: true,
+        vision: true,
+        audioInput: false,
+        toolCalling: false,
+        parallelTools: false,
+        structuredOutput: false,
+        streaming: true,
+        reasoningControls: false,
+        serverWebSearch: false,
+        serverMcp: false,
+      },
+      privacyClass: 'remote',
+      tags: [],
+    }));
+    registerIpcHandlers({
+      models: { updateCapabilityOverride },
+    } as unknown as CoreRuntime);
+    const correlationId = createCorrelationId();
+
+    expect(
+      handlers.get(ipcChannels.modelCapabilityOverrideUpdate)!(
+        {},
+        { correlationId, input: { modelRef, overrides: { vision: true } } },
+      ),
+    ).toMatchObject({ ok: true, value: { ref: modelRef } });
+    expect(updateCapabilityOverride).toHaveBeenCalledWith(
+      modelRef,
+      { vision: true },
+      correlationId,
+    );
+
+    expect(
+      handlers.get(ipcChannels.modelCapabilityOverrideUpdate)!(
+        {},
+        { correlationId, input: { modelRef, overrides: { vision: 'yes' } } },
+      ),
+    ).toMatchObject({ ok: false, error: { code: 'VALIDATION_FAILED' } });
+    expect(updateCapabilityOverride).toHaveBeenCalledTimes(1);
+  });
 });

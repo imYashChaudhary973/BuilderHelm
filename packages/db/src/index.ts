@@ -8,6 +8,7 @@ export {
 export {
   chatPersistenceMigration,
   migrations,
+  modelCapabilityOverridesMigration,
   phaseZeroMigration,
   providerSettingsMigration,
 } from './migrations/index.js';

@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createEvent,
+  createProviderInputSchema,
+  modelCapabilityOverrideUpdateRequestSchema,
   modelListIpcResponseSchema,
   providerTestConnectionRequestSchema,
   systemHealthRequestSchema,
@@ -77,5 +79,55 @@ describe('IPC contracts', () => {
         },
       }),
     ).toMatchObject({ ok: false, error: { code: 'AUTH_FAILED' } });
+  });
+
+  it('requires explicit remote routing while allowing credential-free local Ollama', () => {
+    const common = {
+      label: 'Provider',
+      headers: [],
+      privacy: { allowPersonal: true, allowSensitive: false, allowHealth: false },
+      enabled: true,
+    };
+    expect(
+      createProviderInputSchema.safeParse({
+        ...common,
+        protocol: 'openai-compatible',
+        baseUrl: null,
+        apiKey: 'secret',
+      }).success,
+    ).toBe(false);
+    expect(
+      createProviderInputSchema.parse({
+        ...common,
+        protocol: 'ollama',
+        baseUrl: null,
+        apiKey: '',
+      }),
+    ).toMatchObject({ protocol: 'ollama', apiKey: '' });
+    expect(
+      createProviderInputSchema.safeParse({
+        ...common,
+        protocol: 'openai',
+        baseUrl: null,
+        apiKey: '',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('accepts only known per-model capability override fields', () => {
+    const request = {
+      correlationId: createCorrelationId(),
+      input: {
+        modelRef: `${createCorrelationId()}:model`,
+        overrides: { toolCalling: true, contextWindow: 32_768 },
+      },
+    };
+    expect(modelCapabilityOverrideUpdateRequestSchema.parse(request)).toEqual(request);
+    expect(
+      modelCapabilityOverrideUpdateRequestSchema.safeParse({
+        ...request,
+        input: { ...request.input, overrides: { apiKey: 'must-not-cross' } },
+      }).success,
+    ).toBe(false);
   });
 });

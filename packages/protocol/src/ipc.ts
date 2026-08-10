@@ -5,12 +5,14 @@ import type {
   CreateProviderInput,
   DeleteProviderInput,
   ModelListInput,
+  ModelCapabilityOverrideListInput,
+  ModelCapabilityOverrideUpdateInput,
   ProviderConnectionResult,
   ProviderOperationInput,
   ProviderSummary,
   UpdateProviderInput,
 } from './providers.js';
-import type { ModelRecord } from './model.js';
+import type { ModelCapabilityOverrideRecord, ModelRecord } from './model.js';
 import type {
   ChatClientStreamEvent,
   ChatStreamInput,
@@ -28,6 +30,8 @@ export const ipcChannels = {
   providerTestConnection: 'zero:provider:test-connection',
   modelDiscover: 'zero:model:discover',
   modelList: 'zero:model:list',
+  modelCapabilityOverrideList: 'zero:model-capability-override:list',
+  modelCapabilityOverrideUpdate: 'zero:model-capability-override:update',
   chatList: 'zero:chat:list',
   chatCreate: 'zero:chat:create',
   chatGet: 'zero:chat:get',
@@ -74,6 +78,12 @@ export interface ZeroDesktopApi {
   readonly models: {
     discover(input: ProviderOperationInput): Promise<ModelRecord[]>;
     list(input: ModelListInput): Promise<ModelRecord[]>;
+    listCapabilityOverrides(
+      input: ModelCapabilityOverrideListInput,
+    ): Promise<ModelCapabilityOverrideRecord[]>;
+    updateCapabilityOverride(
+      input: ModelCapabilityOverrideUpdateInput,
+    ): Promise<ModelRecord>;
   };
   readonly chat: {
     list(): Promise<ChatThread[]>;

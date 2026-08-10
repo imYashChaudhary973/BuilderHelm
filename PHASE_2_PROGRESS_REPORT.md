@@ -2,7 +2,7 @@
 
 - Date: 2026-08-10
 - Branch: `phase-2/model-gateway-chat`
-- Status: In progress
+- Status: Implemented and verified on the Phase 2 branch
 
 ## Completed checkpoints
 
@@ -68,6 +68,30 @@
 - Uses the native `x-api-key` and pinned `anthropic-version` headers without
   exposing the credential to SQLite, logs, IPC, or renderer state.
 
+### Generic OpenAI-compatible and Ollama adapters
+
+- Added a generic OpenAI-compatible Chat Completions adapter with explicit base
+  URL routing, request normalization, SSE streaming, accumulated tool calls,
+  normalized usage, model discovery, and fail-closed early termination.
+- Added a native Ollama adapter for `/api/chat` and `/api/tags`, including NDJSON
+  streaming, structured output, tool calls, thinking controls, local model
+  discovery, and optional authorization for non-local deployments.
+- Local Ollama defaults to `http://127.0.0.1:11434` and does not invent an
+  authorization header when no token is configured.
+- Enabled testing and discovery for both protocols in Models & Providers.
+
+### Persisted capability overrides
+
+- Added migration 4 for per-provider, per-model capability overrides that
+  survive model catalog replacement.
+- Preserves the latest provider-discovered capability baseline separately from
+  manual differences, so resetting restores discovery rather than stale values.
+- Added strict core, IPC, preload, and renderer contracts for all normalized
+  boolean and token-limit capabilities.
+- Added desktop controls with Auto, On, and Off states plus explicit reset.
+- Capability changes and resets are appended to the existing audit log without
+  storing credentials or message content.
+
 ### Dependency security
 
 - Upgraded Electron to a patched release after the Phase 2 security gate found
@@ -91,7 +115,7 @@
 | `pnpm format:check`               | Passed                           |
 | `pnpm lint`                       | Passed                           |
 | `pnpm typecheck`                  | Passed                           |
-| `pnpm test`                       | Passed: 25 files, 85 tests       |
+| `pnpm test`                       | Passed: 27 files, 97 tests       |
 | `pnpm build`                      | Passed                           |
 | `pnpm smoke:desktop`              | Passed                           |
 | Built preload Node-primitive scan | Passed: no `node:crypto` import  |
@@ -100,9 +124,7 @@
 Provider network behavior is covered with deterministic fetch fixtures. No paid
 provider request or real provider credential was used for this checkpoint.
 
-## Remaining Phase 2 work
+## Remaining delivery gates
 
-1. Add generic OpenAI-compatible and Ollama adapters.
-2. Add capability metadata packs/manual overrides for providers whose discovery
-   APIs do not return trustworthy capability data.
-3. Run the final Phase 2 closure gate and independent review.
+1. Push this completed checkpoint and confirm pull-request CI.
+2. Obtain human review before merge; merge remains a separate authorization.

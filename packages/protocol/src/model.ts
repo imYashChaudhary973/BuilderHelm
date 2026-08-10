@@ -74,6 +74,31 @@ export const modelCapabilitiesSchema = z
   })
   .strict();
 
+export const modelCapabilityOverridesSchema = z
+  .object({
+    text: z.boolean().optional(),
+    vision: z.boolean().optional(),
+    audioInput: z.boolean().optional(),
+    toolCalling: z.boolean().optional(),
+    parallelTools: z.boolean().optional(),
+    structuredOutput: z.boolean().optional(),
+    streaming: z.boolean().optional(),
+    reasoningControls: z.boolean().optional(),
+    serverWebSearch: z.boolean().optional(),
+    serverMcp: z.boolean().optional(),
+    contextWindow: z.number().int().positive().optional(),
+    maxOutputTokens: z.number().int().positive().optional(),
+  })
+  .strict();
+
+export const modelCapabilityOverrideRecordSchema = z
+  .object({
+    modelRef: modelRefSchema,
+    overrides: modelCapabilityOverridesSchema,
+    updatedAt: z.string().datetime({ offset: false }),
+  })
+  .strict();
+
 export const modelRecordSchema = z
   .object({
     ref: modelRefSchema,
@@ -172,6 +197,10 @@ export type NormalizedToolCall = z.infer<typeof normalizedToolCallSchema>;
 export type ModelContentPart = z.infer<typeof modelContentPartSchema>;
 export type ZeroMessage = z.infer<typeof zeroMessageSchema>;
 export type ModelCapabilities = z.infer<typeof modelCapabilitiesSchema>;
+export type ModelCapabilityOverrides = z.infer<typeof modelCapabilityOverridesSchema>;
+export type ModelCapabilityOverrideRecord = z.infer<
+  typeof modelCapabilityOverrideRecordSchema
+>;
 export type ModelRecord = z.infer<typeof modelRecordSchema>;
 export type ToolDefinition = z.infer<typeof toolDefinitionSchema>;
 export type ModelRequest = z.infer<typeof modelRequestSchema>;

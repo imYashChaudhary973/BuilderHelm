@@ -8,6 +8,10 @@ import {
   deleteProviderInputSchema,
   modelListInputSchema,
   modelListIpcResponseSchema,
+  modelCapabilityOverrideListInputSchema,
+  modelCapabilityOverrideListIpcResponseSchema,
+  modelCapabilityOverrideUpdateInputSchema,
+  modelCapabilityOverrideUpdateIpcResponseSchema,
   providerDeleteResponseSchema,
   providerListResponseSchema,
   providerMutationResponseSchema,
@@ -114,6 +118,26 @@ const api: ZeroDesktopApi = {
         input: modelListInputSchema.parse(input),
       });
       return unwrap(modelListIpcResponseSchema.parse(response));
+    },
+    async listCapabilityOverrides(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.modelCapabilityOverrideList,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          input: modelCapabilityOverrideListInputSchema.parse(input),
+        },
+      );
+      return unwrap(modelCapabilityOverrideListIpcResponseSchema.parse(response));
+    },
+    async updateCapabilityOverride(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.modelCapabilityOverrideUpdate,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          input: modelCapabilityOverrideUpdateInputSchema.parse(input),
+        },
+      );
+      return unwrap(modelCapabilityOverrideUpdateIpcResponseSchema.parse(response));
     },
   },
   chat: {

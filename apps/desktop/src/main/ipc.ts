@@ -18,6 +18,10 @@ import {
   modelListIpcResponseSchema,
   modelListRequestSchema,
   modelListResponseSchema,
+  modelCapabilityOverrideListIpcResponseSchema,
+  modelCapabilityOverrideListRequestSchema,
+  modelCapabilityOverrideUpdateIpcResponseSchema,
+  modelCapabilityOverrideUpdateRequestSchema,
   providerCreateRequestSchema,
   providerDeleteRequestSchema,
   providerDiscoverModelsRequestSchema,
@@ -133,6 +137,38 @@ export function registerIpcHandlers(core: CoreRuntime): () => void {
       });
     }
   });
+  ipcMain.handle(ipcChannels.modelCapabilityOverrideList, (_event, input: unknown) => {
+    try {
+      const request = modelCapabilityOverrideListRequestSchema.parse(input);
+      return modelCapabilityOverrideListIpcResponseSchema.parse({
+        ok: true,
+        value: core.models.listCapabilityOverrides(request.input.providerId),
+      });
+    } catch (error) {
+      return modelCapabilityOverrideListIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.modelCapabilityOverrideUpdate, (_event, input: unknown) => {
+    try {
+      const request = modelCapabilityOverrideUpdateRequestSchema.parse(input);
+      return modelCapabilityOverrideUpdateIpcResponseSchema.parse({
+        ok: true,
+        value: core.models.updateCapabilityOverride(
+          request.input.modelRef,
+          request.input.overrides,
+          request.correlationId,
+        ),
+      });
+    } catch (error) {
+      return modelCapabilityOverrideUpdateIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
   ipcMain.handle(ipcChannels.chatList, (_event, input: unknown) => {
     try {
       chatListRequestSchema.parse(input);
@@ -240,6 +276,8 @@ export function registerIpcHandlers(core: CoreRuntime): () => void {
     ipcMain.removeHandler(ipcChannels.providerTestConnection);
     ipcMain.removeHandler(ipcChannels.modelDiscover);
     ipcMain.removeHandler(ipcChannels.modelList);
+    ipcMain.removeHandler(ipcChannels.modelCapabilityOverrideList);
+    ipcMain.removeHandler(ipcChannels.modelCapabilityOverrideUpdate);
     ipcMain.removeHandler(ipcChannels.chatList);
     ipcMain.removeHandler(ipcChannels.chatCreate);
     ipcMain.removeHandler(ipcChannels.chatGet);

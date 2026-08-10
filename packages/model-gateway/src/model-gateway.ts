@@ -61,6 +61,14 @@ function assertCapabilities(request: ModelRequest, model: ModelRecord): void {
   const missing: string[] = [];
   if (
     request.messages.some((message) =>
+      message.content.some((part) => part.type === 'text'),
+    ) &&
+    !model.capabilities.text
+  ) {
+    missing.push('text');
+  }
+  if (
+    request.messages.some((message) =>
       message.content.some((part) => part.type === 'image'),
     ) &&
     !model.capabilities.vision

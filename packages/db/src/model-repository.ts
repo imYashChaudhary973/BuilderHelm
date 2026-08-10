@@ -1,4 +1,5 @@
 import type { ZeroDatabase } from './database.js';
+import type { AuditEventWrite } from './provider-repository.js';
 
 export interface ModelCapabilitiesWrite {
   readonly text: boolean;
@@ -52,6 +53,19 @@ export interface StoredModel extends Record<string, unknown> {
   metadataJson: string;
 }
 
+export interface StoredModelCapabilityOverride extends Record<string, unknown> {
+  providerId: string;
+  modelId: string;
+  overridesJson: string;
+  baseCapabilitiesJson: string;
+  updatedAt: string;
+}
+
+export interface ModelCapabilityBaseline {
+  readonly modelId: string;
+  readonly capabilitiesJson: string;
+}
+
 const modelColumns = `
   models.id,
   models.provider_id AS providerId,
@@ -91,12 +105,40 @@ export class ModelRepository {
     );
   }
 
-  replaceForProvider(providerId: string, models: readonly ModelWrite[]): void {
+  listCapabilityOverrides(providerId?: string): StoredModelCapabilityOverride[] {
+    const filter = providerId === undefined ? '' : 'WHERE provider_id = ?';
+    return this.database.queryAll<StoredModelCapabilityOverride>(
+      `SELECT
+        provider_id AS providerId,
+        model_id AS modelId,
+        overrides_json AS overridesJson,
+        base_capabilities_json AS baseCapabilitiesJson,
+        updated_at AS updatedAt
+       FROM model_capability_overrides
+       ${filter}
+       ORDER BY provider_id, model_id`,
+      providerId === undefined ? [] : [providerId],
+    );
+  }
+
+  replaceForProvider(
+    providerId: string,
+    models: readonly ModelWrite[],
+    baselines: readonly ModelCapabilityBaseline[] = [],
+  ): void {
     if (models.some((model) => model.providerId !== providerId)) {
       throw new TypeError('Cannot persist a model under a different provider');
     }
 
     this.database.transaction(() => {
+      for (const baseline of baselines) {
+        this.database.run(
+          `UPDATE model_capability_overrides
+           SET base_capabilities_json = ?
+           WHERE provider_id = ? AND model_id = ?`,
+          [baseline.capabilitiesJson, providerId, baseline.modelId],
+        );
+      }
       this.database.run('DELETE FROM models WHERE provider_id = ?', [providerId]);
 
       for (const model of models) {
@@ -141,5 +183,92 @@ export class ModelRepository {
         );
       }
     });
+  }
+
+  setCapabilityOverride(input: {
+    readonly providerId: string;
+    readonly modelId: string;
+    readonly overridesJson: string | null;
+    readonly baseCapabilitiesJson: string;
+    readonly effectiveCapabilities: ModelCapabilitiesWrite;
+    readonly updatedAt: string;
+    readonly audit: AuditEventWrite;
+  }): void {
+    this.database.transaction(() => {
+      if (input.overridesJson === null) {
+        this.database.run(
+          'DELETE FROM model_capability_overrides WHERE provider_id = ? AND model_id = ?',
+          [input.providerId, input.modelId],
+        );
+      } else {
+        this.database.run(
+          `INSERT INTO model_capability_overrides (
+            provider_id, model_id, overrides_json, base_capabilities_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?)
+          ON CONFLICT(provider_id, model_id) DO UPDATE SET
+            overrides_json = excluded.overrides_json,
+            base_capabilities_json = excluded.base_capabilities_json,
+            updated_at = excluded.updated_at`,
+          [
+            input.providerId,
+            input.modelId,
+            input.overridesJson,
+            input.baseCapabilitiesJson,
+            input.updatedAt,
+          ],
+        );
+      }
+
+      this.database.run(
+        `UPDATE model_capabilities SET
+          text = ?, vision = ?, audio_input = ?, tool_calling = ?, parallel_tools = ?,
+          structured_output = ?, streaming = ?, reasoning_controls = ?,
+          server_web_search = ?, server_mcp = ?, context_window = ?, max_output_tokens = ?,
+          metadata_json = ?
+        WHERE model_id = (
+          SELECT id FROM models WHERE provider_id = ? AND model_id = ?
+        )`,
+        [
+          Number(input.effectiveCapabilities.text),
+          Number(input.effectiveCapabilities.vision),
+          Number(input.effectiveCapabilities.audioInput),
+          Number(input.effectiveCapabilities.toolCalling),
+          Number(input.effectiveCapabilities.parallelTools),
+          Number(input.effectiveCapabilities.structuredOutput),
+          Number(input.effectiveCapabilities.streaming),
+          Number(input.effectiveCapabilities.reasoningControls),
+          Number(input.effectiveCapabilities.serverWebSearch),
+          Number(input.effectiveCapabilities.serverMcp),
+          input.effectiveCapabilities.contextWindow,
+          input.effectiveCapabilities.maxOutputTokens,
+          input.effectiveCapabilities.metadataJson,
+          input.providerId,
+          input.modelId,
+        ],
+      );
+      this.insertAudit(input.audit);
+    });
+  }
+
+  private insertAudit(audit: AuditEventWrite): void {
+    this.database.run(
+      `INSERT INTO audit_events (
+        id, event_type, actor_type, actor_id, correlation_id, risk_level,
+        resource_refs_json, before_json, after_json, approval_id, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        audit.id,
+        audit.eventType,
+        audit.actorType,
+        audit.actorId,
+        audit.correlationId,
+        audit.riskLevel,
+        audit.resourceRefsJson,
+        audit.beforeJson,
+        audit.afterJson,
+        audit.approvalId,
+        audit.createdAt,
+      ],
+    );
   }
 }
