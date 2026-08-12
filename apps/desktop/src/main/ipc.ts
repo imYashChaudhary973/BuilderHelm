@@ -1,5 +1,16 @@
 import type { CoreRuntime } from '@zero/core';
 import {
+  actionCommandIpcResponseSchema,
+  actionCommandRequestSchema,
+  actionSnapshotIpcResponseSchema,
+  actionSnapshotRequestSchema,
+  approvalRejectIpcResponseSchema,
+  approvalResolveIpcResponseSchema,
+  approvalResolveRequestSchema,
+  permissionPolicyUpdateIpcResponseSchema,
+  permissionPolicyUpdateRequestSchema,
+} from '@zero/protocol/actions';
+import {
   chatCreateRequestSchema,
   chatGetRequestSchema,
   chatListRequestSchema,
@@ -259,6 +270,125 @@ export function registerIpcHandlers(core: CoreRuntime): () => void {
       });
     }
   });
+  ipcMain.handle(ipcChannels.actionSnapshot, (_event, input: unknown) => {
+    try {
+      const request = actionSnapshotRequestSchema.parse(input);
+      return actionSnapshotIpcResponseSchema.parse({
+        ok: true,
+        value: core.actions.snapshot(request.correlationId),
+      });
+    } catch (error) {
+      return actionSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.actionCommand, async (_event, input: unknown) => {
+    try {
+      const request = actionCommandRequestSchema.parse(input);
+      const value = await core.actions.command(
+        request.input,
+        request.correlationId,
+        AbortSignal.timeout(60_000),
+      );
+      return actionCommandIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return actionCommandIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.actionApprove, async (_event, input: unknown) => {
+    try {
+      const request = approvalResolveRequestSchema.parse(input);
+      const approval = core.actions
+        .snapshot(request.correlationId)
+        .pendingApprovals.find((candidate) => candidate.id === request.input.approvalId);
+      if (approval === undefined) {
+        throw new ZeroError('VALIDATION_FAILED', 'The approval request was not found');
+      }
+      const confirmation = await dialog.showMessageBox({
+        type: 'warning',
+        title: 'Approve local action',
+        message: approval.summary,
+        detail: [
+          `Tool: ${approval.toolId}`,
+          `Risk: ${approval.risk}`,
+          `Reversible: ${approval.reversible ? 'yes' : 'no'}`,
+          `Resources: ${
+            approval.affectedResources.map((resource) => resource.label).join(', ') ||
+            'none'
+          }`,
+          '',
+          'Exact arguments:',
+          JSON.stringify(approval.exactArguments, null, 2),
+        ].join('\n'),
+        buttons: ['Cancel', 'Approve'],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true,
+      });
+      if (confirmation.response !== 1) {
+        throw new ZeroError('PERMISSION_DENIED', 'Action approval was cancelled');
+      }
+      const value = await core.actions.approve(
+        request.input.approvalId,
+        request.correlationId,
+      );
+      return approvalResolveIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return approvalResolveIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.actionReject, (_event, input: unknown) => {
+    try {
+      const request = approvalResolveRequestSchema.parse(input);
+      return approvalRejectIpcResponseSchema.parse({
+        ok: true,
+        value: core.actions.reject(request.input.approvalId, request.correlationId),
+      });
+    } catch (error) {
+      return approvalRejectIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.actionPolicyUpdate, async (_event, input: unknown) => {
+    try {
+      const request = permissionPolicyUpdateRequestSchema.parse(input);
+      const confirmation = await dialog.showMessageBox({
+        type: 'warning',
+        title: 'Change tool permission',
+        message: `Set ${request.input.toolId} to ${request.input.mode}?`,
+        detail:
+          request.input.mode === 'auto_approve'
+            ? 'Matching actions may run without another approval prompt.'
+            : 'This changes the persistent permission policy for this tool.',
+        buttons: ['Cancel', 'Save policy'],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true,
+      });
+      if (confirmation.response !== 1) {
+        throw new ZeroError('PERMISSION_DENIED', 'Permission change was cancelled');
+      }
+      return permissionPolicyUpdateIpcResponseSchema.parse({
+        ok: true,
+        value: core.actions.updatePolicy(request.input, request.correlationId),
+      });
+    } catch (error) {
+      return permissionPolicyUpdateIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
   ipcMain.handle(ipcChannels.chatList, (_event, input: unknown) => {
     try {
       chatListRequestSchema.parse(input);
@@ -373,6 +503,11 @@ export function registerIpcHandlers(core: CoreRuntime): () => void {
     ipcMain.removeHandler(ipcChannels.knowledgeVaultSync);
     ipcMain.removeHandler(ipcChannels.knowledgeQuery);
     ipcMain.removeHandler(ipcChannels.knowledgeSourceGet);
+    ipcMain.removeHandler(ipcChannels.actionSnapshot);
+    ipcMain.removeHandler(ipcChannels.actionCommand);
+    ipcMain.removeHandler(ipcChannels.actionApprove);
+    ipcMain.removeHandler(ipcChannels.actionReject);
+    ipcMain.removeHandler(ipcChannels.actionPolicyUpdate);
     ipcMain.removeHandler(ipcChannels.chatList);
     ipcMain.removeHandler(ipcChannels.chatCreate);
     ipcMain.removeHandler(ipcChannels.chatGet);

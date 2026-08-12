@@ -1,4 +1,5 @@
 import {
+  ActionRepository,
   ChatRepository,
   KnowledgeRepository,
   migrations,
@@ -16,6 +17,8 @@ import { ProviderService } from './providers/provider-service.js';
 import { ChatService } from './chat/chat-service.js';
 import { ModelService } from './models/model-service.js';
 import { KnowledgeService } from './knowledge/knowledge-service.js';
+import { ActionService } from './actions/action-service.js';
+import { createWorkToolRegistry, PermissionEngine } from '@zero/tools';
 import type { SecretStore } from './secrets/secret-store.js';
 
 export interface CoreOptions {
@@ -31,6 +34,7 @@ export interface CoreRuntime {
   readonly providers: ProviderService;
   readonly models: ModelService;
   readonly knowledge: KnowledgeService;
+  readonly actions: ActionService;
   health(correlationId: CorrelationId): SystemHealthResponse;
   close(): void;
 }
@@ -71,6 +75,13 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     models,
     logger,
   );
+  const actions = new ActionService(
+    new ActionRepository(database),
+    models,
+    logger,
+    createWorkToolRegistry(),
+    new PermissionEngine(),
+  );
 
   return {
     logger,
@@ -78,6 +89,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     providers,
     models,
     knowledge,
+    actions,
     health(correlationId) {
       return {
         status: 'ok',

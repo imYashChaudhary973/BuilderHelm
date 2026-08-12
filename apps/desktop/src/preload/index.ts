@@ -1,4 +1,15 @@
 import {
+  actionCommandInputSchema,
+  actionCommandIpcResponseSchema,
+  actionSnapshotInputSchema,
+  actionSnapshotIpcResponseSchema,
+  approvalRejectIpcResponseSchema,
+  approvalResolveInputSchema,
+  approvalResolveIpcResponseSchema,
+  permissionPolicyUpdateInputSchema,
+  permissionPolicyUpdateIpcResponseSchema,
+} from '@zero/protocol/actions';
+import {
   ipcChannels,
   systemHealthResponseSchema,
   type ZeroDesktopApi,
@@ -232,6 +243,43 @@ const api: ZeroDesktopApi = {
         input: knowledgeSourceInputSchema.parse(input),
       });
       return unwrap(knowledgeSourceIpcResponseSchema.parse(response));
+    },
+  },
+  actions: {
+    async snapshot(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.actionSnapshot, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: actionSnapshotInputSchema.parse(input),
+      });
+      return unwrap(actionSnapshotIpcResponseSchema.parse(response));
+    },
+    async command(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.actionCommand, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: actionCommandInputSchema.parse(input),
+      });
+      return unwrap(actionCommandIpcResponseSchema.parse(response));
+    },
+    async approve(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.actionApprove, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: approvalResolveInputSchema.parse(input),
+      });
+      return unwrap(approvalResolveIpcResponseSchema.parse(response));
+    },
+    async reject(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.actionReject, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: approvalResolveInputSchema.parse(input),
+      });
+      return unwrap(approvalRejectIpcResponseSchema.parse(response));
+    },
+    async updatePolicy(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.actionPolicyUpdate, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: permissionPolicyUpdateInputSchema.parse(input),
+      });
+      return unwrap(permissionPolicyUpdateIpcResponseSchema.parse(response));
     },
   },
 };

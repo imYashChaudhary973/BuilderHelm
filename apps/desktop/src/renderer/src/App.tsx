@@ -40,6 +40,13 @@ export function App(): React.JSX.Element {
           >
             Chat
           </Link>
+          <Link
+            className="navItem"
+            activeProps={{ className: 'navItem navItemActive' }}
+            to="/actions"
+          >
+            Actions
+          </Link>
           {futureSections.map((section) => (
             <button className="navItem" type="button" disabled key={section}>
               {section}

@@ -95,6 +95,9 @@ importers:
       '@zero/shared':
         specifier: workspace:*
         version: link:../shared
+      '@zero/tools':
+        specifier: workspace:*
+        version: link:../tools
 
   packages/db:
     dependencies:
@@ -130,6 +133,18 @@ importers:
         version: 4.4.3
 
   packages/shared: {}
+
+  packages/tools:
+    dependencies:
+      '@zero/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@zero/shared':
+        specifier: workspace:*
+        version: link:../shared
+      zod:
+        specifier: ^4.0.0
+        version: 4.4.3
 
 packages:
 

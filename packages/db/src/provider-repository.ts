@@ -185,7 +185,7 @@ export class ProviderRepository {
         before_json AS beforeJson,
         after_json AS afterJson
       FROM audit_events
-      ORDER BY created_at, id
+      ORDER BY rowid
     `);
   }
 
