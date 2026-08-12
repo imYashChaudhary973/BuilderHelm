@@ -146,6 +146,28 @@ describe('model gateway', () => {
     expect(resolve).not.toHaveBeenCalled();
   });
 
+  it('allows restricted data only to local models and never sends secrets', async () => {
+    const values = fixture();
+    values.model = { ...values.model, privacyClass: 'local' };
+    const { gateway } = register(values);
+
+    await expect(
+      gateway.invoke(
+        {
+          ...values.request,
+          dataClassifications: ['personal', 'sensitive', 'health'],
+        },
+        new AbortController().signal,
+      ),
+    ).resolves.toMatchObject({ text: 'Hello' });
+    await expect(
+      gateway.invoke(
+        { ...values.request, dataClassifications: ['secret'] },
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ code: 'PERMISSION_DENIED' });
+  });
+
   it('refuses to send credentials over non-loopback HTTP', async () => {
     const values = fixture();
     const resolve = vi.fn(async () => 'fake-test-credential');

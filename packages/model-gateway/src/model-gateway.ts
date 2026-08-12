@@ -44,7 +44,10 @@ function providerIdFromRef(modelRef: string): string {
 function classificationAllowed(
   classification: DataClassification,
   privacy: ProviderPrivacy,
+  privacyClass: ModelRecord['privacyClass'],
 ): boolean {
+  if (classification === 'secret') return false;
+  if (privacyClass === 'local') return true;
   switch (classification) {
     case 'public':
       return true;
@@ -250,7 +253,11 @@ export class ModelGateway {
     }
     const denied = request.dataClassifications.filter(
       (classification) =>
-        !classificationAllowed(classification, registered.config.privacy),
+        !classificationAllowed(
+          classification,
+          registered.config.privacy,
+          model.privacyClass,
+        ),
     );
     if (denied.length > 0) {
       throw new ZeroError(

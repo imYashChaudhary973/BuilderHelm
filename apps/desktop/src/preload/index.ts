@@ -32,6 +32,17 @@ import {
   createChatThreadInputSchema,
   type ChatClientStreamEvent,
 } from '@zero/protocol/chat';
+import {
+  knowledgeAnswerIpcResponseSchema,
+  knowledgeQueryInputSchema,
+  knowledgeSourceInputSchema,
+  knowledgeSourceIpcResponseSchema,
+  knowledgeVaultListInputSchema,
+  knowledgeVaultListIpcResponseSchema,
+  knowledgeVaultMutationIpcResponseSchema,
+  knowledgeVaultSelectIpcResponseSchema,
+  knowledgeVaultSyncInputSchema,
+} from '@zero/protocol/knowledge';
 import { contextBridge, ipcRenderer } from 'electron';
 
 function unwrap<T>(result: {
@@ -184,6 +195,43 @@ const api: ZeroDesktopApi = {
         input: parsedInput,
       });
       return unwrap(chatStreamCancelIpcResponseSchema.parse(response));
+    },
+  },
+  knowledge: {
+    async listVaults(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.knowledgeVaultList, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: knowledgeVaultListInputSchema.parse(input),
+      });
+      return unwrap(knowledgeVaultListIpcResponseSchema.parse(response));
+    },
+    async selectVault() {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.knowledgeVaultSelect,
+        { correlationId: globalThis.crypto.randomUUID() },
+      );
+      return unwrap(knowledgeVaultSelectIpcResponseSchema.parse(response));
+    },
+    async syncVault(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.knowledgeVaultSync, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: knowledgeVaultSyncInputSchema.parse(input),
+      });
+      return unwrap(knowledgeVaultMutationIpcResponseSchema.parse(response));
+    },
+    async answer(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.knowledgeQuery, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: knowledgeQueryInputSchema.parse(input),
+      });
+      return unwrap(knowledgeAnswerIpcResponseSchema.parse(response));
+    },
+    async getSource(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.knowledgeSourceGet, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: knowledgeSourceInputSchema.parse(input),
+      });
+      return unwrap(knowledgeSourceIpcResponseSchema.parse(response));
     },
   },
 };

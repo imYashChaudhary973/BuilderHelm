@@ -15,6 +15,18 @@ import {
 } from '@zero/protocol/chat';
 import { ipcChannels, systemHealthRequestSchema } from '@zero/protocol/ipc';
 import {
+  knowledgeAnswerIpcResponseSchema,
+  knowledgeQueryRequestSchema,
+  knowledgeSourceIpcResponseSchema,
+  knowledgeSourceRequestSchema,
+  knowledgeVaultListIpcResponseSchema,
+  knowledgeVaultListRequestSchema,
+  knowledgeVaultMutationIpcResponseSchema,
+  knowledgeVaultSelectIpcResponseSchema,
+  knowledgeVaultSelectRequestSchema,
+  knowledgeVaultSyncRequestSchema,
+} from '@zero/protocol/knowledge';
+import {
   modelListIpcResponseSchema,
   modelListRequestSchema,
   modelListResponseSchema,
@@ -31,7 +43,7 @@ import {
   providerUpdateRequestSchema,
 } from '@zero/protocol/providers';
 import { normalizeError, ZeroError } from '@zero/shared';
-import { ipcMain, type WebContents } from 'electron';
+import { dialog, ipcMain, type WebContents } from 'electron';
 import { ZodError } from 'zod';
 
 function ipcError(error: unknown): {
@@ -169,6 +181,84 @@ export function registerIpcHandlers(core: CoreRuntime): () => void {
       });
     }
   });
+  ipcMain.handle(ipcChannels.knowledgeVaultList, (_event, input: unknown) => {
+    try {
+      knowledgeVaultListRequestSchema.parse(input);
+      return knowledgeVaultListIpcResponseSchema.parse({
+        ok: true,
+        value: core.knowledge.listVaults(),
+      });
+    } catch (error) {
+      return knowledgeVaultListIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.knowledgeVaultSelect, async (_event, input: unknown) => {
+    try {
+      const request = knowledgeVaultSelectRequestSchema.parse(input);
+      const selected = await dialog.showOpenDialog({
+        title: 'Select Obsidian vault',
+        properties: ['openDirectory'],
+      });
+      const rootPath = selected.filePaths[0];
+      const value =
+        selected.canceled || rootPath === undefined
+          ? null
+          : core.knowledge.registerVault(rootPath, request.correlationId);
+      return knowledgeVaultSelectIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return knowledgeVaultSelectIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.knowledgeVaultSync, (_event, input: unknown) => {
+    try {
+      const request = knowledgeVaultSyncRequestSchema.parse(input);
+      return knowledgeVaultMutationIpcResponseSchema.parse({
+        ok: true,
+        value: core.knowledge.syncVault(request.input.vaultId, request.correlationId),
+      });
+    } catch (error) {
+      return knowledgeVaultMutationIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.knowledgeQuery, async (_event, input: unknown) => {
+    try {
+      const request = knowledgeQueryRequestSchema.parse(input);
+      const value = await core.knowledge.answer(
+        request.input,
+        request.correlationId,
+        AbortSignal.timeout(120_000),
+      );
+      return knowledgeAnswerIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return knowledgeAnswerIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.knowledgeSourceGet, (_event, input: unknown) => {
+    try {
+      const request = knowledgeSourceRequestSchema.parse(input);
+      return knowledgeSourceIpcResponseSchema.parse({
+        ok: true,
+        value: core.knowledge.getSource(request.input.sourceId, request.input.chunkId),
+      });
+    } catch (error) {
+      return knowledgeSourceIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
   ipcMain.handle(ipcChannels.chatList, (_event, input: unknown) => {
     try {
       chatListRequestSchema.parse(input);
@@ -278,6 +368,11 @@ export function registerIpcHandlers(core: CoreRuntime): () => void {
     ipcMain.removeHandler(ipcChannels.modelList);
     ipcMain.removeHandler(ipcChannels.modelCapabilityOverrideList);
     ipcMain.removeHandler(ipcChannels.modelCapabilityOverrideUpdate);
+    ipcMain.removeHandler(ipcChannels.knowledgeVaultList);
+    ipcMain.removeHandler(ipcChannels.knowledgeVaultSelect);
+    ipcMain.removeHandler(ipcChannels.knowledgeVaultSync);
+    ipcMain.removeHandler(ipcChannels.knowledgeQuery);
+    ipcMain.removeHandler(ipcChannels.knowledgeSourceGet);
     ipcMain.removeHandler(ipcChannels.chatList);
     ipcMain.removeHandler(ipcChannels.chatCreate);
     ipcMain.removeHandler(ipcChannels.chatGet);

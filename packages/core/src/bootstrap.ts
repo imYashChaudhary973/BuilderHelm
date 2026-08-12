@@ -1,5 +1,6 @@
 import {
   ChatRepository,
+  KnowledgeRepository,
   migrations,
   ModelRepository,
   openDatabase,
@@ -14,6 +15,7 @@ import { createCorrelationId, utcNow, type CorrelationId } from '@zero/shared';
 import { ProviderService } from './providers/provider-service.js';
 import { ChatService } from './chat/chat-service.js';
 import { ModelService } from './models/model-service.js';
+import { KnowledgeService } from './knowledge/knowledge-service.js';
 import type { SecretStore } from './secrets/secret-store.js';
 
 export interface CoreOptions {
@@ -28,6 +30,7 @@ export interface CoreRuntime {
   readonly chats: ChatService;
   readonly providers: ProviderService;
   readonly models: ModelService;
+  readonly knowledge: KnowledgeService;
   health(correlationId: CorrelationId): SystemHealthResponse;
   close(): void;
 }
@@ -63,12 +66,18 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     options.modelGatewayFetch,
   );
   const chats = new ChatService(new ChatRepository(database), logger, models);
+  const knowledge = new KnowledgeService(
+    new KnowledgeRepository(database),
+    models,
+    logger,
+  );
 
   return {
     logger,
     chats,
     providers,
     models,
+    knowledge,
     health(correlationId) {
       return {
         status: 'ok',
@@ -82,6 +91,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
         return;
       }
       closed = true;
+      knowledge.close();
       database.close();
       logger.info({ event: 'core.stopped', correlationId: createCorrelationId() });
     },

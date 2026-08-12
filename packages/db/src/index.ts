@@ -9,9 +9,11 @@ export {
   chatPersistenceMigration,
   migrations,
   modelCapabilityOverridesMigration,
+  obsidianKnowledgeMigration,
   phaseZeroMigration,
   providerSettingsMigration,
 } from './migrations/index.js';
 export * from './chat-repository.js';
+export * from './knowledge-repository.js';
 export * from './model-repository.js';
 export * from './provider-repository.js';
