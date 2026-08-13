@@ -2,7 +2,7 @@
 
 - Date: 2026-08-11
 - Branch: `phase-4/tools-permissions-action-chat`
-- Status: Implemented and verified locally
+- Status: Implemented, verified, manually accepted, and published for review
 
 ## Completed checkpoints
 
@@ -118,17 +118,48 @@ creation, narrow auto-approval and denial policies, approval expiry, model propo
 validation, and audit coverage. Protocol and IPC tests prove the renderer cannot
 select an arbitrary tool or replace approved arguments.
 
+### Manual Actions acceptance
+
+Manual acceptance on 2026-08-13 used the built Electron app with
+`--force-renderer-accessibility` and the isolated profile
+`/private/tmp/axiom-pios-phase4-acceptance`.
+
+- Created `Project A` only after the exact arguments appeared in the Actions UI and
+  the native main-process confirmation was approved.
+- Created the high-priority task `benchmark the sync layer` due the next day after
+  the same exact-argument and native-confirmation flow.
+- Updated that task to `done` through an explicit approval and confirmed the local
+  snapshot showed one completed task.
+- Changed `task.update` to `auto_approve` through native policy confirmation, then
+  changed the task to `blocked` without a pending approval. The fourth immutable
+  receipt recorded `auto_approved`.
+- Changed `task.create` to `deny` through native policy confirmation. Two attempted
+  task-creation submissions failed closed with `PERMISSION_DENIED`; project, task,
+  approval, and receipt counts did not change.
+- Restored both tested policies to `ask`. Direct read-only SQLite inspection
+  confirmed one project, one task, four receipts, two deny audit events, and safe
+  final policy defaults.
+
 ## Scope note
 
 Phase 4 accepts text commands through an input contract that a future speech-to-text
 adapter can call unchanged. Microphone capture, speech recognition, and spoken
 approval belong to Phase 9 in the execution roadmap and were not added here.
 
+## Delivery status
+
+- Committed as `3131971` and pushed to
+  `origin/phase-4/tools-permissions-action-chat`.
+- Published as [draft PR #3](https://github.com/imYashChaudhary973/Axiom-Zero/pull/3),
+  stacked on `phase-3/obsidian-memory`.
+- Pull-request CI passed and GitHub reports the PR as mergeable.
+- Deterministic manual task creation, task update, auto-approval, denial, receipt,
+  and safe-policy-reset acceptance is complete.
+
 ## Remaining delivery gates
 
-1. Review the local stacked Phase 3 and Phase 4 diff and decide whether to commit
-   and push the branch.
-2. Run pull-request CI and obtain human review before any merge.
-3. Optionally exercise the Actions screen manually with a persistent local database
-   and a configured tool-capable model; deterministic and mocked model paths are
-   already covered by automated tests.
+1. Obtain human review and mark draft PR #3 ready after its Phase 3 base is
+   accepted.
+2. Merge the stack in order: Phase 2 (#1), Phase 3 (#2), then Phase 4 (#3).
+3. A live tool-capable model exercise remains optional because the model is a
+   proposal-only fallback and its strict contract is covered by automated tests.
