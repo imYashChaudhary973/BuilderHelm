@@ -10,6 +10,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { App } from './App.js';
+import { ActionsPage } from './routes/actions.js';
 import { ChatPage } from './routes/chat.js';
 import { KnowledgePage } from './routes/knowledge.js';
 import { ProvidersPage } from './routes/settings/providers.js';
@@ -37,10 +38,16 @@ const knowledgeRoute = createRoute({
   path: '/knowledge',
   component: KnowledgePage,
 });
+const actionsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/actions',
+  component: ActionsPage,
+});
 const routeTree = rootRoute.addChildren([
   todayRoute,
   chatRoute,
   knowledgeRoute,
+  actionsRoute,
   providersRoute,
 ]);
 const router = createRouter({

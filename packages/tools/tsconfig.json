@@ -9,12 +9,5 @@
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
   "include": ["src/**/*.ts"],
-  "references": [
-    { "path": "../shared" },
-    { "path": "../protocol" },
-    { "path": "../db" },
-    { "path": "../model-gateway" },
-    { "path": "../tools" },
-    { "path": "../observability" }
-  ]
+  "references": [{ "path": "../shared" }, { "path": "../protocol" }]
 }

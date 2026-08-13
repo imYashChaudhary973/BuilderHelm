@@ -10,7 +10,8 @@ const allowedDependencies: Readonly<Record<string, readonly string[]>> = {
   db: ['shared'],
   observability: ['shared'],
   'model-gateway': ['protocol', 'shared'],
-  core: ['db', 'model-gateway', 'observability', 'protocol', 'shared'],
+  tools: ['protocol', 'shared'],
+  core: ['db', 'model-gateway', 'observability', 'protocol', 'shared', 'tools'],
 };
 
 function sourceFiles(directory: string): string[] {

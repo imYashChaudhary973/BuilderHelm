@@ -34,7 +34,7 @@ describe('migration runner', () => {
     const database = createTestDatabase();
     const result = runMigrations(database, migrations);
 
-    expect(result).toEqual({ applied: [1, 2, 3, 4, 5], currentVersion: 5 });
+    expect(result).toEqual({ applied: [1, 2, 3, 4, 5, 6], currentVersion: 6 });
     expect(
       database.queryOne<{ count: number }>(
         "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'zero_metadata'",
@@ -48,7 +48,7 @@ describe('migration runner', () => {
 
     expect(runMigrations(database, migrations)).toEqual({
       applied: [],
-      currentVersion: 5,
+      currentVersion: 6,
     });
   });
 
@@ -64,7 +64,7 @@ describe('migration runner', () => {
     openDatabases.push(reopened);
     expect(runMigrations(reopened, migrations)).toEqual({
       applied: [],
-      currentVersion: 5,
+      currentVersion: 6,
     });
   });
 

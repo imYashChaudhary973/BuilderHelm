@@ -2,6 +2,8 @@ import { createCorrelationId } from '@zero/shared';
 import { describe, expect, it } from 'vitest';
 
 import {
+  actionCommandRequestSchema,
+  approvalResolveRequestSchema,
   createEvent,
   createProviderInputSchema,
   modelCapabilityOverrideUpdateRequestSchema,
@@ -159,6 +161,30 @@ describe('IPC contracts', () => {
       knowledgeSourceRequestSchema.safeParse({
         correlationId,
         input: { sourceId, chunkId, notePath: '../../outside.md' },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('does not let the renderer choose a tool or replace approved arguments', () => {
+    const correlationId = createCorrelationId();
+    expect(
+      actionCommandRequestSchema.safeParse({
+        correlationId,
+        input: {
+          requestId: createCorrelationId(),
+          text: 'List tasks',
+          modelRef: null,
+          toolId: 'task.create',
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      approvalResolveRequestSchema.safeParse({
+        correlationId,
+        input: {
+          approvalId: createCorrelationId(),
+          exactArguments: { title: 'Replacement' },
+        },
       }).success,
     ).toBe(false);
   });

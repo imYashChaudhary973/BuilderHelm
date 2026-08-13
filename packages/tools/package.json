@@ -1,5 +1,5 @@
 {
-  "name": "@zero/core",
+  "name": "@zero/tools",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,12 +10,9 @@
     }
   },
   "dependencies": {
-    "@zero/db": "workspace:*",
-    "@zero/model-gateway": "workspace:*",
-    "@zero/observability": "workspace:*",
     "@zero/protocol": "workspace:*",
     "@zero/shared": "workspace:*",
-    "@zero/tools": "workspace:*"
+    "zod": "^4.0.0"
   },
   "scripts": {
     "build": "tsc -b",

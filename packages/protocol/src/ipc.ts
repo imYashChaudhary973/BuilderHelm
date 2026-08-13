@@ -2,6 +2,16 @@ import type { CorrelationId } from '@zero/shared';
 import { z } from 'zod';
 
 import type {
+  ActionCommandInput,
+  ActionCommandOutcome,
+  ActionSnapshot,
+  ActionSnapshotInput,
+  ApprovalRequest,
+  ApprovalResolveInput,
+  PermissionPolicy,
+  PermissionPolicyUpdateInput,
+} from './actions.js';
+import type {
   CreateProviderInput,
   DeleteProviderInput,
   ModelListInput,
@@ -46,6 +56,11 @@ export const ipcChannels = {
   knowledgeVaultSync: 'zero:knowledge:vault-sync',
   knowledgeQuery: 'zero:knowledge:query',
   knowledgeSourceGet: 'zero:knowledge:source-get',
+  actionSnapshot: 'zero:action:snapshot',
+  actionCommand: 'zero:action:command',
+  actionApprove: 'zero:action:approve',
+  actionReject: 'zero:action:reject',
+  actionPolicyUpdate: 'zero:action:policy-update',
   chatList: 'zero:chat:list',
   chatCreate: 'zero:chat:create',
   chatGet: 'zero:chat:get',
@@ -117,5 +132,12 @@ export interface ZeroDesktopApi {
     syncVault(input: KnowledgeVaultSyncInput): Promise<KnowledgeVault>;
     answer(input: KnowledgeQueryInput): Promise<KnowledgeAnswer>;
     getSource(input: KnowledgeSourceInput): Promise<KnowledgeSourceView>;
+  };
+  readonly actions: {
+    snapshot(input: ActionSnapshotInput): Promise<ActionSnapshot>;
+    command(input: ActionCommandInput): Promise<ActionCommandOutcome>;
+    approve(input: ApprovalResolveInput): Promise<ActionCommandOutcome>;
+    reject(input: ApprovalResolveInput): Promise<ApprovalRequest>;
+    updatePolicy(input: PermissionPolicyUpdateInput): Promise<PermissionPolicy>;
   };
 }
