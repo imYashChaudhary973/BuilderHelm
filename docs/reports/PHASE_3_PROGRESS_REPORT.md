@@ -2,7 +2,7 @@
 
 - Date: 2026-08-10
 - Branch: `phase-3/obsidian-memory`
-- Status: Implemented and verified locally
+- Status: Implemented, verified, and published for review
 
 ## Completed checkpoints
 
@@ -90,10 +90,21 @@ model stream. It proves selection, parsing, persistence, lexical and graph retri
 answer generation, citation resolution, stale-source rejection, and watcher-driven
 add/change/delete indexing without sending personal notes to a paid provider.
 
+## Delivery status
+
+- Committed as `0aaecc9` and pushed to
+  `origin/phase-3/obsidian-memory`.
+- Published as [draft PR #2](https://github.com/imYashChaudhary973/Axiom-Zero/pull/2),
+  stacked on `phase-2/model-gateway-chat`.
+- Pull-request CI passed and GitHub reports the PR as mergeable.
+- Manual acceptance used an isolated two-note test vault and a configured local
+  model. The Knowledge screen indexed both notes, returned a grounded answer with
+  two citations, and opened the exact cited source lines.
+
 ## Remaining delivery gates
 
-1. Review the local Phase 3 diff and decide whether to commit and push the branch.
-2. Run pull-request CI and obtain human review before any merge.
-3. Optionally exercise the flow with the user's real vault and configured model;
-   this is manual acceptance testing, not required for the deterministic Phase 3
-   implementation gate.
+1. Obtain human review and mark draft PR #2 ready after its Phase 2 base is
+   accepted.
+2. Merge in stack order after PR #1: Phase 2 (#1), then Phase 3 (#2).
+3. A real-vault exercise remains optional because deterministic acceptance and the
+   isolated local-model UI flow already cover the Phase 3 exit criteria.
