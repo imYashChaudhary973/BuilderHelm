@@ -12,6 +12,7 @@ export default defineConfig({
         exclude: [
           '@zero/core',
           '@zero/db',
+          '@zero/model-gateway',
           '@zero/observability',
           '@zero/protocol',
           '@zero/shared',
@@ -21,7 +22,9 @@ export default defineConfig({
   },
   preload: {
     plugins: [
-      externalizeDepsPlugin({ exclude: ['@zero/protocol', '@zero/shared', 'zod'] }),
+      externalizeDepsPlugin({
+        exclude: ['@zero/protocol', '@zero/shared', '@zero/shared/error', 'zod'],
+      }),
     ],
     build: {
       rollupOptions: {

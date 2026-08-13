@@ -7,6 +7,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./src/index.ts"
+    },
+    "./error": {
+      "types": "./dist/error.d.ts",
+      "import": "./src/error.ts"
     }
   },
   "scripts": {

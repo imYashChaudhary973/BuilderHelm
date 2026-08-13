@@ -4,7 +4,7 @@ import type {
   ProviderSummary,
   UpdateProviderInput,
 } from '@zero/protocol/providers';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const protocolOptions: ReadonlyArray<{ value: ProviderProtocol; label: string }> = [
   { value: 'openai', label: 'OpenAI' },
@@ -19,16 +19,22 @@ const protocolOptions: ReadonlyArray<{ value: ProviderProtocol; label: string }>
 interface ProviderFormProps {
   readonly editing: ProviderSummary | null;
   readonly busy: boolean;
+  readonly testing: boolean;
   readonly onCancel: () => void;
   readonly onCreate: (input: CreateProviderInput) => void;
+  readonly onTest: (providerId: string) => void;
   readonly onUpdate: (input: UpdateProviderInput) => void;
 }
 
 export function ProviderForm(props: ProviderFormProps): React.JSX.Element {
   const formRef = useRef<HTMLFormElement>(null);
+  const [protocol, setProtocol] = useState<ProviderProtocol>(
+    props.editing?.protocol ?? 'openai',
+  );
 
   useEffect(() => {
     formRef.current?.reset();
+    setProtocol(props.editing?.protocol ?? 'openai');
   }, [props.editing]);
 
   function submit(event: React.FormEvent<HTMLFormElement>): void {
@@ -91,7 +97,11 @@ export function ProviderForm(props: ProviderFormProps): React.JSX.Element {
         </label>
         <label>
           <span>Protocol</span>
-          <select name="protocol" defaultValue={existing?.protocol ?? 'openai'}>
+          <select
+            name="protocol"
+            value={protocol}
+            onChange={(event) => setProtocol(event.target.value as ProviderProtocol)}
+          >
             {protocolOptions.map((option) => (
               <option value={option.value} key={option.value}>
                 {option.label}
@@ -114,16 +124,20 @@ export function ProviderForm(props: ProviderFormProps): React.JSX.Element {
             name="apiKey"
             type="password"
             autoComplete="off"
-            required={existing === null}
+            required={existing === null && protocol !== 'ollama'}
             maxLength={16_384}
             placeholder={
               existing === null
-                ? 'Stored in macOS Keychain'
+                ? protocol === 'ollama'
+                  ? 'Optional for local Ollama'
+                  : 'Stored in macOS Keychain'
                 : 'Leave blank to keep current key'
             }
           />
           <small>
-            This value is sent directly to secure storage and is never shown again.
+            {protocol === 'ollama'
+              ? 'Leave blank for local Ollama. Remote tokens are stored in macOS Keychain.'
+              : 'This value is sent directly to secure storage and is never shown again.'}
           </small>
         </label>
       </div>
@@ -166,10 +180,28 @@ export function ProviderForm(props: ProviderFormProps): React.JSX.Element {
         <button
           className="secondaryButton"
           type="button"
-          disabled
-          title="Available in Phase 2"
+          disabled={
+            existing === null ||
+            !['openai', 'anthropic', 'openai-compatible', 'ollama'].includes(
+              existing.protocol,
+            ) ||
+            props.busy ||
+            props.testing
+          }
+          title={
+            existing === null
+              ? 'Save the provider before testing its connection'
+              : !['openai', 'anthropic', 'openai-compatible', 'ollama'].includes(
+                    existing.protocol,
+                  )
+                ? 'This protocol adapter arrives later in Phase 2'
+                : 'Tests the last saved provider settings'
+          }
+          onClick={() => {
+            if (existing !== null) props.onTest(existing.id);
+          }}
         >
-          Test connection · Phase 2
+          {props.testing ? 'Testing…' : 'Test saved connection'}
         </button>
         <button className="primaryButton" type="submit" disabled={props.busy}>
           {props.busy ? 'Saving…' : existing === null ? 'Save provider' : 'Save changes'}

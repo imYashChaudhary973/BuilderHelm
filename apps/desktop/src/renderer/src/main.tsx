@@ -10,6 +10,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { App } from './App.js';
+import { ChatPage } from './routes/chat.js';
 import { ProvidersPage } from './routes/settings/providers.js';
 import { TodayPage } from './routes/today.js';
 import './styles.css';
@@ -25,7 +26,12 @@ const providersRoute = createRoute({
   path: '/settings/providers',
   component: ProvidersPage,
 });
-const routeTree = rootRoute.addChildren([todayRoute, providersRoute]);
+const chatRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/chat',
+  component: ChatPage,
+});
+const routeTree = rootRoute.addChildren([todayRoute, chatRoute, providersRoute]);
 const router = createRouter({
   routeTree,
   history: createMemoryHistory({ initialEntries: ['/'] }),

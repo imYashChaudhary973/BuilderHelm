@@ -4,9 +4,22 @@ import { z } from 'zod';
 import type {
   CreateProviderInput,
   DeleteProviderInput,
+  ModelListInput,
+  ModelCapabilityOverrideListInput,
+  ModelCapabilityOverrideUpdateInput,
+  ProviderConnectionResult,
+  ProviderOperationInput,
   ProviderSummary,
   UpdateProviderInput,
 } from './providers.js';
+import type { ModelCapabilityOverrideRecord, ModelRecord } from './model.js';
+import type {
+  ChatClientStreamEvent,
+  ChatStreamInput,
+  ChatThread,
+  ChatTranscript,
+  CreateChatThreadInput,
+} from './chat.js';
 
 export const ipcChannels = {
   systemHealth: 'zero:system:health',
@@ -14,6 +27,17 @@ export const ipcChannels = {
   providerCreate: 'zero:provider:create',
   providerUpdate: 'zero:provider:update',
   providerDelete: 'zero:provider:delete',
+  providerTestConnection: 'zero:provider:test-connection',
+  modelDiscover: 'zero:model:discover',
+  modelList: 'zero:model:list',
+  modelCapabilityOverrideList: 'zero:model-capability-override:list',
+  modelCapabilityOverrideUpdate: 'zero:model-capability-override:update',
+  chatList: 'zero:chat:list',
+  chatCreate: 'zero:chat:create',
+  chatGet: 'zero:chat:get',
+  chatStreamStart: 'zero:chat:stream-start',
+  chatStreamCancel: 'zero:chat:stream-cancel',
+  chatStreamEvent: 'zero:chat:stream-event',
 } as const;
 
 export const systemHealthRequestSchema = z
@@ -49,5 +73,28 @@ export interface ZeroDesktopApi {
     create(input: CreateProviderInput): Promise<ProviderSummary>;
     update(input: UpdateProviderInput): Promise<ProviderSummary>;
     delete(input: DeleteProviderInput): Promise<{ deleted: true }>;
+    testConnection(input: ProviderOperationInput): Promise<ProviderConnectionResult>;
+  };
+  readonly models: {
+    discover(input: ProviderOperationInput): Promise<ModelRecord[]>;
+    list(input: ModelListInput): Promise<ModelRecord[]>;
+    listCapabilityOverrides(
+      input: ModelCapabilityOverrideListInput,
+    ): Promise<ModelCapabilityOverrideRecord[]>;
+    updateCapabilityOverride(
+      input: ModelCapabilityOverrideUpdateInput,
+    ): Promise<ModelRecord>;
+  };
+  readonly chat: {
+    list(): Promise<ChatThread[]>;
+    create(input: CreateChatThreadInput): Promise<ChatThread>;
+    get(input: { readonly threadId: string }): Promise<ChatTranscript>;
+    startStream(
+      input: ChatStreamInput,
+      onEvent: (event: ChatClientStreamEvent) => void,
+    ): Promise<{ readonly runId: string }>;
+    cancelStream(input: {
+      readonly runId: string;
+    }): Promise<{ readonly cancelled: boolean }>;
   };
 }

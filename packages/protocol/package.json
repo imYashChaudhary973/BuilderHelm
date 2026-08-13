@@ -12,6 +12,18 @@
       "types": "./dist/ipc.d.ts",
       "import": "./src/ipc.ts"
     },
+    "./chat": {
+      "types": "./dist/chat.d.ts",
+      "import": "./src/chat.ts"
+    },
+    "./json": {
+      "types": "./dist/json.d.ts",
+      "import": "./src/json.ts"
+    },
+    "./model": {
+      "types": "./dist/model.d.ts",
+      "import": "./src/model.ts"
+    },
     "./providers": {
       "types": "./dist/providers.d.ts",
       "import": "./src/providers.ts"

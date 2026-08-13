@@ -1,19 +1,7 @@
 import { createId, utcNow, type CorrelationId, type ZeroId } from '@zero/shared';
 import { z } from 'zod';
 
-export type JsonValue =
-  null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
-
-export const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
-  z.union([
-    z.null(),
-    z.boolean(),
-    z.number().finite(),
-    z.string(),
-    z.array(jsonValueSchema),
-    z.record(z.string(), jsonValueSchema),
-  ]),
-);
+import { jsonValueSchema, type JsonValue } from './json.js';
 
 export const actorRefSchema = z.object({
   type: z.enum(['user', 'system', 'agent', 'automation', 'integration']),
