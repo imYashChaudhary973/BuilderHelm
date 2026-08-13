@@ -14,6 +14,15 @@ import type {
 } from './providers.js';
 import type { ModelCapabilityOverrideRecord, ModelRecord } from './model.js';
 import type {
+  KnowledgeAnswer,
+  KnowledgeQueryInput,
+  KnowledgeSourceInput,
+  KnowledgeSourceView,
+  KnowledgeVault,
+  KnowledgeVaultListInput,
+  KnowledgeVaultSyncInput,
+} from './knowledge.js';
+import type {
   ChatClientStreamEvent,
   ChatStreamInput,
   ChatThread,
@@ -32,6 +41,11 @@ export const ipcChannels = {
   modelList: 'zero:model:list',
   modelCapabilityOverrideList: 'zero:model-capability-override:list',
   modelCapabilityOverrideUpdate: 'zero:model-capability-override:update',
+  knowledgeVaultList: 'zero:knowledge:vault-list',
+  knowledgeVaultSelect: 'zero:knowledge:vault-select',
+  knowledgeVaultSync: 'zero:knowledge:vault-sync',
+  knowledgeQuery: 'zero:knowledge:query',
+  knowledgeSourceGet: 'zero:knowledge:source-get',
   chatList: 'zero:chat:list',
   chatCreate: 'zero:chat:create',
   chatGet: 'zero:chat:get',
@@ -96,5 +110,12 @@ export interface ZeroDesktopApi {
     cancelStream(input: {
       readonly runId: string;
     }): Promise<{ readonly cancelled: boolean }>;
+  };
+  readonly knowledge: {
+    listVaults(input: KnowledgeVaultListInput): Promise<KnowledgeVault[]>;
+    selectVault(): Promise<KnowledgeVault | null>;
+    syncVault(input: KnowledgeVaultSyncInput): Promise<KnowledgeVault>;
+    answer(input: KnowledgeQueryInput): Promise<KnowledgeAnswer>;
+    getSource(input: KnowledgeSourceInput): Promise<KnowledgeSourceView>;
   };
 }

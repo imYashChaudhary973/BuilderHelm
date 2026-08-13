@@ -11,6 +11,7 @@ import { createRoot } from 'react-dom/client';
 
 import { App } from './App.js';
 import { ChatPage } from './routes/chat.js';
+import { KnowledgePage } from './routes/knowledge.js';
 import { ProvidersPage } from './routes/settings/providers.js';
 import { TodayPage } from './routes/today.js';
 import './styles.css';
@@ -31,7 +32,17 @@ const chatRoute = createRoute({
   path: '/chat',
   component: ChatPage,
 });
-const routeTree = rootRoute.addChildren([todayRoute, chatRoute, providersRoute]);
+const knowledgeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/knowledge',
+  component: KnowledgePage,
+});
+const routeTree = rootRoute.addChildren([
+  todayRoute,
+  chatRoute,
+  knowledgeRoute,
+  providersRoute,
+]);
 const router = createRouter({
   routeTree,
   history: createMemoryHistory({ initialEntries: ['/'] }),

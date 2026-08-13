@@ -5,6 +5,8 @@ import {
   createEvent,
   createProviderInputSchema,
   modelCapabilityOverrideUpdateRequestSchema,
+  knowledgeQueryRequestSchema,
+  knowledgeSourceRequestSchema,
   modelListIpcResponseSchema,
   providerTestConnectionRequestSchema,
   systemHealthRequestSchema,
@@ -127,6 +129,36 @@ describe('IPC contracts', () => {
       modelCapabilityOverrideUpdateRequestSchema.safeParse({
         ...request,
         input: { ...request.input, overrides: { apiKey: 'must-not-cross' } },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('keeps knowledge paths out of renderer-controlled query and source inputs', () => {
+    const correlationId = createCorrelationId();
+    const vaultId = createCorrelationId();
+    const sourceId = createCorrelationId();
+    const chunkId = createCorrelationId();
+    expect(
+      knowledgeQueryRequestSchema.safeParse({
+        correlationId,
+        input: {
+          vaultId,
+          modelRef: `${createCorrelationId()}:model`,
+          query: 'Why architecture B?',
+          rootPath: '/Users/private/vault',
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      knowledgeSourceRequestSchema.parse({
+        correlationId,
+        input: { sourceId, chunkId },
+      }),
+    ).toEqual({ correlationId, input: { sourceId, chunkId } });
+    expect(
+      knowledgeSourceRequestSchema.safeParse({
+        correlationId,
+        input: { sourceId, chunkId, notePath: '../../outside.md' },
       }).success,
     ).toBe(false);
   });

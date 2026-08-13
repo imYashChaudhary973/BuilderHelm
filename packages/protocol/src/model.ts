@@ -13,6 +13,7 @@ export const dataClassificationSchema = z.enum([
   'personal',
   'sensitive',
   'health',
+  'secret',
 ]);
 
 export const normalizedToolCallSchema = z

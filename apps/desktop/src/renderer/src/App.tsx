@@ -4,7 +4,6 @@ const futureSections = [
   'Projects',
   'Code',
   'Research',
-  'Knowledge',
   'Health',
   'Content',
   'Automations',
@@ -26,6 +25,13 @@ export function App(): React.JSX.Element {
             to="/"
           >
             Today
+          </Link>
+          <Link
+            className="navItem"
+            activeProps={{ className: 'navItem navItemActive' }}
+            to="/knowledge"
+          >
+            Knowledge
           </Link>
           <Link
             className="navItem"

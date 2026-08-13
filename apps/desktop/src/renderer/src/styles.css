@@ -493,6 +493,261 @@ h1 {
   opacity: 0.45;
 }
 
+.knowledgeHeader {
+  align-items: flex-start;
+}
+
+.knowledgeLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: 24px;
+  min-height: 0;
+}
+
+.knowledgeQuery,
+.knowledgeSource {
+  min-width: 0;
+  border: 1px solid #2f342d;
+  border-radius: 12px;
+  background: #151814;
+}
+
+.knowledgeQuery {
+  padding: 22px;
+}
+
+.knowledgeControls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.knowledgeControls label > span,
+.knowledgeAsk > label {
+  display: block;
+  margin-bottom: 7px;
+  color: #969c91;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.knowledgeControls select,
+.knowledgeAsk textarea {
+  width: 100%;
+  padding: 10px 11px;
+  border: 1px solid #373d34;
+  border-radius: 7px;
+  outline: none;
+  color: #e8eadf;
+  background: #10120f;
+}
+
+.knowledgeControls select:focus,
+.knowledgeAsk textarea:focus {
+  border-color: #8da454;
+  box-shadow: 0 0 0 3px rgba(182, 212, 117, 0.08);
+}
+
+.vaultStatus {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 12px 0;
+  border-top: 1px solid #292d27;
+  border-bottom: 1px solid #292d27;
+}
+
+.vaultStatus strong,
+.vaultStatus span {
+  display: block;
+}
+
+.vaultStatus strong {
+  margin-bottom: 4px;
+  color: #dfe2d8;
+  font-size: 12px;
+}
+
+.vaultStatus span,
+.vaultStatus button {
+  color: #858b80;
+  font-size: 10px;
+}
+
+.vaultStatus button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.knowledgeAsk {
+  display: grid;
+  justify-items: end;
+  margin-top: 22px;
+}
+
+.knowledgeAsk > label,
+.knowledgeAsk textarea {
+  justify-self: stretch;
+}
+
+.knowledgeAsk textarea {
+  min-height: 112px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.knowledgeAsk button {
+  margin-top: 10px;
+}
+
+.knowledgeAnswer {
+  margin-top: 26px;
+  padding-top: 22px;
+  border-top: 1px solid #292d27;
+}
+
+.answerCopy {
+  margin-top: 9px;
+  color: #e2e5dc;
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.citationList {
+  display: grid;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.citationList button {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 9px;
+  padding: 11px;
+  border: 1px solid #333a2f;
+  border-radius: 7px;
+  color: #aab0a4;
+  background: #11140f;
+  text-align: left;
+  cursor: pointer;
+}
+
+.citationList button:hover,
+.citationList button:focus-visible {
+  border-color: #748a47;
+}
+
+.citationList button > span:first-child {
+  grid-row: 1 / 3;
+  color: #b6d475;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+}
+
+.citationList strong {
+  color: #dfe2d8;
+  font-size: 11px;
+}
+
+.citationList small {
+  color: #747a70;
+  font-size: 9px;
+}
+
+.citationList button > span:last-child {
+  grid-column: 2;
+  margin-top: 5px;
+  color: #92988d;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.knowledgeSource {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 158px);
+  overflow: hidden;
+}
+
+.knowledgeSourceEmpty {
+  justify-content: center;
+  min-height: 360px;
+  padding: 30px;
+  color: #858b80;
+}
+
+.knowledgeSourceEmpty h2 {
+  margin: 8px 0;
+  color: #dfe2d8;
+  font-size: 17px;
+}
+
+.knowledgeSourceHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px;
+  border-bottom: 1px solid #292d27;
+}
+
+.knowledgeSourceHeader h2 {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.knowledgeSourceHeader p,
+.knowledgeSourceHeader > span {
+  color: #7f857b;
+  font-size: 9px;
+}
+
+.sourceLines {
+  flex: 1;
+  margin: 0;
+  overflow: auto;
+  padding: 14px 0;
+  color: #aeb3a8;
+  background: #0f110e;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+.sourceLine {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  min-width: max-content;
+  padding-right: 16px;
+}
+
+.sourceLine > span {
+  padding-right: 10px;
+  color: #555b52;
+  text-align: right;
+  user-select: none;
+}
+
+.sourceLineCited {
+  color: #e2e5dc;
+  background: rgba(182, 212, 117, 0.1);
+}
+
+@media (max-width: 980px) {
+  .knowledgeLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .knowledgeSource {
+    max-height: 520px;
+  }
+}
+
 .emptyState {
   margin-top: 26px;
   padding: 28px;
