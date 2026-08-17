@@ -1,7 +1,6 @@
 import { Link, Outlet } from '@tanstack/react-router';
 
 const futureSections = [
-  'Projects',
   'Code',
   'Research',
   'Health',
@@ -19,6 +18,13 @@ export function App(): React.JSX.Element {
           <span>Zero</span>
         </div>
         <nav aria-label="Primary navigation">
+          <Link
+            className="navItem"
+            activeProps={{ className: 'navItem navItemActive' }}
+            to="/projects"
+          >
+            Projects
+          </Link>
           <Link
             className="navItem"
             activeProps={{ className: 'navItem navItemActive' }}

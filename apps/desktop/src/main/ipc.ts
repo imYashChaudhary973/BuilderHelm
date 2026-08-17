@@ -53,6 +53,14 @@ import {
   providerTestConnectionRequestSchema,
   providerUpdateRequestSchema,
 } from '@zero/protocol/providers';
+import {
+  projectDashboardIpcResponseSchema,
+  projectDashboardRequestSchema,
+  projectRepositoryRefreshIpcResponseSchema,
+  projectRepositoryRefreshRequestSchema,
+  projectRepositorySelectIpcResponseSchema,
+  projectRepositorySelectRequestSchema,
+} from '@zero/protocol/projects';
 import { normalizeError, ZeroError } from '@zero/shared';
 import { dialog, ipcMain, type WebContents } from 'electron';
 import { ZodError } from 'zod';
@@ -389,6 +397,61 @@ export function registerIpcHandlers(core: CoreRuntime): () => void {
       });
     }
   });
+  ipcMain.handle(ipcChannels.projectDashboard, (_event, input: unknown) => {
+    try {
+      projectDashboardRequestSchema.parse(input);
+      return projectDashboardIpcResponseSchema.parse({
+        ok: true,
+        value: core.projects.dashboard(),
+      });
+    } catch (error) {
+      return projectDashboardIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.projectRepositorySelect, async (_event, input: unknown) => {
+    try {
+      const request = projectRepositorySelectRequestSchema.parse(input);
+      const selected = await dialog.showOpenDialog({
+        title: 'Select local Git repository',
+        properties: ['openDirectory'],
+      });
+      const rootPath = selected.filePaths[0];
+      const value =
+        selected.canceled || rootPath === undefined
+          ? null
+          : core.projects.registerRepository(
+              request.input.projectId,
+              rootPath,
+              request.correlationId,
+            );
+      return projectRepositorySelectIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return projectRepositorySelectIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.projectRepositoryRefresh, (_event, input: unknown) => {
+    try {
+      const request = projectRepositoryRefreshRequestSchema.parse(input);
+      return projectRepositoryRefreshIpcResponseSchema.parse({
+        ok: true,
+        value: core.projects.refreshRepository(
+          request.input.repositoryId,
+          request.correlationId,
+        ),
+      });
+    } catch (error) {
+      return projectRepositoryRefreshIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
   ipcMain.handle(ipcChannels.chatList, (_event, input: unknown) => {
     try {
       chatListRequestSchema.parse(input);
@@ -508,6 +571,9 @@ export function registerIpcHandlers(core: CoreRuntime): () => void {
     ipcMain.removeHandler(ipcChannels.actionApprove);
     ipcMain.removeHandler(ipcChannels.actionReject);
     ipcMain.removeHandler(ipcChannels.actionPolicyUpdate);
+    ipcMain.removeHandler(ipcChannels.projectDashboard);
+    ipcMain.removeHandler(ipcChannels.projectRepositorySelect);
+    ipcMain.removeHandler(ipcChannels.projectRepositoryRefresh);
     ipcMain.removeHandler(ipcChannels.chatList);
     ipcMain.removeHandler(ipcChannels.chatCreate);
     ipcMain.removeHandler(ipcChannels.chatGet);

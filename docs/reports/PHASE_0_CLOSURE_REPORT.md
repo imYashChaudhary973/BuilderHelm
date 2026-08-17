@@ -1,9 +1,12 @@
 # Phase 0 Closure Report
 
+> Historical checkpoint. See [Implementation Status](../STATUS.md) for the
+> current repository state.
+
 - Date: 2026-08-09
 - Scope: repository and architecture guardrails plus the secure desktop health
-  foundation required by `19_MASTER_BUILD_PROMPT.md`
-- Result: **Phase 0 implemented and locally verified**
+  foundation required by the original bootstrap specification
+- Status: **Complete; implemented and locally verified**
 
 ## Completed
 

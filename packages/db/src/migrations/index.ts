@@ -4,6 +4,7 @@ import { chatPersistenceMigration } from './0003-chat-persistence.js';
 import { modelCapabilityOverridesMigration } from './0004-model-capability-overrides.js';
 import { obsidianKnowledgeMigration } from './0005-obsidian-knowledge.js';
 import { toolsPermissionsActionsMigration } from './0006-tools-permissions-actions.js';
+import { projectContinuityMigration } from './0007-project-continuity.js';
 
 export const migrations = [
   phaseZeroMigration,
@@ -12,6 +13,7 @@ export const migrations = [
   modelCapabilityOverridesMigration,
   obsidianKnowledgeMigration,
   toolsPermissionsActionsMigration,
+  projectContinuityMigration,
 ] as const;
 
 export {
@@ -21,4 +23,5 @@ export {
   toolsPermissionsActionsMigration,
   phaseZeroMigration,
   providerSettingsMigration,
+  projectContinuityMigration,
 };

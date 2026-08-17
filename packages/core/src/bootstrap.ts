@@ -6,6 +6,7 @@ import {
   ModelRepository,
   openDatabase,
   ProviderRepository,
+  ProjectRepositoryStore,
   runMigrations,
 } from '@zero/db';
 import type { GatewayFetch } from '@zero/model-gateway';
@@ -19,6 +20,7 @@ import { ModelService } from './models/model-service.js';
 import { KnowledgeService } from './knowledge/knowledge-service.js';
 import { ActionService } from './actions/action-service.js';
 import { createWorkToolRegistry, PermissionEngine } from '@zero/tools';
+import { ProjectService } from './projects/project-service.js';
 import type { SecretStore } from './secrets/secret-store.js';
 
 export interface CoreOptions {
@@ -35,6 +37,7 @@ export interface CoreRuntime {
   readonly models: ModelService;
   readonly knowledge: KnowledgeService;
   readonly actions: ActionService;
+  readonly projects: ProjectService;
   health(correlationId: CorrelationId): SystemHealthResponse;
   close(): void;
 }
@@ -75,12 +78,18 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     models,
     logger,
   );
+  const actionRepository = new ActionRepository(database);
   const actions = new ActionService(
-    new ActionRepository(database),
+    actionRepository,
     models,
     logger,
     createWorkToolRegistry(),
     new PermissionEngine(),
+  );
+  const projects = new ProjectService(
+    actionRepository,
+    new ProjectRepositoryStore(database),
+    logger,
   );
 
   return {
@@ -90,6 +99,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     models,
     knowledge,
     actions,
+    projects,
     health(correlationId) {
       return {
         status: 'ok',

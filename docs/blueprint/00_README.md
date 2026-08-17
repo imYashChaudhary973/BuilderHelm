@@ -2,7 +2,12 @@
 
 **Blueprint version:** 1.0  
 **Research snapshot:** 8 August 2026  
-**Status:** Build-ready architecture specification
+**Status:** Product and architecture baseline
+
+This blueprint describes intended direction, not current delivery state. See
+[Implementation Status](../STATUS.md) for what the repository implements now.
+The numbered Markdown files are canonical; `Zero_OS_Master_Blueprint.docx` is a
+convenience export and may lag behind them.
 
 ## What Zero OS is
 
@@ -24,26 +29,30 @@ Use a **TypeScript model abstraction layer** as the primary runtime. Native prov
 
 ## Documentation map
 
-- `01_PRODUCT_VISION.md` — mission, product principles, success criteria
-- `02_PRD.md` — product requirements and user journeys
-- `03_SYSTEM_ARCHITECTURE.md` — complete technical architecture
-- `04_MODEL_GATEWAY.md` — multi-provider model harness
-- `05_MEMORY_KNOWLEDGE_GRAPH.md` — Obsidian, RAG, graph, memory
-- `06_AGENT_RUNTIME.md` — agent orchestration and specialist agents
-- `07_ACTIONS_TOOLS_PERMISSIONS.md` — tools, approvals, auditability
-- `08_VOICE_ASSISTANT.md` — voice-to-action architecture
-- `09_CODING_WORKSPACE.md` — Codex-like multi-model coding environment
-- `10_INTEGRATIONS.md` — Obsidian, GitHub, HealthKit, NoiseFit, calendar, browser
-- `11_DATA_MODEL.md` — database schema and domain objects
-- `12_INTERNAL_API_EVENTS.md` — IPC/API/event contracts
-- `13_SECURITY_PRIVACY.md` — secrets, data classification, sandboxing
-- `14_UI_UX.md` — navigation, screens, interaction model
-- `15_AUTOMATION_ENGINE.md` — schedules, triggers, workflows
-- `16_EVALS_OBSERVABILITY.md` — testing, model evals, agent traces, costs
-- `17_ROADMAP.md` — phased execution plan
-- `18_STARTUP_PRODUCTIZATION.md` — how internal modules can become products
-- `19_MASTER_BUILD_PROMPT.md` — prompt for the coding agent
-- `20_RESEARCH_SOURCES.md` — official sources used for technical decisions
+| File | Subject |
+| --- | --- |
+| [01](01_PRODUCT_VISION.md) | Product vision, principles, and success criteria |
+| [02](02_PRD.md) | Product requirements and user journeys |
+| [03](03_SYSTEM_ARCHITECTURE.md) | Technical architecture |
+| [04](04_MODEL_GATEWAY.md) | Multi-provider model harness |
+| [05](05_MEMORY_KNOWLEDGE_GRAPH.md) | Obsidian, retrieval, graph, and memory |
+| [06](06_AGENT_RUNTIME.md) | Agent orchestration and specialist agents |
+| [07](07_ACTIONS_TOOLS_PERMISSIONS.md) | Tools, approvals, and auditability |
+| [08](08_VOICE_ASSISTANT.md) | Voice-to-action architecture |
+| [09](09_CODING_WORKSPACE.md) | Multi-model coding environment |
+| [10](10_INTEGRATIONS.md) | Obsidian, GitHub, HealthKit, NoiseFit, calendar, and browser integrations |
+| [11](11_DATA_MODEL.md) | Database schema and domain objects |
+| [12](12_INTERNAL_API_EVENTS.md) | IPC, API, and event contracts |
+| [13](13_SECURITY_PRIVACY.md) | Secrets, data classification, and sandboxing |
+| [14](14_UI_UX.md) | Navigation, screens, and interaction model |
+| [15](15_AUTOMATION_ENGINE.md) | Schedules, triggers, and workflows |
+| [16](16_EVALS_OBSERVABILITY.md) | Testing, model evals, traces, and costs |
+| [17](17_ROADMAP.md) | Phased delivery plan |
+| [18](18_STARTUP_PRODUCTIZATION.md) | Product boundaries and opportunities |
+| [20](20_RESEARCH_SOURCES.md) | Sources used for technical decisions |
+
+Document 19 was an initial bootstrap prompt. It was removed after its build
+instructions became obsolete; the number is intentionally not reused.
 
 ## One sentence architecture
 
