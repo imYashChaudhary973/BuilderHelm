@@ -35,6 +35,10 @@
     "./providers": {
       "types": "./dist/providers.d.ts",
       "import": "./src/providers.ts"
+    },
+    "./projects": {
+      "types": "./dist/projects.d.ts",
+      "import": "./src/projects.ts"
     }
   },
   "dependencies": {

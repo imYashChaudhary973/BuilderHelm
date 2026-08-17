@@ -54,6 +54,13 @@ import {
   knowledgeVaultSelectIpcResponseSchema,
   knowledgeVaultSyncInputSchema,
 } from '@zero/protocol/knowledge';
+import {
+  projectDashboardIpcResponseSchema,
+  projectRepositoryRefreshInputSchema,
+  projectRepositoryRefreshIpcResponseSchema,
+  projectRepositorySelectInputSchema,
+  projectRepositorySelectIpcResponseSchema,
+} from '@zero/protocol/projects';
 import { contextBridge, ipcRenderer } from 'electron';
 
 function unwrap<T>(result: {
@@ -280,6 +287,35 @@ const api: ZeroDesktopApi = {
         input: permissionPolicyUpdateInputSchema.parse(input),
       });
       return unwrap(permissionPolicyUpdateIpcResponseSchema.parse(response));
+    },
+  },
+  projects: {
+    async dashboard() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.projectDashboard, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: {},
+      });
+      return unwrap(projectDashboardIpcResponseSchema.parse(response));
+    },
+    async selectRepository(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.projectRepositorySelect,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          input: projectRepositorySelectInputSchema.parse(input),
+        },
+      );
+      return unwrap(projectRepositorySelectIpcResponseSchema.parse(response));
+    },
+    async refreshRepository(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.projectRepositoryRefresh,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          input: projectRepositoryRefreshInputSchema.parse(input),
+        },
+      );
+      return unwrap(projectRepositoryRefreshIpcResponseSchema.parse(response));
     },
   },
 };

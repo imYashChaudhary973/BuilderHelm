@@ -1,8 +1,11 @@
-# Phase 4 progress report
+# Phase 4 Progress Report
+
+> Historical checkpoint. Phase 4 subsequently merged through PR #3. See
+> [Implementation Status](../STATUS.md) for the current repository state.
 
 - Date: 2026-08-11
 - Branch: `phase-4/tools-permissions-action-chat`
-- Status: Implemented, verified, manually accepted, and published for review
+- Status: Complete; merged into `main`
 
 ## Completed checkpoints
 
@@ -156,10 +159,10 @@ approval belong to Phase 9 in the execution roadmap and were not added here.
 - Deterministic manual task creation, task update, auto-approval, denial, receipt,
   and safe-policy-reset acceptance is complete.
 
-## Remaining delivery gates
+## Current outcome
 
-1. Obtain human review and mark draft PR #3 ready after its Phase 3 base is
-   accepted.
-2. Merge the stack in order: Phase 2 (#1), Phase 3 (#2), then Phase 4 (#3).
-3. A live tool-capable model exercise remains optional because the model is a
-   proposal-only fallback and its strict contract is covered by automated tests.
+- Merged into `main` through PR #3 in merge commit `4cd140a`.
+- A live tool-capable model exercise remains optional because the model is a
+  proposal-only fallback and its strict contract is covered by automated tests.
+- The verification table above remains the checkpoint evidence; it is not a
+  current-worktree test result.

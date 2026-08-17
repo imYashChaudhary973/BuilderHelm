@@ -1,65 +1,133 @@
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 
-type CoreStatus = 'checking' | 'ready' | 'unavailable';
+function dayLabel(): string {
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  }).format(new Date());
+}
 
 export function TodayPage(): React.JSX.Element {
-  const [status, setStatus] = useState<CoreStatus>('checking');
-
-  useEffect(() => {
-    let active = true;
-    void window.zero.system
-      .health()
-      .then(() => active && setStatus('ready'))
-      .catch(() => active && setStatus('unavailable'));
-    return () => {
-      active = false;
-    };
-  }, []);
+  const dashboard = useQuery({
+    queryKey: ['project-dashboard'],
+    queryFn: () => window.zero.projects.dashboard(),
+  });
+  const projects = dashboard.data?.projects ?? [];
+  const blocked = projects.flatMap((item) =>
+    item.tasks.filter((task) => task.status === 'blocked'),
+  );
+  const inProgress = projects.flatMap((item) =>
+    item.tasks.filter((task) => task.status === 'in_progress'),
+  );
+  const coreStatus = dashboard.isLoading
+    ? 'checking'
+    : dashboard.isError
+      ? 'unavailable'
+      : 'ready';
 
   return (
     <>
-      <header className="topbar">
+      <header className="todayHeader">
         <div>
-          <p className="eyebrow">Phase 1</p>
-          <h1>Secure provider settings</h1>
+          <p className="eyebrow">{dayLabel()}</p>
+          <h1>Continue what matters.</h1>
         </div>
         <div
-          className={`status status-${status}`}
-          data-core-status={status}
+          className="todayLocalState"
+          data-core-status={coreStatus}
           role="status"
           aria-live="polite"
         >
           <span aria-hidden="true" />
-          {status === 'checking' && 'Checking core'}
-          {status === 'ready' && 'Core ready'}
-          {status === 'unavailable' && 'Core unavailable'}
+          {dashboard.isLoading
+            ? 'Reading local work'
+            : dashboard.isError
+              ? 'Data unavailable'
+              : 'Local data current'}
         </div>
       </header>
-      <section className="hero" aria-labelledby="foundation-title">
-        <p className="eyebrow">Private by default</p>
-        <h2 id="foundation-title">Your model access stays under your control.</h2>
-        <p>
-          Provider metadata lives locally. Credential values are handed directly to macOS
-          Keychain and are never returned to this interface.
-        </p>
+      <section className="todaySummary" aria-label="Today summary">
+        <div>
+          <span>Active projects</span>
+          <strong>
+            {projects.filter((item) => item.project.status === 'active').length}
+          </strong>
+        </div>
+        <div>
+          <span>In progress</span>
+          <strong>{inProgress.length}</strong>
+        </div>
+        <div>
+          <span>Blocked</span>
+          <strong>{blocked.length}</strong>
+        </div>
+        <div>
+          <span>Repositories</span>
+          <strong>{projects.filter((item) => item.repository !== null).length}</strong>
+        </div>
       </section>
-      <section className="grid" aria-label="Foundation status">
-        <article>
-          <span className="index">01</span>
-          <h3>Sandboxed interface</h3>
-          <p>The renderer receives fixed, validated operations and no Node primitives.</p>
-        </article>
-        <article>
-          <span className="index">02</span>
-          <h3>Local metadata</h3>
-          <p>Provider settings and append-only audit events stay in local SQLite.</p>
-        </article>
-        <article>
-          <span className="index">03</span>
-          <h3>Keychain credentials</h3>
-          <p>Secrets cross the bridge once and remain outside application storage.</p>
-        </article>
-      </section>
+      {projects.length === 0 && !dashboard.isLoading ? (
+        <section className="todayEmpty">
+          <p className="eyebrow">Clear desk</p>
+          <h2>Your active work will gather here.</h2>
+          <p>
+            Create a project through Actions. Today will then surface its tasks, blockers,
+            decisions, and Git activity.
+          </p>
+          <Link className="primaryButton" to="/actions">
+            Create through Actions
+          </Link>
+        </section>
+      ) : (
+        <section className="todayProjects" aria-labelledby="today-projects-title">
+          <div className="sectionHeading">
+            <div>
+              <p className="eyebrow">Active threads</p>
+              <h2 id="today-projects-title">Where to resume</h2>
+            </div>
+            <Link to="/projects">Open project view</Link>
+          </div>
+          <div className="todayProjectRows">
+            {projects.slice(0, 6).map((item) => {
+              const nextTask =
+                item.tasks.find((task) => task.status === 'in_progress') ??
+                item.tasks.find((task) => task.status === 'todo');
+              const projectBlocked = item.tasks.filter(
+                (task) => task.status === 'blocked',
+              ).length;
+              return (
+                <article key={item.project.id}>
+                  <div className="todayProjectIdentity">
+                    <span aria-hidden="true" />
+                    <div>
+                      <h3>{item.project.name}</h3>
+                      <p>
+                        {item.repository === null
+                          ? 'Repository not connected'
+                          : `${item.repository.branch} · ${item.repository.dirtyCount === 0 ? 'clean' : `${item.repository.dirtyCount} changes`}`}
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    <span>Next</span>
+                    <strong>{nextTask?.title ?? 'Choose the next task'}</strong>
+                  </div>
+                  <div>
+                    <span>Signal</span>
+                    <strong>
+                      {projectBlocked > 0
+                        ? `${projectBlocked} blocked`
+                        : `${item.timeline.length} recent events`}
+                    </strong>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
     </>
   );
 }

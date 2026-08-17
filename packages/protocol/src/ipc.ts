@@ -39,6 +39,12 @@ import type {
   ChatTranscript,
   CreateChatThreadInput,
 } from './chat.js';
+import type {
+  ProjectDashboard,
+  ProjectDashboardSnapshot,
+  ProjectRepositoryRefreshInput,
+  ProjectRepositorySelectInput,
+} from './projects.js';
 
 export const ipcChannels = {
   systemHealth: 'zero:system:health',
@@ -61,6 +67,9 @@ export const ipcChannels = {
   actionApprove: 'zero:action:approve',
   actionReject: 'zero:action:reject',
   actionPolicyUpdate: 'zero:action:policy-update',
+  projectDashboard: 'zero:project:dashboard',
+  projectRepositorySelect: 'zero:project:repository-select',
+  projectRepositoryRefresh: 'zero:project:repository-refresh',
   chatList: 'zero:chat:list',
   chatCreate: 'zero:chat:create',
   chatGet: 'zero:chat:get',
@@ -139,5 +148,12 @@ export interface ZeroDesktopApi {
     approve(input: ApprovalResolveInput): Promise<ActionCommandOutcome>;
     reject(input: ApprovalResolveInput): Promise<ApprovalRequest>;
     updatePolicy(input: PermissionPolicyUpdateInput): Promise<PermissionPolicy>;
+  };
+  readonly projects: {
+    dashboard(): Promise<ProjectDashboardSnapshot>;
+    selectRepository(
+      input: ProjectRepositorySelectInput,
+    ): Promise<ProjectDashboard | null>;
+    refreshRepository(input: ProjectRepositoryRefreshInput): Promise<ProjectDashboard>;
   };
 }

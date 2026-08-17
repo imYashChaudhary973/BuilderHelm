@@ -1,8 +1,11 @@
-# Phase 2 progress report
+# Phase 2 Progress Report
+
+> Historical checkpoint. Phase 2 subsequently merged through PR #1. See
+> [Implementation Status](../STATUS.md) for the current repository state.
 
 - Date: 2026-08-10
 - Branch: `phase-2/model-gateway-chat`
-- Status: Implemented and verified on the Phase 2 branch
+- Status: Complete; merged into `main`
 
 ## Completed checkpoints
 
@@ -124,7 +127,8 @@
 Provider network behavior is covered with deterministic fetch fixtures. No paid
 provider request or real provider credential was used for this checkpoint.
 
-## Remaining delivery gates
+## Current outcome
 
-1. Push this completed checkpoint and confirm pull-request CI.
-2. Obtain human review before merge; merge remains a separate authorization.
+- Merged into `main` through PR #1 in merge commit `8dbf26f`.
+- The verification table above remains the checkpoint evidence; it is not a
+  current-worktree test result.

@@ -11,6 +11,7 @@ export {
   modelCapabilityOverridesMigration,
   obsidianKnowledgeMigration,
   toolsPermissionsActionsMigration,
+  projectContinuityMigration,
   phaseZeroMigration,
   providerSettingsMigration,
 } from './migrations/index.js';
@@ -19,3 +20,4 @@ export * from './action-repository.js';
 export * from './knowledge-repository.js';
 export * from './model-repository.js';
 export * from './provider-repository.js';
+export * from './project-repository.js';

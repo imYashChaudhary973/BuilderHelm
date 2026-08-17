@@ -1,8 +1,11 @@
-# Phase 3 progress report
+# Phase 3 Progress Report
+
+> Historical checkpoint. Phase 3 subsequently merged through PR #2. See
+> [Implementation Status](../STATUS.md) for the current repository state.
 
 - Date: 2026-08-10
 - Branch: `phase-3/obsidian-memory`
-- Status: Implemented, verified, and published for review
+- Status: Complete; merged into `main`
 
 ## Completed checkpoints
 
@@ -101,10 +104,10 @@ add/change/delete indexing without sending personal notes to a paid provider.
   model. The Knowledge screen indexed both notes, returned a grounded answer with
   two citations, and opened the exact cited source lines.
 
-## Remaining delivery gates
+## Current outcome
 
-1. Obtain human review and mark draft PR #2 ready after its Phase 2 base is
-   accepted.
-2. Merge in stack order after PR #1: Phase 2 (#1), then Phase 3 (#2).
-3. A real-vault exercise remains optional because deterministic acceptance and the
-   isolated local-model UI flow already cover the Phase 3 exit criteria.
+- Merged into `main` through PR #2 in merge commit `438b036`.
+- A real-vault exercise remains optional because deterministic acceptance and the
+  isolated local-model UI flow cover the Phase 3 exit criteria.
+- The verification table above remains the checkpoint evidence; it is not a
+  current-worktree test result.

@@ -1,6 +1,6 @@
 import { ZeroError } from '@zero/shared';
 
-import type { ZeroDatabase } from './database.js';
+import type { DatabaseValue, ZeroDatabase } from './database.js';
 import type { AuditEventWrite } from './provider-repository.js';
 
 export interface ProjectWrite {
@@ -229,9 +229,15 @@ const receiptColumns = `
 export class ActionRepository {
   constructor(private readonly database: ZeroDatabase) {}
 
-  listProjects(): StoredProject[] {
+  listProjects(limit?: number): StoredProject[] {
+    if (limit === undefined) {
+      return this.database.queryAll<StoredProject>(
+        `SELECT ${projectColumns} FROM projects ORDER BY lower(name), id`,
+      );
+    }
     return this.database.queryAll<StoredProject>(
-      `SELECT ${projectColumns} FROM projects ORDER BY lower(name), id`,
+      `SELECT ${projectColumns} FROM projects ORDER BY lower(name), id LIMIT ?`,
+      [limit],
     );
   }
 
@@ -249,34 +255,26 @@ export class ActionRepository {
     );
   }
 
-  listTasks(projectId?: string, status?: string): StoredTask[] {
-    if (projectId !== undefined && status !== undefined) {
-      return this.database.queryAll<StoredTask>(
-        `SELECT ${taskColumns} FROM tasks
-         WHERE project_id = ? AND status = ?
-         ORDER BY due_at IS NULL, due_at, created_at, id`,
-        [projectId, status],
-      );
-    }
+  listTasks(projectId?: string, status?: string, limit?: number): StoredTask[] {
+    const conditions: string[] = [];
+    const parameters: DatabaseValue[] = [];
     if (projectId !== undefined) {
-      return this.database.queryAll<StoredTask>(
-        `SELECT ${taskColumns} FROM tasks
-         WHERE project_id = ?
-         ORDER BY due_at IS NULL, due_at, created_at, id`,
-        [projectId],
-      );
+      conditions.push('project_id = ?');
+      parameters.push(projectId);
     }
     if (status !== undefined) {
-      return this.database.queryAll<StoredTask>(
-        `SELECT ${taskColumns} FROM tasks
-         WHERE status = ?
-         ORDER BY due_at IS NULL, due_at, created_at, id`,
-        [status],
-      );
+      conditions.push('status = ?');
+      parameters.push(status);
+    }
+    if (limit !== undefined) {
+      parameters.push(limit);
     }
     return this.database.queryAll<StoredTask>(
       `SELECT ${taskColumns} FROM tasks
-       ORDER BY due_at IS NULL, due_at, created_at, id`,
+       ${conditions.length === 0 ? '' : `WHERE ${conditions.join(' AND ')}`}
+       ORDER BY due_at IS NULL, due_at, created_at, id
+       ${limit === undefined ? '' : 'LIMIT ?'}`,
+      parameters,
     );
   }
 

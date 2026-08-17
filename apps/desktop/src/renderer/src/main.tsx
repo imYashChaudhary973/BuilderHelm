@@ -15,6 +15,7 @@ import { ChatPage } from './routes/chat.js';
 import { KnowledgePage } from './routes/knowledge.js';
 import { ProvidersPage } from './routes/settings/providers.js';
 import { TodayPage } from './routes/today.js';
+import { ProjectsPage } from './routes/projects.js';
 import './styles.css';
 
 const rootRoute = createRootRoute({ component: App });
@@ -43,11 +44,17 @@ const actionsRoute = createRoute({
   path: '/actions',
   component: ActionsPage,
 });
+const projectsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/projects',
+  component: ProjectsPage,
+});
 const routeTree = rootRoute.addChildren([
   todayRoute,
   chatRoute,
   knowledgeRoute,
   actionsRoute,
+  projectsRoute,
   providersRoute,
 ]);
 const router = createRouter({

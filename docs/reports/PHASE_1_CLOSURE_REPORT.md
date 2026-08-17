@@ -1,4 +1,7 @@
-# Phase 1 closure report
+# Phase 1 Closure Report
+
+> Historical checkpoint. See [Implementation Status](../STATUS.md) for the
+> current repository state.
 
 - Date: 2026-08-09
 - Scope: secure settings and provider registry
