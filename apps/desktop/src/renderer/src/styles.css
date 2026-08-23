@@ -468,13 +468,14 @@ textarea:focus-visible {
   flex-direction: column;
   gap: 8px;
   min-height: 0;
+  overflow: visible;
   padding: 12px 10px;
   border-right: 1px solid var(--line);
   background: linear-gradient(180deg, var(--glass-strong) 0%, var(--glass) 100%);
 }
 
 .railCollapsed {
-  padding: 12px 8px;
+  padding: 12px 6px;
 }
 
 .railList {
@@ -483,7 +484,18 @@ textarea:focus-visible {
   flex-direction: column;
   gap: 4px;
   min-height: 0;
-  overflow: auto;
+  overflow: visible;
+}
+
+.railCollapsed .railRow {
+  flex-direction: column;
+}
+
+.railCollapsed .railMore {
+  width: 100%;
+  height: 14px;
+  font-size: 10px;
+  line-height: 1;
 }
 
 .railRow {
@@ -575,11 +587,11 @@ textarea:focus-visible {
 
 .railMenu {
   position: absolute;
-  top: 100%;
-  right: 0;
-  z-index: 8;
+  top: 0;
+  left: calc(100% + 6px);
+  z-index: 20;
   display: flex;
-  min-width: 160px;
+  min-width: 168px;
   flex-direction: column;
   gap: 4px;
   padding: 8px;
@@ -587,6 +599,12 @@ textarea:focus-visible {
   border-radius: var(--radius-s);
   background: var(--panel);
   box-shadow: var(--shadow-float);
+}
+
+.rail:not(.railCollapsed) .railMenu {
+  top: 100%;
+  left: auto;
+  right: 0;
 }
 
 .railMenu button {

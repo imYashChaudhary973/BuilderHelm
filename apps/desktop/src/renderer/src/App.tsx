@@ -108,7 +108,7 @@ function Shell(): React.JSX.Element {
           </button>
         </div>
       </header>
-      <SpaceRail collapsed={railCollapsed} onToggle={toggleRail} />
+      <SpaceRail collapsed={railCollapsed} />
       <main className="content" role="main">
         <Outlet />
       </main>

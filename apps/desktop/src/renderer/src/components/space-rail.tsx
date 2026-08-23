@@ -13,13 +13,7 @@ function TerminalIcon({ color }: { readonly color: string }): React.JSX.Element 
   );
 }
 
-export function SpaceRail({
-  collapsed,
-  onToggle,
-}: {
-  readonly collapsed: boolean;
-  readonly onToggle: () => void;
-}): React.JSX.Element {
+export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React.JSX.Element {
   const navigate = useNavigate();
   const spaces = useSpaces();
   const [menuId, setMenuId] = useState<string | null>(null);
@@ -28,7 +22,6 @@ export function SpaceRail({
   function openSpace(session: BoardSessionSummary): void {
     spaces.activate(session.sessionId);
     void navigate({ to: '/board' });
-    setMenuId(null);
   }
 
   return (
@@ -37,6 +30,7 @@ export function SpaceRail({
         {spaces.spaces.map((space) => {
           const on = !spaces.draft && spaces.activeId === space.sessionId;
           const meta = spaces.meta(space);
+          const menuOpen = menuId === space.sessionId;
           const renaming = renamingId === space.sessionId;
           return (
             <div key={space.sessionId} className={on ? 'railRow railItemOn' : 'railRow'}>
@@ -45,28 +39,9 @@ export function SpaceRail({
                 className="railItem"
                 title={meta.label}
                 onClick={() => openSpace(space)}
-                onContextMenu={(event) => {
-                  event.preventDefault();
-                  setMenuId(space.sessionId);
-                }}
               >
                 <TerminalIcon color={meta.color} />
-                {collapsed ? null : renaming ? (
-                  <input
-                    className="railRename"
-                    defaultValue={meta.label}
-                    autoFocus
-                    onClick={(event) => event.stopPropagation()}
-                    onBlur={(event) => {
-                      spaces.rename(space, event.currentTarget.value);
-                      setRenamingId(null);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') event.currentTarget.blur();
-                      if (event.key === 'Escape') setRenamingId(null);
-                    }}
-                  />
-                ) : (
+                {collapsed ? null : (
                   <span className="railCopy">
                     <strong>{meta.label}</strong>
                     <small>
@@ -75,32 +50,44 @@ export function SpaceRail({
                   </span>
                 )}
               </button>
-              {collapsed ? null : (
-                <button
-                  type="button"
-                  className="railMore"
-                  aria-label={`Options for ${meta.label}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setMenuId((current) =>
-                      current === space.sessionId ? null : space.sessionId,
-                    );
-                  }}
-                >
-                  ···
-                </button>
-              )}
-              {menuId === space.sessionId && (
+              <button
+                type="button"
+                className="railMore"
+                aria-label={`Options for ${meta.label}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setMenuId((current) => (current === space.sessionId ? null : space.sessionId));
+                  setRenamingId(null);
+                }}
+              >
+                ···
+              </button>
+              {menuOpen && (
                 <div className="railMenu" role="menu">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRenamingId(space.sessionId);
-                      setMenuId(null);
-                    }}
-                  >
-                    Rename
-                  </button>
+                  {renaming ? (
+                    <input
+                      className="railRename"
+                      defaultValue={meta.label}
+                      autoFocus
+                      onClick={(event) => event.stopPropagation()}
+                      onBlur={(event) => {
+                        spaces.rename(space, event.currentTarget.value);
+                        setRenamingId(null);
+                        setMenuId(null);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') event.currentTarget.blur();
+                        if (event.key === 'Escape') {
+                          setRenamingId(null);
+                          setMenuId(null);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <button type="button" onClick={() => setRenamingId(space.sessionId)}>
+                      Rename
+                    </button>
+                  )}
                   <div className="railSwatches">
                     {SPACE_COLORS.map((color) => (
                       <button
@@ -109,10 +96,7 @@ export function SpaceRail({
                         className="railSwatch"
                         style={{ background: color }}
                         aria-label={`Color ${color}`}
-                        onClick={() => {
-                          spaces.setColor(space, color);
-                          setMenuId(null);
-                        }}
+                        onClick={() => spaces.setColor(space, color)}
                       />
                     ))}
                   </div>
@@ -132,47 +116,18 @@ export function SpaceRail({
           );
         })}
       </div>
-      <div className="railFooter">
-        <button
-          type="button"
-          className={spaces.draft ? 'railNew railItemOn' : 'railNew'}
-          title="New Space"
-          onClick={() => {
-            spaces.startDraft();
-            void navigate({ to: '/board' });
-            setMenuId(null);
-          }}
-        >
-          {collapsed ? '+' : '+ New Space'}
-        </button>
-        <button
-          type="button"
-          className="topbarIcon"
-          title={collapsed ? 'Show sidebar' : 'Hide sidebar'}
-          aria-pressed={!collapsed}
-          onClick={onToggle}
-        >
-          <RailIcon />
-        </button>
-      </div>
+      <button
+        type="button"
+        className={spaces.draft ? 'railNew railItemOn' : 'railNew'}
+        title="New Space"
+        onClick={() => {
+          spaces.startDraft();
+          void navigate({ to: '/board' });
+          setMenuId(null);
+        }}
+      >
+        {collapsed ? '+' : '+ New Space'}
+      </button>
     </aside>
-  );
-}
-
-function RailIcon(): React.JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-      <rect
-        x="3.5"
-        y="4.5"
-        width="17"
-        height="15"
-        rx="2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.75"
-      />
-      <path d="M9 4.5v15" fill="none" stroke="currentColor" strokeWidth="1.75" />
-    </svg>
   );
 }
