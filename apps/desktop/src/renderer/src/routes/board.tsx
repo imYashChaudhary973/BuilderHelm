@@ -14,6 +14,7 @@ import type { CorrelationId } from '@zero/shared';
 import { useEffect, useState } from 'react';
 import { TerminalPane } from '../components/terminal-pane.js';
 import { SignalField } from '../components/signal-field.js';
+import { AgentMark } from '../components/agent-mark.js';
 import { useSpaces } from '../space-store.js';
 import logo from '../assets/logo.png';
 const PANE_COUNTS: readonly BoardPaneCount[] = [1, 2, 4, 6, 8, 10, 12];
@@ -706,10 +707,9 @@ export function BoardPage(): React.JSX.Element {
                   className={`agentRow${count > 0 ? ' agentRowOn' : ''}`}
                   key={entry.id}
                 >
-                  <button
-                    type="button"
-                    className={`agentCheck${count > 0 ? ' agentCheckOn' : ''}`}
-                    aria-pressed={count > 0}
+                  <AgentMark
+                    id={entry.id}
+                    on={count > 0}
                     onClick={() => setAgentCount(entry.id, count > 0 ? 0 : 1)}
                   />
                   <span className="agentName">{entry.label}</span>
@@ -752,10 +752,9 @@ export function BoardPage(): React.JSX.Element {
         )}
         <div className={`agentCustom${customAssigned > 0 ? ' agentRowOn' : ''}`}>
           <div className="agentRow">
-            <button
-              type="button"
-              className={`agentCheck${customAssigned > 0 ? ' agentCheckOn' : ''}`}
-              aria-pressed={customAssigned > 0}
+            <AgentMark
+              id="custom"
+              on={customAssigned > 0}
               onClick={() => setAgentCount('custom', customAssigned > 0 ? 0 : 1)}
             />
             <span className="agentName">

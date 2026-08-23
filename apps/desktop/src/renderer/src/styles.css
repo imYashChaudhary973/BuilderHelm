@@ -3545,6 +3545,25 @@ fieldset legend {
   border-color: var(--accent-line);
 }
 
+.agentMark {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: #141414;
+  color: #f3f3f3;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.agentMarkOn {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: #1b1b1b;
+}
+
 .agentCheck {
   width: 16px;
   height: 16px;
