@@ -56,6 +56,12 @@ import {
   browserCommandIpcResponseSchema,
   browserCommandRequestSchema,
 } from '@zero/protocol/browser';
+import {
+  editorPickIpcResponseSchema,
+  editorPickRequestSchema,
+  editorReadIpcResponseSchema,
+  editorReadRequestSchema,
+} from '@zero/protocol/editor';
 import { ipcChannels, systemHealthRequestSchema } from '@zero/protocol/ipc';
 import {
   knowledgeAnswerIpcResponseSchema,
@@ -96,6 +102,7 @@ import {
 import { createCorrelationId, normalizeError, ZeroError } from '@zero/shared';
 import type { BoardPtyManager } from './board-pty-manager.js';
 import { PreviewBrowser } from './preview-browser.js';
+import { pickEditorFile, readEditorFile } from './file-reader.js';
 import { dialog, ipcMain, type WebContents } from 'electron';
 import { ZodError } from 'zod';
 
@@ -824,6 +831,32 @@ export function registerIpcHandlers(
     }
   });
 
+  ipcMain.handle(ipcChannels.editorPick, async (_event, input: unknown) => {
+    try {
+      editorPickRequestSchema.parse(input);
+      const value = await pickEditorFile();
+      return editorPickIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return editorPickIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.editorRead, (_event, input: unknown) => {
+    try {
+      const request = editorReadRequestSchema.parse(input);
+      const value = readEditorFile(request.input.path);
+      return editorReadIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return editorReadIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
   return () => {
     for (const active of activeStreams.values()) active.controller.abort();
     activeStreams.clear();
@@ -870,5 +903,7 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.boardLand);
     ipcMain.removeHandler(ipcChannels.boardLandPreview);
     ipcMain.removeHandler(ipcChannels.browserCommand);
+    ipcMain.removeHandler(ipcChannels.editorPick);
+    ipcMain.removeHandler(ipcChannels.editorRead);
   };
 }

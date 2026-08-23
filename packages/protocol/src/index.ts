@@ -2,6 +2,7 @@ export * from './actions.js';
 export * from './browser.js';
 export * from './board.js';
 export * from './chat.js';
+export * from './editor.js';
 export * from './events.js';
 export * from './ipc.js';
 export * from './json.js';

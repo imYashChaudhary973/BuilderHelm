@@ -3723,3 +3723,57 @@ fieldset legend {
     transition: none;
   }
 }
+
+.editorSide {
+  grid-area: browser;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.editorBar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 10px;
+  -webkit-app-region: no-drag;
+}
+
+.editorBar span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.editorBar button {
+  flex-shrink: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text-2);
+  background: var(--bg-1);
+}
+
+.editorBody {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  margin: 0;
+  resize: none;
+  border: 0;
+  border-radius: 0;
+  padding: 12px;
+  background: var(--bg-1);
+  color: var(--text);
+  font-family: var(--font-mono);
+}
+
+p.editorBody {
+  color: var(--text-2);
+}

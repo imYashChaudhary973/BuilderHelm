@@ -13,6 +13,10 @@ import {
   modelListIpcResponseSchema,
   parsePreviewUrl,
   providerTestConnectionRequestSchema,
+  editorPickIpcResponseSchema,
+  editorReadInputSchema,
+  editorReadIpcResponseSchema,
+  editorReadRequestSchema,
   systemHealthRequestSchema,
   systemHealthResponseSchema,
   zeroEventSchema,
@@ -210,5 +214,42 @@ describe('preview URLs', () => {
     expect(parsePreviewUrl('file:///etc/passwd')).toBeNull();
     expect(parsePreviewUrl('javascript:alert(1)')).toBeNull();
     expect(parsePreviewUrl('http://user:pass@host/')).toBeNull();
+  });
+});
+
+describe('editor file read', () => {
+  it('rejects an empty path', () => {
+    expect(editorReadInputSchema.safeParse({ path: '' }).success).toBe(false);
+    expect(
+      editorReadRequestSchema.safeParse({
+        correlationId: createCorrelationId(),
+        input: { path: '' },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('accepts a read request and treats pick cancel as null', () => {
+    expect(
+      editorReadRequestSchema.parse({
+        correlationId: createCorrelationId(),
+        input: { path: '/tmp/note.txt' },
+      }).input.path,
+    ).toBe('/tmp/note.txt');
+    expect(editorPickIpcResponseSchema.parse({ ok: true, value: null }).value).toBeNull();
+  });
+
+  it('requires path, name, and text on a successful read', () => {
+    expect(
+      editorReadIpcResponseSchema.safeParse({
+        ok: true,
+        value: { path: '/tmp/a.txt', name: 'a.txt' },
+      }).success,
+    ).toBe(false);
+    expect(
+      editorReadIpcResponseSchema.parse({
+        ok: true,
+        value: { path: '/tmp/a.txt', name: 'a.txt', text: 'hi' },
+      }).value.text,
+    ).toBe('hi');
   });
 });

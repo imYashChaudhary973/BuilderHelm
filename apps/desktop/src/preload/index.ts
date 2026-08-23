@@ -44,6 +44,11 @@ import {
   browserCommandInputSchema,
 } from '@zero/protocol/browser';
 import {
+  editorPickIpcResponseSchema,
+  editorReadInputSchema,
+  editorReadIpcResponseSchema,
+} from '@zero/protocol/editor';
+import {
   createProviderInputSchema,
   deleteProviderInputSchema,
   modelListInputSchema,
@@ -463,6 +468,21 @@ const api: ZeroDesktopApi = {
         input: browserCommandInputSchema.parse(input),
       });
       return unwrap(browserCommandIpcResponseSchema.parse(response));
+    },
+  },
+  editor: {
+    async pick() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.editorPick, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(editorPickIpcResponseSchema.parse(response));
+    },
+    async read(path) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.editorRead, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: editorReadInputSchema.parse({ path }),
+      });
+      return unwrap(editorReadIpcResponseSchema.parse(response));
     },
   },
 };
