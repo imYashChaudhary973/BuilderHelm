@@ -20,9 +20,14 @@ import { ProjectsPage } from './routes/projects.js';
 import './styles.css';
 
 const rootRoute = createRootRoute({ component: App });
-const todayRoute = createRoute({
+const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
+  component: BoardPage,
+});
+const todayRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/today',
   component: TodayPage,
 });
 const providersRoute = createRoute({
@@ -56,6 +61,7 @@ const boardRoute = createRoute({
   component: BoardPage,
 });
 const routeTree = rootRoute.addChildren([
+  indexRoute,
   todayRoute,
   chatRoute,
   knowledgeRoute,
