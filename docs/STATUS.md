@@ -1,8 +1,8 @@
 # Implementation Status
 
 - Last reviewed: 2026-08-24
-- Baseline: chrome landed on `main` at `bdc1fda`
-- Active work: right sidebar browser on `feat/browser`
+- Baseline: browser sidebar landed on `main` at `eb5b4fc`
+- Active work: none. Next slice is the right-sidebar editor
 
 What the repository implements now. Product intent lives in
 [PRODUCT](PRODUCT.md), [UX](UX.md), and [ROADMAP](ROADMAP.md).
