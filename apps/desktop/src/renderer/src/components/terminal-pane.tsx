@@ -10,16 +10,20 @@ interface TerminalPaneProps {
   readonly sessionId: string;
   readonly pane: BoardPaneSummary;
   readonly maximized: boolean;
+  readonly landing: boolean;
   readonly onToggleMaximize: () => void;
   readonly onClose: () => void;
+  readonly onLand: (() => void) | undefined;
 }
 
 export function TerminalPane({
   sessionId,
   pane,
   maximized,
+  landing,
   onToggleMaximize,
   onClose,
+  onLand,
 }: TerminalPaneProps): React.JSX.Element {
   const serializeRef = useRef<SerializeAddon | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -110,6 +114,17 @@ export function TerminalPane({
           <span className="paneBranch" title={pane.cwd}>
             {pane.branch}
           </span>
+        )}
+        {onLand !== undefined && (
+          <button
+            className="iconButton"
+            type="button"
+            onClick={onLand}
+            disabled={landing}
+            title="Land branch into the primary repo"
+          >
+            Land
+          </button>
         )}
         <button
           className="iconButton"

@@ -26,6 +26,8 @@ import {
   boardResizeIpcResponseSchema,
   boardSelectFolderIpcResponseSchema,
   boardWriteIpcResponseSchema,
+  boardLandInputSchema,
+  boardLandIpcResponseSchema,
   type BoardPaneEventEnvelope,
 } from '@zero/protocol/board';
 import {
@@ -378,6 +380,13 @@ const api: ZeroDesktopApi = {
         boardPresetDeleteInputSchema.parse(input),
       );
       return unwrap(boardPresetDeleteIpcResponseSchema.parse(response));
+    },
+    async land(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.boardLand,
+        boardLandInputSchema.parse(input),
+      );
+      return unwrap(boardLandIpcResponseSchema.parse(response));
     },
     onPaneEvent(sessionId, listener) {
       let listeners = boardListeners.get(sessionId);

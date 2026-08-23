@@ -204,4 +204,53 @@ export class BoardService {
       return null;
     }
   }
+
+  async landBranch(
+    repoPath: string,
+    branch: string,
+    correlationId: CorrelationId,
+  ): Promise<{ readonly landed: true; readonly head: string }> {
+    if (!/^exeum\/[A-Za-z0-9._-]+$/.test(branch)) {
+      throw new ZeroError(
+        'VALIDATION_FAILED',
+        'Only exeum/* pane branches can be landed',
+      );
+    }
+    const current = await this.readBranch(repoPath);
+    if (current === null) {
+      throw new ZeroError('VALIDATION_FAILED', 'The folder is not a git repository');
+    }
+    if (current === branch) {
+      throw new ZeroError('VALIDATION_FAILED', 'Cannot land a branch into itself');
+    }
+    try {
+      await execFileAsync(
+        'git',
+        ['merge', '--no-ff', '--no-edit', '-m', `Land ${branch}`, branch],
+        { cwd: repoPath, timeout: 60_000 },
+      );
+    } catch (error) {
+      await execFileAsync('git', ['merge', '--abort'], { cwd: repoPath }).catch(
+        () => undefined,
+      );
+      throw new ZeroError(
+        'TOOL_EXECUTION_FAILED',
+        'Land failed; the repository was left clean',
+        {
+          cause: error,
+        },
+      );
+    }
+    const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], {
+      cwd: repoPath,
+      timeout: 5000,
+    });
+    const head = stdout.trim();
+    this.logger.info({
+      event: 'board.branch_landed',
+      correlationId,
+      data: { repoPath, branch, head },
+    });
+    return { landed: true, head };
+  }
 }

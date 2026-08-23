@@ -246,6 +246,23 @@ export const boardPresetDeleteInputSchema = z
   .strict();
 export type BoardPresetDeleteInput = z.infer<typeof boardPresetDeleteInputSchema>;
 
+export const boardLandInputSchema = z
+  .object({
+    correlationId: boardCorrelationSchema,
+    repoPath: z.string().min(1).max(4096),
+    branch: z.string().min(1).max(255),
+  })
+  .strict();
+export type BoardLandInput = z.infer<typeof boardLandInputSchema>;
+
+export const boardLandResultSchema = z
+  .object({
+    landed: z.literal(true),
+    head: z.string().min(7).max(64),
+  })
+  .strict();
+export type BoardLandResult = z.infer<typeof boardLandResultSchema>;
+
 function boardIpcResponse<T extends z.ZodType>(value: T) {
   return z.discriminatedUnion('ok', [
     z.object({ ok: z.literal(true), value }).strict(),
@@ -274,3 +291,4 @@ export const boardPresetSaveIpcResponseSchema = boardIpcResponse(boardPresetReco
 export const boardPresetDeleteIpcResponseSchema = boardIpcResponse(
   z.object({ deleted: z.literal(true) }).strict(),
 );
+export const boardLandIpcResponseSchema = boardIpcResponse(boardLandResultSchema);

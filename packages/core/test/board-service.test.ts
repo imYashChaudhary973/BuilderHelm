@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 
@@ -49,6 +49,57 @@ describe('BoardService worktrees', () => {
     expect(basename(worktree.path)).toBe('p1-test');
     expect(await service.readBranch(worktree.path)).toBe('exeum/p1-test');
     expect(await service.readBranch(repo)).toBe('main');
+    database.close();
+  });
+
+  it('merges a non-overlapping pane branch into main', async () => {
+    const repo = createRepository();
+    const database = openDatabase(':memory:');
+    runMigrations(database, migrations);
+    const service = new BoardService(database, logger);
+    const worktree = await service.createWorktree(repo, 'p1-test', createCorrelationId());
+    writeFileSync(join(worktree.path, 'extra.md'), 'from pane\n');
+    execFileSync('git', ['add', 'extra.md'], { cwd: worktree.path });
+    execFileSync('git', ['commit', '-m', 'pane work'], { cwd: worktree.path });
+
+    const result = await service.landBranch(repo, worktree.branch, createCorrelationId());
+
+    expect(result.landed).toBe(true);
+    expect(result.head.length).toBeGreaterThanOrEqual(7);
+    expect(readFileSync(join(repo, 'extra.md'), 'utf8')).toBe('from pane\n');
+    expect(existsSync(join(repo, '.git', 'MERGE_HEAD'))).toBe(false);
+    database.close();
+  });
+
+  it('aborts a conflicting land and leaves main clean', async () => {
+    const repo = createRepository();
+    const database = openDatabase(':memory:');
+    runMigrations(database, migrations);
+    const service = new BoardService(database, logger);
+    const worktree = await service.createWorktree(repo, 'p1-test', createCorrelationId());
+    writeFileSync(join(worktree.path, 'README.md'), 'pane\n');
+    execFileSync('git', ['add', 'README.md'], { cwd: worktree.path });
+    execFileSync('git', ['commit', '-m', 'pane readme'], { cwd: worktree.path });
+    writeFileSync(join(repo, 'README.md'), 'mainline\n');
+    execFileSync('git', ['add', 'README.md'], { cwd: repo });
+    execFileSync('git', ['commit', '-m', 'main readme'], { cwd: repo });
+
+    await expect(
+      service.landBranch(repo, worktree.branch, createCorrelationId()),
+    ).rejects.toMatchObject({ code: 'TOOL_EXECUTION_FAILED' });
+    expect(readFileSync(join(repo, 'README.md'), 'utf8')).toBe('mainline\n');
+    expect(existsSync(join(repo, '.git', 'MERGE_HEAD'))).toBe(false);
+    database.close();
+  });
+
+  it('rejects branches that are not exeum pane branches', async () => {
+    const repo = createRepository();
+    const database = openDatabase(':memory:');
+    runMigrations(database, migrations);
+    const service = new BoardService(database, logger);
+    await expect(
+      service.landBranch(repo, 'main', createCorrelationId()),
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
     database.close();
   });
 });

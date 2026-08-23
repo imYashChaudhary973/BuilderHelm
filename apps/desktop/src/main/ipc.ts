@@ -30,6 +30,8 @@ import {
   boardPaneResizeInputSchema,
   boardPaneWriteInputSchema,
   boardWriteIpcResponseSchema,
+  boardLandInputSchema,
+  boardLandIpcResponseSchema,
 } from '@zero/protocol/board';
 import {
   chatCreateRequestSchema,
@@ -727,6 +729,22 @@ export function registerIpcHandlers(
       });
     }
   });
+  ipcMain.handle(ipcChannels.boardLand, async (_event, input: unknown) => {
+    try {
+      const request = boardLandInputSchema.parse(input);
+      const value = await core.board.landBranch(
+        request.repoPath,
+        request.branch,
+        request.correlationId,
+      );
+      return boardLandIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return boardLandIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
 
   return () => {
     for (const active of activeStreams.values()) active.controller.abort();
@@ -768,5 +786,6 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.boardPresetList);
     ipcMain.removeHandler(ipcChannels.boardPresetSave);
     ipcMain.removeHandler(ipcChannels.boardPresetDelete);
+    ipcMain.removeHandler(ipcChannels.boardLand);
   };
 }

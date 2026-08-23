@@ -4,6 +4,8 @@ import { z } from 'zod';
 import type {
   BoardAgentDetection,
   BoardCreateInput,
+  BoardLandInput,
+  BoardLandResult,
   BoardPaneCloseInput,
   BoardPaneEventEnvelope,
   BoardPaneResizeInput,
@@ -98,6 +100,7 @@ export const ipcChannels = {
   boardPresetList: 'zero:board:preset-list',
   boardPresetSave: 'zero:board:preset-save',
   boardPresetDelete: 'zero:board:preset-delete',
+  boardLand: 'zero:board:land',
 } as const;
 
 export const systemHealthRequestSchema = z
@@ -181,6 +184,7 @@ export interface ZeroDesktopApi {
     listPresets(): Promise<BoardPresetRecord[]>;
     savePreset(input: BoardPresetSaveInput): Promise<BoardPresetRecord>;
     deletePreset(input: BoardPresetDeleteInput): Promise<{ readonly deleted: true }>;
+    land(input: BoardLandInput): Promise<BoardLandResult>;
     onPaneEvent(
       sessionId: string,
       listener: (event: BoardPaneEventEnvelope) => void,

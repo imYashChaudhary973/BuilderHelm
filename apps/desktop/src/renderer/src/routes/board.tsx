@@ -62,6 +62,7 @@ export function BoardPage(): React.JSX.Element {
   const [isolation, setIsolation] = useState<BoardIsolation>('worktree');
   const [presetName, setPresetName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [landNotice, setLandNotice] = useState<string | null>(null);
   const [session, setSession] = useState<BoardSessionSummary | null>(null);
   const [maximizedSlot, setMaximizedSlot] = useState<number | null>(null);
   const [exitedPaneIds, setExitedPaneIds] = useState<ReadonlySet<string>>(new Set());
@@ -148,6 +149,22 @@ export function BoardPage(): React.JSX.Element {
       setPhase('live');
     },
     onError: () => setError('The board could not be launched.'),
+  });
+
+  const land = useMutation({
+    mutationFn: (branch: string) => {
+      if (session === null) throw new Error('No live board session');
+      return window.zero.board.land({
+        correlationId: crypto.randomUUID() as CorrelationId,
+        repoPath: session.folderPath,
+        branch,
+      });
+    },
+    onMutate: () => setLandNotice(null),
+    onSuccess: (result, branch) => {
+      setLandNotice(`Landed ${branch} at ${result.head.slice(0, 7)}`);
+    },
+    onError: (cause: Error) => setLandNotice(cause.message),
   });
 
   const savePreset = useMutation({
@@ -271,6 +288,11 @@ export function BoardPage(): React.JSX.Element {
             Exit board
           </button>
         </div>
+        {landNotice !== null && (
+          <p className="wizardError" role="status">
+            {landNotice}
+          </p>
+        )}
         {error !== null && (
           <p className="wizardError" role="alert">
             {error}
@@ -294,6 +316,16 @@ export function BoardPage(): React.JSX.Element {
                       {pane.branch}
                     </span>
                   )}
+                  {pane.branch !== null && (
+                    <button
+                      className="iconButton"
+                      type="button"
+                      disabled={land.isPending}
+                      onClick={() => land.mutate(pane.branch as string)}
+                    >
+                      Land
+                    </button>
+                  )}
                   <span className="paneExitedLabel">exited</span>
                 </header>
               </div>
@@ -303,12 +335,18 @@ export function BoardPage(): React.JSX.Element {
                 sessionId={session.sessionId}
                 pane={pane}
                 maximized={maximized}
+                landing={land.isPending}
                 onToggleMaximize={() =>
                   setMaximizedSlot((current) =>
                     current === pane.slot ? null : pane.slot,
                   )
                 }
                 onClose={() => void closeOnePane(pane.paneId)}
+                onLand={
+                  pane.branch === null
+                    ? undefined
+                    : () => land.mutate(pane.branch as string)
+                }
               />
             ),
           )}
