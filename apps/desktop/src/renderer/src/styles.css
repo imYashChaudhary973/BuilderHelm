@@ -395,25 +395,6 @@ html.is-fullscreen .shell {
   grid-template-columns: 52px 1fr;
 }
 
-.shellSplash,
-.shellSplash.shellRailOff {
-  grid-template-columns: 1fr;
-  grid-template-areas:
-    'topbar'
-    'content';
-}
-
-.shellSplash .rail {
-  display: none;
-}
-
-.shellSplash.shellBrowserOn,
-.shellSplash.shellRailOff.shellBrowserOn {
-  grid-template-columns: 1fr var(--panel-w, 360px);
-  grid-template-areas:
-    'topbar topbar'
-    'content browser';
-}
 
 .topbar {
   grid-area: topbar;
@@ -3160,6 +3141,11 @@ fieldset legend {
   font-size: 16px;
 }
 
+.spaceHome .wizardLabel {
+  width: min(560px, 100%);
+  margin: 22px 0 16px;
+}
+
 .spaceModes {
   list-style: none;
   margin: 0;
@@ -3352,12 +3338,6 @@ fieldset legend {
   gap: 10px;
 }
 
-.wizardLabel span,
-.wizardLabelRow small {
-  margin-left: 8px;
-  color: var(--text-3);
-  font-weight: 400;
-}
 
 .wizardLabelRow {
   display: flex;
@@ -3712,11 +3692,25 @@ fieldset legend {
 }
 
 .wizardLabel {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  text-transform: none;
+  color: #f4f4f4;
+}
+
+.wizardLabel span,
+.wizardLabelRow small {
+  margin-left: 0;
+  color: #8a8a8a;
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  text-transform: none;
 }
 
 .folderRow {

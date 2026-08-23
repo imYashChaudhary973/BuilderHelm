@@ -586,7 +586,9 @@ export function BoardPage(): React.JSX.Element {
           <br />
           You at the helm.
         </h1>
-        <p className="spaceHomeLead">Choose how you want to work.</p>
+        <p className="wizardLabel">
+          Workspaces <span>Choose how you want to work</span>
+        </p>
         <ul className="spaceModes">
           {MODES.map((mode) => (
             <li key={mode.id}>
@@ -664,30 +666,34 @@ export function BoardPage(): React.JSX.Element {
           Pick which agents launch in your {paneCount} terminal
           {paneCount === 1 ? '' : 's'} — or skip this step entirely.
         </p>
-        <div className="agentProgress">
-          <strong>
-            {taken} / {paneCount}
-          </strong>
-          <span className="agentProgressTrack" aria-hidden="true">
-            <span
-              className="agentProgressFill"
-              style={{ width: `${(taken / paneCount) * 100}%` }}
-            />
+        <div className="wizardSection">
+          <span className="wizardLabel">
+            Agents <span>Pick who launches in your {paneCount} terminals</span>
           </span>
-          <em>{taken === 0 ? 'No agents yet' : `${remaining} left`}</em>
-        </div>
-        <div className="agentQuick">
-          <span>Quick fill</span>
-          <button type="button" className="chip" onClick={() => fillAgents('all')}>
-            Enable all
-          </button>
-          <button type="button" className="chip" onClick={() => fillAgents('one')}>
-            One of each
-          </button>
-          <button type="button" className="chip" onClick={() => fillAgents('split')}>
-            Split evenly
-          </button>
-        </div>
+          <div className="agentProgress">
+            <strong>
+              {taken} / {paneCount}
+            </strong>
+            <span className="agentProgressTrack" aria-hidden="true">
+              <span
+                className="agentProgressFill"
+                style={{ width: `${(taken / paneCount) * 100}%` }}
+              />
+            </span>
+            <em>{taken === 0 ? 'No agents yet' : `${remaining} left`}</em>
+          </div>
+          <div className="agentQuick">
+            <span>Quick fill</span>
+            <button type="button" className="chip" onClick={() => fillAgents('all')}>
+              Enable all
+            </button>
+            <button type="button" className="chip" onClick={() => fillAgents('one')}>
+              One of each
+            </button>
+            <button type="button" className="chip" onClick={() => fillAgents('split')}>
+              Split evenly
+            </button>
+          </div>
         <div className="agentGrid">
           {visibleAgents
             .filter((entry) => entry.id !== 'custom')
@@ -785,6 +791,7 @@ export function BoardPage(): React.JSX.Element {
             value={customCommand}
             onChange={(event) => setCustomCommand(event.target.value)}
           />
+        </div>
         </div>
         {error !== null && (
           <p className="wizardError" role="alert">
@@ -905,10 +912,9 @@ export function BoardPage(): React.JSX.Element {
 
       {(recents.length > 0 || projectRecents.length > 0) && (
         <div className="wizardSection">
-          <div className="wizardLabelRow">
-            <span className="wizardLabel">Recent</span>
-            <small>Last opened workspaces</small>
-          </div>
+          <span className="wizardLabel">
+            Recent <span>Last opened workspaces</span>
+          </span>
           <div className="recentCards">
             {recents.map((path) => (
               <button
