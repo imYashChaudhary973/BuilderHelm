@@ -44,6 +44,8 @@ import {
   browserCommandInputSchema,
 } from '@zero/protocol/browser';
 import {
+  editorCreateInputSchema,
+  editorCreateIpcResponseSchema,
   editorGitInputSchema,
   editorGitIpcResponseSchema,
   editorListInputSchema,
@@ -51,6 +53,8 @@ import {
   editorPickIpcResponseSchema,
   editorReadInputSchema,
   editorReadIpcResponseSchema,
+  editorSearchInputSchema,
+  editorSearchIpcResponseSchema,
   editorWriteInputSchema,
   editorWriteIpcResponseSchema,
 } from '@zero/protocol/editor';
@@ -510,6 +514,20 @@ const api: ZeroDesktopApi = {
         input: editorWriteInputSchema.parse(input),
       });
       return unwrap(editorWriteIpcResponseSchema.parse(response));
+    },
+    async create(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.editorCreate, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: editorCreateInputSchema.parse(input),
+      });
+      return unwrap(editorCreateIpcResponseSchema.parse(response));
+    },
+    async search(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.editorSearch, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: editorSearchInputSchema.parse(input),
+      });
+      return unwrap(editorSearchIpcResponseSchema.parse(response));
     },
   },
 };

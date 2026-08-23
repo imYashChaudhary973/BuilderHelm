@@ -57,6 +57,8 @@ import {
   browserCommandRequestSchema,
 } from '@zero/protocol/browser';
 import {
+  editorCreateIpcResponseSchema,
+  editorCreateRequestSchema,
   editorGitIpcResponseSchema,
   editorGitRequestSchema,
   editorListIpcResponseSchema,
@@ -65,6 +67,8 @@ import {
   editorPickRequestSchema,
   editorReadIpcResponseSchema,
   editorReadRequestSchema,
+  editorSearchIpcResponseSchema,
+  editorSearchRequestSchema,
   editorWriteIpcResponseSchema,
   editorWriteRequestSchema,
 } from '@zero/protocol/editor';
@@ -109,7 +113,14 @@ import { createCorrelationId, normalizeError, ZeroError } from '@zero/shared';
 import { LocalGitInspector } from '@zero/core';
 import type { BoardPtyManager } from './board-pty-manager.js';
 import { PreviewBrowser } from './preview-browser.js';
-import { listEditorDir, pickEditorFile, readEditorFile, writeEditorFile } from './file-reader.js';
+import {
+  createEditorEntry,
+  listEditorDir,
+  pickEditorFile,
+  readEditorFile,
+  searchEditorFiles,
+  writeEditorFile,
+} from './file-reader.js';
 import { dialog, ipcMain, type WebContents } from 'electron';
 import { ZodError } from 'zod';
 
@@ -866,7 +877,11 @@ export function registerIpcHandlers(
   ipcMain.handle(ipcChannels.editorList, (_event, input: unknown) => {
     try {
       const request = editorListRequestSchema.parse(input);
-      const value = listEditorDir(request.input.root, request.input.path ?? request.input.root);
+      const value = listEditorDir(
+        request.input.root,
+        request.input.path ?? request.input.root,
+        request.input.hidden === true,
+      );
       return editorListIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
       return editorListIpcResponseSchema.parse({
@@ -905,6 +920,40 @@ export function registerIpcHandlers(
       return editorWriteIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
       return editorWriteIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.editorCreate, (_event, input: unknown) => {
+    try {
+      const request = editorCreateRequestSchema.parse(input);
+      const value = createEditorEntry(
+        request.input.root,
+        request.input.path,
+        request.input.kind,
+      );
+      return editorCreateIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return editorCreateIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.editorSearch, (_event, input: unknown) => {
+    try {
+      const request = editorSearchRequestSchema.parse(input);
+      const value = searchEditorFiles(
+        request.input.root,
+        request.input.query,
+        request.input.hidden === true,
+      );
+      return editorSearchIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return editorSearchIpcResponseSchema.parse({
         ok: false,
         error: ipcError(error),
       });
@@ -962,5 +1011,7 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.editorList);
     ipcMain.removeHandler(ipcChannels.editorGit);
     ipcMain.removeHandler(ipcChannels.editorWrite);
+    ipcMain.removeHandler(ipcChannels.editorCreate);
+    ipcMain.removeHandler(ipcChannels.editorSearch);
   };
 }

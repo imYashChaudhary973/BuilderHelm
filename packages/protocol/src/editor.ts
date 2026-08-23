@@ -55,6 +55,7 @@ export const editorListInputSchema = z
   .object({
     root: pathSchema,
     path: pathSchema.optional(),
+    hidden: z.boolean().optional(),
   })
   .strict();
 export type EditorListInput = z.infer<typeof editorListInputSchema>;
@@ -74,6 +75,24 @@ export const editorWriteInputSchema = z
   })
   .strict();
 export type EditorWriteInput = z.infer<typeof editorWriteInputSchema>;
+
+export const editorCreateInputSchema = z
+  .object({
+    root: pathSchema,
+    path: pathSchema,
+    kind: z.enum(['file', 'dir']),
+  })
+  .strict();
+export type EditorCreateInput = z.infer<typeof editorCreateInputSchema>;
+
+export const editorSearchInputSchema = z
+  .object({
+    root: pathSchema,
+    query: z.string().trim().min(1).max(80),
+    hidden: z.boolean().optional(),
+  })
+  .strict();
+export type EditorSearchInput = z.infer<typeof editorSearchInputSchema>;
 
 export const editorPickRequestSchema = z
   .object({
@@ -109,6 +128,20 @@ export const editorWriteRequestSchema = z
   })
   .strict();
 
+export const editorCreateRequestSchema = z
+  .object({
+    correlationId: correlationIdSchema,
+    input: editorCreateInputSchema,
+  })
+  .strict();
+
+export const editorSearchRequestSchema = z
+  .object({
+    correlationId: correlationIdSchema,
+    input: editorSearchInputSchema,
+  })
+  .strict();
+
 function ipcResult<T extends z.ZodType>(value: T) {
   return z.discriminatedUnion('ok', [
     z.object({ ok: z.literal(true), value }).strict(),
@@ -121,3 +154,5 @@ export const editorReadIpcResponseSchema = ipcResult(editorFileSchema);
 export const editorListIpcResponseSchema = ipcResult(z.array(editorEntrySchema));
 export const editorGitIpcResponseSchema = ipcResult(editorGitSchema.nullable());
 export const editorWriteIpcResponseSchema = ipcResult(editorFileSchema);
+export const editorCreateIpcResponseSchema = ipcResult(editorEntrySchema);
+export const editorSearchIpcResponseSchema = ipcResult(z.array(editorEntrySchema));

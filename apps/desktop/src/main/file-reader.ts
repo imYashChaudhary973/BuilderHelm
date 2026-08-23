@@ -1,6 +1,15 @@
-import { readdirSync, readFileSync, realpathSync, statSync, writeFileSync, type Stats } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+  writeFileSync,
+  type Stats,
+} from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, resolve, sep } from 'node:path';
+import { basename, dirname, resolve, sep } from 'node:path';
 import type { EditorEntry, EditorFile } from '@zero/protocol/editor';
 import { ZeroError } from '@zero/shared';
 import { dialog } from 'electron';
@@ -87,7 +96,11 @@ export function writeEditorFile(root: string, path: string, text: string): Edito
   };
 }
 
-export function listEditorDir(root: string, path = root): EditorEntry[] {
+export function listEditorDir(
+  root: string,
+  path = root,
+  hidden = false,
+): EditorEntry[] {
   const resolved = resolveWorkspace(root, path);
   let stats: Stats;
   try {
@@ -99,7 +112,11 @@ export function listEditorDir(root: string, path = root): EditorEntry[] {
     throw new ZeroError('VALIDATION_FAILED', 'The path is not a folder');
   }
   return readdirSync(resolved.path, { withFileTypes: true })
-    .filter((entry) => !skipNames.has(entry.name))
+    .filter((entry) => {
+      if (skipNames.has(entry.name)) return false;
+      if (!hidden && entry.name.startsWith('.')) return false;
+      return true;
+    })
     .slice(0, maxEntries)
     .map((entry) => ({
       path: resolve(resolved.path, entry.name),
@@ -110,6 +127,48 @@ export function listEditorDir(root: string, path = root): EditorEntry[] {
       if (left.kind !== right.kind) return left.kind === 'dir' ? -1 : 1;
       return left.name.localeCompare(right.name);
     });
+}
+
+export function createEditorEntry(
+  root: string,
+  path: string,
+  kind: 'file' | 'dir',
+): EditorEntry {
+  const name = basename(path);
+  if (!/^[A-Za-z0-9._-]+$/.test(name) || name === '.' || name === '..') {
+    throw new ZeroError('VALIDATION_FAILED', 'Use a simple file name');
+  }
+  const parent = resolveWorkspace(root, dirname(resolve(path)));
+  const target = resolve(parent.path, name);
+  if (!insideWorkspace(parent.root, target)) {
+    throw new ZeroError('PERMISSION_DENIED', 'Path is outside the workspace');
+  }
+  if (existsSync(target)) {
+    throw new ZeroError('VALIDATION_FAILED', 'That name already exists');
+  }
+  if (kind === 'dir') mkdirSync(target);
+  else writeFileSync(target, '', 'utf8');
+  return { path: target, name, kind };
+}
+
+export function searchEditorFiles(
+  root: string,
+  query: string,
+  hidden = false,
+): EditorEntry[] {
+  const needle = query.trim().toLowerCase();
+  const matches: EditorEntry[] = [];
+  const queue = [resolveWorkspace(root).path];
+  while (queue.length > 0 && matches.length < 80) {
+    const current = queue.shift();
+    if (current === undefined) break;
+    const entries = listEditorDir(root, current, hidden);
+    for (const entry of entries) {
+      if (entry.kind === 'dir') queue.push(entry.path);
+      if (entry.name.toLowerCase().includes(needle)) matches.push(entry);
+    }
+  }
+  return matches;
 }
 
 export async function pickEditorFile(): Promise<EditorFile | null> {

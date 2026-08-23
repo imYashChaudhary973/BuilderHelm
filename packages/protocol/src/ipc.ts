@@ -20,11 +20,13 @@ import type {
 } from './board.js';
 import type { BrowserCommandInput, BrowserState } from './browser.js';
 import type {
+  EditorCreateInput,
   EditorEntry,
   EditorFile,
   EditorGit,
   EditorListInput,
   EditorReadInput,
+  EditorSearchInput,
   EditorWriteInput,
 } from './editor.js';
 import type {
@@ -122,6 +124,8 @@ export const ipcChannels = {
   editorList: 'zero:editor:list',
   editorGit: 'zero:editor:git',
   editorWrite: 'zero:editor:write',
+  editorCreate: 'zero:editor:create',
+  editorSearch: 'zero:editor:search',
 } as const;
 
 export const systemHealthRequestSchema = z
@@ -230,5 +234,7 @@ export interface ZeroDesktopApi {
     list(input: EditorListInput): Promise<EditorEntry[]>;
     git(root: string): Promise<EditorGit | null>;
     write(input: EditorWriteInput): Promise<EditorFile>;
+    create(input: EditorCreateInput): Promise<EditorEntry>;
+    search(input: EditorSearchInput): Promise<EditorEntry[]>;
   };
 }
