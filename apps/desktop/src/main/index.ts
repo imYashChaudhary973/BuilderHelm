@@ -58,7 +58,7 @@ function createWindow(): BrowserWindow {
     height: 760,
     minWidth: 900,
     minHeight: 600,
-    show: process.env.ZERO_SMOKE_TEST !== '1',
+    show: false,
     backgroundColor: '#10120f',
     titleBarStyle: 'hiddenInset',
     webPreferences: {
@@ -97,6 +97,13 @@ function createWindow(): BrowserWindow {
     void window.loadFile(join(__dirname, '../renderer/index.html'));
   }
 
+  if (process.env.ZERO_SMOKE_TEST !== '1') {
+    window.once('ready-to-show', () => {
+      window.show();
+      window.focus();
+    });
+  }
+
   if (process.env.ZERO_SMOKE_TEST === '1') {
     window.webContents.once('did-finish-load', () => {
       void completeSmokeWhenRendererIsReady(window).catch((error: unknown) => {
@@ -131,7 +138,11 @@ app.whenReady().then(() => {
     callback({
       responseHeaders: {
         ...details.responseHeaders,
-        'Content-Security-Policy': [buildContentSecurityPolicy()],
+        'Content-Security-Policy': [
+          buildContentSecurityPolicy({
+            dev: Boolean(process.env.ELECTRON_RENDERER_URL),
+          }),
+        ],
       },
     });
   });

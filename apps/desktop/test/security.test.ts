@@ -28,4 +28,13 @@ describe('Electron security boundary', () => {
     expect(policy).not.toContain("'unsafe-eval'");
     expect(policy).not.toContain("'unsafe-inline'");
   });
+
+  it('allows Vite-injected styles in dev without loosening script eval', () => {
+    const policy = buildContentSecurityPolicy({ dev: true });
+
+    expect(policy).toContain("style-src 'self' 'unsafe-inline'");
+    expect(policy).not.toContain("'unsafe-eval'");
+    expect(policy).toContain("object-src 'none'");
+    expect(policy).toContain("frame-ancestors 'none'");
+  });
 });
