@@ -13,6 +13,7 @@ import { BOARD_AGENT_CATALOG, boardGridLayouts } from '@zero/protocol/board';
 import type { CorrelationId } from '@zero/shared';
 import { useEffect, useState } from 'react';
 import { TerminalPane } from '../components/terminal-pane.js';
+import { SignalField } from '../components/signal-field.js';
 import { useSpaces } from '../space-store.js';
 import logo from '../assets/logo.png';
 const PANE_COUNTS: readonly BoardPaneCount[] = [1, 2, 4, 6, 8, 10, 12];
@@ -576,67 +577,70 @@ export function BoardPage(): React.JSX.Element {
 
   if (phase === 'home') {
     return (
-      <section className="spaceHome" aria-labelledby="space-home-title" data-core-status="ready">
-        <div className="spaceHomeBrand">
-          <img className="spaceHomeLogo" src={logo} width={56} height={56} alt="" />
-          BuilderHelm
-        </div>
-        <h1 id="space-home-title">
-          Your agents.
-          <br />
-          You at the helm.
-        </h1>
-        <p className="wizardLabel">
-          Workspaces <span>Choose how you want to work</span>
-        </p>
-        <ul className="spaceModes">
-          {MODES.map((mode) => (
-            <li key={mode.id}>
-              <button
-                type="button"
-                className="spaceMode"
-                disabled={!mode.enabled}
-                onClick={() => {
-                  if (mode.enabled) setPhase('workspace');
-                }}
-              >
-                <span className="spaceModeIcon">
-                  <ModeGlyph id={mode.id} />
-                </span>
-                <span className="spaceModeText">
-                  <strong>{mode.name}</strong>
-                  <span className="spaceModeHint">
-                    <span>{mode.promise}</span>
+      <section className="spaceStage" aria-labelledby="space-home-title" data-core-status="ready">
+        <SignalField />
+        <div className="spaceHome">
+          <div className="spaceHomeBrand">
+            <img className="spaceHomeLogo" src={logo} width={56} height={56} alt="" />
+            BuilderHelm
+          </div>
+          <h1 id="space-home-title">
+            Your agents.
+            <br />
+            You at the helm.
+          </h1>
+          <p className="wizardLabel">
+            Workspaces <span>Choose how you want to work</span>
+          </p>
+          <ul className="spaceModes">
+            {MODES.map((mode) => (
+              <li key={mode.id}>
+                <button
+                  type="button"
+                  className="spaceMode"
+                  disabled={!mode.enabled}
+                  onClick={() => {
+                    if (mode.enabled) setPhase('workspace');
+                  }}
+                >
+                  <span className="spaceModeIcon">
+                    <ModeGlyph id={mode.id} />
                   </span>
-                </span>
-                {mode.id === 'memory' ? (
-                  <span className="spaceModeSoon">
-                    <LockGlyph />
-                    Soon
+                  <span className="spaceModeText">
+                    <strong>{mode.name}</strong>
+                    <span className="spaceModeHint">
+                      <span>{mode.promise}</span>
+                    </span>
                   </span>
-                ) : mode.enabled ? (
-                  <>
+                  {mode.id === 'memory' ? (
+                    <span className="spaceModeSoon">
+                      <LockGlyph />
+                      Soon
+                    </span>
+                  ) : mode.enabled ? (
+                    <>
+                      <kbd>{mode.shortcut}</kbd>
+                      <span className="spaceModeOpen">Open →</span>
+                    </>
+                  ) : mode.id === 'board' ? null : (
                     <kbd>{mode.shortcut}</kbd>
-                    <span className="spaceModeOpen">Open →</span>
-                  </>
-                ) : mode.id === 'board' ? null : (
-                  <kbd>{mode.shortcut}</kbd>
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
-        <p className="spaceHomeKeys">
-          <span>
-            <kbd>⌘T</kbd> Space
-          </span>
-          <span>
-            <kbd>⌘S</kbd> Swarm
-          </span>
-          <Link to="/settings/providers">
-            <kbd>⌘,</kbd> Settings
-          </Link>
-        </p>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <p className="spaceHomeKeys">
+            <span>
+              <kbd>⌘T</kbd> Space
+            </span>
+            <span>
+              <kbd>⌘S</kbd> Swarm
+            </span>
+            <Link to="/settings/providers">
+              <kbd>⌘,</kbd> Settings
+            </Link>
+          </p>
+        </div>
       </section>
     );
   }
@@ -655,11 +659,9 @@ export function BoardPage(): React.JSX.Element {
     const canOpen =
       taken > 0 && (customAssigned === 0 || customCommand.trim().length > 0);
     return (
-      <section
-        className="boardPage spaceWizard spaceAgents"
-        aria-labelledby="space-agents-title"
-        data-core-status="ready"
-      >
+      <section className="spaceStage" aria-labelledby="space-agents-title" data-core-status="ready">
+        <SignalField />
+        <div className="boardPage spaceWizard spaceAgents">
         <SpaceStepper step={3} />
         <h1 id="space-agents-title">Add AI coding agents</h1>
         <p className="lede">
@@ -825,12 +827,15 @@ export function BoardPage(): React.JSX.Element {
             </button>
           </div>
         </div>
+        </div>
       </section>
     );
   }
 
   return (
-    <section className="boardPage spaceWizard" aria-labelledby="space-setup-title" data-core-status="ready">
+    <section className="spaceStage" aria-labelledby="space-setup-title" data-core-status="ready">
+      <SignalField />
+      <div className="boardPage spaceWizard">
       <SpaceStepper step={2} />
       <h1 id="space-setup-title">Set up your workspace</h1>
       <p className="lede">Pick a folder to work in and choose how many terminals you want.</p>
@@ -986,6 +991,7 @@ export function BoardPage(): React.JSX.Element {
             Next: Add AI agents
           </button>
         </div>
+      </div>
       </div>
     </section>
   );

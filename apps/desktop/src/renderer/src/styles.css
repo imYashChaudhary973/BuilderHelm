@@ -726,7 +726,8 @@ html.is-fullscreen .topbar {
 
 .content:has(.boardGrid),
 .content:has(.spaceHome),
-.content:has(.spaceWizard) {
+.content:has(.spaceWizard),
+.content:has(.spaceStage) {
   display: flex;
   justify-content: center;
   align-items: stretch;
@@ -3096,6 +3097,28 @@ fieldset legend {
   padding: 12px 14px 14px;
 }
 
+.spaceStage {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  width: 100%;
+  min-height: 100%;
+}
+
+.signalField {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.spaceStage > *:not(.signalField) {
+  position: relative;
+  z-index: 1;
+}
+
 .spaceHome {
   display: flex;
   flex-direction: column;
@@ -3106,7 +3129,7 @@ fieldset legend {
   box-sizing: border-box;
   margin: 0 auto;
   padding: 48px 0 64px;
-  background: #050505;
+  background: transparent;
 }
 
 .spaceHomeBrand {
