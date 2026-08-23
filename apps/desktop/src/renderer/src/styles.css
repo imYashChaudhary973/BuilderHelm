@@ -3568,6 +3568,13 @@ fieldset legend {
   background: #1b1b1b;
 }
 
+.agentMarkImg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
 .agentCheck {
   width: 16px;
   height: 16px;
