@@ -231,13 +231,16 @@ describe('editor file read', () => {
     ).toBe(false);
   });
 
-  it('accepts a read request and treats pick cancel as null', () => {
+  it('requires a workspace root on read', () => {
+    expect(editorReadInputSchema.safeParse({ path: '/tmp/app/a.ts' }).success).toBe(
+      false,
+    );
     expect(
       editorReadRequestSchema.parse({
         correlationId: createCorrelationId(),
-        input: { path: '/tmp/note.txt' },
-      }).input.path,
-    ).toBe('/tmp/note.txt');
+        input: { root: '/tmp/app', path: '/tmp/app/note.txt' },
+      }).input.root,
+    ).toBe('/tmp/app');
     expect(editorPickIpcResponseSchema.parse({ ok: true, value: null }).value).toBeNull();
   });
 

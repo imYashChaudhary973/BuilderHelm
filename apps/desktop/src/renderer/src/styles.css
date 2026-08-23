@@ -381,7 +381,7 @@ textarea:focus-visible {
 }
 
 .shellBrowserOn {
-  grid-template-columns: 200px 1fr 360px;
+  grid-template-columns: 200px 1fr var(--panel-w, 360px);
   grid-template-areas:
     'topbar topbar topbar'
     'rail content browser';
@@ -392,7 +392,7 @@ textarea:focus-visible {
 }
 
 .shellRailOff.shellBrowserOn {
-  grid-template-columns: 52px 1fr 360px;
+  grid-template-columns: 52px 1fr var(--panel-w, 360px);
 }
 
 .topbar {
@@ -3845,7 +3845,9 @@ fieldset legend {
     transition: none;
   }
 }
+
 .sidePanel {
+  position: relative;
   grid-area: browser;
   display: flex;
   flex-direction: column;
@@ -3853,6 +3855,24 @@ fieldset legend {
   min-height: 0;
   border-left: 1px solid var(--line);
   background: var(--panel);
+}
+
+.sideResize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -3px;
+  z-index: 2;
+  width: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+}
+
+.sideResize:hover,
+.sideResize:focus-visible {
+  background: var(--accent);
 }
 
 .sideTabs {
@@ -3980,6 +4000,11 @@ p.editorBody {
 .editorNode:hover {
   color: var(--text);
   background: rgba(255, 255, 255, 0.04);
+}
+
+.editorNodeOn {
+  color: var(--text);
+  background: var(--accent-dim);
 }
 
 .gitSide {

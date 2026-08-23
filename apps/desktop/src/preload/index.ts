@@ -51,6 +51,8 @@ import {
   editorPickIpcResponseSchema,
   editorReadInputSchema,
   editorReadIpcResponseSchema,
+  editorWriteInputSchema,
+  editorWriteIpcResponseSchema,
 } from '@zero/protocol/editor';
 import {
   createProviderInputSchema,
@@ -481,10 +483,10 @@ const api: ZeroDesktopApi = {
       });
       return unwrap(editorPickIpcResponseSchema.parse(response));
     },
-    async read(path) {
+    async read(input) {
       const response: unknown = await ipcRenderer.invoke(ipcChannels.editorRead, {
         correlationId: globalThis.crypto.randomUUID(),
-        input: editorReadInputSchema.parse({ path }),
+        input: editorReadInputSchema.parse(input),
       });
       return unwrap(editorReadIpcResponseSchema.parse(response));
     },
@@ -501,6 +503,13 @@ const api: ZeroDesktopApi = {
         input: editorGitInputSchema.parse({ root }),
       });
       return unwrap(editorGitIpcResponseSchema.parse(response));
+    },
+    async write(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.editorWrite, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: editorWriteInputSchema.parse(input),
+      });
+      return unwrap(editorWriteIpcResponseSchema.parse(response));
     },
   },
 };

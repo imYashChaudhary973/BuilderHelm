@@ -248,11 +248,6 @@ export function BoardPage(): React.JSX.Element {
     queryFn: () => window.zero.board.listPresets(),
   });
 
-  useEffect(() => {
-    void window.zero.board.homeDir().then((path) => {
-      setFolderPath((current) => (current.length === 0 ? path : current));
-    });
-  }, []);
 
   useEffect(() => {
     if (phase !== 'home') return;
@@ -869,7 +864,7 @@ export function BoardPage(): React.JSX.Element {
             id="board-folder"
             type="text"
             value={folderPath}
-            placeholder="/Users/you"
+            placeholder="Browse to a project folder"
             onChange={(event) => setFolderPath(event.target.value)}
           />
           <button className="secondaryButton" type="button" onClick={() => void browse()}>

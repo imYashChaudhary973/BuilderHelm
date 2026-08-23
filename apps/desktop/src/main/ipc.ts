@@ -65,6 +65,8 @@ import {
   editorPickRequestSchema,
   editorReadIpcResponseSchema,
   editorReadRequestSchema,
+  editorWriteIpcResponseSchema,
+  editorWriteRequestSchema,
 } from '@zero/protocol/editor';
 import { ipcChannels, systemHealthRequestSchema } from '@zero/protocol/ipc';
 import {
@@ -107,7 +109,7 @@ import { createCorrelationId, normalizeError, ZeroError } from '@zero/shared';
 import { LocalGitInspector } from '@zero/core';
 import type { BoardPtyManager } from './board-pty-manager.js';
 import { PreviewBrowser } from './preview-browser.js';
-import { listEditorDir, pickEditorFile, readEditorFile } from './file-reader.js';
+import { listEditorDir, pickEditorFile, readEditorFile, writeEditorFile } from './file-reader.js';
 import { dialog, ipcMain, type WebContents } from 'electron';
 import { ZodError } from 'zod';
 
@@ -851,7 +853,7 @@ export function registerIpcHandlers(
   ipcMain.handle(ipcChannels.editorRead, (_event, input: unknown) => {
     try {
       const request = editorReadRequestSchema.parse(input);
-      const value = readEditorFile(request.input.path);
+      const value = readEditorFile(request.input.root, request.input.path);
       return editorReadIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
       return editorReadIpcResponseSchema.parse({
@@ -886,6 +888,23 @@ export function registerIpcHandlers(
       return editorGitIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
       return editorGitIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.editorWrite, (_event, input: unknown) => {
+    try {
+      const request = editorWriteRequestSchema.parse(input);
+      const value = writeEditorFile(
+        request.input.root,
+        request.input.path,
+        request.input.text,
+      );
+      return editorWriteIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return editorWriteIpcResponseSchema.parse({
         ok: false,
         error: ipcError(error),
       });
@@ -942,5 +961,6 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.editorRead);
     ipcMain.removeHandler(ipcChannels.editorList);
     ipcMain.removeHandler(ipcChannels.editorGit);
+    ipcMain.removeHandler(ipcChannels.editorWrite);
   };
 }

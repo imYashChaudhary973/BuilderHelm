@@ -45,6 +45,7 @@ export type EditorGit = z.infer<typeof editorGitSchema>;
 
 export const editorReadInputSchema = z
   .object({
+    root: pathSchema,
     path: pathSchema,
   })
   .strict();
@@ -64,6 +65,15 @@ export const editorGitInputSchema = z
   })
   .strict();
 export type EditorGitInput = z.infer<typeof editorGitInputSchema>;
+
+export const editorWriteInputSchema = z
+  .object({
+    root: pathSchema,
+    path: pathSchema,
+    text: z.string().max(1_000_000),
+  })
+  .strict();
+export type EditorWriteInput = z.infer<typeof editorWriteInputSchema>;
 
 export const editorPickRequestSchema = z
   .object({
@@ -92,6 +102,13 @@ export const editorGitRequestSchema = z
   })
   .strict();
 
+export const editorWriteRequestSchema = z
+  .object({
+    correlationId: correlationIdSchema,
+    input: editorWriteInputSchema,
+  })
+  .strict();
+
 function ipcResult<T extends z.ZodType>(value: T) {
   return z.discriminatedUnion('ok', [
     z.object({ ok: z.literal(true), value }).strict(),
@@ -103,3 +120,4 @@ export const editorPickIpcResponseSchema = ipcResult(editorFileSchema.nullable()
 export const editorReadIpcResponseSchema = ipcResult(editorFileSchema);
 export const editorListIpcResponseSchema = ipcResult(z.array(editorEntrySchema));
 export const editorGitIpcResponseSchema = ipcResult(editorGitSchema.nullable());
+export const editorWriteIpcResponseSchema = ipcResult(editorFileSchema);
