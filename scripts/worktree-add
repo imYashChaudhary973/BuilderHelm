@@ -7,8 +7,9 @@ if [ -z "$name" ]; then
   echo "usage: $0 <name>" >&2
   exit 1
 fi
-root=$(git rev-parse --show-toplevel)
-dest="$(dirname "$root")/$(basename "$root")-worktrees/$name"
+common=$(git rev-parse --path-format=absolute --git-common-dir)
+repo=$(dirname "$common")
+dest="$(dirname "$repo")/$(basename "$repo")-worktrees/$name"
 git fetch origin
 git worktree add -b "feat/$name" "$dest" origin/main
 printf '%s\n' "$dest"
