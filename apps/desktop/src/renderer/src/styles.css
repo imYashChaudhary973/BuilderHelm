@@ -721,13 +721,12 @@ textarea:focus-visible {
 }
 
 .browserSide {
-  grid-area: browser;
   display: flex;
+  flex: 1;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  border-left: 1px solid var(--line);
-  background: linear-gradient(180deg, var(--glass-strong) 0%, var(--glass) 100%);
+  background: transparent;
 }
 
 .browserBar {
@@ -3723,8 +3722,7 @@ fieldset legend {
     transition: none;
   }
 }
-
-.editorSide {
+.sidePanel {
   grid-area: browser;
   display: flex;
   flex-direction: column;
@@ -3732,6 +3730,57 @@ fieldset legend {
   min-height: 0;
   border-left: 1px solid var(--line);
   background: var(--panel);
+}
+
+.sideTabs {
+  display: flex;
+  gap: 2px;
+  margin: 10px 10px 0;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-1);
+}
+
+.sideTab {
+  flex: 1;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--text-3);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sideTab:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.sideTab:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.sideTabOn {
+  color: var(--bg);
+  background: var(--accent);
+}
+
+.sideBody {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.editorSide {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: transparent;
 }
 
 .editorBar {

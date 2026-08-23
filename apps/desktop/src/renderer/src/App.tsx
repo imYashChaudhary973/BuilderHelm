@@ -1,8 +1,7 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
-import { BrowserSidebar } from './components/browser-sidebar.js';
-import { EditorSidebar } from './components/editor-sidebar.js';
+import { SidePanel } from './components/side-panel.js';
 import { SpaceRail } from './components/space-rail.js';
 import { PreviewProvider, usePreview } from './preview-store.js';
 import { SpaceProvider } from './space-store.js';
@@ -29,9 +28,9 @@ function Shell(): React.JSX.Element {
   const settingsActive = pathname.startsWith('/settings');
 
   useEffect(() => {
-    if (preview.panel === 'browser') return;
+    if (preview.open && preview.tab === 'browser') return;
     void window.zero.browser.command({ action: 'hide' }).catch(() => undefined);
-  }, [preview.panel]);
+  }, [preview.open, preview.tab]);
 
   function toggleRail(): void {
     setRailCollapsed((current) => {
@@ -43,7 +42,7 @@ function Shell(): React.JSX.Element {
 
   const shellClass = [
     'shell',
-    preview.panel !== null ? 'shellBrowserOn' : '',
+    preview.open ? 'shellBrowserOn' : '',
     railCollapsed ? 'shellRailOff' : '',
   ]
     .filter((item) => item.length > 0)
@@ -100,21 +99,12 @@ function Shell(): React.JSX.Element {
           </Link>
           <button
             type="button"
-            className={preview.panel === 'browser' ? 'topbarIcon topbarIconOn' : 'topbarIcon'}
-            title="Preview"
-            aria-pressed={preview.panel === 'browser'}
-            onClick={() => preview.toggle('browser')}
+            className={preview.open ? 'topbarIcon topbarIconOn' : 'topbarIcon'}
+            title="Tools"
+            aria-pressed={preview.open}
+            onClick={() => preview.toggle()}
           >
             <PanelIcon />
-          </button>
-          <button
-            type="button"
-            className={preview.panel === 'editor' ? 'topbarIcon topbarIconOn' : 'topbarIcon'}
-            title="Editor"
-            aria-pressed={preview.panel === 'editor'}
-            onClick={() => preview.toggle('editor')}
-          >
-            <FileIcon />
           </button>
         </div>
       </header>
@@ -122,8 +112,7 @@ function Shell(): React.JSX.Element {
       <main className="content" role="main">
         <Outlet />
       </main>
-      {preview.panel === 'browser' ? <BrowserSidebar startUrl={preview.url} /> : null}
-      {preview.panel === 'editor' ? <EditorSidebar /> : null}
+      {preview.open ? <SidePanel /> : null}
     </div>
   );
 }
@@ -160,21 +149,6 @@ function PanelIcon(): React.JSX.Element {
         strokeWidth="1.75"
       />
       <path d="M15 4.5v15" fill="none" stroke="currentColor" strokeWidth="1.75" />
-    </svg>
-  );
-}
-
-function FileIcon(): React.JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-      <path
-        d="M7 3.5h7.5L19.5 9v11.5H7z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinejoin="round"
-      />
-      <path d="M14.5 3.5V9H19.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
     </svg>
   );
 }

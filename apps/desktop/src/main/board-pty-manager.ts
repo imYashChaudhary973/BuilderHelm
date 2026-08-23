@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename } from 'node:path';
 
@@ -70,26 +70,41 @@ function terminalEnv(): Record<string, string> {
   };
 }
 
+function resolveWorkdir(cwd: string): string {
+  try {
+    const resolved = realpathSync(cwd);
+    if (statSync(resolved).isDirectory()) return resolved;
+  } catch {
+    // fall through to home
+  }
+  return homedir();
+}
+
 function spawnPty(cwd: string, command: string, cols: number, rows: number): IPty {
   const shell = existsSync('/bin/zsh') ? '/bin/zsh' : '/bin/bash';
-  const workdir = existsSync(cwd) ? cwd : homedir();
-  const args = command.trim().length === 0 ? ['-l'] : ['-l', '-c', command];
-  try {
-    return spawn(shell, args, {
-      name: 'xterm-256color',
-      cols,
-      rows,
-      cwd: workdir,
-      env: terminalEnv(),
-    });
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : 'unknown spawn error';
-    throw new ZeroError(
-      'TOOL_EXECUTION_FAILED',
-      `Could not start a terminal in ${workdir} (${detail})`,
-      { cause: error },
-    );
+  const workdir = resolveWorkdir(cwd);
+  const extra = command.trim().length === 0 ? [] : ['-c', command];
+  const attempts = [['-i', ...extra], extra];
+  let last: unknown;
+  for (const args of attempts) {
+    try {
+      return spawn(shell, args, {
+        name: 'xterm-256color',
+        cols,
+        rows,
+        cwd: workdir,
+        env: terminalEnv(),
+      });
+    } catch (error) {
+      last = error;
+    }
   }
+  const detail = last instanceof Error ? last.message : 'unknown spawn error';
+  throw new ZeroError(
+    'TOOL_EXECUTION_FAILED',
+    `Could not start a terminal in ${workdir} (${detail})`,
+    { cause: last },
+  );
 }
 
 export class BoardPtyManager {

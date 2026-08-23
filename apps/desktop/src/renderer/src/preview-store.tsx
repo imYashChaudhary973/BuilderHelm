@@ -1,43 +1,46 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 
+export type SideTab = 'browser' | 'editor';
+
 export interface PreviewStore {
-  readonly panel: null | 'browser' | 'editor';
+  readonly open: boolean;
+  readonly tab: SideTab;
   readonly url: string | null;
-  openBrowser(): void;
-  openEditor(): void;
+  toggle(): void;
+  setTab(tab: SideTab): void;
   hide(): void;
-  toggle(panel: 'browser' | 'editor'): void;
   preview(url: string): void;
 }
 
 const PreviewContext = createContext<PreviewStore | null>(null);
 
 export function PreviewProvider({ children }: { readonly children: ReactNode }): React.JSX.Element {
-  const [panel, setPanel] = useState<null | 'browser' | 'editor'>(null);
+  const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<SideTab>('browser');
   const [url, setUrl] = useState<string | null>(null);
 
   const value = useMemo<PreviewStore>(
     () => ({
-      panel,
+      open,
+      tab,
       url,
-      openBrowser() {
-        setPanel('browser');
+      toggle() {
+        setOpen((current) => !current);
       },
-      openEditor() {
-        setPanel('editor');
+      setTab(next) {
+        setTab(next);
+        setOpen(true);
       },
       hide() {
-        setPanel(null);
-      },
-      toggle(next) {
-        setPanel((current) => (current === next ? null : next));
+        setOpen(false);
       },
       preview(next) {
         setUrl(next);
-        setPanel('browser');
+        setTab('browser');
+        setOpen(true);
       },
     }),
-    [panel, url],
+    [open, tab, url],
   );
 
   return <PreviewContext.Provider value={value}>{children}</PreviewContext.Provider>;
