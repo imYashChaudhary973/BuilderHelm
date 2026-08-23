@@ -28,6 +28,7 @@ import {
   boardWriteIpcResponseSchema,
   boardLandInputSchema,
   boardLandIpcResponseSchema,
+  boardLandPreviewIpcResponseSchema,
   type BoardPaneEventEnvelope,
 } from '@zero/protocol/board';
 import {
@@ -387,6 +388,13 @@ const api: ZeroDesktopApi = {
         boardLandInputSchema.parse(input),
       );
       return unwrap(boardLandIpcResponseSchema.parse(response));
+    },
+    async previewLand(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.boardLandPreview,
+        boardLandInputSchema.parse(input),
+      );
+      return unwrap(boardLandPreviewIpcResponseSchema.parse(response));
     },
     onPaneEvent(sessionId, listener) {
       let listeners = boardListeners.get(sessionId);

@@ -4,6 +4,7 @@ import type {
   BoardAgentId,
   BoardCreateInput,
   BoardIsolation,
+  BoardLandPreview,
   BoardPaneCount,
   BoardPaneSpec,
   BoardSessionSummary,
@@ -63,6 +64,7 @@ export function BoardPage(): React.JSX.Element {
   const [presetName, setPresetName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [landNotice, setLandNotice] = useState<string | null>(null);
+  const [landPreview, setLandPreview] = useState<BoardLandPreview | null>(null);
   const [session, setSession] = useState<BoardSessionSummary | null>(null);
   const [maximizedSlot, setMaximizedSlot] = useState<number | null>(null);
   const [exitedPaneIds, setExitedPaneIds] = useState<ReadonlySet<string>>(new Set());
@@ -151,6 +153,32 @@ export function BoardPage(): React.JSX.Element {
     onError: () => setError('The board could not be launched.'),
   });
 
+  const previewLand = useMutation({
+    mutationFn: (branch: string) => {
+      if (session === null) throw new Error('No live board session');
+      return window.zero.board.previewLand({
+        correlationId: crypto.randomUUID() as CorrelationId,
+        repoPath: session.folderPath,
+        branch,
+      });
+    },
+    onMutate: () => {
+      setLandNotice(null);
+      setLandPreview(null);
+    },
+    onSuccess: (preview) => {
+      setLandPreview(preview);
+      const files =
+        preview.files.length === 0 ? 'no file changes' : preview.files.join(', ');
+      setLandNotice(
+        preview.ahead === 0
+          ? `${preview.branch} has no commits ahead of ${preview.base}`
+          : `${preview.ahead} commit(s) on ${preview.branch} vs ${preview.base}: ${files}. Click Land again to merge.`,
+      );
+    },
+    onError: (cause: Error) => setLandNotice(cause.message),
+  });
+
   const land = useMutation({
     mutationFn: (branch: string) => {
       if (session === null) throw new Error('No live board session');
@@ -162,6 +190,7 @@ export function BoardPage(): React.JSX.Element {
     },
     onMutate: () => setLandNotice(null),
     onSuccess: (result, branch) => {
+      setLandPreview(null);
       setLandNotice(`Landed ${branch} at ${result.head.slice(0, 7)}`);
     },
     onError: (cause: Error) => setLandNotice(cause.message),
@@ -320,10 +349,19 @@ export function BoardPage(): React.JSX.Element {
                     <button
                       className="iconButton"
                       type="button"
-                      disabled={land.isPending}
-                      onClick={() => land.mutate(pane.branch as string)}
+                      disabled={land.isPending || previewLand.isPending}
+                      onClick={() => {
+                        const branch = pane.branch as string;
+                        if (landPreview?.branch === branch && landPreview.ahead > 0) {
+                          land.mutate(branch);
+                          return;
+                        }
+                        previewLand.mutate(branch);
+                      }}
                     >
-                      Land
+                      {landPreview?.branch === pane.branch && landPreview.ahead > 0
+                        ? 'Confirm'
+                        : 'Land'}
                     </button>
                   )}
                   <span className="paneExitedLabel">exited</span>
@@ -335,7 +373,8 @@ export function BoardPage(): React.JSX.Element {
                 sessionId={session.sessionId}
                 pane={pane}
                 maximized={maximized}
-                landing={land.isPending}
+                landing={land.isPending || previewLand.isPending}
+                confirmLand={landPreview?.branch === pane.branch && landPreview.ahead > 0}
                 onToggleMaximize={() =>
                   setMaximizedSlot((current) =>
                     current === pane.slot ? null : pane.slot,
@@ -345,7 +384,14 @@ export function BoardPage(): React.JSX.Element {
                 onLand={
                   pane.branch === null
                     ? undefined
-                    : () => land.mutate(pane.branch as string)
+                    : () => {
+                        const branch = pane.branch as string;
+                        if (landPreview?.branch === branch && landPreview.ahead > 0) {
+                          land.mutate(branch);
+                          return;
+                        }
+                        previewLand.mutate(branch);
+                      }
                 }
               />
             ),

@@ -263,6 +263,17 @@ export const boardLandResultSchema = z
   .strict();
 export type BoardLandResult = z.infer<typeof boardLandResultSchema>;
 
+export const boardLandPreviewSchema = z
+  .object({
+    branch: z.string().min(1).max(255),
+    base: z.string().min(1).max(255),
+    ahead: z.number().int().nonnegative(),
+    files: z.array(z.string().min(1).max(4096)).max(500),
+    stat: z.string().max(16_000),
+  })
+  .strict();
+export type BoardLandPreview = z.infer<typeof boardLandPreviewSchema>;
+
 function boardIpcResponse<T extends z.ZodType>(value: T) {
   return z.discriminatedUnion('ok', [
     z.object({ ok: z.literal(true), value }).strict(),
@@ -292,3 +303,4 @@ export const boardPresetDeleteIpcResponseSchema = boardIpcResponse(
   z.object({ deleted: z.literal(true) }).strict(),
 );
 export const boardLandIpcResponseSchema = boardIpcResponse(boardLandResultSchema);
+export const boardLandPreviewIpcResponseSchema = boardIpcResponse(boardLandPreviewSchema);

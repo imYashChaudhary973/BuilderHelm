@@ -58,6 +58,12 @@ function isUniqueViolation(error: unknown): boolean {
   );
 }
 
+function assertExeumBranch(branch: string): void {
+  if (!/^exeum\/[A-Za-z0-9._-]+$/.test(branch)) {
+    throw new ZeroError('VALIDATION_FAILED', 'Only exeum/* pane branches can be landed');
+  }
+}
+
 export class BoardService {
   constructor(
     private readonly database: ZeroDatabase,
@@ -205,17 +211,60 @@ export class BoardService {
     }
   }
 
+  async previewLand(
+    repoPath: string,
+    branch: string,
+    correlationId: CorrelationId,
+  ): Promise<{
+    readonly branch: string;
+    readonly base: string;
+    readonly ahead: number;
+    readonly files: readonly string[];
+    readonly stat: string;
+  }> {
+    assertExeumBranch(branch);
+    const current = await this.readBranch(repoPath);
+    if (current === null) {
+      throw new ZeroError('VALIDATION_FAILED', 'The folder is not a git repository');
+    }
+    if (current === branch) {
+      throw new ZeroError('VALIDATION_FAILED', 'Cannot land a branch into itself');
+    }
+    const range = `${current}...${branch}`;
+    const [{ stdout: countOut }, { stdout: namesOut }, { stdout: statOut }] =
+      await Promise.all([
+        execFileAsync('git', ['rev-list', '--count', `${current}..${branch}`], {
+          cwd: repoPath,
+          timeout: 15_000,
+        }),
+        execFileAsync('git', ['diff', '--name-only', range], {
+          cwd: repoPath,
+          timeout: 15_000,
+        }),
+        execFileAsync('git', ['diff', '--stat', range], {
+          cwd: repoPath,
+          timeout: 15_000,
+        }),
+      ]);
+    const ahead = Number.parseInt(countOut.trim(), 10);
+    if (!Number.isFinite(ahead)) {
+      throw new ZeroError('TOOL_EXECUTION_FAILED', 'Could not count commits to land');
+    }
+    const files = namesOut.trim() === '' ? [] : namesOut.trim().split('\n');
+    this.logger.info({
+      event: 'board.branch_previewed',
+      correlationId,
+      data: { repoPath, branch, base: current, ahead, files },
+    });
+    return { branch, base: current, ahead, files, stat: statOut.trim() };
+  }
+
   async landBranch(
     repoPath: string,
     branch: string,
     correlationId: CorrelationId,
   ): Promise<{ readonly landed: true; readonly head: string }> {
-    if (!/^exeum\/[A-Za-z0-9._-]+$/.test(branch)) {
-      throw new ZeroError(
-        'VALIDATION_FAILED',
-        'Only exeum/* pane branches can be landed',
-      );
-    }
+    assertExeumBranch(branch);
     const current = await this.readBranch(repoPath);
     if (current === null) {
       throw new ZeroError('VALIDATION_FAILED', 'The folder is not a git repository');

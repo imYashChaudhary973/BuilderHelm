@@ -11,6 +11,7 @@ interface TerminalPaneProps {
   readonly pane: BoardPaneSummary;
   readonly maximized: boolean;
   readonly landing: boolean;
+  readonly confirmLand: boolean;
   readonly onToggleMaximize: () => void;
   readonly onClose: () => void;
   readonly onLand: (() => void) | undefined;
@@ -21,6 +22,7 @@ export function TerminalPane({
   pane,
   maximized,
   landing,
+  confirmLand,
   onToggleMaximize,
   onClose,
   onLand,
@@ -121,9 +123,13 @@ export function TerminalPane({
             type="button"
             onClick={onLand}
             disabled={landing}
-            title="Land branch into the primary repo"
+            title={
+              confirmLand
+                ? 'Confirm merge into the primary repo'
+                : 'Preview branch before landing'
+            }
           >
-            Land
+            {confirmLand ? 'Confirm' : 'Land'}
           </button>
         )}
         <button
