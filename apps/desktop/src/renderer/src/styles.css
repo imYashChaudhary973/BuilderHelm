@@ -4017,25 +4017,6 @@ fieldset legend {
   background: var(--accent);
 }
 
-.editorSideTreeOff {
-  grid-template-columns: 36px 1fr;
-}
-
-.editorTreeRail {
-  align-items: center;
-  padding-top: 8px;
-  border-right: 1px solid var(--line);
-}
-
-.editorTreeRail button {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #111;
-  color: var(--text-2);
-}
 
 .sideBody {
   display: flex;
@@ -4059,6 +4040,36 @@ fieldset legend {
   min-width: 0;
   min-height: 0;
   border-right: 1px solid var(--line);
+}
+
+.editorSide.editorSideTreeOff {
+  grid-template-columns: 32px 1fr;
+}
+
+.editorTreeRail {
+  display: flex;
+  width: 32px;
+  min-width: 32px;
+  align-items: center;
+  padding: 8px 0 0;
+  background: #070707;
+}
+
+.editorTreeRail button {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #141414;
+  color: var(--text-2);
+}
+
+.editorTreeRail button:hover {
+  color: var(--text);
+  border-color: var(--accent-line);
 }
 
 .editorTreeHead {
