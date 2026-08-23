@@ -70,6 +70,15 @@ function Shell(): React.JSX.Element {
           >
             Settings
           </Link>
+          <button
+            type="button"
+            className={preview.open ? 'topbarIcon topbarIconOn' : 'topbarIcon'}
+            title="Preview"
+            aria-pressed={preview.open}
+            onClick={() => preview.toggle()}
+          >
+            <PanelIcon />
+          </button>
         </div>
       </header>
       <aside className="rail" aria-label="Spaces">
@@ -114,31 +123,24 @@ function Shell(): React.JSX.Element {
         <Outlet />
       </main>
       {preview.open ? <BrowserSidebar startUrl={preview.url} /> : null}
-      <aside className="panelRail" aria-label="Panels">
-        <button
-          type="button"
-          className={preview.open ? 'panelIcon panelIconOn' : 'panelIcon'}
-          title="Browser"
-          aria-pressed={preview.open}
-          onClick={() => preview.toggle()}
-        >
-          <BrowserIcon />
-        </button>
-      </aside>
     </div>
   );
 }
 
-function BrowserIcon(): React.JSX.Element {
+function PanelIcon(): React.JSX.Element {
   return (
     <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.75" />
-      <path
-        d="M3 12h18M12 3c2.5 3 3.5 6 3.5 9s-1 6-3.5 9c-2.5-3-3.5-6-3.5-9s1-6 3.5-9z"
+      <rect
+        x="3.5"
+        y="4.5"
+        width="17"
+        height="15"
+        rx="2"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.75"
       />
+      <path d="M15 4.5v15" fill="none" stroke="currentColor" strokeWidth="1.75" />
     </svg>
   );
 }

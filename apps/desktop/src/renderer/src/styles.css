@@ -372,19 +372,19 @@ textarea:focus-visible {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: 200px 1fr 44px;
+  grid-template-columns: 200px 1fr;
   grid-template-rows: 52px 1fr;
   grid-template-areas:
-    'topbar topbar topbar'
-    'rail content panel';
+    'topbar topbar'
+    'rail content';
   height: 100vh;
 }
 
 .shellBrowserOn {
-  grid-template-columns: 200px 1fr 360px 44px;
+  grid-template-columns: 200px 1fr 360px;
   grid-template-areas:
-    'topbar topbar topbar topbar'
-    'rail content browser panel';
+    'topbar topbar topbar'
+    'rail content browser';
 }
 
 .topbar {
@@ -632,18 +632,7 @@ textarea:focus-visible {
   background: var(--bg-1);
 }
 
-.panelRail {
-  grid-area: panel;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 6px;
-  border-left: 1px solid var(--line);
-  background: linear-gradient(180deg, var(--glass-strong) 0%, var(--glass) 100%);
-}
-
-.panelIcon {
+.topbarIcon {
   display: grid;
   width: 32px;
   height: 32px;
@@ -654,12 +643,12 @@ textarea:focus-visible {
   background: transparent;
 }
 
-.panelIcon:hover {
+.topbarIcon:hover {
   color: var(--text);
   background: rgba(255, 255, 255, 0.04);
 }
 
-.panelIconOn {
+.topbarIconOn {
   color: var(--accent-bright);
   background: var(--accent-dim);
 }
