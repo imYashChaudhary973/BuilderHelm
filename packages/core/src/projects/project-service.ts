@@ -217,6 +217,7 @@ export class ProjectService {
     return projectRepositorySchema.parse({
       id: value.id,
       projectId: value.projectId,
+      rootPath: value.rootPath,
       directoryName: value.directoryName,
       branch: value.branch,
       headSha: value.headSha,

@@ -24,6 +24,7 @@ export const projectRepositorySchema = z
   .object({
     id: z.string().uuid(),
     projectId: z.string().uuid(),
+    rootPath: z.string().min(1).max(4096),
     directoryName: z.string().trim().min(1).max(255),
     branch: z.string().trim().min(1).max(255),
     headSha: z.string().regex(/^[0-9a-f]{40,64}$/),

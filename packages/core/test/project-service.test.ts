@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 
 import {
   ActionRepository,
@@ -136,6 +136,8 @@ describe('project continuity', () => {
     const result = service.registerRepository(projectId, root, createCorrelationId());
 
     expect(result.repository).toMatchObject({ branch: 'main', dirtyCount: 0 });
+    expect(result.repository?.rootPath).toBe(realpathSync.native(root));
+    expect(isAbsolute(result.repository?.rootPath ?? '')).toBe(true);
     expect(result.timeline.map((item) => item.kind)).toEqual(
       expect.arrayContaining(['commit', 'task', 'decision']),
     );
