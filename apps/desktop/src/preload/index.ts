@@ -15,7 +15,10 @@ import {
   boardDetectAgentsIpcResponseSchema,
   boardPaneCloseInputSchema,
   boardPaneCloseIpcResponseSchema,
+  boardPaneDrainInputSchema,
+  boardPaneDrainIpcResponseSchema,
   boardPaneEventEnvelopeSchema,
+  boardHomeDirIpcResponseSchema,
   boardPaneResizeInputSchema,
   boardPaneWriteInputSchema,
   boardPresetDeleteInputSchema,
@@ -322,6 +325,10 @@ const api: ZeroDesktopApi = {
     },
   },
   board: {
+    async homeDir() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.boardHomeDir);
+      return unwrap(boardHomeDirIpcResponseSchema.parse(response));
+    },
     async createSession(input) {
       const response: unknown = await ipcRenderer.invoke(
         ipcChannels.boardCreate,
@@ -349,6 +356,13 @@ const api: ZeroDesktopApi = {
         boardPaneCloseInputSchema.parse(input),
       );
       return unwrap(boardPaneCloseIpcResponseSchema.parse(response));
+    },
+    async drainPane(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.boardPaneDrain,
+        boardPaneDrainInputSchema.parse(input),
+      );
+      return unwrap(boardPaneDrainIpcResponseSchema.parse(response));
     },
     async selectFolder() {
       const response: unknown = await ipcRenderer.invoke(ipcChannels.boardSelectFolder, {

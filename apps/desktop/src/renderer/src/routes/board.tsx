@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import type {
   BoardAgentDetection,
   BoardAgentId,
@@ -11,25 +12,95 @@ import type {
 } from '@zero/protocol/board';
 import { BOARD_AGENT_CATALOG, boardGridLayouts } from '@zero/protocol/board';
 import type { CorrelationId } from '@zero/shared';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { TerminalPane } from '../components/terminal-pane.js';
 
 const PANE_COUNTS: readonly BoardPaneCount[] = [1, 2, 4, 6, 8, 10, 12];
+const RECENTS_KEY = 'exeum.space.recents';
+const AI_AGENTS = BOARD_AGENT_CATALOG.filter((entry) => entry.id !== 'shell');
+const FEATURED_AGENT_IDS: readonly BoardAgentId[] = [
+  'claude',
+  'codex',
+  'grok',
+  'kimi',
+  'antigravity',
+  'opencode',
+];
+const MODES = [
+  {
+    id: 'space',
+    name: 'Space',
+    shortcut: '⌘T',
+    enabled: true,
+    promise:
+      'The terminal built for vibe coding. Split panes, command blocks, and an agent in every shell.',
+  },
+  {
+    id: 'swarm',
+    name: 'Swarm',
+    shortcut: '⌘S',
+    enabled: false,
+    promise:
+      'Many agents, one job. Coordinators, builders, scouts, and reviewers with budgets and guardrails.',
+  },
+  {
+    id: 'board',
+    name: 'Board',
+    shortcut: '⌘B',
+    enabled: false,
+    promise:
+      'Plan the work. Work the plan. A Kanban board built for builders — turn loose ideas into shipped tasks.',
+  },
+  {
+    id: 'memory',
+    name: 'Memory',
+    shortcut: '⌘M',
+    enabled: false,
+    promise:
+      'A living knowledge graph. Persistent memory your agents read and write as they build. Context that compounds.',
+  },
+] as const;
 
 interface SlotConfig {
   agentId: BoardAgentId;
   command?: string;
 }
 
+type Phase = 'home' | 'workspace' | 'agents' | 'live';
+
+function folderName(path: string): string {
+  return path.split('/').filter(Boolean).at(-1) ?? path;
+}
+
+function readRecents(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENTS_KEY);
+    if (raw === null) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === 'string').slice(0, 8)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeRecents(folderPath: string): string[] {
+  const next = [
+    folderPath,
+    ...readRecents().filter((item) => item !== folderPath),
+  ].slice(0, 8);
+  localStorage.setItem(RECENTS_KEY, JSON.stringify(next));
+  return next;
+}
+
 function firstAvailableAgent(
   detections: readonly BoardAgentDetection[] | undefined,
 ): BoardAgentId {
-  if (detections === undefined || detections.length === 0) {
-    return BOARD_AGENT_CATALOG[0]?.id ?? 'custom';
-  }
+  if (detections === undefined) return 'claude';
   const available = new Set(detections.filter((d) => d.available).map((d) => d.id));
-  const match = BOARD_AGENT_CATALOG.find(
+  const match = AI_AGENTS.find(
     (entry) => entry.id !== 'custom' && available.has(entry.id),
   );
   return match?.id ?? 'custom';
@@ -40,34 +111,60 @@ function resizeSlots(
   current: Record<number, SlotConfig>,
   detections: readonly BoardAgentDetection[] | undefined,
 ): Record<number, SlotConfig> {
-  const next: Record<number, SlotConfig> = {};
   const fallback = firstAvailableAgent(detections);
+  const next: Record<number, SlotConfig> = {};
   for (let slot = 0; slot < count; slot += 1) {
     next[slot] = current[slot] ?? { agentId: fallback };
   }
   return next;
 }
 
-function folderName(path: string): string {
-  return path.split('/').filter(Boolean).at(-1) ?? path;
+function shellSlots(count: BoardPaneCount): Record<number, SlotConfig> {
+  const next: Record<number, SlotConfig> = {};
+  for (let slot = 0; slot < count; slot += 1) next[slot] = { agentId: 'shell' };
+  return next;
+}
+
+function assignedCount(counts: Partial<Record<BoardAgentId, number>>): number {
+  return Object.values(counts).reduce((sum, value) => sum + (value ?? 0), 0);
+}
+
+function resolveFolder(base: string, cd: string): string {
+  const spec = cd.trim().replace(/^cd\s+/i, '');
+  if (spec.length === 0) return base;
+  const parts = (spec.startsWith('/') ? [] : base.split('/').filter(Boolean)).slice();
+  const source = spec.startsWith('/') ? spec.slice(1).split('/') : spec.split('/');
+  for (const part of source) {
+    if (part === '' || part === '.') continue;
+    if (part === '..') parts.pop();
+    else parts.push(part);
+  }
+  return `/${parts.join('/')}`;
 }
 
 export function BoardPage(): React.JSX.Element {
   const queryClient = useQueryClient();
-  const [phase, setPhase] = useState<'setup' | 'live'>('setup');
+  const [phase, setPhase] = useState<Phase>('home');
   const [folderPath, setFolderPath] = useState('');
   const [paneCount, setPaneCount] = useState<BoardPaneCount>(2);
   const [slots, setSlots] = useState<Record<number, SlotConfig>>(() =>
     resizeSlots(2, {}, undefined),
   );
-  const [isolation, setIsolation] = useState<BoardIsolation>('worktree');
+  const [isolation, setIsolation] = useState<BoardIsolation>('shared');
   const [presetName, setPresetName] = useState('');
+  const [recents, setRecents] = useState<string[]>(readRecents);
   const [error, setError] = useState<string | null>(null);
   const [landNotice, setLandNotice] = useState<string | null>(null);
   const [landPreview, setLandPreview] = useState<BoardLandPreview | null>(null);
   const [session, setSession] = useState<BoardSessionSummary | null>(null);
   const [maximizedSlot, setMaximizedSlot] = useState<number | null>(null);
   const [exitedPaneIds, setExitedPaneIds] = useState<ReadonlySet<string>>(new Set());
+  const [agentCounts, setAgentCounts] = useState<Partial<Record<BoardAgentId, number>>>(
+    {},
+  );
+  const [customCommand, setCustomCommand] = useState('');
+  const [showMoreAgents, setShowMoreAgents] = useState(false);
+  const [cdInput, setCdInput] = useState('');
 
   const projects = useQuery({
     queryKey: ['projects-dashboard'],
@@ -82,30 +179,25 @@ export function BoardPage(): React.JSX.Element {
     queryFn: () => window.zero.board.listPresets(),
   });
 
-  function updateSlot(slot: number, patch: Partial<SlotConfig>): void {
-    setSlots((current) => {
-      const base = current[slot];
-      if (base === undefined) return current;
-      const next: Record<number, SlotConfig> = { ...current };
-      next[slot] = {
-        agentId: patch.agentId ?? base.agentId,
-        ...(patch.command !== undefined
-          ? { command: patch.command }
-          : base.command !== undefined
-            ? { command: base.command }
-            : {}),
-      };
-      return next;
+  useEffect(() => {
+    void window.zero.board.homeDir().then((path) => {
+      setFolderPath((current) => (current.length === 0 ? path : current));
     });
-  }
+  }, []);
 
-  function applyToAll(): void {
-    const source = slots[0];
-    if (source === undefined) return;
-    const next: Record<number, SlotConfig> = {};
-    for (let slot = 0; slot < paneCount; slot += 1) next[slot] = { ...source };
-    setSlots(next);
-  }
+  useEffect(() => {
+    if (phase !== 'home') return;
+    const onKey = (event: KeyboardEvent): void => {
+      if (!(event.metaKey || event.ctrlKey)) return;
+      if (event.key.toLowerCase() === 't') {
+        event.preventDefault();
+        setPhase('workspace');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [phase]);
+
 
   function changePaneCount(count: BoardPaneCount): void {
     setPaneCount(count);
@@ -113,15 +205,9 @@ export function BoardPage(): React.JSX.Element {
     setMaximizedSlot(null);
   }
 
-  const launchReady =
-    folderPath.trim().length > 0 &&
-    Array.from({ length: paneCount }, (_, slot) => slots[slot]).every(
-      (config) =>
-        config !== undefined &&
-        (config.agentId !== 'custom' || (config.command?.trim().length ?? 0) > 0),
-    );
+  const folderReady = folderPath.trim().length > 0;
 
-  function launchBoard(): void {
+  function panesFromSlots(): BoardPaneSpec[] {
     const panes: BoardPaneSpec[] = [];
     for (let slot = 0; slot < paneCount; slot += 1) {
       const config = slots[slot];
@@ -132,30 +218,47 @@ export function BoardPage(): React.JSX.Element {
         ...(config.agentId === 'custom' ? { command: config.command?.trim() ?? '' } : {}),
       });
     }
-    launch.mutate({
-      correlationId: crypto.randomUUID() as CorrelationId,
-      folderPath: folderPath.trim(),
-      paneCount,
-      isolation,
-      panes: panes.sort((a, b) => a.slot - b.slot),
-    });
+    return panes.sort((a, b) => a.slot - b.slot);
   }
 
   const launch = useMutation({
     mutationFn: (input: BoardCreateInput) => window.zero.board.createSession(input),
     onMutate: () => setError(null),
     onSuccess: (summary) => {
+      setRecents(writeRecents(summary.folderPath));
       setSession(summary);
       setExitedPaneIds(new Set());
       setMaximizedSlot(null);
       setPhase('live');
     },
-    onError: () => setError('The board could not be launched.'),
+    onError: (cause: Error) => setError(cause.message),
   });
+
+  function launchSpace(nextSlots: Record<number, SlotConfig>, nextIsolation: BoardIsolation): void {
+    setSlots(nextSlots);
+    setIsolation(nextIsolation);
+    const panes: BoardPaneSpec[] = [];
+    for (let slot = 0; slot < paneCount; slot += 1) {
+      const config = nextSlots[slot];
+      if (config === undefined) continue;
+      panes.push({
+        slot,
+        agentId: config.agentId,
+        ...(config.agentId === 'custom' ? { command: config.command?.trim() ?? '' } : {}),
+      });
+    }
+    launch.mutate({
+      correlationId: crypto.randomUUID() as CorrelationId,
+      folderPath: resolveFolder(folderPath.trim(), cdInput),
+      paneCount,
+      isolation: nextIsolation,
+      panes: panes.sort((a, b) => a.slot - b.slot),
+    });
+  }
 
   const previewLand = useMutation({
     mutationFn: (branch: string) => {
-      if (session === null) throw new Error('No live board session');
+      if (session === null) throw new Error('No live Space session');
       return window.zero.board.previewLand({
         correlationId: crypto.randomUUID() as CorrelationId,
         repoPath: session.folderPath,
@@ -181,7 +284,7 @@ export function BoardPage(): React.JSX.Element {
 
   const land = useMutation({
     mutationFn: (branch: string) => {
-      if (session === null) throw new Error('No live board session');
+      if (session === null) throw new Error('No live Space session');
       return window.zero.board.land({
         correlationId: crypto.randomUUID() as CorrelationId,
         repoPath: session.folderPath,
@@ -205,14 +308,7 @@ export function BoardPage(): React.JSX.Element {
           folderPath: folderPath.trim(),
           paneCount,
           isolation,
-          panes: Array.from({ length: paneCount }, (_, slot) => {
-            const config = slots[slot];
-            return {
-              slot,
-              agentId: config?.agentId ?? 'custom',
-              ...(config?.command?.trim() ? { command: config.command.trim() } : {}),
-            };
-          }),
+          panes: panesFromSlots(),
         },
       }),
     onMutate: () => setError(null),
@@ -286,13 +382,105 @@ export function BoardPage(): React.JSX.Element {
     },
     onMutate: () => setError(null),
     onSuccess: () => {
-      setPhase('setup');
+      setPhase('home');
       setSession(null);
       setMaximizedSlot(null);
       setExitedPaneIds(new Set());
     },
-    onError: () => setError('The board could not be exited.'),
+    onError: () => setError('Space could not be closed.'),
   });
+
+  const projectRecents = (projects.data?.projects ?? [])
+    .filter((item) => item.repository !== null)
+    .slice(0, 8);
+  const taken = assignedCount(agentCounts);
+  const remaining = paneCount - taken;
+
+  function setAgentCount(id: BoardAgentId, next: number): void {
+    setAgentCounts((current) => {
+      const others = assignedCount(current) - (current[id] ?? 0);
+      return { ...current, [id]: Math.max(0, Math.min(next, paneCount - others)) };
+    });
+  }
+
+  function slotsFromCounts(): Record<number, SlotConfig> {
+    const list: SlotConfig[] = [];
+    for (const entry of AI_AGENTS) {
+      const copies = agentCounts[entry.id] ?? 0;
+      for (let index = 0; index < copies; index += 1) {
+        list.push({
+          agentId: entry.id,
+          ...(entry.id === 'custom' && customCommand.trim().length > 0
+            ? { command: customCommand.trim() }
+            : {}),
+        });
+      }
+    }
+    const next: Record<number, SlotConfig> = {};
+    for (let slot = 0; slot < paneCount; slot += 1) {
+      next[slot] = list[slot] ?? { agentId: 'shell' };
+    }
+    return next;
+  }
+
+  function fillAgents(mode: 'all' | 'one' | 'split'): void {
+    const pool = AI_AGENTS.filter((entry) => entry.id !== 'custom');
+    const next: Partial<Record<BoardAgentId, number>> = {};
+    if (mode === 'one') {
+      pool.slice(0, paneCount).forEach((entry, index) => {
+        if (index < paneCount) next[entry.id] = 1;
+      });
+    } else if (mode === 'all') {
+      pool.forEach((entry, index) => {
+        if (index < paneCount) next[entry.id] = 1;
+      });
+    } else {
+      const chosen = FEATURED_AGENT_IDS.filter((id) => id !== 'custom');
+      const base = Math.floor(paneCount / chosen.length);
+      let extra = paneCount % chosen.length;
+      for (const id of chosen) {
+        next[id] = base + (extra > 0 ? 1 : 0);
+        if (extra > 0) extra -= 1;
+      }
+    }
+    setAgentCounts(next);
+  }
+
+  if (phase === 'home') {
+    return (
+      <section className="spaceHome" aria-labelledby="space-home-title" data-core-status="ready">
+        <div className="spaceHomeMark" aria-hidden="true">
+          <span />
+        </div>
+        <h1 id="space-home-title">Exeum</h1>
+        <p className="spaceTagline" aria-hidden="true" />
+        <p className="spaceHomeLead">Choose how you want to work.</p>
+        <ul className="spaceModes">
+          {MODES.map((mode) => (
+            <li key={mode.id}>
+              <button
+                type="button"
+                className="spaceMode"
+                disabled={!mode.enabled}
+                onClick={() => {
+                  if (mode.enabled) setPhase('workspace');
+                }}
+              >
+                <span className="spaceModeCopy">
+                  <strong>{mode.name}</strong>
+                  <span>{mode.enabled ? mode.promise : `${mode.promise} Coming later.`}</span>
+                </span>
+                <kbd>{mode.shortcut}</kbd>
+              </button>
+            </li>
+          ))}
+        </ul>
+        <Link className="spaceHomeSettings" to="/settings/providers">
+          Settings
+        </Link>
+      </section>
+    );
+  }
 
   if (phase === 'live' && session !== null) {
     const layout = boardGridLayouts[session.paneCount];
@@ -303,10 +491,10 @@ export function BoardPage(): React.JSX.Element {
       .filter((pane) => !maximized || pane.slot === maximizedSlot);
 
     return (
-      <section className="boardPage" aria-labelledby="board-title">
+      <section className="boardPage" aria-labelledby="board-title" data-core-status="ready">
         <div className="boardToolbar">
           <h1 id="board-title">
-            Board · {folderName(session.folderPath)} · {session.paneCount} panes
+            Space · {folderName(session.folderPath)} · {session.paneCount} terminals
           </h1>
           <button
             className="secondaryButton"
@@ -314,7 +502,7 @@ export function BoardPage(): React.JSX.Element {
             onClick={() => exitBoard.mutate()}
             disabled={exitBoard.isPending}
           >
-            Exit board
+            Close Space
           </button>
         </div>
         {landNotice !== null && (
@@ -340,30 +528,6 @@ export function BoardPage(): React.JSX.Element {
                 <header className="paneHeader">
                   <span className="paneDot dot-exited" />
                   <span className="paneTitle">{pane.title}</span>
-                  {pane.branch !== null && (
-                    <span className="paneBranch" title={pane.cwd}>
-                      {pane.branch}
-                    </span>
-                  )}
-                  {pane.branch !== null && (
-                    <button
-                      className="iconButton"
-                      type="button"
-                      disabled={land.isPending || previewLand.isPending}
-                      onClick={() => {
-                        const branch = pane.branch as string;
-                        if (landPreview?.branch === branch && landPreview.ahead > 0) {
-                          land.mutate(branch);
-                          return;
-                        }
-                        previewLand.mutate(branch);
-                      }}
-                    >
-                      {landPreview?.branch === pane.branch && landPreview.ahead > 0
-                        ? 'Confirm'
-                        : 'Land'}
-                    </button>
-                  )}
                   <span className="paneExitedLabel">exited</span>
                 </header>
               </div>
@@ -401,151 +565,305 @@ export function BoardPage(): React.JSX.Element {
     );
   }
 
-  const availableById = new Map((agents.data ?? []).map((d) => [d.id, d.available]));
-  const recentChips = (projects.data?.projects ?? [])
-    .filter((item) => item.repository !== null)
-    .slice(0, 8);
+  if (phase === 'agents') {
+    const visibleAgents = AI_AGENTS.filter(
+      (entry) =>
+        entry.id === 'custom' ||
+        showMoreAgents ||
+        FEATURED_AGENT_IDS.includes(entry.id),
+    );
+    const hiddenCount = AI_AGENTS.filter(
+      (entry) => entry.id !== 'custom' && !FEATURED_AGENT_IDS.includes(entry.id),
+    ).length;
+    const customAssigned = agentCounts.custom ?? 0;
+    const canOpen =
+      taken > 0 && (customAssigned === 0 || customCommand.trim().length > 0);
+    return (
+      <section
+        className="boardPage spaceWizard spaceAgents"
+        aria-labelledby="space-agents-title"
+        data-core-status="ready"
+      >
+        <h1 id="space-agents-title">Add AI coding agents</h1>
+        <p className="lede">
+          Pick which agents launch in your {paneCount} terminal
+          {paneCount === 1 ? '' : 's'} — or skip this step entirely.
+        </p>
+        <div className="agentProgress">
+          <strong>
+            {taken} / {paneCount}
+          </strong>
+          <span className="agentProgressTrack" aria-hidden="true">
+            <span
+              className="agentProgressFill"
+              style={{ width: `${(taken / paneCount) * 100}%` }}
+            />
+          </span>
+          <em>{taken === 0 ? 'No agents yet' : `${remaining} left`}</em>
+        </div>
+        <div className="agentQuick">
+          <span>Quick fill</span>
+          <button type="button" className="chip" onClick={() => fillAgents('all')}>
+            Enable all
+          </button>
+          <button type="button" className="chip" onClick={() => fillAgents('one')}>
+            One of each
+          </button>
+          <button type="button" className="chip" onClick={() => fillAgents('split')}>
+            Split evenly
+          </button>
+        </div>
+        <div className="agentGrid">
+          {visibleAgents
+            .filter((entry) => entry.id !== 'custom')
+            .map((entry) => {
+              const count = agentCounts[entry.id] ?? 0;
+              return (
+                <div
+                  className={`agentRow${count > 0 ? ' agentRowOn' : ''}`}
+                  key={entry.id}
+                >
+                  <button
+                    type="button"
+                    className={`agentCheck${count > 0 ? ' agentCheckOn' : ''}`}
+                    aria-pressed={count > 0}
+                    onClick={() => setAgentCount(entry.id, count > 0 ? 0 : 1)}
+                  />
+                  <span className="agentName">{entry.label}</span>
+                  <button
+                    type="button"
+                    className="agentAll"
+                    onClick={() => setAgentCounts({ [entry.id]: paneCount })}
+                  >
+                    All
+                  </button>
+                  <div className="agentStepper">
+                    <button
+                      type="button"
+                      disabled={count === 0}
+                      onClick={() => setAgentCount(entry.id, count - 1)}
+                    >
+                      −
+                    </button>
+                    <strong>{count}</strong>
+                    <button
+                      type="button"
+                      disabled={remaining === 0}
+                      onClick={() => setAgentCount(entry.id, count + 1)}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+        {!showMoreAgents && hiddenCount > 0 && (
+          <button
+            type="button"
+            className="agentMore"
+            onClick={() => setShowMoreAgents(true)}
+          >
+            Show {hiddenCount} more agents
+          </button>
+        )}
+        <div className={`agentCustom${customAssigned > 0 ? ' agentRowOn' : ''}`}>
+          <div className="agentRow">
+            <button
+              type="button"
+              className={`agentCheck${customAssigned > 0 ? ' agentCheckOn' : ''}`}
+              aria-pressed={customAssigned > 0}
+              onClick={() => setAgentCount('custom', customAssigned > 0 ? 0 : 1)}
+            />
+            <span className="agentName">
+              Custom command
+              <small>Any CLI agent or shell command</small>
+            </span>
+            <button
+              type="button"
+              className="agentAll"
+              onClick={() => setAgentCounts({ custom: paneCount })}
+            >
+              All
+            </button>
+            <div className="agentStepper">
+              <button
+                type="button"
+                disabled={customAssigned === 0}
+                onClick={() => setAgentCount('custom', customAssigned - 1)}
+              >
+                −
+              </button>
+              <strong>{customAssigned}</strong>
+              <button
+                type="button"
+                disabled={remaining === 0}
+                onClick={() => setAgentCount('custom', customAssigned + 1)}
+              >
+                +
+              </button>
+            </div>
+          </div>
+          <input
+            type="text"
+            placeholder="e.g. aider --yes-always"
+            value={customCommand}
+            onChange={(event) => setCustomCommand(event.target.value)}
+          />
+        </div>
+        {error !== null && (
+          <p className="wizardError" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="spaceWizardFooter">
+          <button
+            className="secondaryButton"
+            type="button"
+            onClick={() => setPhase('workspace')}
+          >
+            Back
+          </button>
+          <div className="spaceWizardActions">
+            <button
+              className="secondaryButton"
+              type="button"
+              disabled={!folderReady || launch.isPending}
+              onClick={() => launchSpace(shellSlots(paneCount), 'shared')}
+            >
+              Skip — no agents
+            </button>
+            <button
+              className="primaryButton"
+              type="button"
+              disabled={!folderReady || !canOpen || launch.isPending}
+              onClick={() => launchSpace(slotsFromCounts(), 'shared')}
+            >
+              {canOpen ? 'Open Space' : 'Pick at least one agent'}
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
-    <section className="boardPage" aria-labelledby="board-setup-title">
-      <h1 id="board-setup-title">Board</h1>
+    <section className="boardPage spaceWizard" aria-labelledby="space-setup-title" data-core-status="ready">
+      <p className="eyebrow">Space · 2 of 4</p>
+      <h1 id="space-setup-title">Set up your workspace</h1>
+      <p className="lede">Pick a folder to work in and choose how many terminals you want.</p>
 
       <div className="wizardSection">
         <label className="wizardLabel" htmlFor="board-folder">
-          Working folder
+          Working folder <span>Where your terminals will start</span>
         </label>
         <div className="folderRow">
           <input
             id="board-folder"
             type="text"
             value={folderPath}
-            placeholder="/path/to/project"
+            placeholder="/Users/you"
             onChange={(event) => setFolderPath(event.target.value)}
           />
           <button className="secondaryButton" type="button" onClick={() => void browse()}>
             Browse…
           </button>
         </div>
-        {recentChips.length > 0 && (
-          <div className="recentChips">
-            {recentChips.map((item) => {
+        <div className="folderRow">
+          <input
+            type="text"
+            value={cdInput}
+            placeholder="cd ../other-project"
+            onChange={(event) => setCdInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && cdInput.trim().length > 0) {
+                setFolderPath(resolveFolder(folderPath, cdInput));
+                setCdInput('');
+              }
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="wizardSection">
+        <div className="wizardLabelRow">
+          <span className="wizardLabel">
+            How many terminals? <span>Tap a tile to choose a layout</span>
+          </span>
+          <small>
+            {paneCount} terminal{paneCount === 1 ? '' : 's'} · {boardGridLayouts[paneCount].cols}×
+            {boardGridLayouts[paneCount].rows} grid
+          </small>
+        </div>
+        <div className="layoutTiles">
+          {PANE_COUNTS.map((count) => {
+            const layout = boardGridLayouts[count];
+            return (
+              <button
+                key={count}
+                type="button"
+                className={`layoutTile${count === paneCount ? ' layoutTileActive' : ''}`}
+                onClick={() => changePaneCount(count)}
+              >
+                <span
+                  className="layoutPreview"
+                  style={{
+                    gridTemplateColumns: `repeat(${layout.cols}, 1fr)`,
+                    gridTemplateRows: `repeat(${layout.rows}, 1fr)`,
+                  }}
+                >
+                  {Array.from({ length: count }, (_, index) => (
+                    <i key={index} />
+                  ))}
+                </span>
+                {count}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {(recents.length > 0 || projectRecents.length > 0) && (
+        <div className="wizardSection">
+          <div className="wizardLabelRow">
+            <span className="wizardLabel">Recent</span>
+            <small>Last opened workspaces</small>
+          </div>
+          <div className="recentCards">
+            {recents.map((path) => (
+              <button
+                key={path}
+                type="button"
+                className={`recentCard${folderPath === path ? ' recentCardActive' : ''}`}
+                onClick={() => setFolderPath(path)}
+              >
+                <span>
+                  <strong>{folderName(path)}</strong>
+                  <small>{path}</small>
+                </span>
+              </button>
+            ))}
+            {projectRecents.map((item) => {
               const repo = item.repository;
               if (repo === null) return null;
               return (
                 <button
                   key={item.project.id}
                   type="button"
-                  className={`chip${folderPath === repo.rootPath ? ' chipActive' : ''}`}
-                  title={repo.rootPath}
+                  className={`recentCard${folderPath === repo.rootPath ? ' recentCardActive' : ''}`}
                   onClick={() => setFolderPath(repo.rootPath)}
                 >
-                  {repo.directoryName}
+                  <span>
+                    <strong>{repo.directoryName}</strong>
+                    <small>{repo.rootPath}</small>
+                  </span>
+                  <em>{item.tasks.length}</em>
                 </button>
               );
             })}
           </div>
-        )}
-      </div>
-
-      <div className="wizardSection">
-        <span className="wizardLabel">Agents detected</span>
-        <div className="recentChips">
-          {BOARD_AGENT_CATALOG.map((entry) => {
-            const available =
-              entry.id === 'custom' ? true : (availableById.get(entry.id) ?? false);
-            return (
-              <span
-                key={entry.id}
-                className={`chip${available ? ' chipActive' : ' chipDim'}`}
-              >
-                <span
-                  className={`agentDot ${available ? 'agentDotOn' : 'agentDotOff'}`}
-                />
-                {entry.label}
-              </span>
-            );
-          })}
         </div>
-      </div>
-
-      <div className="wizardSection">
-        <span className="wizardLabel">Panes</span>
-        <div className="countButtons">
-          {PANE_COUNTS.map((count) => (
-            <button
-              key={count}
-              type="button"
-              className={`countBtn${count === paneCount ? ' countBtnActive' : ''}`}
-              onClick={() => changePaneCount(count)}
-            >
-              {count}
-            </button>
-          ))}
-        </div>
-        <div className="segmented" role="group" aria-label="Isolation mode">
-          <button
-            type="button"
-            className={`segmentBtn${isolation === 'shared' ? ' segmentBtnActive' : ''}`}
-            onClick={() => setIsolation('shared')}
-          >
-            Shared folder
-          </button>
-          <button
-            type="button"
-            className={`segmentBtn${isolation === 'worktree' ? ' segmentBtnActive' : ''}`}
-            onClick={() => setIsolation('worktree')}
-          >
-            Worktree per pane
-          </button>
-        </div>
-      </div>
-
-      <div className="wizardSection">
-        <span className="wizardLabel">Pane commands</span>
-        <div
-          className="slotGrid"
-          style={{ gridTemplateColumns: `repeat(${Math.min(paneCount, 3)}, 1fr)` }}
-        >
-          {Array.from({ length: paneCount }, (_, slot) => {
-            const config = slots[slot];
-            return (
-              <article key={slot} className="slotCard">
-                <header>
-                  Slot {slot + 1}
-                  {slot === 0 && (
-                    <button className="iconButton" type="button" onClick={applyToAll}>
-                      Apply to all
-                    </button>
-                  )}
-                </header>
-                <select
-                  className="slotSelect"
-                  value={config?.agentId ?? 'claude'}
-                  onChange={(event) =>
-                    updateSlot(slot, { agentId: event.target.value as BoardAgentId })
-                  }
-                >
-                  {BOARD_AGENT_CATALOG.map((entry) => (
-                    <option key={entry.id} value={entry.id}>
-                      {entry.label}
-                    </option>
-                  ))}
-                </select>
-                {config?.agentId === 'custom' && (
-                  <input
-                    type="text"
-                    placeholder="command e.g. vitest --watch"
-                    value={config.command ?? ''}
-                    onChange={(event) =>
-                      updateSlot(slot, { command: event.target.value })
-                    }
-                  />
-                )}
-              </article>
-            );
-          })}
-        </div>
-      </div>
+      )}
 
       <div className="wizardSection">
         <span className="wizardLabel">Presets</span>
@@ -555,11 +873,7 @@ export function BoardPage(): React.JSX.Element {
             <span className="presetMeta">
               {preset.paneCount} panes · {folderName(preset.folderPath)}
             </span>
-            <button
-              className="secondaryButton"
-              type="button"
-              onClick={() => loadPreset(preset.id)}
-            >
+            <button className="secondaryButton" type="button" onClick={() => loadPreset(preset.id)}>
               Load
             </button>
             <button
@@ -585,7 +899,7 @@ export function BoardPage(): React.JSX.Element {
             className="secondaryButton"
             type="button"
             disabled={
-              savePreset.isPending || presetName.trim().length === 0 || !launchReady
+              savePreset.isPending || presetName.trim().length === 0 || !folderReady
             }
             onClick={() => savePreset.mutate()}
           >
@@ -600,14 +914,29 @@ export function BoardPage(): React.JSX.Element {
         </p>
       )}
 
-      <button
-        className="primaryButton"
-        type="button"
-        disabled={!launchReady || launch.isPending}
-        onClick={launchBoard}
-      >
-        Launch board
-      </button>
+      <div className="spaceWizardFooter">
+        <button className="secondaryButton" type="button" onClick={() => setPhase('home')}>
+          Back
+        </button>
+        <div className="spaceWizardActions">
+          <button
+            className="secondaryButton"
+            type="button"
+            disabled={!folderReady || launch.isPending}
+            onClick={() => launchSpace(shellSlots(paneCount), 'shared')}
+          >
+            Open without AI
+          </button>
+          <button
+            className="primaryButton"
+            type="button"
+            disabled={!folderReady}
+            onClick={() => setPhase('agents')}
+          >
+            Next: Add AI agents
+          </button>
+        </div>
+      </div>
     </section>
   );
 }

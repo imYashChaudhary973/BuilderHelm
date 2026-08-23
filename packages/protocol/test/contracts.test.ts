@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   actionCommandRequestSchema,
   approvalResolveRequestSchema,
+  boardPaneSpecSchema,
   createEvent,
   createProviderInputSchema,
   modelCapabilityOverrideUpdateRequestSchema,
@@ -186,6 +187,17 @@ describe('IPC contracts', () => {
           exactArguments: { title: 'Replacement' },
         },
       }).success,
+    ).toBe(false);
+  });
+});
+
+describe('board pane specs', () => {
+  it('allows a login shell without a command and rejects empty custom panes', () => {
+    expect(boardPaneSpecSchema.parse({ slot: 0, agentId: 'shell' }).agentId).toBe(
+      'shell',
+    );
+    expect(
+      boardPaneSpecSchema.safeParse({ slot: 0, agentId: 'custom' }).success,
     ).toBe(false);
   });
 });

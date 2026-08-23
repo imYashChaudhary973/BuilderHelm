@@ -8,6 +8,8 @@ import type {
   BoardLandPreview,
   BoardLandResult,
   BoardPaneCloseInput,
+  BoardPaneDrainInput,
+  BoardPaneDrainResult,
   BoardPaneEventEnvelope,
   BoardPaneResizeInput,
   BoardPaneWriteInput,
@@ -96,6 +98,8 @@ export const ipcChannels = {
   boardWrite: 'zero:board:write',
   boardResize: 'zero:board:resize',
   boardPaneClose: 'zero:board:pane-close',
+  boardPaneDrain: 'zero:board:pane-drain',
+  boardHomeDir: 'zero:board:home-dir',
   boardSelectFolder: 'zero:board:select-folder',
   boardDetectAgents: 'zero:board:detect-agents',
   boardPresetList: 'zero:board:preset-list',
@@ -177,10 +181,12 @@ export interface ZeroDesktopApi {
     updatePolicy(input: PermissionPolicyUpdateInput): Promise<PermissionPolicy>;
   };
   readonly board: {
+    homeDir(): Promise<string>;
     createSession(input: BoardCreateInput): Promise<BoardSessionSummary>;
     write(input: BoardPaneWriteInput): Promise<{ readonly written: true }>;
     resize(input: BoardPaneResizeInput): Promise<{ readonly resized: true }>;
     closePane(input: BoardPaneCloseInput): Promise<{ readonly closed: true }>;
+    drainPane(input: BoardPaneDrainInput): Promise<BoardPaneDrainResult>;
     selectFolder(): Promise<string | null>;
     detectAgents(): Promise<BoardAgentDetection[]>;
     listPresets(): Promise<BoardPresetRecord[]>;

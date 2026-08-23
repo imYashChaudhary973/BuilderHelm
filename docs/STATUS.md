@@ -1,8 +1,8 @@
 # Implementation Status
 
-- Last reviewed: 2026-08-23
+- Last reviewed: 2026-08-24
 - Baseline: Phases 0–5 and Board landed on `main` at `b7bdb96`
-- Active work: Phase 6 coding workspace, starting from the Board
+- Active work: Space home → wizard → live terminals on `feat/space`
 
 This document is the canonical summary of what the repository implements now.
 The [blueprint](blueprint/00_README.md) describes intended product direction,
@@ -18,7 +18,7 @@ while [phase reports](reports/README.md) preserve checkpoint evidence.
 | 3     | Complete    | Read-only Obsidian indexing, local retrieval, cited answers, source viewing, and change detection                         |
 | 4     | Complete    | Schema-backed tools, deterministic permissions, exact approvals, action receipts, and action chat                         |
 | 5     | Complete    | Project dashboard, repository attachment, Git status and history, Today summary, and project continuity                   |
-| 6     | In progress | Exeum Board: xterm grid, per-pane worktrees, agent CLI launch, and land of `exeum/*` branches                             |
+| 6     | In progress | Space: four-mode home, folder/layout wizard, Open without AI, per-pane agents, usable xterm grid |
 | 7–12  | Planned     | Research, automation, voice, health, content, advanced graph, and product hardening                                       |
 
 ## Current application surfaces
@@ -29,7 +29,7 @@ while [phase reports](reports/README.md) preserve checkpoint evidence.
 - Obsidian knowledge retrieval
 - Permissioned actions, tasks, and receipts
 - Projects and Git continuity
-- Exeum Board (terminal grid, isolated worktrees, land)
+- Space (home, workspace setup, agent pick, live terminals)
 
 ## Current architecture
 

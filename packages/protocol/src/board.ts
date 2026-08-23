@@ -4,12 +4,16 @@ import { z } from 'zod';
 import { modelErrorSchema } from './model.js';
 
 export const boardAgentIds = [
+  'shell',
   'claude',
   'codex',
-  'opencode',
   'grok',
-  'omp',
   'gemini',
+  'antigravity',
+  'opencode',
+  'cursor',
+  'copilot',
+  'omp',
   'kimi',
   'custom',
 ] as const;
@@ -23,15 +27,19 @@ export interface BoardAgentCatalogEntry {
   readonly command: string;
 }
 
-/** Known agent launchers. `custom` panes always require an explicit command. */
+/** Known launchers. `shell` is a login shell. `custom` always needs a command. */
 export const BOARD_AGENT_CATALOG: readonly BoardAgentCatalogEntry[] = [
-  { id: 'claude', label: 'Claude Code', command: 'claude' },
+  { id: 'shell', label: 'Terminal', command: '' },
+  { id: 'claude', label: 'Claude', command: 'claude' },
   { id: 'codex', label: 'Codex', command: 'codex' },
+  { id: 'grok', label: 'Grok', command: 'grok' },
+  { id: 'gemini', label: 'Gemini', command: 'gemini' },
+  { id: 'antigravity', label: 'Antigravity', command: 'antigravity' },
   { id: 'opencode', label: 'OpenCode', command: 'opencode' },
-  { id: 'grok', label: 'Grok Build', command: 'grok' },
+  { id: 'cursor', label: 'Cursor', command: 'cursor' },
+  { id: 'copilot', label: 'Copilot', command: 'copilot' },
   { id: 'omp', label: 'Oh My Pi', command: 'omp' },
-  { id: 'gemini', label: 'Gemini CLI', command: 'gemini' },
-  { id: 'kimi', label: 'Kimi Code', command: 'kimi' },
+  { id: 'kimi', label: 'Kimi', command: 'kimi' },
   { id: 'custom', label: 'Custom command', command: '' },
 ];
 
@@ -192,6 +200,13 @@ export const boardPaneCloseInputSchema = z
   .strict();
 export type BoardPaneCloseInput = z.infer<typeof boardPaneCloseInputSchema>;
 
+export const boardPaneDrainInputSchema = boardPaneCloseInputSchema;
+export type BoardPaneDrainInput = z.infer<typeof boardPaneDrainInputSchema>;
+export const boardPaneDrainResultSchema = z
+  .object({ data: z.string().max(200_000) })
+  .strict();
+export type BoardPaneDrainResult = z.infer<typeof boardPaneDrainResultSchema>;
+
 export const boardSelectFolderInputSchema = z
   .object({ correlationId: boardCorrelationSchema })
   .strict();
@@ -291,7 +306,11 @@ export const boardResizeIpcResponseSchema = boardIpcResponse(
 export const boardPaneCloseIpcResponseSchema = boardIpcResponse(
   z.object({ closed: z.literal(true) }).strict(),
 );
+export const boardPaneDrainIpcResponseSchema = boardIpcResponse(
+  boardPaneDrainResultSchema,
+);
 export const boardSelectFolderIpcResponseSchema = boardIpcResponse(z.string().nullable());
+export const boardHomeDirIpcResponseSchema = boardIpcResponse(z.string().min(1));
 export const boardDetectAgentsIpcResponseSchema = boardIpcResponse(
   z.array(boardAgentDetectionSchema),
 );

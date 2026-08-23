@@ -131,7 +131,7 @@ export class BoardService {
   async detectAgents(): Promise<BoardAgentDetection[]> {
     const detections = await Promise.all(
       BOARD_AGENT_CATALOG.map(async (entry): Promise<BoardAgentDetection> => {
-        if (entry.id === 'custom') {
+        if (entry.id === 'custom' || entry.id === 'shell' || entry.command.length === 0) {
           return { id: entry.id, label: entry.label, available: true, path: null };
         }
         // GUI-launched apps inherit a stripped PATH, so probe through a login shell.

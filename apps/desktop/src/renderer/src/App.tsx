@@ -1,7 +1,7 @@
 import { Link, Outlet } from '@tanstack/react-router';
 
 const nav = [
-  { label: 'Board', to: '/board', icon: TerminalIcon },
+  { label: 'Space', to: '/board', icon: TerminalIcon },
   { label: 'Settings', to: '/settings/providers', icon: SettingsIcon },
 ];
 

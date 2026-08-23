@@ -28,6 +28,7 @@ export function TerminalPane({
   onLand,
 }: TerminalPaneProps): React.JSX.Element {
   const serializeRef = useRef<SerializeAddon | null>(null);
+  const termRef = useRef<Terminal | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<BoardPaneStatus>(pane.status);
   const [focused, setFocused] = useState(false);
@@ -38,15 +39,16 @@ export function TerminalPane({
 
     const term = new Terminal({
       convertEol: false,
-      fontSize: 12,
+      fontSize: 13,
       cursorBlink: true,
-      theme: { background: '#0b0d12', foreground: '#e8eaf0' },
+      theme: { background: '#0b0d12', foreground: '#e8eaf0', cursor: '#b6d475' },
     });
     const fit = new FitAddon();
     const serialize = new SerializeAddon();
     term.loadAddon(fit);
     term.loadAddon(serialize);
     serializeRef.current = serialize;
+    termRef.current = term;
     term.open(host);
     fit.fit();
 
@@ -87,6 +89,19 @@ export function TerminalPane({
       }
     });
 
+    void window.zero.board
+      .drainPane({
+        correlationId: crypto.randomUUID() as CorrelationId,
+        sessionId,
+        paneId: pane.paneId,
+      })
+      .then((snapshot) => {
+        if (snapshot.data.length > 0) term.write(snapshot.data);
+      })
+      .catch(() => undefined);
+
+    term.focus();
+
     return () => {
       observer.disconnect();
       unsubscribe();
@@ -94,6 +109,7 @@ export function TerminalPane({
       textarea?.removeEventListener('blur', handleBlur);
       dataDisposable.dispose();
       term.dispose();
+      termRef.current = null;
       serializeRef.current = null;
     };
   }, [sessionId, pane.paneId]);
@@ -152,7 +168,11 @@ export function TerminalPane({
           ×
         </button>
       </header>
-      <div className="paneTerminalHost" ref={hostRef} />
+      <div
+        className="paneTerminalHost"
+        ref={hostRef}
+        onMouseDown={() => termRef.current?.focus()}
+      />
     </div>
   );
 }

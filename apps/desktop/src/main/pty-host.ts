@@ -23,8 +23,32 @@ function asInt(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isInteger(value) ? value : undefined;
 }
 
-// Invariant: the only peer is our BoardPtyManager, so validate field types
-// manually and ignore anything malformed instead of failing loudly.
+function spawnPane(
+  paneId: string,
+  cwd: string,
+  cols: number,
+  rows: number,
+  command: string,
+): void {
+  const shell = process.env.SHELL ?? '/bin/zsh';
+  const args = command.trim().length === 0 ? ['-l'] : ['-l', '-c', command];
+  const pty = spawn(shell, args, {
+    name: 'xterm-256color',
+    cols,
+    rows,
+    cwd,
+    env: { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' },
+  });
+  panes.set(paneId, pty);
+  pty.onData((chunk) => {
+    post({ kind: 'data', paneId, data: Buffer.from(chunk).toString('base64') });
+  });
+  pty.onExit(({ exitCode }) => {
+    panes.delete(paneId);
+    post({ kind: 'exit', paneId, exitCode });
+  });
+}
+
 process.parentPort.on('message', (event: Electron.MessageEvent) => {
   const raw = event.data as Partial<HostMessage> | null;
   if (!raw || typeof raw.kind !== 'string') return;
@@ -34,27 +58,19 @@ process.parentPort.on('message', (event: Electron.MessageEvent) => {
       const cols = asInt(raw.cols);
       const rows = asInt(raw.rows);
       if (typeof paneId !== 'string' || typeof cwd !== 'string') return;
-      if (typeof command !== 'string' || command.length === 0) return;
+      if (typeof command !== 'string') return;
       if (cols === undefined || rows === undefined || panes.has(paneId)) return;
-      const pty = spawn(
-        process.env.SHELL ?? '/bin/zsh',
-        ['-l', '-c', `exec ${command}`],
-        {
-          name: 'xterm-256color',
-          cols,
-          rows,
-          cwd,
-          env: { ...process.env, TERM: 'xterm-256color' },
-        },
-      );
-      panes.set(paneId, pty);
-      pty.onData((chunk) => {
-        post({ kind: 'data', paneId, data: Buffer.from(chunk).toString('base64') });
-      });
-      pty.onExit(({ exitCode }) => {
-        panes.delete(paneId);
-        post({ kind: 'exit', paneId, exitCode });
-      });
+      try {
+        spawnPane(paneId, cwd, cols, rows, command);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'pty spawn failed';
+        post({
+          kind: 'data',
+          paneId,
+          data: Buffer.from(`${message}\r\n`).toString('base64'),
+        });
+        post({ kind: 'exit', paneId, exitCode: 1 });
+      }
       break;
     }
     case 'write': {
@@ -77,10 +93,8 @@ process.parentPort.on('message', (event: Electron.MessageEvent) => {
       break;
     }
     default:
-      // Unknown message kinds are ignored.
       break;
   }
 });
 
-// Signal the parent that we are listening.
 post({ kind: 'ready' });

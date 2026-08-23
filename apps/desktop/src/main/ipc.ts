@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { homedir } from 'node:os';
 
 import type { CoreRuntime } from '@zero/core';
 import {
@@ -17,8 +18,16 @@ import {
   boardCreateIpcResponseSchema,
   boardDetectAgentsInputSchema,
   boardDetectAgentsIpcResponseSchema,
+  boardHomeDirIpcResponseSchema,
+  boardLandInputSchema,
+  boardLandIpcResponseSchema,
+  boardLandPreviewIpcResponseSchema,
   boardPaneCloseInputSchema,
   boardPaneCloseIpcResponseSchema,
+  boardPaneDrainInputSchema,
+  boardPaneDrainIpcResponseSchema,
+  boardPaneResizeInputSchema,
+  boardPaneWriteInputSchema,
   boardPresetDeleteInputSchema,
   boardPresetDeleteIpcResponseSchema,
   boardPresetListIpcResponseSchema,
@@ -27,12 +36,7 @@ import {
   boardResizeIpcResponseSchema,
   boardSelectFolderInputSchema,
   boardSelectFolderIpcResponseSchema,
-  boardPaneResizeInputSchema,
-  boardPaneWriteInputSchema,
   boardWriteIpcResponseSchema,
-  boardLandInputSchema,
-  boardLandIpcResponseSchema,
-  boardLandPreviewIpcResponseSchema,
 } from '@zero/protocol/board';
 import {
   chatCreateRequestSchema,
@@ -85,7 +89,7 @@ import {
   projectRepositorySelectIpcResponseSchema,
   projectRepositorySelectRequestSchema,
 } from '@zero/protocol/projects';
-import { normalizeError, ZeroError } from '@zero/shared';
+import { createCorrelationId, normalizeError, ZeroError } from '@zero/shared';
 import type { BoardPtyManager } from './board-pty-manager.js';
 import { dialog, ipcMain, type WebContents } from 'electron';
 import { ZodError } from 'zod';
@@ -103,12 +107,15 @@ function ipcError(error: unknown): {
     };
   }
   const normalized = normalizeError(error);
+  const detail = error instanceof Error ? error.message : '';
   return {
     code: normalized.code,
     message:
       error instanceof ZeroError
         ? normalized.message
-        : 'The request could not be completed',
+        : detail.length > 0
+          ? detail
+          : 'The request could not be completed',
     retryable: normalized.retryable,
   };
 }
@@ -591,12 +598,23 @@ export function registerIpcHandlers(
         request,
         async (slot) => {
           if (request.isolation === 'worktree') {
-            const worktree = await core.board.createWorktree(
-              request.folderPath,
-              `p${slot + 1}-${tag}`,
-              request.correlationId,
-            );
-            return { cwd: worktree.path, branch: worktree.branch };
+            try {
+              const worktree = await core.board.createWorktree(
+                request.folderPath,
+                `p${slot + 1}-${tag}`,
+                request.correlationId,
+              );
+              return { cwd: worktree.path, branch: worktree.branch };
+            } catch (error) {
+              const branch = await core.board.readBranch(request.folderPath);
+              if (branch === null) {
+                throw new ZeroError(
+                  'VALIDATION_FAILED',
+                  'Worktree per pane needs a git repository. Use Shared folder, or pick a repo.',
+                );
+              }
+              throw error;
+            }
           }
           return {
             cwd: request.folderPath,
@@ -607,6 +625,13 @@ export function registerIpcHandlers(
       );
       return boardCreateIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
+      core.logger.error({
+        event: 'board.create_failed',
+        correlationId: createCorrelationId(),
+        data: {
+          message: error instanceof Error ? error.message : 'unknown',
+        },
+      });
       return boardCreateIpcResponseSchema.parse({
         ok: false,
         error: ipcError(error),
@@ -658,6 +683,20 @@ export function registerIpcHandlers(
       });
     }
   });
+  ipcMain.handle(ipcChannels.boardPaneDrain, (_event, input: unknown) => {
+    try {
+      const request = boardPaneDrainInputSchema.parse(input);
+      return boardPaneDrainIpcResponseSchema.parse({
+        ok: true,
+        value: requireBoard().drainPane(request),
+      });
+    } catch (error) {
+      return boardPaneDrainIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
   ipcMain.handle(ipcChannels.boardSelectFolder, async (_event, input: unknown) => {
     try {
       boardSelectFolderInputSchema.parse(input);
@@ -675,6 +714,9 @@ export function registerIpcHandlers(
       });
     }
   });
+  ipcMain.handle(ipcChannels.boardHomeDir, () =>
+    boardHomeDirIpcResponseSchema.parse({ ok: true, value: homedir() }),
+  );
   ipcMain.handle(ipcChannels.boardDetectAgents, async (_event, input: unknown) => {
     try {
       boardDetectAgentsInputSchema.parse(input);
@@ -798,7 +840,9 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.boardWrite);
     ipcMain.removeHandler(ipcChannels.boardResize);
     ipcMain.removeHandler(ipcChannels.boardPaneClose);
+    ipcMain.removeHandler(ipcChannels.boardPaneDrain);
     ipcMain.removeHandler(ipcChannels.boardSelectFolder);
+    ipcMain.removeHandler(ipcChannels.boardHomeDir);
     ipcMain.removeHandler(ipcChannels.boardDetectAgents);
     ipcMain.removeHandler(ipcChannels.boardPresetList);
     ipcMain.removeHandler(ipcChannels.boardPresetSave);
