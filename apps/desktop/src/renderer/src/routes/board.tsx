@@ -12,10 +12,9 @@ import type {
 import { BOARD_AGENT_CATALOG, boardGridLayouts } from '@zero/protocol/board';
 import type { CorrelationId } from '@zero/shared';
 import { useEffect, useState } from 'react';
-
 import { TerminalPane } from '../components/terminal-pane.js';
 import { useSpaces } from '../space-store.js';
-
+import logo from '../assets/logo.png';
 const PANE_COUNTS: readonly BoardPaneCount[] = [1, 2, 4, 6, 8, 10, 12];
 const RECENTS_KEY = 'exeum.space.recents';
 const AI_AGENTS = BOARD_AGENT_CATALOG.filter((entry) => entry.id !== 'shell');
@@ -553,11 +552,9 @@ export function BoardPage(): React.JSX.Element {
   if (phase === 'home') {
     return (
       <section className="spaceHome" aria-labelledby="space-home-title" data-core-status="ready">
-        <div className="spaceHomeMark" aria-hidden="true">
-          <span />
-        </div>
-        <h1 id="space-home-title">Exeum</h1>
-        <p className="spaceTagline" aria-hidden="true" />
+        <img className="spaceHomeLogo" src={logo} width={72} height={72} alt="" />
+        <h1 id="space-home-title">BuilderHelm</h1>
+        <p className="spaceTagline">Your agents. You at the helm.</p>
         <p className="spaceHomeLead">Choose how you want to work.</p>
         <ul className="spaceModes">
           {MODES.map((mode) => (

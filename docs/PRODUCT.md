@@ -1,13 +1,12 @@
-# Exeum
+# BuilderHelm
 
-Working name. Final name, logo, and tagline are TBD. Do not invent a
-tagline in the product. Leave the slot empty until copy is chosen.
+Your agents. You at the helm.
 
-Exeum is a local-first desktop harness for building software. The point is
-that you do not leave the app: terminals, agents, tasks, memory, browser,
-editor, Git, and skills stay in one shell.
+BuilderHelm is a local-first desktop harness for building software. The
+point is that you do not leave the app: terminals, agents, tasks, memory,
+browser, editor, Git, and skills stay in one shell.
 
-The code package is still `zero-os`. That is a repository name, not the
+The npm workspace is still `zero-os`. That is a repository name, not the
 product name.
 
 ## Choose how you want to work
@@ -42,30 +41,13 @@ Board is a different surface and is not built yet.
 ## What this is not
 
 - Not a replacement for macOS.
-- Not the old Zero OS personal-life OS (HealthKit, content studio,
-  scheduled life automations, clinical claims).
+- Not a personal-life OS (HealthKit, content studio, scheduled life
+  automations, clinical claims).
 - Not a social auto-poster or unrestricted computer-use agent.
-
-## Surfaces
-
-```text
-Home (4 modes)
-  ├─ Space     → folder + layout → optional agents → live terminals
-  ├─ Swarm     → multi-agent run
-  ├─ Board     → Kanban
-  └─ Memory    → knowledge graph
-
-Chrome (every mode)
-  ├─ Top bar   → Space / Swarm / Board / Memory / Skills / Settings
-  ├─ Left rail → stacked workspaces
-  └─ Right rail → browser, editor, Git, skills
-
-Overlay
-  └─ Bridge assistant / Swarm builder / notifications / updates
-```
 
 ## Name and branding
 
-- Public name, wordmark, and tagline land later. Logo will be supplied.
-- Until then, docs and UI use **Exeum**.
-- Do not block product work on naming.
+- Public name: **BuilderHelm**
+- Tagline: **Your agents. You at the helm.**
+- Symbol: helm mark from the approved asset pack. Do not stretch, crop,
+  outline, or add glow.

@@ -6,9 +6,9 @@ Intended interface. [STATUS](STATUS.md) is what the code renders today.
 
 Centered, quiet. Small header. Name and logo in the middle.
 
-1. Logo (asset TBD).
-2. App name (Exeum until the final name lands).
-3. Tagline slot. Empty until copy is chosen. Do not invent one.
+1. Helm mark.
+2. **BuilderHelm**
+3. Tagline: **Your agents. You at the helm.**
 4. Heading: **Choose how you want to work.**
 5. Four mode cards, each with the promise from [PRODUCT](PRODUCT.md) and
    the shortcut on the right: Space ⌘T, Swarm ⌘S, Board ⌘B, Memory ⌘M.

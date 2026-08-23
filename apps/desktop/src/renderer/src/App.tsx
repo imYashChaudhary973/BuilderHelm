@@ -1,11 +1,11 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
+import logo from './assets/logo.png';
 import { SidePanel } from './components/side-panel.js';
 import { SpaceRail } from './components/space-rail.js';
 import { PreviewProvider, usePreview } from './preview-store.js';
 import { SpaceProvider } from './space-store.js';
-
 const MODES = [
   { id: 'space', label: 'Space', to: '/board', live: true },
   { id: 'swarm', label: 'Swarm', live: false },
@@ -60,8 +60,9 @@ function Shell(): React.JSX.Element {
         >
           <RailIcon />
         </button>
-        <div className="brand" aria-label="Exeum">
-          Exeum
+        <div className="brand">
+          <img className="brandLogo" src={logo} width={22} height={22} alt="" />
+          BuilderHelm
         </div>
         <nav className="topbarNav" aria-label="Modes">
           {MODES.map((mode) =>
