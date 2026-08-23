@@ -488,20 +488,47 @@ textarea:focus-visible {
 }
 
 .railCollapsed .railRow {
-  flex-direction: column;
-}
-
-.railCollapsed .railMore {
-  width: 100%;
-  height: 14px;
-  font-size: 10px;
-  line-height: 1;
+  justify-content: center;
 }
 
 .railRow {
   position: relative;
   display: flex;
   align-items: center;
+}
+
+.railTile {
+  position: relative;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--tile) 50%, transparent);
+  border-radius: 11px;
+  color: var(--tile);
+  background: color-mix(in srgb, var(--tile) 14%, var(--bg-1));
+}
+
+.railTile:hover,
+.railItemOn .railTile {
+  border-color: var(--tile);
+  background: color-mix(in srgb, var(--tile) 22%, var(--bg-1));
+}
+
+.railBadge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  color: #10120f;
+  background: var(--tile);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
 }
 
 .railItem,
@@ -518,33 +545,34 @@ textarea:focus-visible {
   text-align: left;
 }
 
-.railCollapsed .railItem,
 .railCollapsed .railNew {
   justify-content: center;
   padding: 8px 0;
 }
 
 .railItem:hover,
-.railNew:hover,
-.railMore:hover {
+.railNew:hover {
   color: var(--text);
   background: rgba(255, 255, 255, 0.04);
 }
 
-.railItemOn,
 .railItemOn .railItem {
-  color: var(--accent-bright);
+  color: var(--text);
 }
 
-.railItemOn {
+.railItemOn:not(:has(.railTile)) {
   background: var(--accent-dim);
   border-radius: var(--radius-s);
 }
 
 .railTerm {
-  flex-shrink: 0;
   width: 18px;
   height: 18px;
+}
+
+.railTile .railTerm {
+  width: 20px;
+  height: 20px;
 }
 
 .railCopy {
@@ -568,21 +596,9 @@ textarea:focus-visible {
 }
 
 .railRename {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   margin: 0;
   padding: 4px 6px;
-}
-
-.railMore {
-  flex-shrink: 0;
-  width: 24px;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  color: var(--text-3);
-  background: transparent;
-  letter-spacing: 1px;
 }
 
 .railMenu {

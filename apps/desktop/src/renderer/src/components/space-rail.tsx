@@ -4,11 +4,20 @@ import type { BoardSessionSummary } from '@zero/protocol/board';
 
 import { SPACE_COLORS, useSpaces } from '../space-store.js';
 
-function TerminalIcon({ color }: { readonly color: string }): React.JSX.Element {
+function TerminalGlyph(): React.JSX.Element {
   return (
-    <svg className="railTerm" viewBox="0 0 24 24" aria-hidden="true" style={{ color }}>
-      <polyline points="4 17 10 11 4 5" fill="none" stroke="currentColor" strokeWidth="2" />
-      <line x1="12" y1="19" x2="20" y2="19" stroke="currentColor" strokeWidth="2" />
+    <svg className="railTerm" viewBox="0 0 24 24" aria-hidden="true">
+      <rect
+        x="3.5"
+        y="4.5"
+        width="17"
+        height="15"
+        rx="3"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+      />
+      <path d="M8 9.5 11 12 8 14.5M13 15.5h3.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
     </svg>
   );
 }
@@ -30,18 +39,29 @@ export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React
         {spaces.spaces.map((space) => {
           const on = !spaces.draft && spaces.activeId === space.sessionId;
           const meta = spaces.meta(space);
-          const menuOpen = menuId === space.sessionId;
+          const hovered = menuId === space.sessionId;
           const renaming = renamingId === space.sessionId;
           return (
-            <div key={space.sessionId} className={on ? 'railRow railItemOn' : 'railRow'}>
+            <div
+              key={space.sessionId}
+              className={on ? 'railRow railItemOn' : 'railRow'}
+              style={{ '--tile': meta.color } as React.CSSProperties}
+              onMouseEnter={() => setMenuId(space.sessionId)}
+              onMouseLeave={() => {
+                if (renaming) return;
+                setMenuId((current) => (current === space.sessionId ? null : current));
+              }}
+            >
               <button
                 type="button"
-                className="railItem"
+                className={collapsed ? 'railTile' : 'railItem'}
                 title={meta.label}
                 onClick={() => openSpace(space)}
               >
-                <TerminalIcon color={meta.color} />
-                {collapsed ? null : (
+                <TerminalGlyph />
+                {collapsed ? (
+                  <span className="railBadge">{space.paneCount}</span>
+                ) : (
                   <span className="railCopy">
                     <strong>{meta.label}</strong>
                     <small>
@@ -50,19 +70,7 @@ export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React
                   </span>
                 )}
               </button>
-              <button
-                type="button"
-                className="railMore"
-                aria-label={`Options for ${meta.label}`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setMenuId((current) => (current === space.sessionId ? null : space.sessionId));
-                  setRenamingId(null);
-                }}
-              >
-                ···
-              </button>
-              {menuOpen && (
+              {hovered && (
                 <div className="railMenu" role="menu">
                   {renaming ? (
                     <input
@@ -73,14 +81,10 @@ export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React
                       onBlur={(event) => {
                         spaces.rename(space, event.currentTarget.value);
                         setRenamingId(null);
-                        setMenuId(null);
                       }}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter') event.currentTarget.blur();
-                        if (event.key === 'Escape') {
-                          setRenamingId(null);
-                          setMenuId(null);
-                        }
+                        if (event.key === 'Escape') setRenamingId(null);
                       }}
                     />
                   ) : (
