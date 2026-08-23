@@ -27,6 +27,8 @@ interface PaneMeta {
   agentId: BoardAgentId;
   title: string;
   status: BoardPaneStatus;
+  branch: string | null;
+  cwd: string;
 }
 
 interface SessionRecord {
@@ -48,7 +50,7 @@ export class BoardPtyManager {
 
   async createSession(
     input: BoardCreateInput,
-    worktreeFor: (slot: number) => Promise<string | undefined>,
+    locate: (slot: number) => Promise<{ cwd: string; branch: string | null }>,
     sender: WebContents,
   ): Promise<BoardSessionSummary> {
     const host = await this.ensureHost();
@@ -65,20 +67,30 @@ export class BoardPtyManager {
         throw new ZeroError('VALIDATION_FAILED', `Unknown board agent ${spec.agentId}`);
       }
       const paneId = randomUUID();
-      const cwd = (await worktreeFor(spec.slot)) ?? input.folderPath;
+      const location = await locate(spec.slot);
       const label = agentLabelById.get(spec.agentId) ?? spec.agentId;
-      const title = `${label} · ${basename(input.folderPath)} #${spec.slot + 1}`;
-      host.postMessage({ kind: 'spawn', paneId, cwd, cols: 120, rows: 30 });
-      // Host accepts spawns synchronously; mark running immediately.
+      const title =
+        location.branch === null
+          ? `${label} · ${basename(location.cwd)} #${spec.slot + 1}`
+          : `${label} · ${location.branch}`;
+      host.postMessage({
+        kind: 'spawn',
+        paneId,
+        cwd: location.cwd,
+        cols: 120,
+        rows: 30,
+      });
       const meta: PaneMeta = {
         slot: spec.slot,
         agentId: spec.agentId,
         title,
         status: 'running',
+        branch: location.branch,
+        cwd: location.cwd,
       };
       session.panes.set(paneId, meta);
       panes.push({ paneId, ...meta });
-      // ponytail fixed shell-init delay, replace with prompt-marker handshake if flaky
+      // ponytail: fixed shell-init delay, replace with prompt-marker handshake if flaky
       setTimeout(() => {
         void this.write({
           correlationId: input.correlationId,

@@ -106,6 +106,11 @@ export function TerminalPane({
       <header className="paneHeader">
         <span className={`paneDot dot-${status}`} aria-label={`status: ${status}`} />
         <span className="paneTitle">{pane.title}</span>
+        {pane.branch !== null && (
+          <span className="paneBranch" title={pane.cwd}>
+            {pane.branch}
+          </span>
+        )}
         <button
           className="iconButton"
           type="button"

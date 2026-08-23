@@ -587,12 +587,18 @@ export function registerIpcHandlers(
       const value = await requireBoard().createSession(
         request,
         async (slot) => {
-          if (request.isolation !== 'worktree') return undefined;
-          return core.board.createWorktree(
-            request.folderPath,
-            `${tag}-${slot}`,
-            request.correlationId,
-          );
+          if (request.isolation === 'worktree') {
+            const worktree = await core.board.createWorktree(
+              request.folderPath,
+              `p${slot + 1}-${tag}`,
+              request.correlationId,
+            );
+            return { cwd: worktree.path, branch: worktree.branch };
+          }
+          return {
+            cwd: request.folderPath,
+            branch: await core.board.readBranch(request.folderPath),
+          };
         },
         event.sender,
       );

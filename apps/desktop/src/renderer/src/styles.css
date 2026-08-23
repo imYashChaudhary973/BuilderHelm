@@ -3013,6 +3013,21 @@ fieldset legend {
   color: var(--text-2);
 }
 
+.paneBranch {
+  flex-shrink: 0;
+  max-width: 42%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-1);
+  background: var(--glass);
+}
+
 .paneExitedLabel {
   font-size: 11px;
   letter-spacing: 0.06em;

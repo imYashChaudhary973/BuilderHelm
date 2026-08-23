@@ -118,6 +118,8 @@ export const boardPaneSummarySchema = z
     agentId: boardAgentIdSchema,
     title: z.string().min(1).max(160),
     status: boardPaneStatusSchema,
+    branch: z.string().min(1).max(255).nullable(),
+    cwd: z.string().min(1).max(4096),
   })
   .strict();
 export type BoardPaneSummary = z.infer<typeof boardPaneSummarySchema>;

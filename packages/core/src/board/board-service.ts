@@ -151,15 +151,15 @@ export class BoardService {
     repoPath: string,
     label: string,
     correlationId: CorrelationId,
-  ): Promise<string> {
+  ): Promise<{ readonly path: string; readonly branch: string }> {
+    const branch = `exeum/${label}`;
     const worktreeDir = join(dirname(repoPath), `${basename(repoPath)}-worktrees`, label);
     await mkdir(dirname(worktreeDir), { recursive: true });
     try {
-      await execFileAsync(
-        'git',
-        ['worktree', 'add', '-b', `exeum/${label}`, worktreeDir],
-        { cwd: repoPath, timeout: 30_000 },
-      );
+      await execFileAsync('git', ['worktree', 'add', '-b', branch, worktreeDir], {
+        cwd: repoPath,
+        timeout: 30_000,
+      });
     } catch (error) {
       throw new ZeroError('TOOL_EXECUTION_FAILED', 'Git could not create the worktree', {
         cause: error,
@@ -186,8 +186,22 @@ export class BoardService {
     this.logger.info({
       event: 'board.worktree_created',
       correlationId,
-      data: { repoPath, worktreeDir, label },
+      data: { repoPath, worktreeDir, label, branch },
     });
-    return worktreeDir;
+    return { path: worktreeDir, branch };
+  }
+
+  async readBranch(cwd: string): Promise<string | null> {
+    try {
+      const { stdout } = await execFileAsync(
+        'git',
+        ['rev-parse', '--abbrev-ref', 'HEAD'],
+        { cwd, timeout: 5000 },
+      );
+      const branch = stdout.trim();
+      return branch.length > 0 && branch !== 'HEAD' ? branch : null;
+    } catch {
+      return null;
+    }
   }
 }

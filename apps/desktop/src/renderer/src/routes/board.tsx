@@ -55,9 +55,9 @@ export function BoardPage(): React.JSX.Element {
   const queryClient = useQueryClient();
   const [phase, setPhase] = useState<'setup' | 'live'>('setup');
   const [folderPath, setFolderPath] = useState('');
-  const [paneCount, setPaneCount] = useState<BoardPaneCount>(4);
+  const [paneCount, setPaneCount] = useState<BoardPaneCount>(2);
   const [slots, setSlots] = useState<Record<number, SlotConfig>>(() =>
-    resizeSlots(4, {}, undefined),
+    resizeSlots(2, {}, undefined),
   );
   const [isolation, setIsolation] = useState<BoardIsolation>('worktree');
   const [presetName, setPresetName] = useState('');
@@ -289,6 +289,11 @@ export function BoardPage(): React.JSX.Element {
                 <header className="paneHeader">
                   <span className="paneDot dot-exited" />
                   <span className="paneTitle">{pane.title}</span>
+                  {pane.branch !== null && (
+                    <span className="paneBranch" title={pane.cwd}>
+                      {pane.branch}
+                    </span>
+                  )}
                   <span className="paneExitedLabel">exited</span>
                 </header>
               </div>
