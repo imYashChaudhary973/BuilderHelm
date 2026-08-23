@@ -9,6 +9,7 @@ interface OpenDoc {
 }
 
 const AUTOSAVE_KEY = 'exeum.editor.autosave';
+const WRAP_KEY = 'exeum.editor.wrap';
 
 function workspaceFolder(spaces: ReturnType<typeof useSpaces>): string | null {
   if (spaces.draft || spaces.activeId === null) return null;
@@ -164,6 +165,7 @@ export function EditorSidebar(): React.JSX.Element {
   const [creating, setCreating] = useState<'file' | 'dir' | null>(null);
   const [newName, setNewName] = useState('');
   const [autosave, setAutosave] = useState(() => localStorage.getItem(AUTOSAVE_KEY) === '1');
+  const [wrap, setWrap] = useState(() => localStorage.getItem(WRAP_KEY) === '1');
   const [treeOpen, setTreeOpen] = useState(true);
   const active = docs.find((doc) => doc.file.path === activePath) ?? null;
   const dirtyCount = docs.filter((doc) => doc.draft !== doc.file.text).length;
@@ -305,9 +307,17 @@ export function EditorSidebar(): React.JSX.Element {
       </aside>
     );
   }
-
   return (
     <aside className={treeOpen ? 'editorSide' : 'editorSide editorSideTreeOff'} aria-label="Editor">
+      <div className="editorTreeRail">
+        <button
+          type="button"
+          title={treeOpen ? 'Hide tree' : 'Show tree'}
+          onClick={() => setTreeOpen((current) => !current)}
+        >
+          <IconSidebar />
+        </button>
+      </div>
       {treeOpen ? (
         <div className="editorTreeCol">
           <div className="editorTreeHead">
@@ -333,9 +343,6 @@ export function EditorSidebar(): React.JSX.Element {
                 onClick={() => setHidden((current) => !current)}
               >
                 {hidden ? <IconInfo /> : <IconInfoOff />}
-              </button>
-              <button type="button" title="Hide tree" onClick={() => setTreeOpen(false)}>
-                <IconSidebar />
               </button>
             </div>
           </div>
@@ -396,13 +403,7 @@ export function EditorSidebar(): React.JSX.Element {
             />
           )}
         </div>
-      ) : (
-        <div className="editorTreeCol editorTreeRail">
-          <button type="button" title="Show tree" onClick={() => setTreeOpen(true)}>
-            <IconSidebar />
-          </button>
-        </div>
-      )}
+      ) : null}
       <div className="editorMain">
         <div className="editorTabs" aria-label="Open files">
           {docs.length === 0 ? (
@@ -442,6 +443,18 @@ export function EditorSidebar(): React.JSX.Element {
             />
             Autosave
           </label>
+          <label className="editorAuto">
+            <input
+              type="checkbox"
+              checked={wrap}
+              onChange={(event) => {
+                const next = event.target.checked;
+                setWrap(next);
+                localStorage.setItem(WRAP_KEY, next ? '1' : '0');
+              }}
+            />
+            Word wrap
+          </label>
           <span className="editorStatus">
             {active === null
               ? 'No file'
@@ -463,7 +476,7 @@ export function EditorSidebar(): React.JSX.Element {
               {lines.map((_, index) => String(index + 1)).join('\n')}
             </pre>
             <textarea
-              className="codeInput"
+              className={wrap ? 'codeInput codeInputWrap' : 'codeInput'}
               value={active.draft}
               spellCheck={false}
               onChange={(event) => {

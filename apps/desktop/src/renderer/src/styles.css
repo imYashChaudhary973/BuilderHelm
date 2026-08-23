@@ -4028,7 +4028,7 @@ fieldset legend {
 .editorSide {
   display: grid;
   flex: 1;
-  grid-template-columns: 168px 1fr;
+  grid-template-columns: 32px 148px 1fr;
   min-width: 0;
   min-height: 0;
   background: #070707;
@@ -4051,8 +4051,9 @@ fieldset legend {
   width: 32px;
   min-width: 32px;
   align-items: center;
-  padding: 8px 0 0;
-  background: #070707;
+  justify-content: center;
+  background: #0c0c0c;
+  border-right: 1px solid var(--line);
 }
 
 .editorTreeRail button {
@@ -4243,6 +4244,11 @@ fieldset legend {
   outline: none;
 }
 
+.codeInputWrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .gitSide {
   display: flex;
   flex: 1;
@@ -4341,4 +4347,54 @@ fieldset legend {
   flex-shrink: 0;
   color: var(--text-3);
   font-family: var(--font-mono);
+}
+
+.gitLists {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+  gap: 14px;
+}
+
+.gitLists header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-3);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.gitLists section > p {
+  margin: 8px 0 0;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.gitChanges button {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.gitChanges small {
+  margin-left: auto;
+  color: var(--text-3);
+}
+
+.gitFooter {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--text-3);
+  font-size: 12px;
 }

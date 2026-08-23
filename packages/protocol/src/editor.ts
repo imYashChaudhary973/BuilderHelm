@@ -33,6 +33,7 @@ export const editorGitChangeSchema = z
   .object({
     path: pathSchema,
     code: z.string().min(1).max(2),
+    staged: z.boolean(),
   })
   .strict();
 

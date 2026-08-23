@@ -79,7 +79,6 @@ export class PreviewBrowser {
         },
       });
       view.setBackgroundColor('#070707');
-      view.setAutoResize({ width: true, height: true, horizontal: false, vertical: false });
       view.webContents.setWindowOpenHandler(({ url }) => {
         const allowed = parsePreviewUrl(url);
         if (allowed !== null) void view.webContents.loadURL(allowed);

@@ -92,6 +92,11 @@ export function BrowserSidebar({
   }, [syncBounds, page]);
 
   useEffect(() => {
+    if (page !== null) return;
+    void window.zero?.browser.command({ action: 'hide' }).catch(() => undefined);
+  }, [page]);
+
+  useEffect(() => {
     return () => {
       void window.zero?.browser.command({ action: 'hide' }).catch(() => undefined);
     };

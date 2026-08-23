@@ -12,12 +12,18 @@ function fileName(path: string): string {
   return path.split('/').filter(Boolean).at(-1) ?? path;
 }
 
+function dirLabel(path: string): string {
+  const parts = path.split('/').filter(Boolean);
+  return parts.length > 1 ? parts.slice(0, -1).join('/') : '';
+}
+
 export function GitSidebar(): React.JSX.Element {
   const spaces = useSpaces();
   const root = workspaceFolder(spaces);
   const [git, setGit] = useState<EditorGit | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<'changes' | 'history'>('changes');
+  const [picked, setPicked] = useState<string | null>(null);
 
   useEffect(() => {
     if (root === null) {
@@ -67,12 +73,17 @@ export function GitSidebar(): React.JSX.Element {
     );
   }
 
+  const staged = git.changes.filter((item) => item.staged);
+  const work = git.changes.filter((item) => !item.staged);
+
   return (
     <aside className="gitSide" aria-label="Git">
-      <div className="gitBranch">
-        <span>{git.branch}</span>
-        {git.aheadCount > 0 ? <em>↑{git.aheadCount}</em> : null}
-        {git.behindCount > 0 ? <em>↓{git.behindCount}</em> : null}
+      <div className="gitTop">
+        <div className="gitBranch">
+          <span>{git.branch}</span>
+          {git.aheadCount > 0 ? <em>↑{git.aheadCount}</em> : null}
+          {git.behindCount > 0 ? <em>↓{git.behindCount}</em> : null}
+        </div>
       </div>
       <div className="gitViews">
         <button
@@ -91,18 +102,48 @@ export function GitSidebar(): React.JSX.Element {
         </button>
       </div>
       {view === 'changes' ? (
-        git.changes.length === 0 ? (
-          <p className="editorEmpty">Working tree clean.</p>
-        ) : (
-          <ul className="gitChanges">
-            {git.changes.map((change) => (
-              <li key={change.path}>
-                <em>{change.code}</em>
-                <span>{fileName(change.path)}</span>
-              </li>
-            ))}
-          </ul>
-        )
+        <div className="gitLists">
+          <section>
+            <header>
+              Staged <strong>{staged.length}</strong>
+            </header>
+            {staged.length === 0 ? (
+              <p>No staged changes</p>
+            ) : (
+              <ul className="gitChanges">
+                {staged.map((change) => (
+                  <li key={`s-${change.path}`}>
+                    <button type="button" onClick={() => setPicked(change.path)}>
+                      <em>{change.code}</em>
+                      <span>{fileName(change.path)}</span>
+                      <small>{dirLabel(change.path)}</small>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+          <section>
+            <header>
+              Changes <strong>{work.length}</strong>
+            </header>
+            {work.length === 0 ? (
+              <p>Working tree clean</p>
+            ) : (
+              <ul className="gitChanges">
+                {work.map((change) => (
+                  <li key={`w-${change.path}`}>
+                    <button type="button" onClick={() => setPicked(change.path)}>
+                      <em>{change.code}</em>
+                      <span>{fileName(change.path)}</span>
+                      <small>{dirLabel(change.path)}</small>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
       ) : (
         <ol className="gitLog">
           {git.commits.map((commit) => (
@@ -113,6 +154,9 @@ export function GitSidebar(): React.JSX.Element {
           ))}
         </ol>
       )}
+      <div className="gitFooter">
+        {picked === null ? 'Select a file to inspect it.' : fileName(picked)}
+      </div>
     </aside>
   );
 }

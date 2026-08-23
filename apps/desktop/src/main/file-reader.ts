@@ -174,7 +174,7 @@ export function searchEditorFiles(
 
 export function listGitChanges(
   root: string,
-): ReadonlyArray<{ readonly path: string; readonly code: string }> {
+): ReadonlyArray<{ readonly path: string; readonly code: string; readonly staged: boolean }> {
   try {
     const status = execFileSync('git', ['status', '--porcelain=v1'], {
       cwd: root,
@@ -183,10 +183,22 @@ export function listGitChanges(
       windowsHide: true,
     }).trim();
     if (status.length === 0) return [];
-    return status.split('\n').slice(0, 80).map((line) => ({
-      code: line.slice(0, 2).replaceAll(' ', '') || 'M',
-      path: line.slice(3).split(' -> ').at(-1) ?? line.slice(3),
-    }));
+    const rows: Array<{ path: string; code: string; staged: boolean }> = [];
+    for (const line of status.split('\n').slice(0, 80)) {
+      const path = line.slice(3).split(' -> ').at(-1) ?? line.slice(3);
+      const index = line[0] ?? ' ';
+      const work = line[1] ?? ' ';
+      if (index !== ' ' && index !== '?') {
+        rows.push({ path, code: index, staged: true });
+      }
+      if (work !== ' ' && work !== '?') {
+        rows.push({ path, code: work, staged: false });
+      }
+      if (index === '?' && work === '?') {
+        rows.push({ path, code: 'U', staged: false });
+      }
+    }
+    return rows;
   } catch {
     return [];
   }
