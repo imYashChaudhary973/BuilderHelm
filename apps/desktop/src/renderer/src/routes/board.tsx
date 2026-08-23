@@ -276,11 +276,9 @@ export function BoardPage(): React.JSX.Element {
 
   useEffect(() => {
     if (!spaceStore.wantSetup) return;
-    setPhase('workspace');
+    setPhase('home');
     setError(null);
   }, [spaceStore.wantSetup, spaceStore.draftSeq]);
-
-  const view = spaceStore.wantSetup && phase === 'home' ? 'workspace' : phase;
 
   function changePaneCount(count: BoardPaneCount): void {
     setPaneCount(count);
@@ -619,7 +617,7 @@ export function BoardPage(): React.JSX.Element {
     );
   }
 
-  if (view === 'home') {
+  if (phase === 'home') {
     return (
       <section className="spaceHome" aria-labelledby="space-home-title" data-core-status="ready">
         <div className="spaceHomeBrand">
