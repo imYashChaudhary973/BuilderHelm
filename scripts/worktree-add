@@ -1,0 +1,14 @@
+#!/bin/sh
+# New feature worktree from origin/main. Does not touch main.
+# usage: scripts/worktree-add <name>
+set -eu
+name=${1:-}
+if [ -z "$name" ]; then
+  echo "usage: $0 <name>" >&2
+  exit 1
+fi
+root=$(git rev-parse --show-toplevel)
+dest="$(dirname "$root")/$(basename "$root")-worktrees/$name"
+git fetch origin
+git worktree add -b "feat/$name" "$dest" origin/main
+printf '%s\n' "$dest"

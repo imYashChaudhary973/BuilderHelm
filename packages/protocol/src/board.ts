@@ -49,7 +49,7 @@ export type BoardPaneCount = z.infer<typeof boardPaneCountSchema>;
 /** Fixed grid per pane count: cols x rows. */
 export const boardGridLayouts = {
   1: { cols: 1, rows: 1 },
-  2: { cols: 2, rows: 1 },
+  2: { cols: 1, rows: 2 },
   4: { cols: 2, rows: 2 },
   6: { cols: 3, rows: 2 },
   8: { cols: 4, rows: 2 },
