@@ -2,6 +2,18 @@ import type { CorrelationId } from '@zero/shared';
 import { z } from 'zod';
 
 import type {
+  BoardAgentDetection,
+  BoardCreateInput,
+  BoardPaneCloseInput,
+  BoardPaneEventEnvelope,
+  BoardPaneResizeInput,
+  BoardPaneWriteInput,
+  BoardPresetDeleteInput,
+  BoardPresetRecord,
+  BoardPresetSaveInput,
+  BoardSessionSummary,
+} from './board.js';
+import type {
   ActionCommandInput,
   ActionCommandOutcome,
   ActionSnapshot,
@@ -76,6 +88,16 @@ export const ipcChannels = {
   chatStreamStart: 'zero:chat:stream-start',
   chatStreamCancel: 'zero:chat:stream-cancel',
   chatStreamEvent: 'zero:chat:stream-event',
+  boardCreate: 'zero:board:create',
+  boardEvent: 'zero:board:event',
+  boardWrite: 'zero:board:write',
+  boardResize: 'zero:board:resize',
+  boardPaneClose: 'zero:board:pane-close',
+  boardSelectFolder: 'zero:board:select-folder',
+  boardDetectAgents: 'zero:board:detect-agents',
+  boardPresetList: 'zero:board:preset-list',
+  boardPresetSave: 'zero:board:preset-save',
+  boardPresetDelete: 'zero:board:preset-delete',
 } as const;
 
 export const systemHealthRequestSchema = z
@@ -148,6 +170,21 @@ export interface ZeroDesktopApi {
     approve(input: ApprovalResolveInput): Promise<ActionCommandOutcome>;
     reject(input: ApprovalResolveInput): Promise<ApprovalRequest>;
     updatePolicy(input: PermissionPolicyUpdateInput): Promise<PermissionPolicy>;
+  };
+  readonly board: {
+    createSession(input: BoardCreateInput): Promise<BoardSessionSummary>;
+    write(input: BoardPaneWriteInput): Promise<{ readonly written: true }>;
+    resize(input: BoardPaneResizeInput): Promise<{ readonly resized: true }>;
+    closePane(input: BoardPaneCloseInput): Promise<{ readonly closed: true }>;
+    selectFolder(): Promise<string | null>;
+    detectAgents(): Promise<BoardAgentDetection[]>;
+    listPresets(): Promise<BoardPresetRecord[]>;
+    savePreset(input: BoardPresetSaveInput): Promise<BoardPresetRecord>;
+    deletePreset(input: BoardPresetDeleteInput): Promise<{ readonly deleted: true }>;
+    onPaneEvent(
+      sessionId: string,
+      listener: (event: BoardPaneEventEnvelope) => void,
+    ): () => void;
   };
   readonly projects: {
     dashboard(): Promise<ProjectDashboardSnapshot>;

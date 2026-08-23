@@ -5,6 +5,7 @@ import { modelCapabilityOverridesMigration } from './0004-model-capability-overr
 import { obsidianKnowledgeMigration } from './0005-obsidian-knowledge.js';
 import { toolsPermissionsActionsMigration } from './0006-tools-permissions-actions.js';
 import { projectContinuityMigration } from './0007-project-continuity.js';
+import { boardPresetsMigration } from './0008-board-presets.js';
 
 export const migrations = [
   phaseZeroMigration,
@@ -14,6 +15,7 @@ export const migrations = [
   obsidianKnowledgeMigration,
   toolsPermissionsActionsMigration,
   projectContinuityMigration,
+  boardPresetsMigration,
 ] as const;
 
 export {
@@ -24,4 +26,5 @@ export {
   phaseZeroMigration,
   providerSettingsMigration,
   projectContinuityMigration,
+  boardPresetsMigration,
 };

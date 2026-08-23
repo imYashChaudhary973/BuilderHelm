@@ -19,6 +19,17 @@ export default defineConfig({
         ],
       }),
     ],
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve(directory, 'src/main/index.ts'),
+          'pty-host': resolve(directory, 'src/main/pty-host.ts'),
+        },
+        output: {
+          entryFileNames: '[name].js',
+        },
+      },
+    },
   },
   preload: {
     plugins: [

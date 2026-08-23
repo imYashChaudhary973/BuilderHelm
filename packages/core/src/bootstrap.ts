@@ -21,6 +21,7 @@ import { KnowledgeService } from './knowledge/knowledge-service.js';
 import { ActionService } from './actions/action-service.js';
 import { createWorkToolRegistry, PermissionEngine } from '@zero/tools';
 import { ProjectService } from './projects/project-service.js';
+import { BoardService } from './board/board-service.js';
 import type { SecretStore } from './secrets/secret-store.js';
 
 export interface CoreOptions {
@@ -38,6 +39,7 @@ export interface CoreRuntime {
   readonly knowledge: KnowledgeService;
   readonly actions: ActionService;
   readonly projects: ProjectService;
+  readonly board: BoardService;
   health(correlationId: CorrelationId): SystemHealthResponse;
   close(): void;
 }
@@ -91,7 +93,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     new ProjectRepositoryStore(database),
     logger,
   );
-
+  const board = new BoardService(database, logger);
   return {
     logger,
     chats,
@@ -100,6 +102,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     knowledge,
     actions,
     projects,
+    board,
     health(correlationId) {
       return {
         status: 'ok',
