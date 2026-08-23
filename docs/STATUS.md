@@ -1,8 +1,8 @@
 # Implementation Status
 
 - Last reviewed: 2026-08-24
-- Baseline: chrome landed on `main` at `bdc1fda`
-- Active work: right sidebar browser on `feat/browser`
+- Baseline: BuilderHelm chrome landing from `feat/editor`
+- Active work: Git stage/commit after this land
 
 What the repository implements now. Product intent lives in
 [PRODUCT](PRODUCT.md), [UX](UX.md), and [ROADMAP](ROADMAP.md).
@@ -18,14 +18,17 @@ What the repository implements now. Product intent lives in
 | Actions | Schema-backed tools, permissions, approvals, receipts |
 | Projects | Dashboard, Git status and history, Today summary |
 | Space | Home, wizard, Open without AI, per-pane agents, live xterm grid |
-| Chrome | Top bar modes, stacked Space rail |
-| Browser | Right sidebar preview for http(s) and localhost |
+| Brand | BuilderHelm name, tagline, helm mark |
+| Chrome | Icon tools panel, 18–60% resize, Space rail |
+| Browser | Localhost preview, recents, last tab, stage-clipped BrowserView |
+| Editor | Workspace-scoped tree, tabs, save / save-all / autosave, word wrap |
+| Git | Branch, staged vs worktree, history (read-only until the next slice) |
 
 ## Current application surfaces
 
 - Space (home, workspace setup, agent pick, live terminals)
-- App chrome (top bar + left rail)
-- Browser sidebar (http/https and localhost preview)
+- App chrome (top bar + left rail + tools panel)
+- Browser, editor, and Git sidebars
 - Provider and model settings
 - Multi-provider chat
 - Obsidian knowledge retrieval
@@ -44,7 +47,7 @@ inside `@zero/model-gateway`.
 SQLite is at migration 8. Migration 7 stores project repository snapshots.
 Migration 8 stores Space presets.
 
-Unsigned macOS `Zero.app`: `pnpm --filter @zero/desktop dist`.
+Unsigned macOS `BuilderHelm.app`: `pnpm --filter @zero/desktop dist`.
 
 ## Verification
 
@@ -62,5 +65,5 @@ pnpm smoke:desktop
   executes them.
 - Ready work lands on `main`. Permission or security changes still use a PR.
 - Windows and Linux desktops are not verified yet.
-- Swarm, Kanban Board, Memory mode, editor/Git sidebars, and phone pairing
-- are not built yet.
+- Swarm, Kanban Board, Memory, Skills, Git write (stage/commit), Bridge,
+  and phone pairing are not built yet.
