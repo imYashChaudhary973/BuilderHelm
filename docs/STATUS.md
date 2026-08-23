@@ -2,7 +2,7 @@
 
 - Last reviewed: 2026-08-24
 - Baseline: Space landed on `main` at `9656151`
-- Active work: none. Next slice is harness chrome (top bar + left rail)
+- Active work: harness chrome on `feat/chrome`
 
 This document is the canonical summary of what the repository implements now.
 The [blueprint](blueprint/00_README.md) describes intended product direction,

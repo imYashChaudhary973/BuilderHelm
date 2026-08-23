@@ -8,13 +8,13 @@ import type {
   BoardLandPreview,
   BoardPaneCount,
   BoardPaneSpec,
-  BoardSessionSummary,
 } from '@zero/protocol/board';
 import { BOARD_AGENT_CATALOG, boardGridLayouts } from '@zero/protocol/board';
 import type { CorrelationId } from '@zero/shared';
 import { useEffect, useState } from 'react';
 
 import { TerminalPane } from '../components/terminal-pane.js';
+import { useSpaces } from '../space-store.js';
 
 const PANE_COUNTS: readonly BoardPaneCount[] = [1, 2, 4, 6, 8, 10, 12];
 const RECENTS_KEY = 'exeum.space.recents';
@@ -144,6 +144,9 @@ function resolveFolder(base: string, cd: string): string {
 
 export function BoardPage(): React.JSX.Element {
   const queryClient = useQueryClient();
+  const spaceStore = useSpaces();
+  const session =
+    spaceStore.spaces.find((item) => item.sessionId === spaceStore.activeId) ?? null;
   const [phase, setPhase] = useState<Phase>('home');
   const [folderPath, setFolderPath] = useState('');
   const [paneCount, setPaneCount] = useState<BoardPaneCount>(2);
@@ -156,15 +159,24 @@ export function BoardPage(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [landNotice, setLandNotice] = useState<string | null>(null);
   const [landPreview, setLandPreview] = useState<BoardLandPreview | null>(null);
-  const [session, setSession] = useState<BoardSessionSummary | null>(null);
-  const [maximizedSlot, setMaximizedSlot] = useState<number | null>(null);
-  const [exitedPaneIds, setExitedPaneIds] = useState<ReadonlySet<string>>(new Set());
+  const [maximizedBySession, setMaximizedBySession] = useState<
+    Record<string, number | null>
+  >({});
+  const [exitedBySession, setExitedBySession] = useState<Record<string, string[]>>(
+    {},
+  );
   const [agentCounts, setAgentCounts] = useState<Partial<Record<BoardAgentId, number>>>(
     {},
   );
   const [customCommand, setCustomCommand] = useState('');
   const [showMoreAgents, setShowMoreAgents] = useState(false);
   const [cdInput, setCdInput] = useState('');
+
+  const maximizedSlot =
+    session === null ? null : (maximizedBySession[session.sessionId] ?? null);
+  const exitedPaneIds = new Set(
+    session === null ? [] : (exitedBySession[session.sessionId] ?? []),
+  );
 
   const projects = useQuery({
     queryKey: ['projects-dashboard'],
@@ -198,11 +210,15 @@ export function BoardPage(): React.JSX.Element {
     return () => window.removeEventListener('keydown', onKey);
   }, [phase]);
 
+  useEffect(() => {
+    if (spaceStore.draftSeq === 0) return;
+    setPhase('workspace');
+    setError(null);
+  }, [spaceStore.draftSeq]);
 
   function changePaneCount(count: BoardPaneCount): void {
     setPaneCount(count);
     setSlots((current) => resizeSlots(count, current, agents.data));
-    setMaximizedSlot(null);
   }
 
   const folderReady = folderPath.trim().length > 0;
@@ -226,9 +242,9 @@ export function BoardPage(): React.JSX.Element {
     onMutate: () => setError(null),
     onSuccess: (summary) => {
       setRecents(writeRecents(summary.folderPath));
-      setSession(summary);
-      setExitedPaneIds(new Set());
-      setMaximizedSlot(null);
+      spaceStore.upsert(summary);
+      setExitedBySession((current) => ({ ...current, [summary.sessionId]: [] }));
+      setMaximizedBySession((current) => ({ ...current, [summary.sessionId]: null }));
       setPhase('live');
     },
     onError: (cause: Error) => setError(cause.message),
@@ -357,16 +373,20 @@ export function BoardPage(): React.JSX.Element {
 
   async function closeOnePane(paneId: string): Promise<void> {
     if (session === null) return;
+    const sessionId = session.sessionId;
     try {
       await window.zero.board.closePane({
         correlationId: crypto.randomUUID() as CorrelationId,
-        sessionId: session.sessionId,
+        sessionId,
         paneId,
       });
     } catch {
       setError('The pane could not be closed.');
     }
-    setExitedPaneIds((current) => new Set(current).add(paneId));
+    setExitedBySession((current) => ({
+      ...current,
+      [sessionId]: [...(current[sessionId] ?? []), paneId],
+    }));
   }
 
   const exitBoard = useMutation({
@@ -379,13 +399,12 @@ export function BoardPage(): React.JSX.Element {
           paneId: pane.paneId,
         });
       }
+      return session.sessionId;
     },
     onMutate: () => setError(null),
-    onSuccess: () => {
+    onSuccess: (sessionId) => {
+      if (sessionId !== undefined) spaceStore.drop(sessionId);
       setPhase('home');
-      setSession(null);
-      setMaximizedSlot(null);
-      setExitedPaneIds(new Set());
     },
     onError: () => setError('Space could not be closed.'),
   });
@@ -446,43 +465,7 @@ export function BoardPage(): React.JSX.Element {
     setAgentCounts(next);
   }
 
-  if (phase === 'home') {
-    return (
-      <section className="spaceHome" aria-labelledby="space-home-title" data-core-status="ready">
-        <div className="spaceHomeMark" aria-hidden="true">
-          <span />
-        </div>
-        <h1 id="space-home-title">Exeum</h1>
-        <p className="spaceTagline" aria-hidden="true" />
-        <p className="spaceHomeLead">Choose how you want to work.</p>
-        <ul className="spaceModes">
-          {MODES.map((mode) => (
-            <li key={mode.id}>
-              <button
-                type="button"
-                className="spaceMode"
-                disabled={!mode.enabled}
-                onClick={() => {
-                  if (mode.enabled) setPhase('workspace');
-                }}
-              >
-                <span className="spaceModeCopy">
-                  <strong>{mode.name}</strong>
-                  <span>{mode.enabled ? mode.promise : `${mode.promise} Coming later.`}</span>
-                </span>
-                <kbd>{mode.shortcut}</kbd>
-              </button>
-            </li>
-          ))}
-        </ul>
-        <Link className="spaceHomeSettings" to="/settings/providers">
-          Settings
-        </Link>
-      </section>
-    );
-  }
-
-  if (phase === 'live' && session !== null) {
+  if (!spaceStore.draft && session !== null) {
     const layout = boardGridLayouts[session.paneCount];
     const maximized = maximizedSlot !== null;
     const visiblePanes = session.panes
@@ -539,11 +522,13 @@ export function BoardPage(): React.JSX.Element {
                 maximized={maximized}
                 landing={land.isPending || previewLand.isPending}
                 confirmLand={landPreview?.branch === pane.branch && landPreview.ahead > 0}
-                onToggleMaximize={() =>
-                  setMaximizedSlot((current) =>
-                    current === pane.slot ? null : pane.slot,
-                  )
-                }
+                onToggleMaximize={() => {
+                  const sessionId = session.sessionId;
+                  setMaximizedBySession((current) => ({
+                    ...current,
+                    [sessionId]: current[sessionId] === pane.slot ? null : pane.slot,
+                  }));
+                }}
                 onClose={() => void closeOnePane(pane.paneId)}
                 onLand={
                   pane.branch === null
@@ -561,6 +546,42 @@ export function BoardPage(): React.JSX.Element {
             ),
           )}
         </div>
+      </section>
+    );
+  }
+
+  if (phase === 'home') {
+    return (
+      <section className="spaceHome" aria-labelledby="space-home-title" data-core-status="ready">
+        <div className="spaceHomeMark" aria-hidden="true">
+          <span />
+        </div>
+        <h1 id="space-home-title">Exeum</h1>
+        <p className="spaceTagline" aria-hidden="true" />
+        <p className="spaceHomeLead">Choose how you want to work.</p>
+        <ul className="spaceModes">
+          {MODES.map((mode) => (
+            <li key={mode.id}>
+              <button
+                type="button"
+                className="spaceMode"
+                disabled={!mode.enabled}
+                onClick={() => {
+                  if (mode.enabled) setPhase('workspace');
+                }}
+              >
+                <span className="spaceModeCopy">
+                  <strong>{mode.name}</strong>
+                  <span>{mode.enabled ? mode.promise : `${mode.promise} Coming later.`}</span>
+                </span>
+                <kbd>{mode.shortcut}</kbd>
+              </button>
+            </li>
+          ))}
+        </ul>
+        <Link className="spaceHomeSettings" to="/settings/providers">
+          Settings
+        </Link>
       </section>
     );
   }

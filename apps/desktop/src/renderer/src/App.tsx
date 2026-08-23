@@ -1,43 +1,105 @@
-import { Link, Outlet } from '@tanstack/react-router';
+import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 
-const nav = [
-  { label: 'Space', to: '/board', icon: TerminalIcon },
-  { label: 'Settings', to: '/settings/providers', icon: SettingsIcon },
-];
+import { SpaceProvider, useSpaces } from './space-store.js';
 
-function SettingsIcon(): React.JSX.Element {
-  return (
-    <svg className="navIcon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.21l-.19.1a2 2 0 0 1-2.19-.37l-.29-.29a2 2 0 0 0-2.83 0l-.42.42a2 2 0 0 0 0 2.83l.29.29a2 2 0 0 1 .37 2.19l-.1.19a2 2 0 0 1-1.21 1h-.18A2 2 0 0 0 2 12.22v.44a2 2 0 0 0 2 2h.18a2 2 0 0 1 1.21 1l.1.19a2 2 0 0 1-.37 2.19l-.29.29a2 2 0 0 0 0 2.83l.42.42a2 2 0 0 0 2.83 0l.29-.29a2 2 0 0 1 2.19-.37l.19.1a2 2 0 0 1 1 1.21v.18a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.21l.19-.1a2 2 0 0 1 2.19.37l.29.29a2 2 0 0 0 2.83 0l.42-.42a2 2 0 0 0 0-2.83l-.29-.29a2 2 0 0 1-.37-2.19l.1-.19a2 2 0 0 1 1.21-1h.18a2 2 0 0 0 2-2v-.44a2 2 0 0 0-2-2h-.18a2 2 0 0 1-1.21-1l-.1-.19a2 2 0 0 1 .37-2.19l.29-.29a2 2 0 0 0 0-2.83l-.42-.42a2 2 0 0 0-2.83 0l-.29.29a2 2 0 0 1-2.19.37l-.19-.1a2 2 0 0 1-1-1.21V4a2 2 0 0 0-2-2z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
+const MODES = [
+  { id: 'space', label: 'Space', to: '/board', live: true },
+  { id: 'swarm', label: 'Swarm', live: false },
+  { id: 'board', label: 'Board', live: false },
+  { id: 'memory', label: 'Memory', live: false },
+  { id: 'skills', label: 'Skills', live: false },
+] as const;
+
+function folderName(path: string): string {
+  return path.split('/').filter(Boolean).at(-1) ?? path;
 }
 
-export function App(): React.JSX.Element {
+function Shell(): React.JSX.Element {
+  const navigate = useNavigate();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const spaces = useSpaces();
+  const spaceActive = pathname === '/' || pathname === '/board';
+  const settingsActive = pathname.startsWith('/settings');
+
   return (
     <div className="shell">
-      <aside className="sidebar">
+      <header className="topbar">
         <div className="brand" aria-label="Exeum">
           Exeum
         </div>
-        <nav aria-label="Primary navigation">
-          {nav.map((item) => (
-            <Link
-              className="navItem"
-              activeProps={{ className: 'navItem navItemActive' }}
-              to={item.to}
-              key={item.to}
-            >
-              <item.icon />
-              <span>{item.label}</span>
-            </Link>
-          ))}
+        <nav className="topbarNav" aria-label="Modes">
+          {MODES.map((mode) =>
+            mode.live ? (
+              <Link
+                key={mode.id}
+                className={spaceActive ? 'topbarItem topbarItemOn' : 'topbarItem'}
+                to={mode.to}
+              >
+                {mode.label}
+              </Link>
+            ) : (
+              <button
+                key={mode.id}
+                type="button"
+                className="topbarItem"
+                disabled
+                title="Coming later"
+              >
+                {mode.label}
+              </button>
+            ),
+          )}
         </nav>
-        <div className="privacyBadge">
-          <span className="privacyDot" aria-hidden="true" />
-          Local
+        <div className="topbarEnd">
+          <span className="privacyBadge">
+            <span className="privacyDot" aria-hidden="true" />
+            Local
+          </span>
+          <Link
+            className={settingsActive ? 'topbarItem topbarItemOn' : 'topbarItem'}
+            to="/settings/providers"
+          >
+            Settings
+          </Link>
         </div>
+      </header>
+      <aside className="rail" aria-label="Spaces">
+        <div className="railList">
+          {spaces.spaces.map((space) => {
+            const on = !spaces.draft && spaces.activeId === space.sessionId;
+            return (
+              <button
+                key={space.sessionId}
+                type="button"
+                className={on ? 'railItem railItemOn' : 'railItem'}
+                onClick={() => {
+                  spaces.activate(space.sessionId);
+                  void navigate({ to: '/board' });
+                }}
+              >
+                <span className="railMark" aria-hidden="true">
+                  {folderName(space.folderPath).slice(0, 1).toUpperCase()}
+                </span>
+                <span className="railCopy">
+                  <strong>{folderName(space.folderPath)}</strong>
+                  <small>
+                    {space.paneCount} terminal{space.paneCount === 1 ? '' : 's'}
+                  </small>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          className={spaces.draft ? 'railNew railItemOn' : 'railNew'}
+          onClick={() => {
+            spaces.startDraft();
+            void navigate({ to: '/board' });
+          }}
+        >
+          + New Space
+        </button>
       </aside>
       <main className="content" role="main">
         <Outlet />
@@ -46,11 +108,10 @@ export function App(): React.JSX.Element {
   );
 }
 
-function TerminalIcon(): React.JSX.Element {
+export function App(): React.JSX.Element {
   return (
-    <svg className="navIcon" viewBox="0 0 24 24" aria-hidden="true">
-      <polyline points="4 17 10 11 4 5" />
-      <line x1="12" y1="19" x2="20" y2="19" />
-    </svg>
+    <SpaceProvider>
+      <Shell />
+    </SpaceProvider>
   );
 }
