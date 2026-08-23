@@ -2,27 +2,68 @@ import type { CorrelationId } from '@zero/shared';
 import { z } from 'zod';
 
 import { modelErrorSchema } from './model.js';
+import { gitCommitSchema } from './projects.js';
 
 const correlationIdSchema = z
   .string()
   .uuid()
   .transform((value) => value as CorrelationId);
 
+const pathSchema = z.string().min(1).max(4096);
+
 export const editorFileSchema = z
   .object({
-    path: z.string().min(1).max(4096),
-    name: z.string().min(1).max(4096),
+    path: pathSchema,
+    name: pathSchema,
     text: z.string(),
   })
   .strict();
 export type EditorFile = z.infer<typeof editorFileSchema>;
 
+export const editorEntrySchema = z
+  .object({
+    path: pathSchema,
+    name: z.string().min(1).max(255),
+    kind: z.enum(['file', 'dir']),
+  })
+  .strict();
+export type EditorEntry = z.infer<typeof editorEntrySchema>;
+
+export const editorGitSchema = z
+  .object({
+    rootPath: pathSchema,
+    directoryName: z.string().min(1).max(255),
+    branch: z.string().min(1).max(255),
+    headSha: z.string().regex(/^[0-9a-f]{40,64}$/),
+    dirtyCount: z.number().int().nonnegative(),
+    aheadCount: z.number().int().nonnegative(),
+    behindCount: z.number().int().nonnegative(),
+    commits: z.array(gitCommitSchema),
+  })
+  .strict();
+export type EditorGit = z.infer<typeof editorGitSchema>;
+
 export const editorReadInputSchema = z
   .object({
-    path: z.string().min(1).max(4096),
+    path: pathSchema,
   })
   .strict();
 export type EditorReadInput = z.infer<typeof editorReadInputSchema>;
+
+export const editorListInputSchema = z
+  .object({
+    root: pathSchema,
+    path: pathSchema.optional(),
+  })
+  .strict();
+export type EditorListInput = z.infer<typeof editorListInputSchema>;
+
+export const editorGitInputSchema = z
+  .object({
+    root: pathSchema,
+  })
+  .strict();
+export type EditorGitInput = z.infer<typeof editorGitInputSchema>;
 
 export const editorPickRequestSchema = z
   .object({
@@ -37,6 +78,20 @@ export const editorReadRequestSchema = z
   })
   .strict();
 
+export const editorListRequestSchema = z
+  .object({
+    correlationId: correlationIdSchema,
+    input: editorListInputSchema,
+  })
+  .strict();
+
+export const editorGitRequestSchema = z
+  .object({
+    correlationId: correlationIdSchema,
+    input: editorGitInputSchema,
+  })
+  .strict();
+
 function ipcResult<T extends z.ZodType>(value: T) {
   return z.discriminatedUnion('ok', [
     z.object({ ok: z.literal(true), value }).strict(),
@@ -46,3 +101,5 @@ function ipcResult<T extends z.ZodType>(value: T) {
 
 export const editorPickIpcResponseSchema = ipcResult(editorFileSchema.nullable());
 export const editorReadIpcResponseSchema = ipcResult(editorFileSchema);
+export const editorListIpcResponseSchema = ipcResult(z.array(editorEntrySchema));
+export const editorGitIpcResponseSchema = ipcResult(editorGitSchema.nullable());

@@ -1,11 +1,12 @@
 import { BrowserSidebar } from './browser-sidebar.js';
 import { EditorSidebar } from './editor-sidebar.js';
+import { GitSidebar } from './git-sidebar.js';
 import { usePreview, type SideTab } from '../preview-store.js';
 
-const TABS: readonly { id: SideTab | 'git' | 'skills'; label: string; live: boolean }[] = [
+const TABS: readonly { id: SideTab | 'skills'; label: string; live: boolean }[] = [
   { id: 'browser', label: 'Browser', live: true },
   { id: 'editor', label: 'Editor', live: true },
-  { id: 'git', label: 'Git', live: false },
+  { id: 'git', label: 'Git', live: true },
   { id: 'skills', label: 'Skills', live: false },
 ];
 
@@ -35,6 +36,7 @@ export function SidePanel(): React.JSX.Element {
       <div className="sideBody">
         {preview.tab === 'browser' ? <BrowserSidebar startUrl={preview.url} /> : null}
         {preview.tab === 'editor' ? <EditorSidebar /> : null}
+        {preview.tab === 'git' ? <GitSidebar /> : null}
       </div>
     </aside>
   );

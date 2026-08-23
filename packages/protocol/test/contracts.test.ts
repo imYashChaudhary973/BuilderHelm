@@ -17,6 +17,9 @@ import {
   editorReadInputSchema,
   editorReadIpcResponseSchema,
   editorReadRequestSchema,
+  editorListInputSchema,
+  editorListIpcResponseSchema,
+  editorGitIpcResponseSchema,
   systemHealthRequestSchema,
   systemHealthResponseSchema,
   zeroEventSchema,
@@ -251,5 +254,22 @@ describe('editor file read', () => {
         value: { path: '/tmp/a.txt', name: 'a.txt', text: 'hi' },
       }).value.text,
     ).toBe('hi');
+  });
+});
+
+describe('editor workspace list', () => {
+  it('requires a workspace root', () => {
+    expect(editorListInputSchema.safeParse({}).success).toBe(false);
+    expect(editorListInputSchema.parse({ root: '/tmp/app' }).root).toBe('/tmp/app');
+  });
+
+  it('accepts a file tree and a missing git repo', () => {
+    expect(
+      editorListIpcResponseSchema.parse({
+        ok: true,
+        value: [{ path: '/tmp/app/src', name: 'src', kind: 'dir' }],
+      }).value[0]?.kind,
+    ).toBe('dir');
+    expect(editorGitIpcResponseSchema.parse({ ok: true, value: null }).value).toBeNull();
   });
 });

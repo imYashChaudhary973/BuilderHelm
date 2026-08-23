@@ -19,7 +19,7 @@ import type {
   BoardSessionSummary,
 } from './board.js';
 import type { BrowserCommandInput, BrowserState } from './browser.js';
-import type { EditorFile } from './editor.js';
+import type { EditorEntry, EditorFile, EditorGit, EditorListInput } from './editor.js';
 import type {
   ActionCommandInput,
   ActionCommandOutcome,
@@ -112,6 +112,8 @@ export const ipcChannels = {
   browserCommand: 'zero:browser:command',
   editorPick: 'zero:editor:pick',
   editorRead: 'zero:editor:read',
+  editorList: 'zero:editor:list',
+  editorGit: 'zero:editor:git',
 } as const;
 
 export const systemHealthRequestSchema = z
@@ -217,5 +219,7 @@ export interface ZeroDesktopApi {
   readonly editor: {
     pick(): Promise<EditorFile | null>;
     read(path: string): Promise<EditorFile>;
+    list(input: EditorListInput): Promise<EditorEntry[]>;
+    git(root: string): Promise<EditorGit | null>;
   };
 }

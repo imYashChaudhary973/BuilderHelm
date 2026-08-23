@@ -2941,6 +2941,12 @@ fieldset legend {
     transform: none;
   }
 
+  .spaceModeHint,
+  .spaceModeOpen,
+  .spaceMode {
+    transition: none;
+  }
+
   .chatTurn,
   .todayProjectRows article,
   .spotlight::before,
@@ -3039,6 +3045,10 @@ fieldset legend {
   color: inherit;
   text-align: left;
   cursor: pointer;
+  transition:
+    min-height 220ms var(--ease-out),
+    background 180ms ease,
+    border-color 180ms ease;
 }
 
 .spaceMode::before {
@@ -3052,7 +3062,8 @@ fieldset legend {
   opacity: 0.8;
 }
 
-.spaceMode:hover:not(:disabled) {
+.spaceMode:hover:not(:disabled),
+.spaceMode:focus-visible:not(:disabled) {
   border-color: rgba(255, 255, 255, 0.12);
   background: #101010;
 }
@@ -3074,11 +3085,48 @@ fieldset legend {
   color: #f2f2f2;
 }
 
-.spaceMode strong {
+.spaceModeText {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.spaceMode strong {
   font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.02em;
+}
+
+.spaceModeHint {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 220ms var(--ease-out),
+    opacity 180ms ease;
+}
+
+.spaceModeHint > span {
+  overflow: hidden;
+  min-height: 0;
+  padding-top: 0;
+  color: #8b8b8b;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.spaceMode:hover .spaceModeHint,
+.spaceMode:focus-visible .spaceModeHint {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.spaceMode:hover .spaceModeHint > span,
+.spaceMode:focus-visible .spaceModeHint > span {
+  padding-top: 6px;
 }
 
 .spaceMode kbd {
@@ -3090,6 +3138,25 @@ fieldset legend {
   color: #b0b0b0;
   font-family: var(--font-mono);
   font-size: 12px;
+}
+
+.spaceModeOpen {
+  display: none;
+  flex-shrink: 0;
+  color: #d8ff8a;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.spaceMode:hover:not(:disabled) kbd,
+.spaceMode:focus-visible:not(:disabled) kbd {
+  display: none;
+}
+
+.spaceMode:hover:not(:disabled) .spaceModeOpen,
+.spaceMode:focus-visible:not(:disabled) .spaceModeOpen {
+  display: inline;
 }
 
 .spaceModeSoon {
@@ -3881,4 +3948,79 @@ fieldset legend {
 
 p.editorBody {
   color: var(--text-2);
+}
+
+.editorTree {
+  list-style: none;
+  margin: 0;
+  padding: 4px 8px 8px;
+  max-height: 42%;
+  overflow: auto;
+  border-bottom: 1px solid var(--line);
+}
+
+.editorTree .editorTree {
+  max-height: none;
+  padding: 0 0 0 12px;
+  border: 0;
+}
+
+.editorNode {
+  display: block;
+  width: 100%;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  text-align: left;
+}
+
+.editorNode:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.gitSide {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 12px;
+  gap: 10px;
+}
+
+.gitHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.gitHead span,
+.gitMeta {
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.gitLog {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+}
+
+.gitLog li {
+  display: flex;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.gitLog code {
+  flex-shrink: 0;
+  color: var(--text-3);
+  font-family: var(--font-mono);
 }
