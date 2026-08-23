@@ -15,9 +15,13 @@ function stageBounds(el: HTMLDivElement): {
   };
 }
 
-export function BrowserSidebar(): React.JSX.Element {
+export function BrowserSidebar({
+  startUrl,
+}: {
+  readonly startUrl: string | null;
+}): React.JSX.Element {
   const stageRef = useRef<HTMLDivElement | null>(null);
-  const [draft, setDraft] = useState('localhost:3000');
+  const [draft, setDraft] = useState(startUrl ?? 'localhost:3000');
   const [error, setError] = useState<string | null>(null);
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
@@ -42,6 +46,23 @@ export function BrowserSidebar(): React.JSX.Element {
       void window.zero.browser.command({ action: 'hide' }).catch(() => undefined);
     };
   }, [syncBounds]);
+
+  useEffect(() => {
+    if (startUrl === null) return;
+    const stage = stageRef.current;
+    if (stage === null) return;
+    setDraft(startUrl);
+    void window.zero.browser
+      .command({ action: 'open', url: startUrl, bounds: stageBounds(stage) })
+      .then((state) => {
+        if (state.url.length > 0) setDraft(state.url);
+        setCanGoBack(state.canGoBack);
+        setCanGoForward(state.canGoForward);
+      })
+      .catch((cause: unknown) => {
+        setError(cause instanceof Error ? cause.message : 'Preview failed');
+      });
+  }, [startUrl]);
 
   async function run(
     input:

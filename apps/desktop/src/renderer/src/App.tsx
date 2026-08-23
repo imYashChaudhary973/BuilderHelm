@@ -1,7 +1,8 @@
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useEffect } from 'react';
 
 import { BrowserSidebar } from './components/browser-sidebar.js';
+import { PreviewProvider, usePreview } from './preview-store.js';
 import { SpaceProvider, useSpaces } from './space-store.js';
 
 const MODES = [
@@ -20,12 +21,17 @@ function Shell(): React.JSX.Element {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const spaces = useSpaces();
-  const [browserOpen, setBrowserOpen] = useState(true);
+  const preview = usePreview();
   const spaceActive = pathname === '/' || pathname === '/board';
   const settingsActive = pathname.startsWith('/settings');
 
+  useEffect(() => {
+    if (preview.open) return;
+    void window.zero.browser.command({ action: 'hide' }).catch(() => undefined);
+  }, [preview.open]);
+
   return (
-    <div className={browserOpen ? 'shell shellBrowserOn' : 'shell'}>
+    <div className={preview.open ? 'shell shellBrowserOn' : 'shell'}>
       <header className="topbar">
         <div className="brand" aria-label="Exeum">
           Exeum
@@ -58,13 +64,6 @@ function Shell(): React.JSX.Element {
             <span className="privacyDot" aria-hidden="true" />
             Local
           </span>
-          <button
-            type="button"
-            className={browserOpen ? 'topbarItem topbarItemOn' : 'topbarItem'}
-            onClick={() => setBrowserOpen((open) => !open)}
-          >
-            Browser
-          </button>
           <Link
             className={settingsActive ? 'topbarItem topbarItemOn' : 'topbarItem'}
             to="/settings/providers"
@@ -114,15 +113,42 @@ function Shell(): React.JSX.Element {
       <main className="content" role="main">
         <Outlet />
       </main>
-      {browserOpen ? <BrowserSidebar /> : null}
+      {preview.open ? <BrowserSidebar startUrl={preview.url} /> : null}
+      <aside className="panelRail" aria-label="Panels">
+        <button
+          type="button"
+          className={preview.open ? 'panelIcon panelIconOn' : 'panelIcon'}
+          title="Browser"
+          aria-pressed={preview.open}
+          onClick={() => preview.toggle()}
+        >
+          <BrowserIcon />
+        </button>
+      </aside>
     </div>
+  );
+}
+
+function BrowserIcon(): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.75" />
+      <path
+        d="M3 12h18M12 3c2.5 3 3.5 6 3.5 9s-1 6-3.5 9c-2.5-3-3.5-6-3.5-9s1-6 3.5-9z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+      />
+    </svg>
   );
 }
 
 export function App(): React.JSX.Element {
   return (
     <SpaceProvider>
-      <Shell />
+      <PreviewProvider>
+        <Shell />
+      </PreviewProvider>
     </SpaceProvider>
   );
 }

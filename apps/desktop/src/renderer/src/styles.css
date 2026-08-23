@@ -372,19 +372,19 @@ textarea:focus-visible {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: 200px 1fr;
+  grid-template-columns: 200px 1fr 44px;
   grid-template-rows: 52px 1fr;
   grid-template-areas:
-    'topbar topbar'
-    'rail content';
+    'topbar topbar topbar'
+    'rail content panel';
   height: 100vh;
 }
 
 .shellBrowserOn {
-  grid-template-columns: 200px 1fr 360px;
+  grid-template-columns: 200px 1fr 360px 44px;
   grid-template-areas:
-    'topbar topbar topbar'
-    'rail content browser';
+    'topbar topbar topbar topbar'
+    'rail content browser panel';
 }
 
 .topbar {
@@ -630,6 +630,38 @@ textarea:focus-visible {
   flex: 1;
   min-height: 0;
   background: var(--bg-1);
+}
+
+.panelRail {
+  grid-area: panel;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px;
+  border-left: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--glass-strong) 0%, var(--glass) 100%);
+}
+
+.panelIcon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text-3);
+  background: transparent;
+}
+
+.panelIcon:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.panelIconOn {
+  color: var(--accent-bright);
+  background: var(--accent-dim);
 }
 
 /* ---------- TYPOGRAPHY PRIMITIVES ---------- */
