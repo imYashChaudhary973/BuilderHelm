@@ -29,6 +29,13 @@ export const editorEntrySchema = z
   .strict();
 export type EditorEntry = z.infer<typeof editorEntrySchema>;
 
+export const editorGitChangeSchema = z
+  .object({
+    path: pathSchema,
+    code: z.string().min(1).max(2),
+  })
+  .strict();
+
 export const editorGitSchema = z
   .object({
     rootPath: pathSchema,
@@ -39,6 +46,7 @@ export const editorGitSchema = z
     aheadCount: z.number().int().nonnegative(),
     behindCount: z.number().int().nonnegative(),
     commits: z.array(gitCommitSchema),
+    changes: z.array(editorGitChangeSchema),
   })
   .strict();
 export type EditorGit = z.infer<typeof editorGitSchema>;

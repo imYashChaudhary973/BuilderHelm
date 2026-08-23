@@ -116,6 +116,7 @@ import { PreviewBrowser } from './preview-browser.js';
 import {
   createEditorEntry,
   listEditorDir,
+  listGitChanges,
   pickEditorFile,
   readEditorFile,
   searchEditorFiles,
@@ -896,7 +897,8 @@ export function registerIpcHandlers(
       const request = editorGitRequestSchema.parse(input);
       let value = null;
       try {
-        value = new LocalGitInspector().inspect(request.input.root);
+        const snap = new LocalGitInspector().inspect(request.input.root);
+        value = { ...snap, changes: [...listGitChanges(snap.rootPath)] };
       } catch {
         value = null;
       }

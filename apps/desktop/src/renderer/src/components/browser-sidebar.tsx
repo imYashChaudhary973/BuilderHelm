@@ -6,6 +6,7 @@ interface RecentHit {
 }
 
 const RECENTS_KEY = 'exeum.browser.recents';
+const LAST_KEY = 'exeum.browser.last';
 
 function stageBounds(el: HTMLDivElement): {
   x: number;
@@ -80,20 +81,30 @@ export function BrowserSidebar({
   useEffect(() => {
     const stage = stageRef.current;
     if (stage === null) return;
-    syncBounds();
+    const observer = new ResizeObserver(() => syncBounds());
+    observer.observe(stage);
     window.addEventListener('resize', syncBounds);
-    const frame = requestAnimationFrame(syncBounds);
+    syncBounds();
     return () => {
+      observer.disconnect();
       window.removeEventListener('resize', syncBounds);
-      cancelAnimationFrame(frame);
-      void window.zero?.browser.command({ action: 'hide' }).catch(() => undefined);
     };
   }, [syncBounds, page]);
 
   useEffect(() => {
-    if (startUrl === null || startUrl.length === 0) return;
-    setDraft(startUrl);
-    void openUrl(startUrl);
+    return () => {
+      void window.zero?.browser.command({ action: 'hide' }).catch(() => undefined);
+    };
+  }, []);
+
+  useEffect(() => {
+    const initial = startUrl ?? localStorage.getItem(LAST_KEY);
+    if (initial === null || initial.length === 0) return;
+    setDraft(initial);
+    const handle = window.requestAnimationFrame(() => {
+      void openUrl(initial);
+    });
+    return () => window.cancelAnimationFrame(handle);
   }, [startUrl]);
 
   async function openUrl(raw: string): Promise<void> {
@@ -111,7 +122,9 @@ export function BrowserSidebar({
       setPage(state.url.length > 0 ? state.url : url);
       setCanGoBack(state.canGoBack);
       setCanGoForward(state.canGoForward);
-      setRecents(remember(state.url.length > 0 ? state.url : url));
+      const opened = state.url.length > 0 ? state.url : url;
+      setRecents(remember(opened));
+      localStorage.setItem(LAST_KEY, opened);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not open that URL');
     }

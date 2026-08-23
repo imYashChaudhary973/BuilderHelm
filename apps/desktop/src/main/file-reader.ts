@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -169,6 +170,26 @@ export function searchEditorFiles(
     }
   }
   return matches;
+}
+
+export function listGitChanges(
+  root: string,
+): ReadonlyArray<{ readonly path: string; readonly code: string }> {
+  try {
+    const status = execFileSync('git', ['status', '--porcelain=v1'], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 8_000,
+      windowsHide: true,
+    }).trim();
+    if (status.length === 0) return [];
+    return status.split('\n').slice(0, 80).map((line) => ({
+      code: line.slice(0, 2).replaceAll(' ', '') || 'M',
+      path: line.slice(3).split(' -> ').at(-1) ?? line.slice(3),
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export async function pickEditorFile(): Promise<EditorFile | null> {

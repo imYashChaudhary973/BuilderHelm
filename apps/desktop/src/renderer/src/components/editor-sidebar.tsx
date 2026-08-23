@@ -23,6 +23,59 @@ function joinPath(root: string, name: string): string {
   return `${root.replace(/\/$/, '')}/${name}`;
 }
 
+function IconPlus(): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+      <path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+function IconFolderPlus(): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+      <path d="M2.5 5.5h4l1 1.5h6v6h-11z" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M8 8.2v3.2M6.4 9.8h3.2" fill="none" stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  );
+}
+
+function IconReset(): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+      <path d="M3.5 8a4.5 4.5 0 1 0 1.2-3" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M3 3.5v3h3" fill="none" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
+function IconInfo(): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+      <circle cx="8" cy="8" r="5.4" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M8 7.2v4M8 5.2v.6" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function IconInfoOff(): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+      <circle cx="8" cy="8" r="5.4" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M8 7.2v4M8 5.2v.6M4 12.5 12.5 4" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function IconSidebar(): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+      <rect x="2.5" y="3.5" width="11" height="9" rx="1.4" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M6.5 3.5v9" fill="none" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
 function DirList({
   root,
   path,
@@ -111,7 +164,7 @@ export function EditorSidebar(): React.JSX.Element {
   const [creating, setCreating] = useState<'file' | 'dir' | null>(null);
   const [newName, setNewName] = useState('');
   const [autosave, setAutosave] = useState(() => localStorage.getItem(AUTOSAVE_KEY) === '1');
-
+  const [treeOpen, setTreeOpen] = useState(true);
   const active = docs.find((doc) => doc.file.path === activePath) ?? null;
   const dirtyCount = docs.filter((doc) => doc.draft !== doc.file.text).length;
 
@@ -254,91 +307,102 @@ export function EditorSidebar(): React.JSX.Element {
   }
 
   return (
-    <aside className="editorSide" aria-label="Editor">
-      <div className="editorTreeCol">
-        <div className="editorTreeHead">
-          <strong>{folderName(root)}</strong>
-          <div className="editorTreeActions">
-            <button type="button" title="New file" onClick={() => setCreating('file')}>
-              +F
-            </button>
-            <button type="button" title="New folder" onClick={() => setCreating('dir')}>
-              +D
-            </button>
-            <button
-              type="button"
-              title="Refresh"
-              onClick={() => setRefresh((current) => current + 1)}
-            >
-              ↻
-            </button>
-            <button
-              type="button"
-              title={hidden ? 'Hide hidden files' : 'Show hidden files'}
-              className={hidden ? 'editorTinyOn' : undefined}
-              onClick={() => setHidden((current) => !current)}
-            >
-              ·
-            </button>
+    <aside className={treeOpen ? 'editorSide' : 'editorSide editorSideTreeOff'} aria-label="Editor">
+      {treeOpen ? (
+        <div className="editorTreeCol">
+          <div className="editorTreeHead">
+            <strong>{folderName(root)}</strong>
+            <div className="editorTreeActions">
+              <button type="button" title="New file" onClick={() => setCreating('file')}>
+                <IconPlus />
+              </button>
+              <button type="button" title="New folder" onClick={() => setCreating('dir')}>
+                <IconFolderPlus />
+              </button>
+              <button
+                type="button"
+                title="Refresh"
+                onClick={() => setRefresh((current) => current + 1)}
+              >
+                <IconReset />
+              </button>
+              <button
+                type="button"
+                title={hidden ? 'Hidden files visible' : 'Hidden files hidden'}
+                className={hidden ? 'editorTinyOn' : undefined}
+                onClick={() => setHidden((current) => !current)}
+              >
+                {hidden ? <IconInfo /> : <IconInfoOff />}
+              </button>
+              <button type="button" title="Hide tree" onClick={() => setTreeOpen(false)}>
+                <IconSidebar />
+              </button>
+            </div>
           </div>
-        </div>
-        <input
-          className="editorSearch"
-          value={query}
-          placeholder="Search files…"
-          onChange={(event) => setQuery(event.target.value)}
-        />
-        {creating !== null && (
-          <form
-            className="editorCreate"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void createEntry();
-            }}
-          >
-            <input
-              value={newName}
-              autoFocus
-              placeholder={creating === 'dir' ? 'folder name' : 'file name'}
-              onChange={(event) => setNewName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Escape') {
-                  setCreating(null);
-                  setNewName('');
-                }
-              }}
-            />
-          </form>
-        )}
-        {query.trim().length > 0 ? (
-          <ul className="editorTree">
-            {hits.map((entry) => (
-              <li key={entry.path}>
-                <button
-                  type="button"
-                  className={
-                    entry.path === activePath ? 'editorNode editorNodeOn' : 'editorNode'
-                  }
-                  onClick={() => {
-                    if (entry.kind === 'file') void openFile(entry.path);
-                  }}
-                >
-                  {entry.name}
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <DirList
-            root={root}
-            path={root}
-            hidden={hidden}
-            refresh={refresh}
-            activePath={activePath}
-            onOpen={(path) => void openFile(path)}
+          <input
+            className="editorSearch"
+            value={query}
+            placeholder="Search files…"
+            onChange={(event) => setQuery(event.target.value)}
           />
-        )}
-      </div>
+          {creating !== null && (
+            <form
+              className="editorCreate"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void createEntry();
+              }}
+            >
+              <input
+                value={newName}
+                autoFocus
+                placeholder={creating === 'dir' ? 'folder name' : 'file name'}
+                onChange={(event) => setNewName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') {
+                    setCreating(null);
+                    setNewName('');
+                  }
+                }}
+              />
+            </form>
+          )}
+          {query.trim().length > 0 ? (
+            <ul className="editorTree">
+              {hits.map((entry) => (
+                <li key={entry.path}>
+                  <button
+                    type="button"
+                    className={
+                      entry.path === activePath ? 'editorNode editorNodeOn' : 'editorNode'
+                    }
+                    onClick={() => {
+                      if (entry.kind === 'file') void openFile(entry.path);
+                    }}
+                  >
+                    {entry.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <DirList
+              root={root}
+              path={root}
+              hidden={hidden}
+              refresh={refresh}
+              activePath={activePath}
+              onOpen={(path) => void openFile(path)}
+            />
+          )}
+        </div>
+      ) : (
+        <div className="editorTreeCol editorTreeRail">
+          <button type="button" title="Show tree" onClick={() => setTreeOpen(true)}>
+            <IconSidebar />
+          </button>
+        </div>
+      )}
       <div className="editorMain">
         <div className="editorTabs" aria-label="Open files">
           {docs.length === 0 ? (

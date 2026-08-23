@@ -3980,7 +3980,7 @@ fieldset legend {
 
 .sideTabs {
   display: flex;
-  gap: 2px;
+  gap: 4px;
   margin: 10px 10px 0;
   padding: 3px;
   border: 1px solid var(--line);
@@ -3989,7 +3989,11 @@ fieldset legend {
 }
 
 .sideTab {
-  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 32px;
   padding: 6px 8px;
   border: 0;
   border-radius: 999px;
@@ -4011,6 +4015,26 @@ fieldset legend {
 .sideTabOn {
   color: var(--bg);
   background: var(--accent);
+}
+
+.editorSideTreeOff {
+  grid-template-columns: 36px 1fr;
+}
+
+.editorTreeRail {
+  align-items: center;
+  padding-top: 8px;
+  border-right: 1px solid var(--line);
+}
+
+.editorTreeRail button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #111;
+  color: var(--text-2);
 }
 
 .sideBody {
@@ -4217,19 +4241,61 @@ fieldset legend {
   gap: 10px;
 }
 
-.gitHead {
+.gitBranch {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
   gap: 8px;
+  width: fit-content;
+  padding: 5px 10px;
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  background: var(--accent-dim);
+  color: var(--accent-bright);
+  font-size: 12px;
 }
 
-.gitHead span,
-.gitMeta {
+.gitBranch em {
+  font-style: normal;
+  color: var(--text-2);
+}
+
+.gitViews {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #101010;
+}
+
+.gitViews button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
   color: var(--text-2);
   font-size: 12px;
 }
 
+.gitViewOn {
+  background: #1a1a1a;
+  color: var(--text);
+}
+
+.gitViews strong {
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent-dim);
+  color: var(--accent-bright);
+  font-size: 11px;
+}
+
+.gitChanges,
 .gitLog {
   list-style: none;
   margin: 0;
@@ -4237,12 +4303,27 @@ fieldset legend {
   overflow: auto;
 }
 
+.gitChanges li,
 .gitLog li {
   display: flex;
   gap: 8px;
-  padding: 6px 0;
+  align-items: center;
+  padding: 7px 4px;
   border-top: 1px solid var(--line);
   font-size: 12px;
+}
+
+.gitChanges em {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 5px;
+  background: var(--accent-dim);
+  color: var(--accent-bright);
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .gitLog code {
