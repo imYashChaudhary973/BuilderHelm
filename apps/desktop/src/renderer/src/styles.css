@@ -749,6 +749,7 @@ html.is-fullscreen .topbar {
   display: flex;
   justify-content: center;
   align-items: stretch;
+  height: 100%;
   padding: 0;
   overflow: auto;
   background: #050505;
@@ -3368,15 +3369,19 @@ fieldset legend {
 .layoutTiles {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 8px;
+  gap: clamp(8px, 1vw, 12px);
+  flex: 1 1 auto;
+  align-content: stretch;
 }
 
 .layoutTile {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 12px 8px 10px;
+  justify-content: center;
+  gap: 10px;
+  min-height: clamp(76px, 11vh, 118px);
+  padding: 14px 8px 12px;
   border-radius: var(--radius-m);
   border: 1px solid var(--line);
   background: var(--bg-1);
@@ -3391,9 +3396,9 @@ fieldset legend {
 
 .layoutPreview {
   display: grid;
-  gap: 2px;
-  width: 28px;
-  height: 20px;
+  gap: 3px;
+  width: clamp(28px, 3.4vw, 48px);
+  height: clamp(20px, 2.6vw, 34px);
 }
 
 .layoutPreview i {
@@ -3411,7 +3416,9 @@ fieldset legend {
 .recentCards {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 10px;
+  flex: 1 1 auto;
+  align-content: start;
 }
 
 .recentCard {
@@ -3419,13 +3426,15 @@ fieldset legend {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 14px;
+  min-height: 64px;
+  padding: 14px 16px;
   border-radius: var(--radius-m);
   border: 1px solid var(--line);
   background: var(--glass-strong);
   text-align: left;
   color: inherit;
 }
+
 
 .recentCard small {
   display: block;
@@ -3560,19 +3569,39 @@ fieldset legend {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  justify-content: center;
-  width: min(760px, calc(100% - 48px));
-  max-width: 760px;
+  justify-content: flex-start;
+  width: min(920px, calc(100% - 64px));
+  max-width: 920px;
   min-height: 100%;
   height: auto;
   box-sizing: border-box;
   margin: 0 auto;
-  padding: 40px 0 64px;
+  padding: clamp(28px, 4vh, 56px) 0 clamp(32px, 5vh, 72px);
+  gap: clamp(16px, 2.2vh, 28px);
 }
 
 .spaceWizard > * {
   width: 100%;
+  flex: 0 0 auto;
 }
+
+.spaceWizard .wizardSection:has(.layoutTiles),
+.spaceWizard .wizardSection:has(.recentCards) {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.spaceWizard h1 {
+  font-size: clamp(28px, 3.4vw, 40px);
+  letter-spacing: -0.04em;
+}
+
+.spaceWizard .lede {
+  margin-top: -8px;
+}
+
 
 .spaceWizard h1,
 .spaceWizard .lede {
@@ -3584,7 +3613,7 @@ fieldset legend {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  margin: 0 0 28px;
+  margin: 0;
   padding: 0;
   list-style: none;
   color: #6b6b6b;
@@ -3664,6 +3693,11 @@ fieldset legend {
 .boardPage h1 {
   margin: 0;
   font-size: 22px;
+}
+
+.boardPage.spaceWizard h1 {
+  font-size: clamp(28px, 3.4vw, 40px);
+  letter-spacing: -0.04em;
 }
 
 .wizardSection {

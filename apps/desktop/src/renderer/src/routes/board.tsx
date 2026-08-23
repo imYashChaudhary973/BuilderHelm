@@ -272,7 +272,13 @@ export function BoardPage(): React.JSX.Element {
   });
 
   useEffect(() => {
-    void window.zero.board.homeDir().then(setHomeDir).catch(() => undefined);
+    void window.zero.board
+      .homeDir()
+      .then((home) => {
+        setHomeDir(home);
+        setFolderPath((current) => (current.trim().length > 0 ? current : home));
+      })
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
