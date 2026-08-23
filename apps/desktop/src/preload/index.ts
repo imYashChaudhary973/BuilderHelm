@@ -46,8 +46,12 @@ import {
 import {
   editorCreateInputSchema,
   editorCreateIpcResponseSchema,
+  editorGitCommitInputSchema,
+  editorGitCommitIpcResponseSchema,
   editorGitInputSchema,
   editorGitIpcResponseSchema,
+  editorGitStageInputSchema,
+  editorGitStageIpcResponseSchema,
   editorListInputSchema,
   editorListIpcResponseSchema,
   editorPickIpcResponseSchema,
@@ -528,6 +532,20 @@ const api: ZeroDesktopApi = {
         input: editorSearchInputSchema.parse(input),
       });
       return unwrap(editorSearchIpcResponseSchema.parse(response));
+    },
+    async gitStage(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.editorGitStage, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: editorGitStageInputSchema.parse(input),
+      });
+      return unwrap(editorGitStageIpcResponseSchema.parse(response));
+    },
+    async gitCommit(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.editorGitCommit, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: editorGitCommitInputSchema.parse(input),
+      });
+      return unwrap(editorGitCommitIpcResponseSchema.parse(response));
     },
   },
 };

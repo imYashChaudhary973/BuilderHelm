@@ -24,6 +24,8 @@ import type {
   EditorEntry,
   EditorFile,
   EditorGit,
+  EditorGitCommitInput,
+  EditorGitStageInput,
   EditorListInput,
   EditorReadInput,
   EditorSearchInput,
@@ -126,6 +128,8 @@ export const ipcChannels = {
   editorWrite: 'zero:editor:write',
   editorCreate: 'zero:editor:create',
   editorSearch: 'zero:editor:search',
+  editorGitStage: 'zero:editor:git-stage',
+  editorGitCommit: 'zero:editor:git-commit',
 } as const;
 
 export const systemHealthRequestSchema = z
@@ -236,5 +240,7 @@ export interface ZeroDesktopApi {
     write(input: EditorWriteInput): Promise<EditorFile>;
     create(input: EditorCreateInput): Promise<EditorEntry>;
     search(input: EditorSearchInput): Promise<EditorEntry[]>;
+    gitStage(input: EditorGitStageInput): Promise<EditorGit>;
+    gitCommit(input: EditorGitCommitInput): Promise<EditorGit>;
   };
 }

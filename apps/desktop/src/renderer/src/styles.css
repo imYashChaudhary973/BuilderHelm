@@ -4400,3 +4400,47 @@ fieldset legend {
   color: var(--text-3);
   font-size: 12px;
 }
+
+.gitAct {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #141414;
+  color: var(--text-2);
+  font-size: 11px;
+}
+
+.gitLists header .gitAct {
+  margin-left: auto;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.gitCommit {
+  display: flex;
+  gap: 6px;
+}
+
+.gitCommit input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #101010;
+  color: var(--text);
+}
+
+.gitCommit button {
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 650;
+}
+
+.gitCommit button:disabled {
+  opacity: 0.4;
+}

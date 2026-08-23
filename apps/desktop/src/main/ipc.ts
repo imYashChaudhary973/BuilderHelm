@@ -59,8 +59,12 @@ import {
 import {
   editorCreateIpcResponseSchema,
   editorCreateRequestSchema,
+  editorGitCommitIpcResponseSchema,
+  editorGitCommitRequestSchema,
   editorGitIpcResponseSchema,
   editorGitRequestSchema,
+  editorGitStageIpcResponseSchema,
+  editorGitStageRequestSchema,
   editorListIpcResponseSchema,
   editorListRequestSchema,
   editorPickIpcResponseSchema,
@@ -114,12 +118,14 @@ import { LocalGitInspector } from '@zero/core';
 import type { BoardPtyManager } from './board-pty-manager.js';
 import { PreviewBrowser } from './preview-browser.js';
 import {
+  commitGit,
   createEditorEntry,
   listEditorDir,
   listGitChanges,
   pickEditorFile,
   readEditorFile,
   searchEditorFiles,
+  stageGitPath,
   writeEditorFile,
 } from './file-reader.js';
 import { dialog, ipcMain, type WebContents } from 'electron';
@@ -962,6 +968,36 @@ export function registerIpcHandlers(
     }
   });
 
+  ipcMain.handle(ipcChannels.editorGitStage, (_event, input: unknown) => {
+    try {
+      const request = editorGitStageRequestSchema.parse(input);
+      stageGitPath(request.input.root, request.input.path, request.input.staged);
+      const snap = new LocalGitInspector().inspect(request.input.root);
+      const value = { ...snap, changes: [...listGitChanges(snap.rootPath)] };
+      return editorGitStageIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return editorGitStageIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.editorGitCommit, (_event, input: unknown) => {
+    try {
+      const request = editorGitCommitRequestSchema.parse(input);
+      commitGit(request.input.root, request.input.message);
+      const snap = new LocalGitInspector().inspect(request.input.root);
+      const value = { ...snap, changes: [...listGitChanges(snap.rootPath)] };
+      return editorGitCommitIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return editorGitCommitIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
   return () => {
     for (const active of activeStreams.values()) active.controller.abort();
     activeStreams.clear();
@@ -1015,5 +1051,7 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.editorWrite);
     ipcMain.removeHandler(ipcChannels.editorCreate);
     ipcMain.removeHandler(ipcChannels.editorSearch);
+    ipcMain.removeHandler(ipcChannels.editorGitStage);
+    ipcMain.removeHandler(ipcChannels.editorGitCommit);
   };
 }

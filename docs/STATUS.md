@@ -1,8 +1,8 @@
 # Implementation Status
 
 - Last reviewed: 2026-08-24
-- Baseline: BuilderHelm chrome landing from `feat/editor`
-- Active work: Git stage/commit after this land
+- Baseline: BuilderHelm chrome landed on `main` at `c9726ab`
+- Active work: Git stage/commit on `feat/editor`
 
 What the repository implements now. Product intent lives in
 [PRODUCT](PRODUCT.md), [UX](UX.md), and [ROADMAP](ROADMAP.md).

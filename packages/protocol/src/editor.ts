@@ -103,6 +103,23 @@ export const editorSearchInputSchema = z
   .strict();
 export type EditorSearchInput = z.infer<typeof editorSearchInputSchema>;
 
+export const editorGitStageInputSchema = z
+  .object({
+    root: pathSchema,
+    path: pathSchema.optional(),
+    staged: z.boolean(),
+  })
+  .strict();
+export type EditorGitStageInput = z.infer<typeof editorGitStageInputSchema>;
+
+export const editorGitCommitInputSchema = z
+  .object({
+    root: pathSchema,
+    message: z.string().trim().min(1).max(500),
+  })
+  .strict();
+export type EditorGitCommitInput = z.infer<typeof editorGitCommitInputSchema>;
+
 export const editorPickRequestSchema = z
   .object({
     correlationId: correlationIdSchema,
@@ -151,6 +168,20 @@ export const editorSearchRequestSchema = z
   })
   .strict();
 
+export const editorGitStageRequestSchema = z
+  .object({
+    correlationId: correlationIdSchema,
+    input: editorGitStageInputSchema,
+  })
+  .strict();
+
+export const editorGitCommitRequestSchema = z
+  .object({
+    correlationId: correlationIdSchema,
+    input: editorGitCommitInputSchema,
+  })
+  .strict();
+
 function ipcResult<T extends z.ZodType>(value: T) {
   return z.discriminatedUnion('ok', [
     z.object({ ok: z.literal(true), value }).strict(),
@@ -165,3 +196,5 @@ export const editorGitIpcResponseSchema = ipcResult(editorGitSchema.nullable());
 export const editorWriteIpcResponseSchema = ipcResult(editorFileSchema);
 export const editorCreateIpcResponseSchema = ipcResult(editorEntrySchema);
 export const editorSearchIpcResponseSchema = ipcResult(z.array(editorEntrySchema));
+export const editorGitStageIpcResponseSchema = ipcResult(editorGitSchema);
+export const editorGitCommitIpcResponseSchema = ipcResult(editorGitSchema);

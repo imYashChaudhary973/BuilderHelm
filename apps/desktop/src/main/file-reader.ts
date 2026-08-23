@@ -10,7 +10,7 @@ import {
   type Stats,
 } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, dirname, resolve, sep } from 'node:path';
+import { basename, dirname, relative, resolve, sep } from 'node:path';
 import type { EditorEntry, EditorFile } from '@zero/protocol/editor';
 import { ZeroError } from '@zero/shared';
 import { dialog } from 'electron';
@@ -202,6 +202,46 @@ export function listGitChanges(
   } catch {
     return [];
   }
+}
+
+function runGit(root: string, args: readonly string[]): void {
+  try {
+    execFileSync('git', [...args], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 15_000,
+      windowsHide: true,
+    });
+  } catch (cause) {
+    const detail =
+      cause instanceof Error && 'stderr' in cause && typeof cause.stderr === 'string'
+        ? cause.stderr.trim()
+        : cause instanceof Error
+          ? cause.message
+          : 'Git failed';
+    throw new ZeroError('TOOL_EXECUTION_FAILED', detail.slice(0, 300), { cause });
+  }
+}
+
+export function stageGitPath(root: string, path: string | undefined, staged: boolean): void {
+  const workspace = resolveWorkspace(root);
+  if (path === undefined) {
+    if (staged) runGit(workspace.root, ['add', '-A']);
+    else runGit(workspace.root, ['restore', '--staged', '.']);
+    return;
+  }
+  const target = resolveWorkspace(root, path);
+  const rel = relative(workspace.root, target.path);
+  if (rel.startsWith('..') || rel.length === 0) {
+    throw new ZeroError('PERMISSION_DENIED', 'Path is outside the workspace');
+  }
+  if (staged) runGit(workspace.root, ['add', '--', rel]);
+  else runGit(workspace.root, ['restore', '--staged', '--', rel]);
+}
+
+export function commitGit(root: string, message: string): void {
+  const workspace = resolveWorkspace(root);
+  runGit(workspace.root, ['commit', '-m', message]);
 }
 
 export async function pickEditorFile(): Promise<EditorFile | null> {

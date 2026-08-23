@@ -24,6 +24,8 @@ export function GitSidebar(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<'changes' | 'history'>('changes');
   const [picked, setPicked] = useState<string | null>(null);
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (root === null) {
@@ -49,6 +51,33 @@ export function GitSidebar(): React.JSX.Element {
     };
   }, [root]);
 
+  async function stage(path: string | undefined, staged: boolean): Promise<void> {
+    if (root === null) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setGit(await window.zero.editor.gitStage({ root, path, staged }));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Stage failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function commit(): Promise<void> {
+    if (root === null || message.trim().length === 0) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setGit(await window.zero.editor.gitCommit({ root, message: message.trim() }));
+      setMessage('');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Commit failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (root === null) {
     return (
       <aside className="gitSide" aria-label="Git">
@@ -56,7 +85,7 @@ export function GitSidebar(): React.JSX.Element {
       </aside>
     );
   }
-  if (error !== null) {
+  if (git === null && error !== null) {
     return (
       <aside className="gitSide" aria-label="Git">
         <p className="browserError" role="alert">
@@ -101,6 +130,11 @@ export function GitSidebar(): React.JSX.Element {
           History
         </button>
       </div>
+      {error !== null && (
+        <p className="browserError" role="alert">
+          {error}
+        </p>
+      )}
       {view === 'changes' ? (
         <div className="gitLists">
           <section>
@@ -118,6 +152,14 @@ export function GitSidebar(): React.JSX.Element {
                       <span>{fileName(change.path)}</span>
                       <small>{dirLabel(change.path)}</small>
                     </button>
+                    <button
+                      type="button"
+                      className="gitAct"
+                      disabled={busy}
+                      onClick={() => void stage(change.path, false)}
+                    >
+                      −
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -126,6 +168,16 @@ export function GitSidebar(): React.JSX.Element {
           <section>
             <header>
               Changes <strong>{work.length}</strong>
+              {work.length > 0 ? (
+                <button
+                  type="button"
+                  className="gitAct"
+                  disabled={busy}
+                  onClick={() => void stage(undefined, true)}
+                >
+                  Stage all
+                </button>
+              ) : null}
             </header>
             {work.length === 0 ? (
               <p>Working tree clean</p>
@@ -137,6 +189,14 @@ export function GitSidebar(): React.JSX.Element {
                       <em>{change.code}</em>
                       <span>{fileName(change.path)}</span>
                       <small>{dirLabel(change.path)}</small>
+                    </button>
+                    <button
+                      type="button"
+                      className="gitAct"
+                      disabled={busy}
+                      onClick={() => void stage(change.path, true)}
+                    >
+                      +
                     </button>
                   </li>
                 ))}
@@ -154,6 +214,23 @@ export function GitSidebar(): React.JSX.Element {
           ))}
         </ol>
       )}
+      <form
+        className="gitCommit"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void commit();
+        }}
+      >
+        <input
+          value={message}
+          placeholder="Commit message"
+          disabled={busy || staged.length === 0}
+          onChange={(event) => setMessage(event.target.value)}
+        />
+        <button type="submit" disabled={busy || staged.length === 0 || message.trim().length === 0}>
+          Commit
+        </button>
+      </form>
       <div className="gitFooter">
         {picked === null ? 'Select a file to inspect it.' : fileName(picked)}
       </div>
