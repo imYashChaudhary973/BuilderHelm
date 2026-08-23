@@ -112,6 +112,13 @@ function createWindow(): BrowserWindow {
   return window;
 }
 
+
+// Dev affordance: ZERO_DEBUG_PORT=<port> exposes a CDP endpoint so external
+// tooling can attach to the renderer. No effect unless the variable is set.
+if (process.env.ZERO_DEBUG_PORT !== undefined) {
+  app.commandLine.appendSwitch('remote-debugging-port', process.env.ZERO_DEBUG_PORT);
+}
+
 app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler(
     (_webContents, _permission, callback) => {

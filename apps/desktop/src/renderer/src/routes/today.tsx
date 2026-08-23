@@ -1,5 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import type { ProjectDashboard } from '@zero/protocol/projects';
+
+import { CountUp, SplitText, useSpotlight } from '../components/fx.js';
 
 function dayLabel(): string {
   return new Intl.DateTimeFormat(undefined, {
@@ -7,6 +10,73 @@ function dayLabel(): string {
     month: 'long',
     day: 'numeric',
   }).format(new Date());
+}
+
+function StatCard({
+  label,
+  value,
+  accent,
+}: {
+  readonly label: string;
+  readonly value: number;
+  readonly accent?: boolean;
+}): React.JSX.Element {
+  const spotlight = useSpotlight<HTMLDivElement>();
+  return (
+    <div
+      ref={spotlight.ref}
+      onMouseMove={spotlight.onMouseMove}
+      className={`statCard spotlight glare ${accent ? 'starBorder' : ''}`}
+    >
+      <span>{label}</span>
+      <strong><CountUp value={value} /></strong>
+    </div>
+  );
+}
+
+function ProjectRow({
+  item,
+}: {
+  readonly item: ProjectDashboard;
+}): React.JSX.Element {
+  const nextTask =
+    item.tasks.find((task) => task.status === 'in_progress') ??
+    item.tasks.find((task) => task.status === 'todo');
+  const projectBlocked = item.tasks.filter(
+    (task) => task.status === 'blocked',
+  ).length;
+  const spotlight = useSpotlight<HTMLElement>();
+  return (
+    <article
+      ref={spotlight.ref}
+      onMouseMove={spotlight.onMouseMove}
+      className="spotlight glare fadeIn"
+    >
+      <div className="todayProjectIdentity">
+        <span aria-hidden="true" />
+        <div>
+          <h3>{item.project.name}</h3>
+          <p>
+            {item.repository === null
+              ? 'Repository not connected'
+              : `${item.repository.branch} · ${item.repository.dirtyCount === 0 ? 'clean' : `${item.repository.dirtyCount} changes`}`}
+          </p>
+        </div>
+      </div>
+      <div>
+        <span>Next</span>
+        <strong>{nextTask?.title ?? 'Choose the next task'}</strong>
+      </div>
+      <div>
+        <span>Signal</span>
+        <strong>
+          {projectBlocked > 0
+            ? `${projectBlocked} blocked`
+            : `${item.timeline.length} recent events`}
+        </strong>
+      </div>
+    </article>
+  );
 }
 
 export function TodayPage(): React.JSX.Element {
@@ -31,8 +101,10 @@ export function TodayPage(): React.JSX.Element {
     <>
       <header className="todayHeader">
         <div>
-          <p className="eyebrow">{dayLabel()}</p>
-          <h1>Continue what matters.</h1>
+          <p className="eyebrow shinyText">{dayLabel()}</p>
+          <h1>
+            <SplitText text="Continue what matters." />
+          </h1>
         </div>
         <div
           className="todayLocalState"
@@ -49,24 +121,10 @@ export function TodayPage(): React.JSX.Element {
         </div>
       </header>
       <section className="todaySummary" aria-label="Today summary">
-        <div>
-          <span>Active projects</span>
-          <strong>
-            {projects.filter((item) => item.project.status === 'active').length}
-          </strong>
-        </div>
-        <div>
-          <span>In progress</span>
-          <strong>{inProgress.length}</strong>
-        </div>
-        <div>
-          <span>Blocked</span>
-          <strong>{blocked.length}</strong>
-        </div>
-        <div>
-          <span>Repositories</span>
-          <strong>{projects.filter((item) => item.repository !== null).length}</strong>
-        </div>
+        <StatCard label="Active projects" value={projects.filter((item) => item.project.status === 'active').length} accent />
+        <StatCard label="In progress" value={inProgress.length} />
+        <StatCard label="Blocked" value={blocked.length} />
+        <StatCard label="Repositories" value={projects.filter((item) => item.repository !== null).length} />
       </section>
       {projects.length === 0 && !dashboard.isLoading ? (
         <section className="todayEmpty">
@@ -90,41 +148,9 @@ export function TodayPage(): React.JSX.Element {
             <Link to="/projects">Open project view</Link>
           </div>
           <div className="todayProjectRows">
-            {projects.slice(0, 6).map((item) => {
-              const nextTask =
-                item.tasks.find((task) => task.status === 'in_progress') ??
-                item.tasks.find((task) => task.status === 'todo');
-              const projectBlocked = item.tasks.filter(
-                (task) => task.status === 'blocked',
-              ).length;
-              return (
-                <article key={item.project.id}>
-                  <div className="todayProjectIdentity">
-                    <span aria-hidden="true" />
-                    <div>
-                      <h3>{item.project.name}</h3>
-                      <p>
-                        {item.repository === null
-                          ? 'Repository not connected'
-                          : `${item.repository.branch} · ${item.repository.dirtyCount === 0 ? 'clean' : `${item.repository.dirtyCount} changes`}`}
-                      </p>
-                    </div>
-                  </div>
-                  <div>
-                    <span>Next</span>
-                    <strong>{nextTask?.title ?? 'Choose the next task'}</strong>
-                  </div>
-                  <div>
-                    <span>Signal</span>
-                    <strong>
-                      {projectBlocked > 0
-                        ? `${projectBlocked} blocked`
-                        : `${item.timeline.length} recent events`}
-                    </strong>
-                  </div>
-                </article>
-              );
-            })}
+            {projects.slice(0, 6).map((item) => (
+              <ProjectRow item={item} key={item.project.id} />
+            ))}
           </div>
         </section>
       )}
