@@ -2,7 +2,7 @@
 
 - Last reviewed: 2026-08-24
 - Baseline: chrome landed on `main` at `bdc1fda`
-- Active work: none. Next slice is the right sidebar (browser first)
+- Active work: right sidebar browser on `feat/browser`
 
 What the repository implements now. Product intent lives in
 [PRODUCT](PRODUCT.md), [UX](UX.md), and [ROADMAP](ROADMAP.md).
@@ -19,11 +19,13 @@ What the repository implements now. Product intent lives in
 | Projects | Dashboard, Git status and history, Today summary |
 | Space | Home, wizard, Open without AI, per-pane agents, live xterm grid |
 | Chrome | Top bar modes, stacked Space rail |
+| Browser | Right sidebar preview for http(s) and localhost |
 
 ## Current application surfaces
 
 - Space (home, workspace setup, agent pick, live terminals)
 - App chrome (top bar + left rail)
+- Browser sidebar (http/https and localhost preview)
 - Provider and model settings
 - Multi-provider chat
 - Obsidian knowledge retrieval
@@ -60,5 +62,5 @@ pnpm smoke:desktop
   executes them.
 - Ready work lands on `main`. Permission or security changes still use a PR.
 - Windows and Linux desktops are not verified yet.
-- Right sidebar, Swarm, Kanban Board, Memory mode, and phone pairing are
-  not built yet.
+- Swarm, Kanban Board, Memory mode, editor/Git sidebars, and phone pairing
+- are not built yet.

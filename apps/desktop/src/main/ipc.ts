@@ -52,6 +52,10 @@ import {
   chatTranscriptIpcResponseSchema,
   type ChatClientStreamEvent,
 } from '@zero/protocol/chat';
+import {
+  browserCommandIpcResponseSchema,
+  browserCommandRequestSchema,
+} from '@zero/protocol/browser';
 import { ipcChannels, systemHealthRequestSchema } from '@zero/protocol/ipc';
 import {
   knowledgeAnswerIpcResponseSchema,
@@ -91,6 +95,7 @@ import {
 } from '@zero/protocol/projects';
 import { createCorrelationId, normalizeError, ZeroError } from '@zero/shared';
 import type { BoardPtyManager } from './board-pty-manager.js';
+import { PreviewBrowser } from './preview-browser.js';
 import { dialog, ipcMain, type WebContents } from 'electron';
 import { ZodError } from 'zod';
 
@@ -136,6 +141,7 @@ export function registerIpcHandlers(
   core: CoreRuntime,
   board?: BoardPtyManager,
 ): () => void {
+  const preview = new PreviewBrowser();
   const activeStreams = new Map<
     string,
     { readonly controller: AbortController; readonly senderId: number }
@@ -805,9 +811,23 @@ export function registerIpcHandlers(
     }
   });
 
+  ipcMain.handle(ipcChannels.browserCommand, async (event, input: unknown) => {
+    try {
+      const request = browserCommandRequestSchema.parse(input);
+      const value = await preview.handle(event.sender, request.input);
+      return browserCommandIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return browserCommandIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
   return () => {
     for (const active of activeStreams.values()) active.controller.abort();
     activeStreams.clear();
+    preview.dispose();
     ipcMain.removeHandler(ipcChannels.systemHealth);
     ipcMain.removeHandler(ipcChannels.providerList);
     ipcMain.removeHandler(ipcChannels.providerCreate);
@@ -849,5 +869,6 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.boardPresetDelete);
     ipcMain.removeHandler(ipcChannels.boardLand);
     ipcMain.removeHandler(ipcChannels.boardLandPreview);
+    ipcMain.removeHandler(ipcChannels.browserCommand);
   };
 }

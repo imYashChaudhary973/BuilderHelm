@@ -18,6 +18,7 @@ import type {
   BoardPresetSaveInput,
   BoardSessionSummary,
 } from './board.js';
+import type { BrowserCommandInput, BrowserState } from './browser.js';
 import type {
   ActionCommandInput,
   ActionCommandOutcome,
@@ -107,6 +108,7 @@ export const ipcChannels = {
   boardPresetDelete: 'zero:board:preset-delete',
   boardLand: 'zero:board:land',
   boardLandPreview: 'zero:board:land-preview',
+  browserCommand: 'zero:browser:command',
 } as const;
 
 export const systemHealthRequestSchema = z
@@ -205,5 +207,8 @@ export interface ZeroDesktopApi {
       input: ProjectRepositorySelectInput,
     ): Promise<ProjectDashboard | null>;
     refreshRepository(input: ProjectRepositoryRefreshInput): Promise<ProjectDashboard>;
+  };
+  readonly browser: {
+    command(input: BrowserCommandInput): Promise<BrowserState>;
   };
 }

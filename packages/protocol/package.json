@@ -8,6 +8,10 @@
       "types": "./dist/index.d.ts",
       "import": "./src/index.ts"
     },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./src/browser.ts"
+    },
     "./board": {
       "types": "./dist/board.d.ts",
       "import": "./src/board.ts"

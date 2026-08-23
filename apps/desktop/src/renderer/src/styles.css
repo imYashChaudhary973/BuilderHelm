@@ -380,6 +380,13 @@ textarea:focus-visible {
   height: 100vh;
 }
 
+.shellBrowserOn {
+  grid-template-columns: 200px 1fr 360px;
+  grid-template-areas:
+    'topbar topbar topbar'
+    'rail content browser';
+}
+
 .topbar {
   grid-area: topbar;
   display: flex;
@@ -574,6 +581,55 @@ textarea:focus-visible {
 .content:has(.spaceHome) {
   padding: 0;
   overflow: hidden;
+}
+
+.browserSide {
+  grid-area: browser;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--glass-strong) 0%, var(--glass) 100%);
+}
+
+.browserBar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 10px;
+  -webkit-app-region: no-drag;
+}
+
+.browserBar button {
+  flex-shrink: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text-2);
+  background: var(--bg-1);
+}
+
+.browserBar button:disabled {
+  opacity: 0.4;
+}
+
+.browserBar input {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.browserError {
+  margin: 0 10px 8px;
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.browserStage {
+  flex: 1;
+  min-height: 0;
+  background: var(--bg-1);
 }
 
 /* ---------- TYPOGRAPHY PRIMITIVES ---------- */

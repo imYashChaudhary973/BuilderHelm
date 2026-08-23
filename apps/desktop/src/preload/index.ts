@@ -40,6 +40,10 @@ import {
   type ZeroDesktopApi,
 } from '@zero/protocol/ipc';
 import {
+  browserCommandIpcResponseSchema,
+  browserCommandInputSchema,
+} from '@zero/protocol/browser';
+import {
   createProviderInputSchema,
   deleteProviderInputSchema,
   modelListInputSchema,
@@ -450,6 +454,15 @@ const api: ZeroDesktopApi = {
         },
       );
       return unwrap(projectRepositoryRefreshIpcResponseSchema.parse(response));
+    },
+  },
+  browser: {
+    async command(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.browserCommand, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: browserCommandInputSchema.parse(input),
+      });
+      return unwrap(browserCommandIpcResponseSchema.parse(response));
     },
   },
 };

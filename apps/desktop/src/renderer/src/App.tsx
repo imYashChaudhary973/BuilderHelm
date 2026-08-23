@@ -1,5 +1,7 @@
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
+import { useState } from 'react';
 
+import { BrowserSidebar } from './components/browser-sidebar.js';
 import { SpaceProvider, useSpaces } from './space-store.js';
 
 const MODES = [
@@ -18,11 +20,12 @@ function Shell(): React.JSX.Element {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const spaces = useSpaces();
+  const [browserOpen, setBrowserOpen] = useState(true);
   const spaceActive = pathname === '/' || pathname === '/board';
   const settingsActive = pathname.startsWith('/settings');
 
   return (
-    <div className="shell">
+    <div className={browserOpen ? 'shell shellBrowserOn' : 'shell'}>
       <header className="topbar">
         <div className="brand" aria-label="Exeum">
           Exeum
@@ -55,6 +58,13 @@ function Shell(): React.JSX.Element {
             <span className="privacyDot" aria-hidden="true" />
             Local
           </span>
+          <button
+            type="button"
+            className={browserOpen ? 'topbarItem topbarItemOn' : 'topbarItem'}
+            onClick={() => setBrowserOpen((open) => !open)}
+          >
+            Browser
+          </button>
           <Link
             className={settingsActive ? 'topbarItem topbarItemOn' : 'topbarItem'}
             to="/settings/providers"
@@ -104,6 +114,7 @@ function Shell(): React.JSX.Element {
       <main className="content" role="main">
         <Outlet />
       </main>
+      {browserOpen ? <BrowserSidebar /> : null}
     </div>
   );
 }

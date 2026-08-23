@@ -11,6 +11,7 @@ import {
   knowledgeQueryRequestSchema,
   knowledgeSourceRequestSchema,
   modelListIpcResponseSchema,
+  parsePreviewUrl,
   providerTestConnectionRequestSchema,
   systemHealthRequestSchema,
   systemHealthResponseSchema,
@@ -199,5 +200,15 @@ describe('board pane specs', () => {
     expect(
       boardPaneSpecSchema.safeParse({ slot: 0, agentId: 'custom' }).success,
     ).toBe(false);
+  });
+});
+
+describe('preview URLs', () => {
+  it('allows http(s) and localhost, rejects file and javascript', () => {
+    expect(parsePreviewUrl('localhost:3000')).toBe('http://localhost:3000/');
+    expect(parsePreviewUrl('https://example.com/app')).toBe('https://example.com/app');
+    expect(parsePreviewUrl('file:///etc/passwd')).toBeNull();
+    expect(parsePreviewUrl('javascript:alert(1)')).toBeNull();
+    expect(parsePreviewUrl('http://user:pass@host/')).toBeNull();
   });
 });

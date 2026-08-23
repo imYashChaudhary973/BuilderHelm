@@ -1,4 +1,5 @@
 export * from './actions.js';
+export * from './browser.js';
 export * from './board.js';
 export * from './chat.js';
 export * from './events.js';
