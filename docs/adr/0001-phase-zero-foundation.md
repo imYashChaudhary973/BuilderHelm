@@ -5,10 +5,10 @@
 
 ## Context
 
-Zero OS begins from a blueprint-only folder. Phase 0 needs a secure Electron
-shell, strict TypeScript packages, SQLite migrations, typed IPC, stable local
-IDs, errors, structured redacted logs, architecture guardrails, and CI without
-creating empty future abstractions.
+This repository began as a blueprint-only folder. Phase 0 needed a secure
+Electron shell, strict TypeScript packages, SQLite migrations, typed IPC,
+stable local IDs, errors, structured redacted logs, architecture guardrails,
+and CI without creating empty future abstractions.
 
 ## Decision
 

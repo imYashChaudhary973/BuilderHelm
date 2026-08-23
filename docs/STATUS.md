@@ -4,68 +4,61 @@
 - Baseline: chrome landed on `main` at `bdc1fda`
 - Active work: none. Next slice is the right sidebar (browser first)
 
-This document is the canonical summary of what the repository implements now.
-The [blueprint](blueprint/00_README.md) describes intended product direction,
-while [phase reports](reports/README.md) preserve checkpoint evidence.
+What the repository implements now. Product intent lives in
+[PRODUCT](PRODUCT.md), [UX](UX.md), and [ROADMAP](ROADMAP.md).
 
-## Delivery status
+## Shipped
 
-| Phase | State       | Delivered capability                                                                                                      |
-| ----- | ----------- | ------------------------------------------------------------------------------------------------------------------------- |
-| 0     | Complete    | pnpm workspace, secure Electron boundary, SQLite migrations, typed IPC, observability, and architecture tests             |
-| 1     | Complete    | Keychain-backed provider settings, provider metadata, audit events, and provider UI                                       |
-| 2     | Complete    | Provider-independent model gateway, model discovery, streaming chat, canonical chat persistence, and capability overrides |
-| 3     | Complete    | Read-only Obsidian indexing, local retrieval, cited answers, source viewing, and change detection                         |
-| 4     | Complete    | Schema-backed tools, deterministic permissions, exact approvals, action receipts, and action chat                         |
-| 5     | Complete    | Project dashboard, repository attachment, Git status and history, Today summary, and project continuity                   |
-| 6     | Complete    | Space: four-mode home, folder/layout wizard, Open without AI, per-pane agents, usable xterm grid |
-| 7–12  | Planned     | Research, automation, voice, health, content, advanced graph, and product hardening                                       |
+| Surface | Capability |
+| --- | --- |
+| Foundation | pnpm workspace, secure Electron boundary, SQLite migrations, typed IPC, observability |
+| Providers | Keychain-backed settings, discovery, audit events |
+| Model gateway | Provider-independent adapters, streaming chat, canonical history |
+| Knowledge | Read-only Obsidian retrieval with citations |
+| Actions | Schema-backed tools, permissions, approvals, receipts |
+| Projects | Dashboard, Git status and history, Today summary |
+| Space | Home, wizard, Open without AI, per-pane agents, live xterm grid |
+| Chrome | Top bar modes, stacked Space rail |
 
 ## Current application surfaces
 
-- Today dashboard (projects, tasks, blockers, connected repositories)
+- Space (home, workspace setup, agent pick, live terminals)
+- App chrome (top bar + left rail)
 - Provider and model settings
 - Multi-provider chat
 - Obsidian knowledge retrieval
 - Permissioned actions, tasks, and receipts
 - Projects and Git continuity
-- Space (home, workspace setup, agent pick, live terminals)
-- App chrome: top bar modes and stacked Space rail
+- Today dashboard
 
 ## Current architecture
 
-The Electron renderer is unprivileged and accesses the local core only through
-an explicit preload API and schema-validated IPC. The core owns SQLite state,
-model policy, provider credentials, knowledge retrieval, permission decisions,
-and tool execution. Provider-specific wire formats remain inside
-`@zero/model-gateway`.
+The Electron renderer is unprivileged and talks to the local core only
+through an explicit preload API and schema-validated IPC. The core owns
+SQLite, model policy, provider credentials, knowledge retrieval,
+permission decisions, and tool execution. Provider wire formats stay
+inside `@zero/model-gateway`.
 
-SQLite is at migration 8 on `main`. Migration 7 stores project repository
-snapshots and bounded commit history. Migration 8 stores Board presets.
+SQLite is at migration 8. Migration 7 stores project repository snapshots.
+Migration 8 stores Space presets.
 
-An unsigned macOS `Zero.app` can be packed with
-`pnpm --filter @zero/desktop dist`.
+Unsigned macOS `Zero.app`: `pnpm --filter @zero/desktop dist`.
 
 ## Verification
-
-Run the complete local gate with:
 
 ```bash
 pnpm verify
 pnpm smoke:desktop
 ```
 
-The phase reports record the exact results at each completed checkpoint. Do not
-treat those historical test counts as the result for the current worktree.
-
 ## Known scope boundaries
 
-- macOS is the supported desktop runtime; Keychain integration is intentionally
-  fail-closed.
-- Local Ollama endpoints may use loopback HTTP. Remote credentialed providers
-  must use HTTPS.
-- Models can propose actions, but deterministic application code validates
-  permission and executes them.
-- Board and Space land on `main` when ready. Permission/security changes still use a PR.
-- Voice, pairing companion, automation, HealthKit, and publishing integrations
-- are not implemented yet. Windows and Linux desktops are not verified yet.
+- macOS is the supported desktop runtime. Keychain is fail-closed.
+- Local Ollama may use loopback HTTP. Remote credentialed providers must
+  use HTTPS.
+- Models can propose actions. Application code validates permission and
+  executes them.
+- Ready work lands on `main`. Permission or security changes still use a PR.
+- Windows and Linux desktops are not verified yet.
+- Right sidebar, Swarm, Kanban Board, Memory mode, and phone pairing are
+  not built yet.

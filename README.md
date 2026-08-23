@@ -1,20 +1,45 @@
-# Zero OS
+<p align="center">
+  <img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=0:080A07,50:6F7767,100:B6D475&height=190&section=header&text=Exeum&fontSize=52&fontColor=EEF1E4&animation=fadeIn&fontAlignY=36&desc=Local-first%20desktop%20harness%20for%20building%20software&descAlignY=60&descSize=18" alt="Exeum — local-first desktop harness for building software" />
+</p>
 
-Zero OS is a local-first personal intelligence and action system for macOS. It
-combines provider-independent chat, cited local knowledge, projects, tasks, and
-permissioned tools in a secure Electron desktop application.
+<p align="center">
+  <a href="https://git.io/typing-svg">
+    <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=600&size=20&duration=3200&pause=900&color=B6D475&center=true&vCenter=true&width=780&lines=Space.+Swarm.+Board.+Memory.;Terminals+and+agents+in+one+shell.;Local-first.+macOS.+TypeScript." alt="Space. Swarm. Board. Memory." />
+  </a>
+</p>
 
-The product is under active development. See the
-[current implementation status](docs/STATUS.md) for completed and in-progress
-phases.
+<p align="center">
+  <img alt="macOS" src="https://img.shields.io/badge/macOS-supported-B6D475?style=for-the-badge">
+  <img alt="Electron" src="https://img.shields.io/badge/Electron-39-111111?style=for-the-badge&logo=electron&logoColor=white">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white">
+  <img alt="Local-first" src="https://img.shields.io/badge/Privacy-Local--first-0D855E?style=for-the-badge">
+  <img alt="pnpm" src="https://img.shields.io/badge/pnpm-11-F69220?style=for-the-badge&logo=pnpm&logoColor=white">
+</p>
 
-## Requirements
+Exeum is a local-first desktop harness for macOS. You stay in one app: terminals, optional coding agents, tasks, memory, and chrome.
 
-- macOS for the desktop runtime and Keychain-backed provider credentials
-- Node.js 22.13 or newer
-- pnpm 11.16 through Corepack
+Working name. Final name, logo, and tagline are TBD — this README does not invent them.
 
-## Get started
+The npm workspace is still `zero-os`. That is a package name, not the product.
+
+What runs today: [status](docs/STATUS.md). What it is for: [product](docs/PRODUCT.md).
+
+---
+
+## Modes
+
+| Mode | Status | Job |
+| --- | --- | --- |
+| **Space** | Live | Folder + layout + optional agents → a grid of real terminals |
+| **Swarm** | Later | Coordinated agents on one job |
+| **Board** | Later | Kanban. Not the terminal grid |
+| **Memory** | Later | Knowledge the agents may read and write |
+
+Chrome that already ships: top bar (Space / Swarm / Board / Memory / Skills / Settings) and a left rail of stacked Spaces.
+
+---
+
+## Quick start
 
 ```bash
 corepack enable
@@ -22,40 +47,68 @@ pnpm install
 pnpm dev
 ```
 
-Provider credentials are stored in macOS Keychain. They are not stored in the
-repository or SQLite database.
+macOS. Node.js 22.13+. pnpm 11.16 via Corepack.
 
-## Common commands
+Provider credentials go in the Keychain, not the repo or SQLite.
 
-| Command                                     | Purpose                                       |
-| ------------------------------------------- | --------------------------------------------- |
-| `pnpm dev`                                  | Start the Electron development app            |
-| `pnpm build`                                | Create the production desktop build           |
-| `corepack pnpm --filter @zero/desktop dist` | Pack a double-clickable `Zero.app`            |
-| `pnpm test`                                 | Run the Vitest suite                          |
-| `pnpm typecheck`                            | Check all TypeScript projects                 |
-| `pnpm lint`                                 | Run ESLint                                    |
-| `pnpm format:check`                         | Check repository formatting                   |
-| `pnpm smoke:desktop`                        | Boot-test the built Electron app              |
-| `pnpm verify`                               | Run formatting, lint, types, tests, and build |
+---
 
-## Repository layout
+## Commands
+
+| Command | Purpose |
+| --- | --- |
+| `pnpm dev` | Electron development app |
+| `pnpm build` | Production desktop build |
+| `pnpm --filter @zero/desktop dist` | Unsigned `Zero.app` |
+| `pnpm test` | Vitest |
+| `pnpm typecheck` | TypeScript project build |
+| `pnpm lint` | ESLint |
+| `pnpm verify` | Format, lint, types, tests, build |
+| `pnpm smoke:desktop` | Boot-test the built app |
+
+---
+
+## How it is put together
 
 ```text
-apps/desktop/          Electron main, preload, and React renderer
-packages/core/         Application services and composition root
-packages/db/           SQLite repositories and forward-only migrations
-packages/model-gateway Provider-independent model adapters and policy checks
-packages/observability Structured, redacted logging
-packages/protocol/     Runtime-validated domain and IPC contracts
-packages/shared/       IDs, time helpers, and stable errors
-packages/tools/        Tool registry and permission policy
-tests/                 Cross-package architecture and security tests
-docs/                  Status, blueprint, ADRs, and historical reports
+Top bar     Space · Swarm · Board · Memory · Skills · Settings
+Left rail   stacked Spaces
+Content     home → wizard → live xterm grid
 ```
+
+```text
+apps/desktop/           Electron main, preload, React renderer
+packages/core/          Application services
+packages/db/            SQLite + migrations
+packages/model-gateway  Provider adapters
+packages/observability  Redacted logs
+packages/protocol/      Domain and IPC schemas
+packages/shared/        IDs, time, errors
+packages/tools/         Tool registry and permissions
+docs/                   Product, status, ADRs
+```
+
+---
 
 ## Documentation
 
-Start at the [documentation index](docs/README.md). The Markdown files in
-`docs/blueprint/` are the canonical product and architecture baseline; the DOCX
-file is a convenience export and may lag behind the Markdown sources.
+| Document | What it covers |
+| --- | --- |
+| [Status](docs/STATUS.md) | What the code does now |
+| [Product](docs/PRODUCT.md) | Modes, principles, naming |
+| [UX](docs/UX.md) | Home, Space wizard, chrome |
+| [Stack](docs/STACK.md) | TypeScript + Electron. Not a Rust rewrite |
+| [Roadmap](docs/ROADMAP.md) | Build order |
+| [Settings](docs/SETTINGS.md) | Intended settings IA |
+| [Agent rules](AGENTS.md) | Worktrees, commit, land |
+| [ADRs](docs/adr/README.md) | Accepted engineering decisions |
+
+---
+
+## Not this project
+
+Not a personal-life OS. Not HealthKit. Not a content studio. Not a cloud multi-user assistant.
+
+<p align="center">
+  <img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=0:B6D475,50:6F7767,100:080A07&height=120&section=footer" alt="" />
+</p>
