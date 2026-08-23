@@ -1,8 +1,8 @@
 # Implementation Status
 
-- Last reviewed: 2026-08-17
-- Baseline: Phases 0–4 merged into `main` at `4cd140a`
-- Active work: Phase 5 on `codex/phase-5-project-dashboard-git`
+- Last reviewed: 2026-08-23
+- Baseline: Phases 0–5 and Board landed on `main` at `b7bdb96`
+- Active work: Phase 6 coding workspace, starting from the Board
 
 This document is the canonical summary of what the repository implements now.
 The [blueprint](blueprint/00_README.md) describes intended product direction,
@@ -17,17 +17,19 @@ while [phase reports](reports/README.md) preserve checkpoint evidence.
 | 2     | Complete    | Provider-independent model gateway, model discovery, streaming chat, canonical chat persistence, and capability overrides |
 | 3     | Complete    | Read-only Obsidian indexing, local retrieval, cited answers, source viewing, and change detection                         |
 | 4     | Complete    | Schema-backed tools, deterministic permissions, exact approvals, action receipts, and action chat                         |
-| 5     | In progress | Project dashboard, repository attachment, Git status and history, and project continuity                                  |
-| 6–12  | Planned     | Coding, research, automation, voice, health, content, advanced graph, and product hardening                               |
+| 5     | Complete    | Project dashboard, repository attachment, Git status and history, Today summary, and project continuity                   |
+| 6     | In progress | Exeum Board: xterm grid, per-pane worktrees, agent CLI launch, and land of `exeum/*` branches                             |
+| 7–12  | Planned     | Research, automation, voice, health, content, advanced graph, and product hardening                                       |
 
 ## Current application surfaces
 
-- Today dashboard
+- Today dashboard (projects, tasks, blockers, connected repositories)
 - Provider and model settings
 - Multi-provider chat
 - Obsidian knowledge retrieval
 - Permissioned actions, tasks, and receipts
-- Projects and Git continuity (Phase 5 work in progress)
+- Projects and Git continuity
+- Exeum Board (terminal grid, isolated worktrees, land)
 
 ## Current architecture
 
@@ -37,9 +39,11 @@ model policy, provider credentials, knowledge retrieval, permission decisions,
 and tool execution. Provider-specific wire formats remain inside
 `@zero/model-gateway`.
 
-SQLite is currently at migration 7 in the Phase 5 worktree. Migration 7 adds
-project repository snapshots and bounded commit history. This is active work,
-not a completed delivery checkpoint.
+SQLite is at migration 8 on `main`. Migration 7 stores project repository
+snapshots and bounded commit history. Migration 8 stores Board presets.
+
+An unsigned macOS `Zero.app` can be packed with
+`pnpm --filter @zero/desktop dist`.
 
 ## Verification
 
@@ -61,5 +65,6 @@ treat those historical test counts as the result for the current worktree.
   must use HTTPS.
 - Models can propose actions, but deterministic application code validates
   permission and executes them.
+- Board land merges locally and does not push remotes or open pull requests.
 - Voice, autonomous coding, automation, HealthKit, and publishing integrations
   are not implemented yet.
