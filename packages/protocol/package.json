@@ -8,6 +8,10 @@
       "types": "./dist/index.d.ts",
       "import": "./src/index.ts"
     },
+    "./board": {
+      "types": "./dist/board.d.ts",
+      "import": "./src/board.ts"
+    },
     "./actions": {
       "types": "./dist/actions.d.ts",
       "import": "./src/actions.ts"

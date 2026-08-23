@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import type { CoreRuntime } from '@zero/core';
 import {
   actionCommandIpcResponseSchema,
@@ -10,6 +12,25 @@ import {
   permissionPolicyUpdateIpcResponseSchema,
   permissionPolicyUpdateRequestSchema,
 } from '@zero/protocol/actions';
+import {
+  boardCreateInputSchema,
+  boardCreateIpcResponseSchema,
+  boardDetectAgentsInputSchema,
+  boardDetectAgentsIpcResponseSchema,
+  boardPaneCloseInputSchema,
+  boardPaneCloseIpcResponseSchema,
+  boardPresetDeleteInputSchema,
+  boardPresetDeleteIpcResponseSchema,
+  boardPresetListIpcResponseSchema,
+  boardPresetSaveInputSchema,
+  boardPresetSaveIpcResponseSchema,
+  boardResizeIpcResponseSchema,
+  boardSelectFolderInputSchema,
+  boardSelectFolderIpcResponseSchema,
+  boardPaneResizeInputSchema,
+  boardPaneWriteInputSchema,
+  boardWriteIpcResponseSchema,
+} from '@zero/protocol/board';
 import {
   chatCreateRequestSchema,
   chatGetRequestSchema,
@@ -62,6 +83,7 @@ import {
   projectRepositorySelectRequestSchema,
 } from '@zero/protocol/projects';
 import { normalizeError, ZeroError } from '@zero/shared';
+import type { BoardPtyManager } from './board-pty-manager.js';
 import { dialog, ipcMain, type WebContents } from 'electron';
 import { ZodError } from 'zod';
 
@@ -100,7 +122,10 @@ function sendChatEvent(
   );
 }
 
-export function registerIpcHandlers(core: CoreRuntime): () => void {
+export function registerIpcHandlers(
+  core: CoreRuntime,
+  board?: BoardPtyManager,
+): () => void {
   const activeStreams = new Map<
     string,
     { readonly controller: AbortController; readonly senderId: number }
@@ -548,6 +573,155 @@ export function registerIpcHandlers(core: CoreRuntime): () => void {
     }
   });
 
+  function requireBoard(): BoardPtyManager {
+    if (board === undefined) {
+      throw new ZeroError('INTEGRATION_OFFLINE', 'Board terminal host is not available');
+    }
+    return board;
+  }
+
+  ipcMain.handle(ipcChannels.boardCreate, async (event, input: unknown) => {
+    try {
+      const request = boardCreateInputSchema.parse(input);
+      const tag = randomUUID().slice(0, 8);
+      const value = await requireBoard().createSession(
+        request,
+        async (slot) => {
+          if (request.isolation !== 'worktree') return undefined;
+          return core.board.createWorktree(
+            request.folderPath,
+            `${tag}-${slot}`,
+            request.correlationId,
+          );
+        },
+        event.sender,
+      );
+      return boardCreateIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return boardCreateIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.boardWrite, async (_event, input: unknown) => {
+    try {
+      const request = boardPaneWriteInputSchema.parse(input);
+      await requireBoard().write(request);
+      return boardWriteIpcResponseSchema.parse({
+        ok: true,
+        value: { written: true },
+      });
+    } catch (error) {
+      return boardWriteIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.boardResize, async (_event, input: unknown) => {
+    try {
+      const request = boardPaneResizeInputSchema.parse(input);
+      await requireBoard().resize(request);
+      return boardResizeIpcResponseSchema.parse({
+        ok: true,
+        value: { resized: true },
+      });
+    } catch (error) {
+      return boardResizeIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.boardPaneClose, async (_event, input: unknown) => {
+    try {
+      const request = boardPaneCloseInputSchema.parse(input);
+      await requireBoard().closePane(request);
+      return boardPaneCloseIpcResponseSchema.parse({
+        ok: true,
+        value: { closed: true },
+      });
+    } catch (error) {
+      return boardPaneCloseIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.boardSelectFolder, async (_event, input: unknown) => {
+    try {
+      boardSelectFolderInputSchema.parse(input);
+      const selected = await dialog.showOpenDialog({
+        title: 'Select working folder',
+        properties: ['openDirectory'],
+      });
+      const path = selected.filePaths[0];
+      const value = selected.canceled || path === undefined ? null : path;
+      return boardSelectFolderIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return boardSelectFolderIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.boardDetectAgents, async (_event, input: unknown) => {
+    try {
+      boardDetectAgentsInputSchema.parse(input);
+      const value = await core.board.detectAgents();
+      return boardDetectAgentsIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return boardDetectAgentsIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.boardPresetList, (_event, input: unknown) => {
+    try {
+      boardSelectFolderInputSchema.parse(input);
+      return boardPresetListIpcResponseSchema.parse({
+        ok: true,
+        value: core.board.listPresets(),
+      });
+    } catch (error) {
+      return boardPresetListIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.boardPresetSave, (_event, input: unknown) => {
+    try {
+      const request = boardPresetSaveInputSchema.parse(input);
+      return boardPresetSaveIpcResponseSchema.parse({
+        ok: true,
+        value: core.board.savePreset(request.preset, request.correlationId),
+      });
+    } catch (error) {
+      return boardPresetSaveIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.boardPresetDelete, (_event, input: unknown) => {
+    try {
+      const request = boardPresetDeleteInputSchema.parse(input);
+      core.board.deletePreset(request.id, request.correlationId);
+      return boardPresetDeleteIpcResponseSchema.parse({
+        ok: true,
+        value: { deleted: true },
+      });
+    } catch (error) {
+      return boardPresetDeleteIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
   return () => {
     for (const active of activeStreams.values()) active.controller.abort();
     activeStreams.clear();
@@ -579,5 +753,14 @@ export function registerIpcHandlers(core: CoreRuntime): () => void {
     ipcMain.removeHandler(ipcChannels.chatGet);
     ipcMain.removeHandler(ipcChannels.chatStreamStart);
     ipcMain.removeHandler(ipcChannels.chatStreamCancel);
+    ipcMain.removeHandler(ipcChannels.boardCreate);
+    ipcMain.removeHandler(ipcChannels.boardWrite);
+    ipcMain.removeHandler(ipcChannels.boardResize);
+    ipcMain.removeHandler(ipcChannels.boardPaneClose);
+    ipcMain.removeHandler(ipcChannels.boardSelectFolder);
+    ipcMain.removeHandler(ipcChannels.boardDetectAgents);
+    ipcMain.removeHandler(ipcChannels.boardPresetList);
+    ipcMain.removeHandler(ipcChannels.boardPresetSave);
+    ipcMain.removeHandler(ipcChannels.boardPresetDelete);
   };
 }

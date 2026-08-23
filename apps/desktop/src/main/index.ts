@@ -6,11 +6,13 @@ import { createCorrelationId } from '@zero/shared';
 import { app, BrowserWindow, session } from 'electron';
 
 import { registerIpcHandlers } from './ipc.js';
+import { BoardPtyManager } from './board-pty-manager.js';
 import { KeyringSecretStore } from './keyring-secret-store.js';
 import { buildContentSecurityPolicy, secureWebPreferences } from './security.js';
 
 let core: CoreRuntime | undefined;
 let unregisterIpc: (() => void) | undefined;
+let boardPty: BoardPtyManager | undefined;
 let smokeDatabasePath: string | undefined;
 
 function isAllowedNavigation(currentUrl: string, destinationUrl: string): boolean {
@@ -112,7 +114,6 @@ function createWindow(): BrowserWindow {
   return window;
 }
 
-
 // Dev affordance: ZERO_DEBUG_PORT=<port> exposes a CDP endpoint so external
 // tooling can attach to the renderer. No effect unless the variable is set.
 if (process.env.ZERO_DEBUG_PORT !== undefined) {
@@ -141,7 +142,8 @@ app.whenReady().then(() => {
       : join(app.getPath('userData'), 'zero.sqlite');
   smokeDatabasePath = process.env.ZERO_SMOKE_TEST === '1' ? databasePath : undefined;
   core = bootstrapCore({ databasePath, secretStore: new KeyringSecretStore() });
-  unregisterIpc = registerIpcHandlers(core);
+  boardPty = new BoardPtyManager();
+  unregisterIpc = registerIpcHandlers(core, boardPty);
   createWindow();
 
   app.on('activate', () => {
@@ -160,6 +162,8 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   unregisterIpc?.();
   unregisterIpc = undefined;
+  boardPty?.dispose();
+  boardPty = undefined;
   core?.close();
   core = undefined;
   if (smokeDatabasePath !== undefined) {

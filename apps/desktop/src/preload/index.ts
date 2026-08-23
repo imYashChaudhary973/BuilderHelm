@@ -10,6 +10,25 @@ import {
   permissionPolicyUpdateIpcResponseSchema,
 } from '@zero/protocol/actions';
 import {
+  boardCreateInputSchema,
+  boardCreateIpcResponseSchema,
+  boardDetectAgentsIpcResponseSchema,
+  boardPaneCloseInputSchema,
+  boardPaneCloseIpcResponseSchema,
+  boardPaneEventEnvelopeSchema,
+  boardPaneResizeInputSchema,
+  boardPaneWriteInputSchema,
+  boardPresetDeleteInputSchema,
+  boardPresetDeleteIpcResponseSchema,
+  boardPresetListIpcResponseSchema,
+  boardPresetSaveInputSchema,
+  boardPresetSaveIpcResponseSchema,
+  boardResizeIpcResponseSchema,
+  boardSelectFolderIpcResponseSchema,
+  boardWriteIpcResponseSchema,
+  type BoardPaneEventEnvelope,
+} from '@zero/protocol/board';
+import {
   ipcChannels,
   systemHealthResponseSchema,
   type ZeroDesktopApi,
@@ -83,6 +102,16 @@ ipcRenderer.on(ipcChannels.chatStreamEvent, (_event, value: unknown) => {
   if (parsed.data.event.type === 'done' || parsed.data.event.type === 'error') {
     chatListeners.delete(parsed.data.runId);
   }
+});
+
+const boardListeners = new Map<string, Set<(event: BoardPaneEventEnvelope) => void>>();
+
+ipcRenderer.on(ipcChannels.boardEvent, (_event, value: unknown) => {
+  const parsed = boardPaneEventEnvelopeSchema.safeParse(value);
+  if (!parsed.success) return;
+  const listeners = boardListeners.get(parsed.data.sessionId);
+  if (listeners === undefined) return;
+  for (const listener of listeners) listener(parsed.data);
 });
 
 const api: ZeroDesktopApi = {
@@ -287,6 +316,80 @@ const api: ZeroDesktopApi = {
         input: permissionPolicyUpdateInputSchema.parse(input),
       });
       return unwrap(permissionPolicyUpdateIpcResponseSchema.parse(response));
+    },
+  },
+  board: {
+    async createSession(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.boardCreate,
+        boardCreateInputSchema.parse(input),
+      );
+      return unwrap(boardCreateIpcResponseSchema.parse(response));
+    },
+    async write(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.boardWrite,
+        boardPaneWriteInputSchema.parse(input),
+      );
+      return unwrap(boardWriteIpcResponseSchema.parse(response));
+    },
+    async resize(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.boardResize,
+        boardPaneResizeInputSchema.parse(input),
+      );
+      return unwrap(boardResizeIpcResponseSchema.parse(response));
+    },
+    async closePane(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.boardPaneClose,
+        boardPaneCloseInputSchema.parse(input),
+      );
+      return unwrap(boardPaneCloseIpcResponseSchema.parse(response));
+    },
+    async selectFolder() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.boardSelectFolder, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(boardSelectFolderIpcResponseSchema.parse(response));
+    },
+    async detectAgents() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.boardDetectAgents, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(boardDetectAgentsIpcResponseSchema.parse(response));
+    },
+    async listPresets() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.boardPresetList, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(boardPresetListIpcResponseSchema.parse(response));
+    },
+    async savePreset(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.boardPresetSave,
+        boardPresetSaveInputSchema.parse(input),
+      );
+      return unwrap(boardPresetSaveIpcResponseSchema.parse(response));
+    },
+    async deletePreset(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.boardPresetDelete,
+        boardPresetDeleteInputSchema.parse(input),
+      );
+      return unwrap(boardPresetDeleteIpcResponseSchema.parse(response));
+    },
+    onPaneEvent(sessionId, listener) {
+      let listeners = boardListeners.get(sessionId);
+      if (listeners === undefined) {
+        listeners = new Set();
+        boardListeners.set(sessionId, listeners);
+      }
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+        if (listeners.size === 0) boardListeners.delete(sessionId);
+      };
     },
   },
   projects: {

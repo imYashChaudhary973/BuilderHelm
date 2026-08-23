@@ -11,6 +11,7 @@ import { createRoot } from 'react-dom/client';
 
 import { App } from './App.js';
 import { ActionsPage } from './routes/actions.js';
+import { BoardPage } from './routes/board.js';
 import { ChatPage } from './routes/chat.js';
 import { KnowledgePage } from './routes/knowledge.js';
 import { ProvidersPage } from './routes/settings/providers.js';
@@ -49,12 +50,18 @@ const projectsRoute = createRoute({
   path: '/projects',
   component: ProjectsPage,
 });
+const boardRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/board',
+  component: BoardPage,
+});
 const routeTree = rootRoute.addChildren([
   todayRoute,
   chatRoute,
   knowledgeRoute,
   actionsRoute,
   projectsRoute,
+  boardRoute,
   providersRoute,
 ]);
 const router = createRouter({

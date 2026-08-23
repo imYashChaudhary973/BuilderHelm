@@ -1,4 +1,5 @@
 export * from './bootstrap.js';
+export * from './board/board-service.js';
 export * from './actions/action-service.js';
 export * from './actions/intent-parser.js';
 export * from './chat/chat-service.js';

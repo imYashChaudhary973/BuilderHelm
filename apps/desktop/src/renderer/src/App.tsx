@@ -12,6 +12,7 @@ const futureSections = [
 ];
 
 const nav = [
+  { label: 'Board', to: '/board', icon: TerminalIcon },
   { label: 'Projects', to: '/projects', icon: LayersIcon },
   { label: 'Today', to: '/', icon: SunIcon },
   { label: 'Knowledge', to: '/knowledge', icon: BookIcon },
@@ -118,5 +119,14 @@ export function App(): React.JSX.Element {
         <Outlet />
       </main>
     </div>
+  );
+}
+
+function TerminalIcon(): React.JSX.Element {
+  return (
+    <svg className="navIcon" viewBox="0 0 24 24" aria-hidden="true">
+      <polyline points="4 17 10 11 4 5" />
+      <line x1="12" y1="19" x2="20" y2="19" />
+    </svg>
   );
 }
