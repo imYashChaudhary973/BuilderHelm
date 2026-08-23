@@ -1,9 +1,10 @@
-import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
-import { useEffect } from 'react';
+import { Link, Outlet, useRouterState } from '@tanstack/react-router';
+import { useEffect, useState } from 'react';
 
 import { BrowserSidebar } from './components/browser-sidebar.js';
+import { SpaceRail } from './components/space-rail.js';
 import { PreviewProvider, usePreview } from './preview-store.js';
-import { SpaceProvider, useSpaces } from './space-store.js';
+import { SpaceProvider } from './space-store.js';
 
 const MODES = [
   { id: 'space', label: 'Space', to: '/board', live: true },
@@ -13,15 +14,16 @@ const MODES = [
   { id: 'skills', label: 'Skills', live: false },
 ] as const;
 
-function folderName(path: string): string {
-  return path.split('/').filter(Boolean).at(-1) ?? path;
-}
-
 function Shell(): React.JSX.Element {
-  const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const spaces = useSpaces();
   const preview = usePreview();
+  const [railCollapsed, setRailCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('exeum.rail.collapsed') === '1';
+    } catch {
+      return false;
+    }
+  });
   const spaceActive = pathname === '/' || pathname === '/board';
   const settingsActive = pathname.startsWith('/settings');
 
@@ -30,9 +32,34 @@ function Shell(): React.JSX.Element {
     void window.zero.browser.command({ action: 'hide' }).catch(() => undefined);
   }, [preview.open]);
 
+  function toggleRail(): void {
+    setRailCollapsed((current) => {
+      const next = !current;
+      localStorage.setItem('exeum.rail.collapsed', next ? '1' : '0');
+      return next;
+    });
+  }
+
+  const shellClass = [
+    'shell',
+    preview.open ? 'shellBrowserOn' : '',
+    railCollapsed ? 'shellRailOff' : '',
+  ]
+    .filter((item) => item.length > 0)
+    .join(' ');
+
   return (
-    <div className={preview.open ? 'shell shellBrowserOn' : 'shell'}>
+    <div className={shellClass}>
       <header className="topbar">
+        <button
+          type="button"
+          className={railCollapsed ? 'topbarIcon' : 'topbarIcon topbarIconOn'}
+          title={railCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+          aria-pressed={!railCollapsed}
+          onClick={toggleRail}
+        >
+          <RailIcon />
+        </button>
         <div className="brand" aria-label="Exeum">
           Exeum
         </div>
@@ -81,49 +108,30 @@ function Shell(): React.JSX.Element {
           </button>
         </div>
       </header>
-      <aside className="rail" aria-label="Spaces">
-        <div className="railList">
-          {spaces.spaces.map((space) => {
-            const on = !spaces.draft && spaces.activeId === space.sessionId;
-            return (
-              <button
-                key={space.sessionId}
-                type="button"
-                className={on ? 'railItem railItemOn' : 'railItem'}
-                onClick={() => {
-                  spaces.activate(space.sessionId);
-                  void navigate({ to: '/board' });
-                }}
-              >
-                <span className="railMark" aria-hidden="true">
-                  {folderName(space.folderPath).slice(0, 1).toUpperCase()}
-                </span>
-                <span className="railCopy">
-                  <strong>{folderName(space.folderPath)}</strong>
-                  <small>
-                    {space.paneCount} terminal{space.paneCount === 1 ? '' : 's'}
-                  </small>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        <button
-          type="button"
-          className={spaces.draft ? 'railNew railItemOn' : 'railNew'}
-          onClick={() => {
-            spaces.startDraft();
-            void navigate({ to: '/board' });
-          }}
-        >
-          + New Space
-        </button>
-      </aside>
+      <SpaceRail collapsed={railCollapsed} onToggle={toggleRail} />
       <main className="content" role="main">
         <Outlet />
       </main>
       {preview.open ? <BrowserSidebar startUrl={preview.url} /> : null}
     </div>
+  );
+}
+
+function RailIcon(): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <rect
+        x="3.5"
+        y="4.5"
+        width="17"
+        height="15"
+        rx="2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+      />
+      <path d="M9 4.5v15" fill="none" stroke="currentColor" strokeWidth="1.75" />
+    </svg>
   );
 }
 
