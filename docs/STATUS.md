@@ -65,5 +65,5 @@ pnpm smoke:desktop
   executes them.
 - Ready work lands on `main`. Permission or security changes still use a PR.
 - Windows and Linux desktops are not verified yet.
-- Swarm, Kanban Board, Memory, Skills, Git write (stage/commit), Bridge,
-  and phone pairing are not built yet.
+- Swarm, Kanban Board, Memory, Skills, Bridge, and phone pairing are not
+  built yet. Git stage/commit is on `feat/editor`, not on `main` yet.
