@@ -318,7 +318,9 @@ export function BoardPage(): React.JSX.Element {
   }
 
   const availableById = new Map((agents.data ?? []).map((d) => [d.id, d.available]));
-  const recentChips = projects.data?.projects.slice(0, 8) ?? [];
+  const recentChips = (projects.data?.projects ?? [])
+    .filter((item) => item.repository !== null)
+    .slice(0, 8);
 
   return (
     <section className="boardPage" aria-labelledby="board-setup-title">
@@ -342,17 +344,21 @@ export function BoardPage(): React.JSX.Element {
         </div>
         {recentChips.length > 0 && (
           <div className="recentChips">
-            {recentChips.map((item) => (
-              <button
-                key={item.project.id}
-                type="button"
-                className={`chip${folderPath === item.repository?.directoryName ? ' chipActive' : ''}`}
-                disabled={item.repository === null}
-                onClick={() => setFolderPath(item.repository?.directoryName ?? '')}
-              >
-                {item.project.name}
-              </button>
-            ))}
+            {recentChips.map((item) => {
+              const repo = item.repository;
+              if (repo === null) return null;
+              return (
+                <button
+                  key={item.project.id}
+                  type="button"
+                  className={`chip${folderPath === repo.rootPath ? ' chipActive' : ''}`}
+                  title={repo.rootPath}
+                  onClick={() => setFolderPath(repo.rootPath)}
+                >
+                  {repo.directoryName}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
