@@ -401,11 +401,14 @@ textarea:focus-visible {
   align-items: center;
   gap: 18px;
   padding: 0 14px 0 78px;
-  border-bottom: 1px solid var(--line);
-  background: linear-gradient(180deg, var(--glass-strong) 0%, var(--glass) 100%);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: #050505;
   -webkit-app-region: drag;
+}
+
+.topbar button,
+.topbar a {
+  -webkit-app-region: no-drag;
 }
 
 .brand {
@@ -472,8 +475,8 @@ textarea:focus-visible {
   min-height: 0;
   overflow: visible;
   padding: 12px 10px;
-  border-right: 1px solid var(--line);
-  background: linear-gradient(180deg, var(--glass-strong) 0%, var(--glass) 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  background: #050505;
 }
 
 .railCollapsed {
@@ -720,6 +723,7 @@ textarea:focus-visible {
 .content:has(.spaceHome) {
   padding: 0;
   overflow: hidden;
+  background: #050505;
 }
 
 .browserSide {
@@ -2973,103 +2977,159 @@ fieldset legend {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
   min-height: 100%;
-  padding: 48px 24px;
+  padding: 40px 24px 64px;
+  background: #050505;
+}
+
+.spaceHomeBrand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 36px;
+  font-size: 40px;
+  font-weight: 720;
+  letter-spacing: -0.045em;
 }
 
 .spaceHomeLogo {
   display: block;
-  width: 72px;
-  height: 72px;
+  width: 52px;
+  height: 52px;
   object-fit: contain;
 }
 
 .spaceHome h1 {
   margin: 0;
-  font-size: 42px;
-  font-weight: 620;
-  letter-spacing: -0.04em;
-}
-
-.spaceTagline {
-  margin: 0;
-  color: var(--text-2);
-  font-size: 16px;
-  letter-spacing: -0.02em;
+  font-size: 56px;
+  font-weight: 750;
+  letter-spacing: -0.05em;
+  line-height: 1.02;
+  text-align: center;
 }
 
 .spaceHomeLead {
-  margin: 8px 0 4px;
-  color: var(--text-2);
-  font-size: 15px;
+  margin: 18px 0 42px;
+  color: #8b8b8b;
+  font-size: 16px;
 }
 
 .spaceModes {
   list-style: none;
-  margin: 12px 0 0;
+  margin: 0;
   padding: 0;
-  width: min(640px, 100%);
+  width: min(560px, 100%);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .spaceMode {
+  position: relative;
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 16px 18px;
-  border-radius: var(--radius-m);
-  border: 1px solid var(--line);
-  background: var(--glass-strong);
+  gap: 16px;
+  min-height: 74px;
+  padding: 14px 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  background: #0c0c0c;
   color: inherit;
   text-align: left;
   cursor: pointer;
 }
 
+.spaceMode::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 20px;
+  left: 20px;
+  height: 1px;
+  background: linear-gradient(90deg, #6ff4af 0%, #e8ff6a 45%, #c9a0ff 100%);
+  opacity: 0.8;
+}
+
 .spaceMode:hover:not(:disabled) {
-  border-color: var(--accent-line);
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #101010;
 }
 
 .spaceMode:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+  cursor: default;
+  opacity: 1;
 }
 
-.spaceModeCopy {
+.spaceModeIcon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: #141414;
+  color: #f2f2f2;
+}
+
+.spaceMode strong {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.spaceModeCopy strong {
   font-size: 16px;
-}
-
-.spaceModeCopy span {
-  color: var(--text-2);
-  font-size: 13px;
-  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 .spaceMode kbd {
   flex-shrink: 0;
-  padding: 4px 8px;
-  border-radius: 6px;
-  border: 1px solid var(--line);
-  background: var(--bg-1);
+  padding: 5px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: #161616;
+  color: #b0b0b0;
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--text-2);
 }
 
-.spaceHomeSettings {
-  margin-top: 20px;
-  color: var(--text-3);
-  font-size: 13px;
+.spaceModeSoon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(212, 175, 55, 0.12);
+  color: #d4af37;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.spaceHomeKeys {
+  display: flex;
+  gap: 36px;
+  margin: 48px 0 0;
+  color: #5c5c5c;
+  font-size: 11px;
+  font-weight: 550;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.spaceHomeKeys a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.spaceHomeKeys kbd {
+  margin-right: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: 0.04em;
 }
 
 .spaceWizardFooter {

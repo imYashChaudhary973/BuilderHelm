@@ -6,30 +6,23 @@ import { SidePanel } from './components/side-panel.js';
 import { SpaceRail } from './components/space-rail.js';
 import { PreviewProvider, usePreview } from './preview-store.js';
 import { SpaceProvider } from './space-store.js';
-const MODES = [
-  { id: 'space', label: 'Space', to: '/board', live: true },
-  { id: 'swarm', label: 'Swarm', live: false },
-  { id: 'board', label: 'Board', live: false },
-  { id: 'memory', label: 'Memory', live: false },
-  { id: 'skills', label: 'Skills', live: false },
-] as const;
 
 function Shell(): React.JSX.Element {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const preview = usePreview();
   const [railCollapsed, setRailCollapsed] = useState(() => {
     try {
-      return localStorage.getItem('exeum.rail.collapsed') === '1';
+      const stored = localStorage.getItem('exeum.rail.collapsed');
+      return stored === null ? true : stored === '1';
     } catch {
-      return false;
+      return true;
     }
   });
-  const spaceActive = pathname === '/' || pathname === '/board';
   const settingsActive = pathname.startsWith('/settings');
 
   useEffect(() => {
     if (preview.open && preview.tab === 'browser') return;
-    void window.zero.browser.command({ action: 'hide' }).catch(() => undefined);
+    void window.zero?.browser.command({ action: 'hide' }).catch(() => undefined);
   }, [preview.open, preview.tab]);
 
   function toggleRail(): void {
@@ -64,39 +57,13 @@ function Shell(): React.JSX.Element {
           <img className="brandLogo" src={logo} width={22} height={22} alt="" />
           BuilderHelm
         </div>
-        <nav className="topbarNav" aria-label="Modes">
-          {MODES.map((mode) =>
-            mode.live ? (
-              <Link
-                key={mode.id}
-                className={spaceActive ? 'topbarItem topbarItemOn' : 'topbarItem'}
-                to={mode.to}
-              >
-                {mode.label}
-              </Link>
-            ) : (
-              <button
-                key={mode.id}
-                type="button"
-                className="topbarItem"
-                disabled
-                title="Coming later"
-              >
-                {mode.label}
-              </button>
-            ),
-          )}
-        </nav>
         <div className="topbarEnd">
-          <span className="privacyBadge">
-            <span className="privacyDot" aria-hidden="true" />
-            Local
-          </span>
           <Link
-            className={settingsActive ? 'topbarItem topbarItemOn' : 'topbarItem'}
+            className={settingsActive ? 'topbarIcon topbarIconOn' : 'topbarIcon'}
             to="/settings/providers"
+            title="Settings"
           >
-            Settings
+            <GearIcon />
           </Link>
           <button
             type="button"
@@ -154,6 +121,21 @@ function PanelIcon(): React.JSX.Element {
   );
 }
 
+
+function GearIcon(): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="1.75" />
+      <path
+        d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4 18 18M18 6l-1.6 1.6M7.6 16.4 6 18"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
 export function App(): React.JSX.Element {
   return (
     <SpaceProvider>

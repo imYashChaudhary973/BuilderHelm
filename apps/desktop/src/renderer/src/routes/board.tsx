@@ -61,6 +61,64 @@ const MODES = [
   },
 ] as const;
 
+function ModeGlyph({ id }: { readonly id: (typeof MODES)[number]['id'] }): React.JSX.Element {
+  if (id === 'space') {
+    return (
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path
+          d="M7 8.5 10.5 12 7 15.5M13 16.5h4.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+  if (id === 'swarm') {
+    return (
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <circle cx="12" cy="6.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+        <circle cx="6.8" cy="16.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+        <circle cx="17.2" cy="16.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+        <path
+          d="M10.4 8.1 8.2 14.4M13.6 8.1l2.2 6.3M8.8 16.5h6.4"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
+      </svg>
+    );
+  }
+  if (id === 'board') {
+    return (
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <rect x="4.5" y="5.5" width="4" height="13" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+        <rect x="10" y="5.5" width="4" height="8.5" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+        <rect x="15.5" y="5.5" width="4" height="11" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <circle cx="7" cy="12" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="17" cy="7.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="17" cy="16.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M9 12h6M15.2 8.8 9 11.3M15.2 15.2 9 12.7" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function LockGlyph(): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
+      <rect x="6.5" y="11" width="11" height="8.5" rx="1.6" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M9 11V8.4a3 3 0 0 1 6 0V11" fill="none" stroke="currentColor" strokeWidth="1.7" />
+    </svg>
+  );
+}
+
 interface SlotConfig {
   agentId: BoardAgentId;
   command?: string;
@@ -552,9 +610,15 @@ export function BoardPage(): React.JSX.Element {
   if (phase === 'home') {
     return (
       <section className="spaceHome" aria-labelledby="space-home-title" data-core-status="ready">
-        <img className="spaceHomeLogo" src={logo} width={72} height={72} alt="" />
-        <h1 id="space-home-title">BuilderHelm</h1>
-        <p className="spaceTagline">Your agents. You at the helm.</p>
+        <div className="spaceHomeBrand">
+          <img className="spaceHomeLogo" src={logo} width={56} height={56} alt="" />
+          BuilderHelm
+        </div>
+        <h1 id="space-home-title">
+          Your agents.
+          <br />
+          You at the helm.
+        </h1>
         <p className="spaceHomeLead">Choose how you want to work.</p>
         <ul className="spaceModes">
           {MODES.map((mode) => (
@@ -567,18 +631,33 @@ export function BoardPage(): React.JSX.Element {
                   if (mode.enabled) setPhase('workspace');
                 }}
               >
-                <span className="spaceModeCopy">
-                  <strong>{mode.name}</strong>
-                  <span>{mode.enabled ? mode.promise : `${mode.promise} Coming later.`}</span>
+                <span className="spaceModeIcon">
+                  <ModeGlyph id={mode.id} />
                 </span>
-                <kbd>{mode.shortcut}</kbd>
+                <strong>{mode.name}</strong>
+                {mode.id === 'memory' ? (
+                  <span className="spaceModeSoon">
+                    <LockGlyph />
+                    Soon
+                  </span>
+                ) : mode.id === 'board' ? null : (
+                  <kbd>{mode.shortcut}</kbd>
+                )}
               </button>
             </li>
           ))}
         </ul>
-        <Link className="spaceHomeSettings" to="/settings/providers">
-          Settings
-        </Link>
+        <p className="spaceHomeKeys">
+          <span>
+            <kbd>⌘T</kbd> Space
+          </span>
+          <span>
+            <kbd>⌘S</kbd> Swarm
+          </span>
+          <Link to="/settings/providers">
+            <kbd>⌘,</kbd> Settings
+          </Link>
+        </p>
       </section>
     );
   }
