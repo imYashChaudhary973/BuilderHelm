@@ -10,6 +10,7 @@
   "scripts": {
     "build": "pnpm --filter @zero/desktop build",
     "dev": "pnpm --filter @zero/desktop dev",
+    "dist": "pnpm --filter @zero/desktop dist",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",

@@ -22,7 +22,32 @@
   "scripts": {
     "build": "electron-vite build",
     "dev": "electron-vite dev",
+    "dist": "electron-vite build && electron-builder --mac --arm64 --publish never",
     "smoke": "node scripts/smoke.mjs",
     "typecheck": "tsc -b tsconfig.node.json tsconfig.web.json --pretty false"
+  },
+  "build": {
+    "appId": "app.zeroos.desktop",
+    "productName": "Zero",
+    "asar": true,
+    "asarUnpack": [
+      "**/*.node",
+      "**/node-pty/**",
+      "**/@napi-rs/keyring/**"
+    ],
+    "files": [
+      "out"
+    ],
+    "electronVersion": "39.8.10",
+    "electronDist": "../../node_modules/electron/dist",
+    "mac": {
+      "target": [
+        "dir"
+      ],
+      "identity": null
+    }
+  },
+  "devDependencies": {
+    "electron-builder": "^26.15.3"
   }
 }

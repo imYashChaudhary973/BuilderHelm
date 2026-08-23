@@ -27,16 +27,17 @@ repository or SQLite database.
 
 ## Common commands
 
-| Command              | Purpose                                       |
-| -------------------- | --------------------------------------------- |
-| `pnpm dev`           | Start the Electron development app            |
-| `pnpm build`         | Create the production desktop build           |
-| `pnpm test`          | Run the Vitest suite                          |
-| `pnpm typecheck`     | Check all TypeScript projects                 |
-| `pnpm lint`          | Run ESLint                                    |
-| `pnpm format:check`  | Check repository formatting                   |
-| `pnpm smoke:desktop` | Boot-test the built Electron app              |
-| `pnpm verify`        | Run formatting, lint, types, tests, and build |
+| Command                                     | Purpose                                       |
+| ------------------------------------------- | --------------------------------------------- |
+| `pnpm dev`                                  | Start the Electron development app            |
+| `pnpm build`                                | Create the production desktop build           |
+| `corepack pnpm --filter @zero/desktop dist` | Pack a double-clickable `Zero.app`            |
+| `pnpm test`                                 | Run the Vitest suite                          |
+| `pnpm typecheck`                            | Check all TypeScript projects                 |
+| `pnpm lint`                                 | Run ESLint                                    |
+| `pnpm format:check`                         | Check repository formatting                   |
+| `pnpm smoke:desktop`                        | Boot-test the built Electron app              |
+| `pnpm verify`                               | Run formatting, lint, types, tests, and build |
 
 ## Repository layout
 
