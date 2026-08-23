@@ -395,8 +395,24 @@ html.is-fullscreen .shell {
   grid-template-columns: 52px 1fr;
 }
 
-.shellRailOff.shellBrowserOn {
-  grid-template-columns: 52px 1fr var(--panel-w, 360px);
+.shellSplash,
+.shellSplash.shellRailOff {
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    'topbar'
+    'content';
+}
+
+.shellSplash .rail {
+  display: none;
+}
+
+.shellSplash.shellBrowserOn,
+.shellSplash.shellRailOff.shellBrowserOn {
+  grid-template-columns: 1fr var(--panel-w, 360px);
+  grid-template-areas:
+    'topbar topbar'
+    'content browser';
 }
 
 .topbar {
@@ -730,9 +746,17 @@ html.is-fullscreen .topbar {
 .content:has(.boardGrid),
 .content:has(.spaceHome),
 .content:has(.spaceWizard) {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
   padding: 0;
   overflow: auto;
   background: #050505;
+}
+
+.content:has(.boardGrid) {
+  display: block;
+  overflow: hidden;
 }
 
 .browserSide {
@@ -3095,11 +3119,11 @@ fieldset legend {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  height: 100%;
+  width: min(560px, calc(100% - 48px));
   min-height: 100%;
   box-sizing: border-box;
-  padding: 40px 24px 64px;
+  margin: 0 auto;
+  padding: 48px 0 64px;
   background: #050505;
 }
 
@@ -3533,17 +3557,80 @@ fieldset legend {
 }
 
 .spaceWizard {
-  max-width: none;
-  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  width: min(760px, calc(100% - 48px));
+  max-width: 760px;
   min-height: 100%;
-  height: 100%;
+  height: auto;
   box-sizing: border-box;
-  align-items: center;
-  padding: 48px 32px 64px;
+  margin: 0 auto;
+  padding: 40px 0 64px;
 }
 
 .spaceWizard > * {
-  width: min(720px, 100%);
+  width: 100%;
+}
+
+.spaceWizard h1,
+.spaceWizard .lede {
+  text-align: center;
+}
+
+.spaceStepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 0 0 28px;
+  padding: 0;
+  list-style: none;
+  color: #6b6b6b;
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.spaceStepper li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spaceStepper li + li::before {
+  content: '';
+  width: 28px;
+  height: 1px;
+  margin-right: 4px;
+  background: #2a2a2a;
+}
+
+.spaceStepper i {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 999px;
+  background: #1a1a1a;
+  color: #8b8b8b;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.spaceStepperOn {
+  color: #f2f2f2;
+}
+
+.spaceStepperOn i {
+  background: #c8f542;
+  color: #111;
+}
+
+.spaceStepperDone i {
+  background: #1f3d24;
+  color: #9be37a;
 }
 .agentStepper {
   display: flex;

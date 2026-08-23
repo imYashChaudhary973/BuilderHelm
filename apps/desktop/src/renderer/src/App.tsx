@@ -5,10 +5,11 @@ import logo from './assets/logo.png';
 import { SidePanel } from './components/side-panel.js';
 import { SpaceRail } from './components/space-rail.js';
 import { PreviewProvider, usePreview } from './preview-store.js';
-import { SpaceProvider } from './space-store.js';
+import { SpaceProvider, useSpaces } from './space-store.js';
 
 function Shell(): React.JSX.Element {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const spaces = useSpaces();
   const preview = usePreview();
   const [railCollapsed, setRailCollapsed] = useState(() => {
     try {
@@ -33,10 +34,12 @@ function Shell(): React.JSX.Element {
     });
   }
 
+  const splash = pathname === '/board' && spaces.draft;
   const shellClass = [
     'shell',
     preview.open ? 'shellBrowserOn' : '',
     railCollapsed ? 'shellRailOff' : '',
+    splash ? 'shellSplash' : '',
   ]
     .filter((item) => item.length > 0)
     .join(' ');

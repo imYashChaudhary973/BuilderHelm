@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import type {
   BoardAgentDetection,
@@ -60,6 +60,27 @@ const MODES = [
       'A living knowledge graph. Persistent memory your agents read and write as they build. Context that compounds.',
   },
 ] as const;
+
+function SpaceStepper({ step }: { readonly step: 1 | 2 | 3 }): React.JSX.Element {
+  const items = [
+    { n: 1, label: 'Start' },
+    { n: 2, label: 'Layout' },
+    { n: 3, label: 'Agents' },
+  ] as const;
+  return (
+    <ol className="spaceStepper">
+      {items.map((item) => (
+        <li
+          key={item.n}
+          className={item.n < step ? 'spaceStepperDone' : item.n === step ? 'spaceStepperOn' : ''}
+        >
+          <i>{item.n < step ? '✓' : item.n}</i>
+          {item.label}
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 function ModeGlyph({ id }: { readonly id: (typeof MODES)[number]['id'] }): React.JSX.Element {
   if (id === 'space') {
@@ -208,7 +229,6 @@ function looksLikeCd(value: string): boolean {
 }
 
 export function BoardPage(): React.JSX.Element {
-  const queryClient = useQueryClient();
   const spaceStore = useSpaces();
   const session =
     spaceStore.spaces.find((item) => item.sessionId === spaceStore.activeId) ?? null;
@@ -216,11 +236,9 @@ export function BoardPage(): React.JSX.Element {
   const [folderPath, setFolderPath] = useState('');
   const [homeDir, setHomeDir] = useState('');
   const [paneCount, setPaneCount] = useState<BoardPaneCount>(2);
-  const [slots, setSlots] = useState<Record<number, SlotConfig>>(() =>
+  const [, setSlots] = useState<Record<number, SlotConfig>>(() =>
     resizeSlots(2, {}, undefined),
   );
-  const [isolation, setIsolation] = useState<BoardIsolation>('shared');
-  const [presetName, setPresetName] = useState('');
   const [recents, setRecents] = useState<string[]>(readRecents);
   const [error, setError] = useState<string | null>(null);
   const [landNotice, setLandNotice] = useState<string | null>(null);
@@ -251,10 +269,6 @@ export function BoardPage(): React.JSX.Element {
   const agents = useQuery({
     queryKey: ['board-agents'],
     queryFn: () => window.zero.board.detectAgents(),
-  });
-  const presets = useQuery({
-    queryKey: ['board-presets'],
-    queryFn: () => window.zero.board.listPresets(),
   });
 
   useEffect(() => {
@@ -287,19 +301,6 @@ export function BoardPage(): React.JSX.Element {
 
   const folderReady = folderPath.trim().length > 0 || cdInput.trim().length > 0;
 
-  function panesFromSlots(): BoardPaneSpec[] {
-    const panes: BoardPaneSpec[] = [];
-    for (let slot = 0; slot < paneCount; slot += 1) {
-      const config = slots[slot];
-      if (config === undefined) continue;
-      panes.push({
-        slot,
-        agentId: config.agentId,
-        ...(config.agentId === 'custom' ? { command: config.command?.trim() ?? '' } : {}),
-      });
-    }
-    return panes.sort((a, b) => a.slot - b.slot);
-  }
 
   const launch = useMutation({
     mutationFn: (input: BoardCreateInput) => window.zero.board.createSession(input),
@@ -316,7 +317,6 @@ export function BoardPage(): React.JSX.Element {
 
   function launchSpace(nextSlots: Record<number, SlotConfig>, nextIsolation: BoardIsolation): void {
     setSlots(nextSlots);
-    setIsolation(nextIsolation);
     const panes: BoardPaneSpec[] = [];
     for (let slot = 0; slot < paneCount; slot += 1) {
       const config = nextSlots[slot];
@@ -382,55 +382,6 @@ export function BoardPage(): React.JSX.Element {
     onError: (cause: Error) => setLandNotice(cause.message),
   });
 
-  const savePreset = useMutation({
-    mutationFn: () =>
-      window.zero.board.savePreset({
-        correlationId: crypto.randomUUID() as CorrelationId,
-        preset: {
-          name: presetName.trim(),
-          folderPath: folderPath.trim(),
-          paneCount,
-          isolation,
-          panes: panesFromSlots(),
-        },
-      }),
-    onMutate: () => setError(null),
-    onSuccess: async () => {
-      setPresetName('');
-      await queryClient.invalidateQueries({ queryKey: ['board-presets'] });
-    },
-    onError: () => setError('The preset could not be saved.'),
-  });
-
-  const deletePreset = useMutation({
-    mutationFn: (id: string) =>
-      window.zero.board.deletePreset({
-        correlationId: crypto.randomUUID() as CorrelationId,
-        id,
-      }),
-    onMutate: () => setError(null),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['board-presets'] });
-    },
-    onError: () => setError('The preset could not be deleted.'),
-  });
-
-  function loadPreset(id: string): void {
-    const preset = presets.data?.find((record) => record.id === id);
-    if (preset === undefined) return;
-    setError(null);
-    setFolderPath(preset.folderPath);
-    setPaneCount(preset.paneCount);
-    setIsolation(preset.isolation);
-    const base = resizeSlots(preset.paneCount, {}, agents.data);
-    for (const pane of preset.panes) {
-      base[pane.slot] = {
-        agentId: pane.agentId,
-        ...(pane.command !== undefined ? { command: pane.command } : {}),
-      };
-    }
-    setSlots(base);
-  }
 
   async function browse(): Promise<void> {
     setError(null);
@@ -701,6 +652,7 @@ export function BoardPage(): React.JSX.Element {
         aria-labelledby="space-agents-title"
         data-core-status="ready"
       >
+        <SpaceStepper step={3} />
         <h1 id="space-agents-title">Add AI coding agents</h1>
         <p className="lede">
           Pick which agents launch in your {paneCount} terminal
@@ -866,7 +818,7 @@ export function BoardPage(): React.JSX.Element {
 
   return (
     <section className="boardPage spaceWizard" aria-labelledby="space-setup-title" data-core-status="ready">
-      <p className="eyebrow">Space · 2 of 4</p>
+      <SpaceStepper step={2} />
       <h1 id="space-setup-title">Set up your workspace</h1>
       <p className="lede">Pick a folder to work in and choose how many terminals you want.</p>
 
@@ -986,49 +938,6 @@ export function BoardPage(): React.JSX.Element {
           </div>
         </div>
       )}
-
-      <div className="wizardSection">
-        <span className="wizardLabel">Presets</span>
-        {presets.data?.map((preset) => (
-          <div key={preset.id} className="presetRow">
-            <span className="presetName">{preset.name}</span>
-            <span className="presetMeta">
-              {preset.paneCount} panes · {folderName(preset.folderPath)}
-            </span>
-            <button className="secondaryButton" type="button" onClick={() => loadPreset(preset.id)}>
-              Load
-            </button>
-            <button
-              className="iconButton"
-              type="button"
-              disabled={deletePreset.isPending}
-              onClick={() => deletePreset.mutate(preset.id)}
-            >
-              ×
-            </button>
-          </div>
-        ))}
-        {(presets.data?.length ?? 0) === 0 && <small>No presets saved yet.</small>}
-        <div className="presetRow">
-          <input
-            className="presetNameInput"
-            type="text"
-            placeholder="Preset name"
-            value={presetName}
-            onChange={(event) => setPresetName(event.target.value)}
-          />
-          <button
-            className="secondaryButton"
-            type="button"
-            disabled={
-              savePreset.isPending || presetName.trim().length === 0 || !folderReady
-            }
-            onClick={() => savePreset.mutate()}
-          >
-            Save preset
-          </button>
-        </div>
-      </div>
 
       {error !== null && (
         <p className="wizardError" role="alert">
