@@ -1,7 +1,14 @@
 import { spawn, type IPty } from 'node-pty';
 
 type HostMessage =
-  | { kind: 'spawn'; paneId: string; cwd: string; cols: number; rows: number }
+  | {
+      kind: 'spawn';
+      paneId: string;
+      cwd: string;
+      cols: number;
+      rows: number;
+      command: string;
+    }
   | { kind: 'write'; paneId: string; data: string }
   | { kind: 'resize'; paneId: string; cols: number; rows: number }
   | { kind: 'kill'; paneId: string };
@@ -23,18 +30,23 @@ process.parentPort.on('message', (event: Electron.MessageEvent) => {
   if (!raw || typeof raw.kind !== 'string') return;
   switch (raw.kind) {
     case 'spawn': {
-      const { paneId, cwd } = raw;
+      const { paneId, cwd, command } = raw;
       const cols = asInt(raw.cols);
       const rows = asInt(raw.rows);
       if (typeof paneId !== 'string' || typeof cwd !== 'string') return;
+      if (typeof command !== 'string' || command.length === 0) return;
       if (cols === undefined || rows === undefined || panes.has(paneId)) return;
-      const pty = spawn(process.env.SHELL ?? '/bin/zsh', ['-l'], {
-        name: 'xterm-256color',
-        cols,
-        rows,
-        cwd,
-        env: { ...process.env, TERM: 'xterm-256color' },
-      });
+      const pty = spawn(
+        process.env.SHELL ?? '/bin/zsh',
+        ['-l', '-c', `exec ${command}`],
+        {
+          name: 'xterm-256color',
+          cols,
+          rows,
+          cwd,
+          env: { ...process.env, TERM: 'xterm-256color' },
+        },
+      );
       panes.set(paneId, pty);
       pty.onData((chunk) => {
         post({ kind: 'data', paneId, data: Buffer.from(chunk).toString('base64') });

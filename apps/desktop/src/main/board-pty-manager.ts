@@ -15,7 +15,12 @@ import {
   type BoardSessionSummary,
 } from '@zero/protocol';
 import { ZeroError } from '@zero/shared';
-import { utilityProcess, type UtilityProcess, type WebContents } from 'electron';
+import {
+  Notification,
+  utilityProcess,
+  type UtilityProcess,
+  type WebContents,
+} from 'electron';
 
 type HostEvent =
   | { kind: 'ready' }
@@ -47,6 +52,7 @@ export class BoardPtyManager {
   private host: UtilityProcess | null = null;
   private hostReady: Promise<UtilityProcess> | null = null;
   private readonly sessions = new Map<string, SessionRecord>();
+  private readonly closing = new Set<string>();
 
   async createSession(
     input: BoardCreateInput,
@@ -79,6 +85,7 @@ export class BoardPtyManager {
         cwd: location.cwd,
         cols: 120,
         rows: 30,
+        command,
       });
       const meta: PaneMeta = {
         slot: spec.slot,
@@ -90,15 +97,6 @@ export class BoardPtyManager {
       };
       session.panes.set(paneId, meta);
       panes.push({ paneId, ...meta });
-      // ponytail: fixed shell-init delay, replace with prompt-marker handshake if flaky
-      setTimeout(() => {
-        void this.write({
-          correlationId: input.correlationId,
-          sessionId,
-          paneId,
-          data: `${command}\r`,
-        }).catch(() => {});
-      }, 800);
     }
     return {
       sessionId,
@@ -129,13 +127,14 @@ export class BoardPtyManager {
   async closePane(input: BoardPaneCloseInput): Promise<void> {
     const host = await this.ensureHost();
     this.requirePane(input.sessionId, input.paneId);
+    this.closing.add(input.paneId);
     host.postMessage({ kind: 'kill', paneId: input.paneId });
-    this.sessions.get(input.sessionId)?.panes.delete(input.paneId);
   }
 
   dispose(): void {
     for (const session of this.sessions.values()) {
       for (const paneId of session.panes.keys()) {
+        this.closing.add(paneId);
         this.host?.postMessage({ kind: 'kill', paneId });
       }
     }
@@ -191,7 +190,13 @@ export class BoardPtyManager {
     for (const [sessionId, session] of this.sessions) {
       const meta = session.panes.get(paneId);
       if (!meta) continue;
-      if (event.type === 'status') meta.status = event.status;
+      if (event.type === 'status') {
+        meta.status = event.status;
+        if (!this.closing.delete(paneId)) notifyPaneExit(meta, event.exitCode);
+        if (event.status === 'exited' || event.status === 'failed') {
+          session.panes.delete(paneId);
+        }
+      }
       if (!session.sender.isDestroyed()) {
         session.sender.send(
           ipcChannels.boardEvent,
@@ -201,4 +206,11 @@ export class BoardPtyManager {
       return;
     }
   }
+}
+
+function notifyPaneExit(pane: PaneMeta, exitCode: number | null): void {
+  if (!Notification.isSupported()) return;
+  const detail =
+    exitCode === null || exitCode === 0 ? 'Finished' : `Exited ${String(exitCode)}`;
+  new Notification({ title: pane.title, body: detail }).show();
 }
