@@ -35,6 +35,18 @@ export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React
 
   return (
     <aside className={collapsed ? 'rail railCollapsed' : 'rail'} aria-label="Spaces">
+      <button
+        type="button"
+        className={spaces.draft ? 'railNew railItemOn' : 'railNew'}
+        title="New Space"
+        onClick={() => {
+          spaces.startDraft();
+          void navigate({ to: '/board' });
+          setMenuId(null);
+        }}
+      >
+        {collapsed ? '+' : '+ New Space'}
+      </button>
       <div className="railList">
         {spaces.spaces.map((space) => {
           const on = !spaces.draft && spaces.activeId === space.sessionId;
@@ -120,18 +132,6 @@ export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React
           );
         })}
       </div>
-      <button
-        type="button"
-        className={spaces.draft ? 'railNew railItemOn' : 'railNew'}
-        title="New Space"
-        onClick={() => {
-          spaces.startDraft();
-          void navigate({ to: '/board' });
-          setMenuId(null);
-        }}
-      >
-        {collapsed ? '+' : '+ New Space'}
-      </button>
     </aside>
   );
 }

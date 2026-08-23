@@ -44,6 +44,21 @@ import {
   browserCommandInputSchema,
 } from '@zero/protocol/browser';
 import {
+  editorCreateInputSchema,
+  editorCreateIpcResponseSchema,
+  editorGitInputSchema,
+  editorGitIpcResponseSchema,
+  editorListInputSchema,
+  editorListIpcResponseSchema,
+  editorPickIpcResponseSchema,
+  editorReadInputSchema,
+  editorReadIpcResponseSchema,
+  editorSearchInputSchema,
+  editorSearchIpcResponseSchema,
+  editorWriteInputSchema,
+  editorWriteIpcResponseSchema,
+} from '@zero/protocol/editor';
+import {
   createProviderInputSchema,
   deleteProviderInputSchema,
   modelListInputSchema,
@@ -463,6 +478,56 @@ const api: ZeroDesktopApi = {
         input: browserCommandInputSchema.parse(input),
       });
       return unwrap(browserCommandIpcResponseSchema.parse(response));
+    },
+  },
+  editor: {
+    async pick() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.editorPick, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(editorPickIpcResponseSchema.parse(response));
+    },
+    async read(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.editorRead, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: editorReadInputSchema.parse(input),
+      });
+      return unwrap(editorReadIpcResponseSchema.parse(response));
+    },
+    async list(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.editorList, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: editorListInputSchema.parse(input),
+      });
+      return unwrap(editorListIpcResponseSchema.parse(response));
+    },
+    async git(root) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.editorGit, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: editorGitInputSchema.parse({ root }),
+      });
+      return unwrap(editorGitIpcResponseSchema.parse(response));
+    },
+    async write(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.editorWrite, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: editorWriteInputSchema.parse(input),
+      });
+      return unwrap(editorWriteIpcResponseSchema.parse(response));
+    },
+    async create(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.editorCreate, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: editorCreateInputSchema.parse(input),
+      });
+      return unwrap(editorCreateIpcResponseSchema.parse(response));
+    },
+    async search(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.editorSearch, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: editorSearchInputSchema.parse(input),
+      });
+      return unwrap(editorSearchIpcResponseSchema.parse(response));
     },
   },
 };

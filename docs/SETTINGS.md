@@ -29,4 +29,4 @@ Provider credentials. Keychain-backed. Fail closed on macOS.
 | System | API keys for programmatic access |
 | About | Version and updates |
 
-The mobile app is a pairing companion, not a second Exeum. See [STACK](STACK.md).
+The mobile app is a pairing companion, not a second BuilderHelm. See [STACK](STACK.md).

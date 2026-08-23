@@ -13,6 +13,13 @@ import {
   modelListIpcResponseSchema,
   parsePreviewUrl,
   providerTestConnectionRequestSchema,
+  editorPickIpcResponseSchema,
+  editorReadInputSchema,
+  editorReadIpcResponseSchema,
+  editorReadRequestSchema,
+  editorListInputSchema,
+  editorListIpcResponseSchema,
+  editorGitIpcResponseSchema,
   systemHealthRequestSchema,
   systemHealthResponseSchema,
   zeroEventSchema,
@@ -210,5 +217,62 @@ describe('preview URLs', () => {
     expect(parsePreviewUrl('file:///etc/passwd')).toBeNull();
     expect(parsePreviewUrl('javascript:alert(1)')).toBeNull();
     expect(parsePreviewUrl('http://user:pass@host/')).toBeNull();
+  });
+});
+
+describe('editor file read', () => {
+  it('rejects an empty path', () => {
+    expect(editorReadInputSchema.safeParse({ path: '' }).success).toBe(false);
+    expect(
+      editorReadRequestSchema.safeParse({
+        correlationId: createCorrelationId(),
+        input: { path: '' },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('requires a workspace root on read', () => {
+    expect(editorReadInputSchema.safeParse({ path: '/tmp/app/a.ts' }).success).toBe(
+      false,
+    );
+    expect(
+      editorReadRequestSchema.parse({
+        correlationId: createCorrelationId(),
+        input: { root: '/tmp/app', path: '/tmp/app/note.txt' },
+      }).input.root,
+    ).toBe('/tmp/app');
+    expect(editorPickIpcResponseSchema.parse({ ok: true, value: null }).value).toBeNull();
+  });
+
+  it('requires path, name, and text on a successful read', () => {
+    expect(
+      editorReadIpcResponseSchema.safeParse({
+        ok: true,
+        value: { path: '/tmp/a.txt', name: 'a.txt' },
+      }).success,
+    ).toBe(false);
+    expect(
+      editorReadIpcResponseSchema.parse({
+        ok: true,
+        value: { path: '/tmp/a.txt', name: 'a.txt', text: 'hi' },
+      }).value.text,
+    ).toBe('hi');
+  });
+});
+
+describe('editor workspace list', () => {
+  it('requires a workspace root', () => {
+    expect(editorListInputSchema.safeParse({}).success).toBe(false);
+    expect(editorListInputSchema.parse({ root: '/tmp/app' }).root).toBe('/tmp/app');
+  });
+
+  it('accepts a file tree and a missing git repo', () => {
+    expect(
+      editorListIpcResponseSchema.parse({
+        ok: true,
+        value: [{ path: '/tmp/app/src', name: 'src', kind: 'dir' }],
+      }).value[0]?.kind,
+    ).toBe('dir');
+    expect(editorGitIpcResponseSchema.parse({ ok: true, value: null }).value).toBeNull();
   });
 });

@@ -1,10 +1,14 @@
 <p align="center">
-  <img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=0:080A07,50:6F7767,100:B6D475&height=190&section=header&text=Exeum&fontSize=52&fontColor=EEF1E4&animation=fadeIn&fontAlignY=36&desc=Local-first%20desktop%20harness%20for%20building%20software&descAlignY=60&descSize=18" alt="Exeum — local-first desktop harness for building software" />
+  <img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=0:080A07,50:6F7767,100:B6D475&height=190&section=header&text=BuilderHelm&fontSize=48&fontColor=EEF1E4&animation=fadeIn&fontAlignY=36&desc=Your%20agents.%20You%20at%20the%20helm.&descAlignY=60&descSize=18" alt="BuilderHelm — Your agents. You at the helm." />
+</p>
+
+<p align="center">
+  <img src="apps/desktop/src/renderer/src/assets/logo.png" width="88" alt="BuilderHelm">
 </p>
 
 <p align="center">
   <a href="https://git.io/typing-svg">
-    <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=600&size=20&duration=3200&pause=900&color=B6D475&center=true&vCenter=true&width=780&lines=Space.+Swarm.+Board.+Memory.;Terminals+and+agents+in+one+shell.;Local-first.+macOS.+TypeScript." alt="Space. Swarm. Board. Memory." />
+    <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=600&size=20&duration=3200&pause=900&color=B6D475&center=true&vCenter=true&width=780&lines=Your+agents.+You+at+the+helm.;Space.+Swarm.+Board.+Memory.;Local-first.+macOS.+TypeScript." alt="Your agents. You at the helm." />
   </a>
 </p>
 
@@ -16,9 +20,9 @@
   <img alt="pnpm" src="https://img.shields.io/badge/pnpm-11-F69220?style=for-the-badge&logo=pnpm&logoColor=white">
 </p>
 
-Exeum is a local-first desktop harness for macOS. You stay in one app: terminals, optional coding agents, tasks, memory, and chrome.
+BuilderHelm is a local-first desktop harness for macOS. You stay in one app: terminals, optional coding agents, tasks, memory, and chrome.
 
-Working name. Final name, logo, and tagline are TBD — this README does not invent them.
+**Your agents. You at the helm.**
 
 The npm workspace is still `zero-os`. That is a package name, not the product.
 

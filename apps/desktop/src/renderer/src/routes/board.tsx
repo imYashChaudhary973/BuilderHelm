@@ -12,10 +12,9 @@ import type {
 import { BOARD_AGENT_CATALOG, boardGridLayouts } from '@zero/protocol/board';
 import type { CorrelationId } from '@zero/shared';
 import { useEffect, useState } from 'react';
-
 import { TerminalPane } from '../components/terminal-pane.js';
 import { useSpaces } from '../space-store.js';
-
+import logo from '../assets/logo.png';
 const PANE_COUNTS: readonly BoardPaneCount[] = [1, 2, 4, 6, 8, 10, 12];
 const RECENTS_KEY = 'exeum.space.recents';
 const AI_AGENTS = BOARD_AGENT_CATALOG.filter((entry) => entry.id !== 'shell');
@@ -61,6 +60,64 @@ const MODES = [
       'A living knowledge graph. Persistent memory your agents read and write as they build. Context that compounds.',
   },
 ] as const;
+
+function ModeGlyph({ id }: { readonly id: (typeof MODES)[number]['id'] }): React.JSX.Element {
+  if (id === 'space') {
+    return (
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path
+          d="M7 8.5 10.5 12 7 15.5M13 16.5h4.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+  if (id === 'swarm') {
+    return (
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <circle cx="12" cy="6.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+        <circle cx="6.8" cy="16.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+        <circle cx="17.2" cy="16.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+        <path
+          d="M10.4 8.1 8.2 14.4M13.6 8.1l2.2 6.3M8.8 16.5h6.4"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
+      </svg>
+    );
+  }
+  if (id === 'board') {
+    return (
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <rect x="4.5" y="5.5" width="4" height="13" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+        <rect x="10" y="5.5" width="4" height="8.5" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+        <rect x="15.5" y="5.5" width="4" height="11" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <circle cx="7" cy="12" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="17" cy="7.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="17" cy="16.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M9 12h6M15.2 8.8 9 11.3M15.2 15.2 9 12.7" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function LockGlyph(): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
+      <rect x="6.5" y="11" width="11" height="8.5" rx="1.6" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M9 11V8.4a3 3 0 0 1 6 0V11" fill="none" stroke="currentColor" strokeWidth="1.7" />
+    </svg>
+  );
+}
 
 interface SlotConfig {
   agentId: BoardAgentId;
@@ -191,11 +248,6 @@ export function BoardPage(): React.JSX.Element {
     queryFn: () => window.zero.board.listPresets(),
   });
 
-  useEffect(() => {
-    void window.zero.board.homeDir().then((path) => {
-      setFolderPath((current) => (current.length === 0 ? path : current));
-    });
-  }, []);
 
   useEffect(() => {
     if (phase !== 'home') return;
@@ -553,11 +605,15 @@ export function BoardPage(): React.JSX.Element {
   if (phase === 'home') {
     return (
       <section className="spaceHome" aria-labelledby="space-home-title" data-core-status="ready">
-        <div className="spaceHomeMark" aria-hidden="true">
-          <span />
+        <div className="spaceHomeBrand">
+          <img className="spaceHomeLogo" src={logo} width={56} height={56} alt="" />
+          BuilderHelm
         </div>
-        <h1 id="space-home-title">Exeum</h1>
-        <p className="spaceTagline" aria-hidden="true" />
+        <h1 id="space-home-title">
+          Your agents.
+          <br />
+          You at the helm.
+        </h1>
         <p className="spaceHomeLead">Choose how you want to work.</p>
         <ul className="spaceModes">
           {MODES.map((mode) => (
@@ -570,18 +626,43 @@ export function BoardPage(): React.JSX.Element {
                   if (mode.enabled) setPhase('workspace');
                 }}
               >
-                <span className="spaceModeCopy">
-                  <strong>{mode.name}</strong>
-                  <span>{mode.enabled ? mode.promise : `${mode.promise} Coming later.`}</span>
+                <span className="spaceModeIcon">
+                  <ModeGlyph id={mode.id} />
                 </span>
-                <kbd>{mode.shortcut}</kbd>
+                <span className="spaceModeText">
+                  <strong>{mode.name}</strong>
+                  <span className="spaceModeHint">
+                    <span>{mode.promise}</span>
+                  </span>
+                </span>
+                {mode.id === 'memory' ? (
+                  <span className="spaceModeSoon">
+                    <LockGlyph />
+                    Soon
+                  </span>
+                ) : mode.enabled ? (
+                  <>
+                    <kbd>{mode.shortcut}</kbd>
+                    <span className="spaceModeOpen">Open →</span>
+                  </>
+                ) : mode.id === 'board' ? null : (
+                  <kbd>{mode.shortcut}</kbd>
+                )}
               </button>
             </li>
           ))}
         </ul>
-        <Link className="spaceHomeSettings" to="/settings/providers">
-          Settings
-        </Link>
+        <p className="spaceHomeKeys">
+          <span>
+            <kbd>⌘T</kbd> Space
+          </span>
+          <span>
+            <kbd>⌘S</kbd> Swarm
+          </span>
+          <Link to="/settings/providers">
+            <kbd>⌘,</kbd> Settings
+          </Link>
+        </p>
       </section>
     );
   }
@@ -783,7 +864,7 @@ export function BoardPage(): React.JSX.Element {
             id="board-folder"
             type="text"
             value={folderPath}
-            placeholder="/Users/you"
+            placeholder="Browse to a project folder"
             onChange={(event) => setFolderPath(event.target.value)}
           />
           <button className="secondaryButton" type="button" onClick={() => void browse()}>

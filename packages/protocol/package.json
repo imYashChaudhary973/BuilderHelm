@@ -12,6 +12,10 @@
       "types": "./dist/browser.d.ts",
       "import": "./src/browser.ts"
     },
+    "./editor": {
+      "types": "./dist/editor.d.ts",
+      "import": "./src/editor.ts"
+    },
     "./board": {
       "types": "./dist/board.d.ts",
       "import": "./src/board.ts"

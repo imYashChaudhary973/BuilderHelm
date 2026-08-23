@@ -27,8 +27,8 @@
     "typecheck": "tsc -b tsconfig.node.json tsconfig.web.json --pretty false"
   },
   "build": {
-    "appId": "app.zeroos.desktop",
-    "productName": "Zero",
+    "appId": "app.builderhelm.desktop",
+    "productName": "BuilderHelm",
     "asar": true,
     "asarUnpack": [
       "**/*.node",
@@ -44,6 +44,7 @@
       "target": [
         "dir"
       ],
+      "icon": "resources/icon.icns",
       "identity": null
     }
   },

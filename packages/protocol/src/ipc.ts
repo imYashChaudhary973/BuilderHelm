@@ -20,6 +20,16 @@ import type {
 } from './board.js';
 import type { BrowserCommandInput, BrowserState } from './browser.js';
 import type {
+  EditorCreateInput,
+  EditorEntry,
+  EditorFile,
+  EditorGit,
+  EditorListInput,
+  EditorReadInput,
+  EditorSearchInput,
+  EditorWriteInput,
+} from './editor.js';
+import type {
   ActionCommandInput,
   ActionCommandOutcome,
   ActionSnapshot,
@@ -109,6 +119,13 @@ export const ipcChannels = {
   boardLand: 'zero:board:land',
   boardLandPreview: 'zero:board:land-preview',
   browserCommand: 'zero:browser:command',
+  editorPick: 'zero:editor:pick',
+  editorRead: 'zero:editor:read',
+  editorList: 'zero:editor:list',
+  editorGit: 'zero:editor:git',
+  editorWrite: 'zero:editor:write',
+  editorCreate: 'zero:editor:create',
+  editorSearch: 'zero:editor:search',
 } as const;
 
 export const systemHealthRequestSchema = z
@@ -210,5 +227,14 @@ export interface ZeroDesktopApi {
   };
   readonly browser: {
     command(input: BrowserCommandInput): Promise<BrowserState>;
+  };
+  readonly editor: {
+    pick(): Promise<EditorFile | null>;
+    read(input: EditorReadInput): Promise<EditorFile>;
+    list(input: EditorListInput): Promise<EditorEntry[]>;
+    git(root: string): Promise<EditorGit | null>;
+    write(input: EditorWriteInput): Promise<EditorFile>;
+    create(input: EditorCreateInput): Promise<EditorEntry>;
+    search(input: EditorSearchInput): Promise<EditorEntry[]>;
   };
 }

@@ -56,6 +56,22 @@ import {
   browserCommandIpcResponseSchema,
   browserCommandRequestSchema,
 } from '@zero/protocol/browser';
+import {
+  editorCreateIpcResponseSchema,
+  editorCreateRequestSchema,
+  editorGitIpcResponseSchema,
+  editorGitRequestSchema,
+  editorListIpcResponseSchema,
+  editorListRequestSchema,
+  editorPickIpcResponseSchema,
+  editorPickRequestSchema,
+  editorReadIpcResponseSchema,
+  editorReadRequestSchema,
+  editorSearchIpcResponseSchema,
+  editorSearchRequestSchema,
+  editorWriteIpcResponseSchema,
+  editorWriteRequestSchema,
+} from '@zero/protocol/editor';
 import { ipcChannels, systemHealthRequestSchema } from '@zero/protocol/ipc';
 import {
   knowledgeAnswerIpcResponseSchema,
@@ -94,8 +110,18 @@ import {
   projectRepositorySelectRequestSchema,
 } from '@zero/protocol/projects';
 import { createCorrelationId, normalizeError, ZeroError } from '@zero/shared';
+import { LocalGitInspector } from '@zero/core';
 import type { BoardPtyManager } from './board-pty-manager.js';
 import { PreviewBrowser } from './preview-browser.js';
+import {
+  createEditorEntry,
+  listEditorDir,
+  listGitChanges,
+  pickEditorFile,
+  readEditorFile,
+  searchEditorFiles,
+  writeEditorFile,
+} from './file-reader.js';
 import { dialog, ipcMain, type WebContents } from 'electron';
 import { ZodError } from 'zod';
 
@@ -824,6 +850,118 @@ export function registerIpcHandlers(
     }
   });
 
+  ipcMain.handle(ipcChannels.editorPick, async (_event, input: unknown) => {
+    try {
+      editorPickRequestSchema.parse(input);
+      const value = await pickEditorFile();
+      return editorPickIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return editorPickIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.editorRead, (_event, input: unknown) => {
+    try {
+      const request = editorReadRequestSchema.parse(input);
+      const value = readEditorFile(request.input.root, request.input.path);
+      return editorReadIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return editorReadIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.editorList, (_event, input: unknown) => {
+    try {
+      const request = editorListRequestSchema.parse(input);
+      const value = listEditorDir(
+        request.input.root,
+        request.input.path ?? request.input.root,
+        request.input.hidden === true,
+      );
+      return editorListIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return editorListIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.editorGit, (_event, input: unknown) => {
+    try {
+      const request = editorGitRequestSchema.parse(input);
+      let value = null;
+      try {
+        const snap = new LocalGitInspector().inspect(request.input.root);
+        value = { ...snap, changes: [...listGitChanges(snap.rootPath)] };
+      } catch {
+        value = null;
+      }
+      return editorGitIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return editorGitIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.editorWrite, (_event, input: unknown) => {
+    try {
+      const request = editorWriteRequestSchema.parse(input);
+      const value = writeEditorFile(
+        request.input.root,
+        request.input.path,
+        request.input.text,
+      );
+      return editorWriteIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return editorWriteIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.editorCreate, (_event, input: unknown) => {
+    try {
+      const request = editorCreateRequestSchema.parse(input);
+      const value = createEditorEntry(
+        request.input.root,
+        request.input.path,
+        request.input.kind,
+      );
+      return editorCreateIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return editorCreateIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.editorSearch, (_event, input: unknown) => {
+    try {
+      const request = editorSearchRequestSchema.parse(input);
+      const value = searchEditorFiles(
+        request.input.root,
+        request.input.query,
+        request.input.hidden === true,
+      );
+      return editorSearchIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return editorSearchIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
   return () => {
     for (const active of activeStreams.values()) active.controller.abort();
     activeStreams.clear();
@@ -870,5 +1008,12 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.boardLand);
     ipcMain.removeHandler(ipcChannels.boardLandPreview);
     ipcMain.removeHandler(ipcChannels.browserCommand);
+    ipcMain.removeHandler(ipcChannels.editorPick);
+    ipcMain.removeHandler(ipcChannels.editorRead);
+    ipcMain.removeHandler(ipcChannels.editorList);
+    ipcMain.removeHandler(ipcChannels.editorGit);
+    ipcMain.removeHandler(ipcChannels.editorWrite);
+    ipcMain.removeHandler(ipcChannels.editorCreate);
+    ipcMain.removeHandler(ipcChannels.editorSearch);
   };
 }

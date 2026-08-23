@@ -78,7 +78,7 @@ export class PreviewBrowser {
           partition: previewPartition,
         },
       });
-      view.setBackgroundColor('#11150d');
+      view.setBackgroundColor('#070707');
       view.webContents.setWindowOpenHandler(({ url }) => {
         const allowed = parsePreviewUrl(url);
         if (allowed !== null) void view.webContents.loadURL(allowed);

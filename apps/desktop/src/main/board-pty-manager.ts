@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { chmodSync, existsSync, realpathSync, statSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
-import { basename } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 
 import {
   BOARD_AGENT_CATALOG,
@@ -56,6 +57,7 @@ function resolveCommand(agentId: BoardAgentId, override: string | undefined): st
 
 function terminalEnv(): Record<string, string> {
   return {
+    ...process.env,
     HOME: process.env.HOME ?? homedir(),
     USER: process.env.USER ?? '',
     LOGNAME: process.env.LOGNAME ?? process.env.USER ?? '',
@@ -67,28 +69,75 @@ function terminalEnv(): Record<string, string> {
       process.env.PATH ??
       '/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin',
     TMPDIR: process.env.TMPDIR ?? '/tmp',
+    PWD: process.env.PWD ?? homedir(),
   };
 }
 
-function spawnPty(cwd: string, command: string, cols: number, rows: number): IPty {
-  const shell = existsSync('/bin/zsh') ? '/bin/zsh' : '/bin/bash';
-  const workdir = existsSync(cwd) ? cwd : homedir();
-  const args = command.trim().length === 0 ? ['-l'] : ['-l', '-c', command];
+function resolveWorkdir(cwd: string): string {
   try {
-    return spawn(shell, args, {
-      name: 'xterm-256color',
-      cols,
-      rows,
-      cwd: workdir,
-      env: terminalEnv(),
-    });
+    const resolved = realpathSync(cwd);
+    if (statSync(resolved).isDirectory()) return resolved;
+  } catch {
+    // fall through to home
+  }
+  return homedir();
+}
+
+function spawnHelperPath(): string {
+  const require = createRequire(import.meta.url);
+  const unix = require.resolve('node-pty/lib/unixTerminal.js');
+  return resolve(dirname(unix), '../build/Release/spawn-helper');
+}
+
+function ensureHelper(): string {
+  const helper = spawnHelperPath();
+  if (existsSync(helper)) {
+    try {
+      chmodSync(helper, 0o755);
+    } catch {
+      // ignore
+    }
+  }
+  return helper;
+}
+
+function spawnPty(cwd: string, command: string, cols: number, rows: number): IPty {
+  const helper = ensureHelper();
+  const shell = existsSync('/bin/zsh') ? '/bin/zsh' : '/bin/bash';
+  const workdir = resolveWorkdir(cwd);
+  const extra = command.trim().length === 0 ? [] : ['-c', command];
+  const attempts = [['-i', ...extra], extra];
+  let last: unknown;
+  for (const args of attempts) {
+    try {
+      return spawn(shell, args, {
+        name: 'xterm-256color',
+        cols,
+        rows,
+        cwd: workdir,
+        env: { ...terminalEnv(), PWD: workdir },
+      });
+    } catch (error) {
+      last = error;
+    }
+  }
+  const detail = last instanceof Error ? last.message : 'unknown spawn error';
+  throw new ZeroError(
+    'TOOL_EXECUTION_FAILED',
+    `Could not start a terminal in ${workdir} (${detail}; helper=${helper} exists=${existsSync(helper)})`,
+    { cause: last },
+  );
+}
+
+export function probePty(cwd: string): string {
+  const helper = spawnHelperPath();
+  try {
+    const pty = spawnPty(cwd, '', 80, 24);
+    const pid = pty.pid;
+    pty.kill();
+    return `ok pid=${pid} helper=${helper}`;
   } catch (error) {
-    const detail = error instanceof Error ? error.message : 'unknown spawn error';
-    throw new ZeroError(
-      'TOOL_EXECUTION_FAILED',
-      `Could not start a terminal in ${workdir} (${detail})`,
-      { cause: error },
-    );
+    return `fail helper=${helper} exists=${existsSync(helper)} err=${error instanceof Error ? error.message : String(error)}`;
   }
 }
 

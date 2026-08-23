@@ -7,11 +7,11 @@ or if the phone companion needs a shared native engine (it does not today).
 
 **TypeScript is the product language.** Desktop stays Electron. Phone pairing is a
 separate TypeScript app that talks to the desktop over the existing protocol.
-Do not rewrite Exeum in Rust.
+Do not rewrite BuilderHelm in Rust.
 
 ## Why not rewrite
 
-Exeum is a desktop harness: React chrome, xterm, node-pty, SQLite, typed IPC,
+BuilderHelm is a desktop harness: React chrome, xterm, node-pty, SQLite, typed IPC,
 provider HTTP. That is already the product. A Rust rewrite buys memory safety
 and cheaper PTY/Git later. It costs the current Space loop and every Electron
 lesson just paid for.

@@ -381,7 +381,7 @@ textarea:focus-visible {
 }
 
 .shellBrowserOn {
-  grid-template-columns: 200px 1fr 360px;
+  grid-template-columns: 200px 1fr var(--panel-w, 360px);
   grid-template-areas:
     'topbar topbar topbar'
     'rail content browser';
@@ -392,7 +392,7 @@ textarea:focus-visible {
 }
 
 .shellRailOff.shellBrowserOn {
-  grid-template-columns: 52px 1fr 360px;
+  grid-template-columns: 52px 1fr var(--panel-w, 360px);
 }
 
 .topbar {
@@ -401,26 +401,31 @@ textarea:focus-visible {
   align-items: center;
   gap: 18px;
   padding: 0 14px 0 78px;
-  border-bottom: 1px solid var(--line);
-  background: linear-gradient(180deg, var(--glass-strong) 0%, var(--glass) 100%);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: #050505;
   -webkit-app-region: drag;
 }
 
-.topbar a,
 .topbar button,
-.topbar .privacyBadge {
+.topbar a {
   -webkit-app-region: no-drag;
 }
 
 .brand {
   display: flex;
   align-items: center;
+  gap: 8px;
   font-size: 15px;
   font-weight: 700;
   letter-spacing: -0.03em;
   color: var(--text);
+}
+
+.brandLogo {
+  display: block;
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
 }
 
 .topbarNav,
@@ -470,8 +475,8 @@ textarea:focus-visible {
   min-height: 0;
   overflow: visible;
   padding: 12px 10px;
-  border-right: 1px solid var(--line);
-  background: linear-gradient(180deg, var(--glass-strong) 0%, var(--glass) 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  background: #050505;
 }
 
 .railCollapsed {
@@ -718,16 +723,16 @@ textarea:focus-visible {
 .content:has(.spaceHome) {
   padding: 0;
   overflow: hidden;
+  background: #050505;
 }
 
 .browserSide {
-  grid-area: browser;
   display: flex;
+  flex: 1;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  border-left: 1px solid var(--line);
-  background: linear-gradient(180deg, var(--glass-strong) 0%, var(--glass) 100%);
+  background: transparent;
 }
 
 .browserBar {
@@ -766,7 +771,110 @@ textarea:focus-visible {
 .browserStage {
   flex: 1;
   min-height: 0;
-  background: var(--bg-1);
+  background: #070707;
+}
+
+.browserStageIdle {
+  overflow: auto;
+}
+
+.browserHome {
+  max-width: 360px;
+  margin: 36px auto;
+  padding: 0 20px 32px;
+}
+
+.browserHomeMark {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text-2);
+}
+
+.browserHome h2 {
+  margin: 0 0 8px;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+
+.browserHome p {
+  margin: 0 0 16px;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.browserChip,
+.browserNewTab {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #141414;
+  color: var(--text);
+}
+
+.browserChip {
+  display: inline;
+  padding: 1px 7px;
+  font-size: 12px;
+}
+
+.browserNewTab {
+  padding: 8px 12px;
+  font-weight: 600;
+}
+
+.browserRecents {
+  margin-top: 28px;
+}
+
+.browserRecents > span {
+  color: var(--text-3);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.browserRecents ul {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+.browserRecents button {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.browserRecents em {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 8px;
+  background: #141414;
+  font-style: normal;
+  font-size: 12px;
+}
+
+.browserRecents strong,
+.browserRecents small {
+  display: block;
+}
+
+.browserRecents small {
+  color: var(--text-3);
+  font-size: 11px;
 }
 
 .topbarIcon {
@@ -2936,6 +3044,12 @@ fieldset legend {
     transform: none;
   }
 
+  .spaceModeHint,
+  .spaceModeOpen,
+  .spaceMode {
+    transition: none;
+  }
+
   .chatTurn,
   .todayProjectRows article,
   .spotlight::before,
@@ -2972,109 +3086,220 @@ fieldset legend {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
   min-height: 100%;
-  padding: 48px 24px;
+  padding: 40px 24px 64px;
+  background: #050505;
 }
 
-.spaceHomeMark {
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
+.spaceHomeBrand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 36px;
+  font-size: 40px;
+  font-weight: 720;
+  letter-spacing: -0.045em;
 }
 
-.spaceHomeMark span {
-  width: 18px;
-  height: 18px;
-  border-radius: 5px;
-  background: var(--accent);
-  box-shadow: 10px 10px 0 -6px var(--accent-dim);
+.spaceHomeLogo {
+  display: block;
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
 }
 
 .spaceHome h1 {
   margin: 0;
-  font-size: 42px;
-  font-weight: 620;
-  letter-spacing: -0.04em;
-}
-
-.spaceTagline {
-  margin: 0;
-  min-height: 0;
+  font-size: 56px;
+  font-weight: 750;
+  letter-spacing: -0.05em;
+  line-height: 1.02;
+  text-align: center;
 }
 
 .spaceHomeLead {
-  margin: 8px 0 4px;
-  color: var(--text-2);
-  font-size: 15px;
+  margin: 18px 0 42px;
+  color: #8b8b8b;
+  font-size: 16px;
 }
 
 .spaceModes {
   list-style: none;
-  margin: 12px 0 0;
+  margin: 0;
   padding: 0;
-  width: min(640px, 100%);
+  width: min(560px, 100%);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .spaceMode {
+  position: relative;
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 16px 18px;
-  border-radius: var(--radius-m);
-  border: 1px solid var(--line);
-  background: var(--glass-strong);
+  gap: 16px;
+  min-height: 74px;
+  padding: 14px 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  background: #0c0c0c;
   color: inherit;
   text-align: left;
   cursor: pointer;
+  transition:
+    min-height 220ms var(--ease-out),
+    background 180ms ease,
+    border-color 180ms ease;
 }
 
-.spaceMode:hover:not(:disabled) {
-  border-color: var(--accent-line);
+.spaceMode::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 20px;
+  left: 20px;
+  height: 1px;
+  background: linear-gradient(90deg, #6ff4af 0%, #e8ff6a 45%, #c9a0ff 100%);
+  opacity: 0.8;
+}
+
+.spaceMode:hover:not(:disabled),
+.spaceMode:focus-visible:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #101010;
 }
 
 .spaceMode:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+  cursor: default;
+  opacity: 1;
 }
 
-.spaceModeCopy {
+.spaceModeIcon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: #141414;
+  color: #f2f2f2;
+}
+
+.spaceModeText {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  align-items: flex-start;
 }
 
-.spaceModeCopy strong {
+.spaceMode strong {
   font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
-.spaceModeCopy span {
-  color: var(--text-2);
+.spaceModeHint {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 220ms var(--ease-out),
+    opacity 180ms ease;
+}
+
+.spaceModeHint > span {
+  overflow: hidden;
+  min-height: 0;
+  padding-top: 0;
+  color: #8b8b8b;
   font-size: 13px;
+  font-weight: 400;
   line-height: 1.4;
+}
+
+.spaceMode:hover .spaceModeHint,
+.spaceMode:focus-visible .spaceModeHint {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.spaceMode:hover .spaceModeHint > span,
+.spaceMode:focus-visible .spaceModeHint > span {
+  padding-top: 6px;
 }
 
 .spaceMode kbd {
   flex-shrink: 0;
-  padding: 4px 8px;
-  border-radius: 6px;
-  border: 1px solid var(--line);
-  background: var(--bg-1);
+  padding: 5px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: #161616;
+  color: #b0b0b0;
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--text-2);
 }
 
-.spaceHomeSettings {
-  margin-top: 20px;
-  color: var(--text-3);
+.spaceModeOpen {
+  display: none;
+  flex-shrink: 0;
+  color: #d8ff8a;
   font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.spaceMode:hover:not(:disabled) kbd,
+.spaceMode:focus-visible:not(:disabled) kbd {
+  display: none;
+}
+
+.spaceMode:hover:not(:disabled) .spaceModeOpen,
+.spaceMode:focus-visible:not(:disabled) .spaceModeOpen {
+  display: inline;
+}
+
+.spaceModeSoon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(212, 175, 55, 0.12);
+  color: #d4af37;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.spaceHomeKeys {
+  display: flex;
+  gap: 36px;
+  margin: 48px 0 0;
+  color: #5c5c5c;
+  font-size: 11px;
+  font-weight: 550;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.spaceHomeKeys a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.spaceHomeKeys kbd {
+  margin-right: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: 0.04em;
 }
 
 .spaceWizardFooter {
@@ -3722,4 +3947,456 @@ fieldset legend {
     animation: none;
     transition: none;
   }
+}
+
+.sidePanel {
+  position: relative;
+  grid-area: browser;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.sideResize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -3px;
+  z-index: 2;
+  width: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+}
+
+.sideResize:hover,
+.sideResize:focus-visible {
+  background: var(--accent);
+}
+
+.sideTabs {
+  display: flex;
+  gap: 4px;
+  margin: 10px 10px 0;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-1);
+}
+
+.sideTab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 32px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--text-3);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sideTab:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.sideTab:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.sideTabOn {
+  color: var(--bg);
+  background: var(--accent);
+}
+
+
+.sideBody {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.editorSide {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 32px 148px 1fr;
+  min-width: 0;
+  min-height: 0;
+  background: #070707;
+}
+
+.editorTreeCol {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid var(--line);
+}
+
+.editorSide.editorSideTreeOff {
+  grid-template-columns: 32px 1fr;
+}
+
+.editorTreeRail {
+  display: flex;
+  width: 32px;
+  min-width: 32px;
+  align-items: center;
+  justify-content: center;
+  background: #0c0c0c;
+  border-right: 1px solid var(--line);
+}
+
+.editorTreeRail button {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #141414;
+  color: var(--text-2);
+}
+
+.editorTreeRail button:hover {
+  color: var(--text);
+  border-color: var(--accent-line);
+}
+
+.editorTreeHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px 8px 4px;
+}
+
+.editorTreeHead strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.editorTreeActions {
+  display: flex;
+  gap: 2px;
+}
+
+.editorTreeActions button,
+.editorToolbar button {
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #111;
+  color: var(--text-2);
+  font-size: 11px;
+}
+
+.editorTinyOn {
+  color: var(--accent-bright);
+  border-color: var(--accent-line);
+}
+
+.editorSearch,
+.editorCreate input {
+  width: calc(100% - 16px);
+  margin: 4px 8px 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #101010;
+  color: var(--text);
+}
+
+.editorTree {
+  list-style: none;
+  margin: 0;
+  padding: 0 6px 8px;
+  overflow: auto;
+}
+
+.editorTree .editorTree {
+  padding: 0 0 0 10px;
+}
+
+.editorNode {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  text-align: left;
+}
+
+.editorNode:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.editorNodeOn {
+  color: var(--text);
+  background: var(--accent-dim);
+}
+
+.editorMain {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.editorTabs {
+  display: flex;
+  gap: 2px;
+  min-height: 34px;
+  overflow: auto;
+  border-bottom: 1px solid var(--line);
+}
+
+.editorTab,
+.editorTabGhost {
+  flex-shrink: 0;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.editorTabOn {
+  color: var(--text);
+  box-shadow: inset 0 -1px 0 var(--accent);
+}
+
+.editorToolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.editorAuto {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-2);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.editorStatus {
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.editorEmpty {
+  margin: auto;
+  padding: 24px;
+  color: var(--text-3);
+  font-size: 13px;
+  text-align: center;
+}
+
+.codePane {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 36px 1fr;
+  min-height: 0;
+}
+
+.codeGutter,
+.codeInput {
+  margin: 0;
+  padding: 10px 8px;
+  border: 0;
+  background: #070707;
+  color: #d7d7d7;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre;
+}
+
+.codeGutter {
+  overflow: hidden;
+  color: #5c5c5c;
+  text-align: right;
+}
+
+.codeInput {
+  resize: none;
+  outline: none;
+}
+
+.codeInputWrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.gitSide {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 12px;
+  gap: 10px;
+}
+
+.gitBranch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  padding: 5px 10px;
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  background: var(--accent-dim);
+  color: var(--accent-bright);
+  font-size: 12px;
+}
+
+.gitBranch em {
+  font-style: normal;
+  color: var(--text-2);
+}
+
+.gitViews {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #101010;
+}
+
+.gitViews button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.gitViewOn {
+  background: #1a1a1a;
+  color: var(--text);
+}
+
+.gitViews strong {
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent-dim);
+  color: var(--accent-bright);
+  font-size: 11px;
+}
+
+.gitChanges,
+.gitLog {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+}
+
+.gitChanges li,
+.gitLog li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 4px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.gitChanges em {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 5px;
+  background: var(--accent-dim);
+  color: var(--accent-bright);
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.gitLog code {
+  flex-shrink: 0;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+}
+
+.gitLists {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+  gap: 14px;
+}
+
+.gitLists header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-3);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.gitLists section > p {
+  margin: 8px 0 0;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.gitChanges button {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.gitChanges small {
+  margin-left: auto;
+  color: var(--text-3);
+}
+
+.gitFooter {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--text-3);
+  font-size: 12px;
 }
