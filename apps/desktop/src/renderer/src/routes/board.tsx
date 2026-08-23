@@ -186,10 +186,13 @@ function assignedCount(counts: Partial<Record<BoardAgentId, number>>): number {
   return Object.values(counts).reduce((sum, value) => sum + (value ?? 0), 0);
 }
 
-function resolveFolder(base: string, cd: string): string {
-  const spec = cd.trim().replace(/^cd\s+/i, '');
-  if (spec.length === 0) return base;
-  const parts = (spec.startsWith('/') ? [] : base.split('/').filter(Boolean)).slice();
+function resolveFolder(base: string, cd: string, home: string): string {
+  let spec = cd.trim().replace(/^cd(?:\s+|$)/i, '');
+  if (spec.length === 0) return base.trim().length > 0 ? base.trim() : home;
+  if (spec === '~') return home;
+  if (spec.startsWith('~/')) spec = `${home}/${spec.slice(2)}`;
+  const origin = base.trim().length === 0 ? home : base.trim();
+  const parts = (spec.startsWith('/') ? [] : origin.split('/').filter(Boolean)).slice();
   const source = spec.startsWith('/') ? spec.slice(1).split('/') : spec.split('/');
   for (const part of source) {
     if (part === '' || part === '.') continue;
@@ -199,6 +202,11 @@ function resolveFolder(base: string, cd: string): string {
   return `/${parts.join('/')}`;
 }
 
+function looksLikeCd(value: string): boolean {
+  const trimmed = value.trim();
+  return /^cd\s+/i.test(trimmed) || trimmed.startsWith('~');
+}
+
 export function BoardPage(): React.JSX.Element {
   const queryClient = useQueryClient();
   const spaceStore = useSpaces();
@@ -206,6 +214,7 @@ export function BoardPage(): React.JSX.Element {
     spaceStore.spaces.find((item) => item.sessionId === spaceStore.activeId) ?? null;
   const [phase, setPhase] = useState<Phase>('home');
   const [folderPath, setFolderPath] = useState('');
+  const [homeDir, setHomeDir] = useState('');
   const [paneCount, setPaneCount] = useState<BoardPaneCount>(2);
   const [slots, setSlots] = useState<Record<number, SlotConfig>>(() =>
     resizeSlots(2, {}, undefined),
@@ -248,6 +257,9 @@ export function BoardPage(): React.JSX.Element {
     queryFn: () => window.zero.board.listPresets(),
   });
 
+  useEffect(() => {
+    void window.zero.board.homeDir().then(setHomeDir).catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (phase !== 'home') return;
@@ -263,17 +275,19 @@ export function BoardPage(): React.JSX.Element {
   }, [phase]);
 
   useEffect(() => {
-    if (spaceStore.draftSeq === 0) return;
+    if (!spaceStore.wantSetup) return;
     setPhase('workspace');
     setError(null);
-  }, [spaceStore.draftSeq]);
+  }, [spaceStore.wantSetup, spaceStore.draftSeq]);
+
+  const view = spaceStore.wantSetup && phase === 'home' ? 'workspace' : phase;
 
   function changePaneCount(count: BoardPaneCount): void {
     setPaneCount(count);
     setSlots((current) => resizeSlots(count, current, agents.data));
   }
 
-  const folderReady = folderPath.trim().length > 0;
+  const folderReady = folderPath.trim().length > 0 || cdInput.trim().length > 0;
 
   function panesFromSlots(): BoardPaneSpec[] {
     const panes: BoardPaneSpec[] = [];
@@ -315,9 +329,12 @@ export function BoardPage(): React.JSX.Element {
         ...(config.agentId === 'custom' ? { command: config.command?.trim() ?? '' } : {}),
       });
     }
+    const working = looksLikeCd(folderPath)
+      ? resolveFolder(homeDir, folderPath, homeDir)
+      : folderPath.trim();
     launch.mutate({
       correlationId: crypto.randomUUID() as CorrelationId,
-      folderPath: resolveFolder(folderPath.trim(), cdInput),
+      folderPath: resolveFolder(working, cdInput, homeDir),
       paneCount,
       isolation: nextIsolation,
       panes: panes.sort((a, b) => a.slot - b.slot),
@@ -602,7 +619,7 @@ export function BoardPage(): React.JSX.Element {
     );
   }
 
-  if (phase === 'home') {
+  if (view === 'home') {
     return (
       <section className="spaceHome" aria-labelledby="space-home-title" data-core-status="ready">
         <div className="spaceHomeBrand">
@@ -866,6 +883,11 @@ export function BoardPage(): React.JSX.Element {
             value={folderPath}
             placeholder="Browse to a project folder"
             onChange={(event) => setFolderPath(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' || !looksLikeCd(folderPath)) return;
+              event.preventDefault();
+              setFolderPath(resolveFolder(homeDir, folderPath, homeDir));
+            }}
           />
           <button className="secondaryButton" type="button" onClick={() => void browse()}>
             Browse…
@@ -875,11 +897,11 @@ export function BoardPage(): React.JSX.Element {
           <input
             type="text"
             value={cdInput}
-            placeholder="cd ../other-project"
+            placeholder="cd Developer"
             onChange={(event) => setCdInput(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter' && cdInput.trim().length > 0) {
-                setFolderPath(resolveFolder(folderPath, cdInput));
+                setFolderPath(resolveFolder(folderPath, cdInput, homeDir));
                 setCdInput('');
               }
             }}
@@ -1017,7 +1039,14 @@ export function BoardPage(): React.JSX.Element {
       )}
 
       <div className="spaceWizardFooter">
-        <button className="secondaryButton" type="button" onClick={() => setPhase('home')}>
+        <button
+          className="secondaryButton"
+          type="button"
+          onClick={() => {
+            spaceStore.hideSetup();
+            setPhase('home');
+          }}
+        >
           Back
         </button>
         <div className="spaceWizardActions">

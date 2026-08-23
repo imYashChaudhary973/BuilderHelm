@@ -380,6 +380,10 @@ textarea:focus-visible {
   height: 100vh;
 }
 
+html.is-fullscreen .shell {
+  grid-template-rows: 80px 1fr;
+}
+
 .shellBrowserOn {
   grid-template-columns: 200px 1fr var(--panel-w, 360px);
   grid-template-areas:
@@ -404,6 +408,10 @@ textarea:focus-visible {
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   background: #050505;
   -webkit-app-region: drag;
+}
+
+html.is-fullscreen .topbar {
+  padding-top: 28px;
 }
 
 .topbar button,

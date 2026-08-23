@@ -97,6 +97,18 @@ function createWindow(): BrowserWindow {
     void window.loadFile(join(__dirname, '../renderer/index.html'));
   }
 
+  const syncFullscreen = (): void => {
+    const on = window.isFullScreen();
+    void window.webContents.executeJavaScript(
+      on
+        ? `document.documentElement.classList.add('is-fullscreen')`
+        : `document.documentElement.classList.remove('is-fullscreen')`,
+    );
+  };
+  window.on('enter-full-screen', syncFullscreen);
+  window.on('leave-full-screen', syncFullscreen);
+  window.webContents.on('did-finish-load', syncFullscreen);
+
   if (process.env.ZERO_SMOKE_TEST !== '1') {
     window.once('ready-to-show', () => {
       window.show();

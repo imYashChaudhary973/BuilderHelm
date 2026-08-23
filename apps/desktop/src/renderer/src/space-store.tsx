@@ -23,9 +23,11 @@ export interface SpaceStore {
   readonly activeId: string | null;
   readonly draft: boolean;
   readonly draftSeq: number;
+  readonly wantSetup: boolean;
   meta(session: BoardSessionSummary): SpaceMeta;
   activate(id: string): void;
   startDraft(): void;
+  hideSetup(): void;
   upsert(session: BoardSessionSummary): void;
   drop(id: string): void;
   rename(session: BoardSessionSummary, label: string): void;
@@ -61,6 +63,7 @@ export function SpaceProvider({ children }: { readonly children: ReactNode }): R
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState(true);
   const [draftSeq, setDraftSeq] = useState(0);
+  const [wantSetup, setWantSetup] = useState(false);
   const [metaByPath, setMetaByPath] = useState<Record<string, SpaceMeta>>(loadMeta);
 
   function writeMeta(path: string, patch: Partial<SpaceMeta>, fallbackLabel: string): void {
@@ -81,6 +84,7 @@ export function SpaceProvider({ children }: { readonly children: ReactNode }): R
       activeId,
       draft,
       draftSeq,
+      wantSetup,
       meta(session) {
         return (
           metaByPath[session.folderPath] ?? {
@@ -92,11 +96,16 @@ export function SpaceProvider({ children }: { readonly children: ReactNode }): R
       activate(id) {
         setActiveId(id);
         setDraft(false);
+        setWantSetup(false);
       },
       startDraft() {
         setActiveId(null);
         setDraft(true);
+        setWantSetup(true);
         setDraftSeq((current) => current + 1);
+      },
+      hideSetup() {
+        setWantSetup(false);
       },
       upsert(session) {
         setSpaces((current) => {
@@ -111,6 +120,7 @@ export function SpaceProvider({ children }: { readonly children: ReactNode }): R
         });
         setActiveId(session.sessionId);
         setDraft(false);
+        setWantSetup(false);
       },
       drop(id) {
         setSpaces((current) => {
@@ -152,7 +162,7 @@ export function SpaceProvider({ children }: { readonly children: ReactNode }): R
         });
       },
     }),
-    [spaces, activeId, draft, draftSeq, metaByPath],
+    [spaces, activeId, draft, draftSeq, wantSetup, metaByPath],
   );
 
   return <SpaceContext.Provider value={value}>{children}</SpaceContext.Provider>;
