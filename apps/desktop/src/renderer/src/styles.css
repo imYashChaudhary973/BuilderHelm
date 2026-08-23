@@ -4193,10 +4193,12 @@ fieldset legend {
 
 .editorAuto {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 6px;
   color: var(--text-2);
   font-size: 12px;
+  white-space: nowrap;
 }
 
 .editorStatus {
