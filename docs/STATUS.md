@@ -1,8 +1,8 @@
 # Implementation Status
 
 - Last reviewed: 2026-08-24
-- Baseline: Phases 0–5 and Board landed on `main` at `b7bdb96`
-- Active work: Space home → wizard → live terminals on `feat/space`
+- Baseline: Space landed on `main` at `9656151`
+- Active work: none. Next slice is harness chrome (top bar + left rail)
 
 This document is the canonical summary of what the repository implements now.
 The [blueprint](blueprint/00_README.md) describes intended product direction,
@@ -18,7 +18,7 @@ while [phase reports](reports/README.md) preserve checkpoint evidence.
 | 3     | Complete    | Read-only Obsidian indexing, local retrieval, cited answers, source viewing, and change detection                         |
 | 4     | Complete    | Schema-backed tools, deterministic permissions, exact approvals, action receipts, and action chat                         |
 | 5     | Complete    | Project dashboard, repository attachment, Git status and history, Today summary, and project continuity                   |
-| 6     | In progress | Space: four-mode home, folder/layout wizard, Open without AI, per-pane agents, usable xterm grid |
+| 6     | Complete    | Space: four-mode home, folder/layout wizard, Open without AI, per-pane agents, usable xterm grid |
 | 7–12  | Planned     | Research, automation, voice, health, content, advanced graph, and product hardening                                       |
 
 ## Current application surfaces
@@ -65,6 +65,6 @@ treat those historical test counts as the result for the current worktree.
   must use HTTPS.
 - Models can propose actions, but deterministic application code validates
   permission and executes them.
-- Board land merges locally and does not push remotes or open pull requests.
-- Voice, autonomous coding, automation, HealthKit, and publishing integrations
-  are not implemented yet.
+- Board and Space land on `main` when ready. Permission/security changes still use a PR.
+- Voice, pairing companion, automation, HealthKit, and publishing integrations
+- are not implemented yet. Windows and Linux desktops are not verified yet.
