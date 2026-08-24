@@ -1,8 +1,10 @@
+import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { chmodSync, existsSync, realpathSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { basename, dirname, resolve } from 'node:path';
+import { promisify } from 'node:util';
 
 import {
   BOARD_AGENT_CATALOG,
@@ -22,7 +24,9 @@ import { ZeroError } from '@zero/shared';
 import { Notification, type WebContents } from 'electron';
 import { spawn, type IPty } from 'node-pty';
 
-import { nextStartupAck } from './startup-ack.js';
+import { nextStartupAck, startupFailure } from './startup-ack.js';
+
+const execFileAsync = promisify(execFile);
 
 interface PaneMeta {
   slot: number;
@@ -38,6 +42,8 @@ interface PaneMeta {
 
 interface SessionRecord {
   sender: WebContents;
+  folderPath: string;
+  isolation: BoardCreateInput['isolation'];
   panes: Map<string, PaneMeta>;
 }
 
@@ -155,7 +161,12 @@ export class BoardPtyManager {
     sender: WebContents,
   ): Promise<BoardSessionSummary> {
     const sessionId = randomUUID();
-    const session: SessionRecord = { sender, panes: new Map() };
+    const session: SessionRecord = {
+      sender,
+      folderPath: input.folderPath,
+      isolation: input.isolation,
+      panes: new Map(),
+    };
     this.sessions.set(sessionId, session);
     const panes: Array<{ paneId: string } & Omit<PaneMeta, 'output' | 'pty' | 'acked'>> = [];
     try {
@@ -190,6 +201,14 @@ export class BoardPtyManager {
           if (ack !== null) {
             meta.acked.add(ack.id);
             pty.write(ack.reply);
+          }
+          if (meta.status === 'running' && startupFailure(meta.output) !== null) {
+            meta.status = 'failed';
+            this.forward(sessionId, paneId, {
+              type: 'status',
+              status: 'failed',
+              exitCode: null,
+            });
           }
           this.forward(sessionId, paneId, {
             type: 'data',
@@ -239,10 +258,21 @@ export class BoardPtyManager {
   }
 
   async closePane(input: BoardPaneCloseInput): Promise<void> {
+    const session = this.sessions.get(input.sessionId);
     const pane = this.requirePane(input.sessionId, input.paneId);
     this.closing.add(input.paneId);
     pane.pty?.kill();
     pane.pty = null;
+    if (
+      session !== undefined &&
+      session.isolation === 'worktree' &&
+      pane.cwd !== session.folderPath
+    ) {
+      await execFileAsync('git', ['worktree', 'remove', '--force', pane.cwd], {
+        cwd: session.folderPath,
+        timeout: 15_000,
+      }).catch(() => undefined);
+    }
   }
 
   drainPane(input: BoardPaneDrainInput): { data: string } {

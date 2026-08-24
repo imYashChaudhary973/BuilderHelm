@@ -10,6 +10,12 @@ export const STARTUP_ACKS: readonly StartupAck[] = [
   { id: 'workspace-trust', match: /trust this (workspace|directory)/i, reply: '\r' },
 ];
 
+const STARTUP_FAILS: readonly { id: string; match: RegExp }[] = [
+  { id: 'quota', match: /session limit|usage limit|rate limit/i },
+  { id: 'auth', match: /not logged in|please (log|sign) in|invalid api key/i },
+];
+
+
 const ansi = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
 
 export function visibleText(output: string): string {
@@ -27,3 +33,12 @@ export function nextStartupAck(
   }
   return null;
 }
+
+export function startupFailure(output: string): string | null {
+  const text = visibleText(output);
+  for (const fail of STARTUP_FAILS) {
+    if (fail.match.test(text)) return fail.id;
+  }
+  return null;
+}
+
