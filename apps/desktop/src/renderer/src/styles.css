@@ -654,9 +654,11 @@ html.is-fullscreen .shell {
   padding: 4px 2px;
 }
 
-.railSwatch {
+.railSwatch,
+.railMenu .railSwatch {
   width: 16px;
   height: 16px;
+  flex: 0 0 16px;
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 50%;
@@ -3328,8 +3330,10 @@ html.is-fullscreen .spaceHome {
 
 .spaceHomeKeys {
   display: flex;
-  gap: 36px;
-  margin: 48px 0 0;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 24px;
+  margin: 20px 0 0;
   color: #5c5c5c;
   font-size: 11px;
   font-weight: 550;
@@ -3386,9 +3390,9 @@ html.is-fullscreen .spaceHome {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  min-height: clamp(76px, 11vh, 118px);
-  padding: 14px 8px 12px;
+  gap: 8px;
+  min-height: 72px;
+  padding: 10px 6px 8px;
   border-radius: var(--radius-m);
   border: 1px solid var(--line);
   background: var(--bg-1);
@@ -3605,12 +3609,12 @@ html.is-fullscreen .spaceHome {
   justify-content: flex-start;
   width: min(920px, calc(100% - 64px));
   max-width: 920px;
-  min-height: 100%;
+  min-height: 0;
   height: auto;
   box-sizing: border-box;
   margin: 0 auto;
-  padding: clamp(28px, 4vh, 56px) 0 clamp(32px, 5vh, 72px);
-  gap: clamp(16px, 2.2vh, 28px);
+  padding: 28px 0 24px;
+  gap: 16px;
 }
 
 .spaceWizard > * {
@@ -3618,12 +3622,13 @@ html.is-fullscreen .spaceHome {
   flex: 0 0 auto;
 }
 
-.spaceWizard .wizardSection:has(.layoutTiles),
-.spaceWizard .wizardSection:has(.recentCards) {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
+.spaceWizardFooter {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin-top: 8px;
+  padding: 12px 0 4px;
+  background: linear-gradient(180deg, transparent, #0a0a0a 28%);
 }
 
 .spaceWizard h1 {
@@ -3769,10 +3774,12 @@ html.is-fullscreen .spaceHome {
 .folderRow {
   display: flex;
   gap: 10px;
+  min-width: 0;
 }
 
 .folderRow input {
   flex: 1;
+  min-width: 0;
   padding: 9px 12px;
   border-radius: var(--radius-s);
   border: 1px solid var(--line);
@@ -3781,6 +3788,11 @@ html.is-fullscreen .spaceHome {
   transition:
     border-color 0.15s var(--ease-out),
     background 0.15s var(--ease-out);
+}
+
+.folderRow .secondaryButton {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .folderRow input:focus {
@@ -3969,7 +3981,13 @@ html.is-fullscreen .spaceHome {
 
 .boardToolbar h1 {
   margin: 0;
+  min-width: 0;
   font-size: 18px;
+}
+
+.boardToolbar .secondaryButton {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .boardGrid {

@@ -611,22 +611,20 @@ export function BoardPage(): React.JSX.Element {
                   </span>
                   <span className="spaceModeText">
                     <strong>{mode.name}</strong>
-                    <span className="spaceModeHint">
+                    <span className="spaceModeHint" aria-hidden="true">
                       <span>{mode.promise}</span>
                     </span>
                   </span>
-                  {mode.id === 'memory' ? (
-                    <span className="spaceModeSoon">
-                      <LockGlyph />
-                      Soon
-                    </span>
-                  ) : mode.enabled ? (
+                  {mode.enabled ? (
                     <>
                       <kbd>{mode.shortcut}</kbd>
                       <span className="spaceModeOpen">Open →</span>
                     </>
-                  ) : mode.id === 'board' ? null : (
-                    <kbd>{mode.shortcut}</kbd>
+                  ) : (
+                    <span className="spaceModeSoon">
+                      <LockGlyph />
+                      Soon
+                    </span>
                   )}
                 </button>
               </li>
