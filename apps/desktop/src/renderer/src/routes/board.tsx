@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import type {
   BoardAgentDetection,
   BoardAgentId,
@@ -15,7 +15,6 @@ import { useEffect, useState } from 'react';
 import { TerminalPane } from '../components/terminal-pane.js';
 import { SignalField } from '../components/signal-field.js';
 import { AgentMark } from '../components/agent-mark.js';
-import { usePreview } from '../preview-store.js';
 import { useSpaces } from '../space-store.js';
 import logo from '../assets/logo.png';
 const PANE_COUNTS: readonly BoardPaneCount[] = [1, 2, 4, 6, 8, 10, 12];
@@ -234,7 +233,7 @@ function looksLikeCd(value: string): boolean {
 }
 
 export function BoardPage(): React.JSX.Element {
-  const preview = usePreview();
+  const navigate = useNavigate();
   const spaceStore = useSpaces();
   const session =
     spaceStore.spaces.find((item) => item.sessionId === spaceStore.activeId) ?? null;
@@ -297,12 +296,12 @@ export function BoardPage(): React.JSX.Element {
       }
       if (event.key.toLowerCase() === 'b') {
         event.preventDefault();
-        preview.setTab('board');
+        void navigate({ to: '/board' });
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [phase, preview]);
+  }, [phase, navigate]);
 
   useEffect(() => {
     if (!spaceStore.wantSetup) return;
@@ -610,7 +609,7 @@ export function BoardPage(): React.JSX.Element {
                   disabled={!mode.enabled}
                   onClick={() => {
                     if (mode.id === 'board') {
-                      preview.setTab('board');
+                      void navigate({ to: '/board' });
                       return;
                     }
                     if (mode.enabled) setPhase('workspace');

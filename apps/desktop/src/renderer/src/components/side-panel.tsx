@@ -3,13 +3,11 @@ import { useEffect, useState } from 'react';
 import { usePreview, type SideTab } from '../preview-store.js';
 import { BrowserSidebar } from './browser-sidebar.js';
 import { EditorSidebar } from './editor-sidebar.js';
-import { KanbanSidebar } from './kanban-sidebar.js';
 import { GitSidebar } from './git-sidebar.js';
 
 const TABS: readonly { id: SideTab | 'skills'; label: string; live: boolean }[] = [
   { id: 'browser', label: 'Browser', live: true },
   { id: 'editor', label: 'Editor', live: true },
-  { id: 'board', label: 'BuilderHelm Board', live: true },
   { id: 'git', label: 'Git', live: true },
   { id: 'skills', label: 'Skills', live: false },
 ];
@@ -38,15 +36,6 @@ function TabIcon({ id }: { readonly id: string }): React.JSX.Element {
       <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
         <path d="M4 3.5h8v9H4z" fill="none" stroke="currentColor" strokeWidth="1.4" />
         <path d="M6 6h4M6 8.5h3" fill="none" stroke="currentColor" strokeWidth="1.3" />
-      </svg>
-    );
-  }
-  if (id === 'board') {
-    return (
-      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-        <rect x="4.5" y="5.5" width="4" height="13" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-        <rect x="10" y="5.5" width="4" height="8.5" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-        <rect x="15.5" y="5.5" width="4" height="11" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
       </svg>
     );
   }
@@ -133,7 +122,6 @@ export function SidePanel(): React.JSX.Element {
         {preview.tab === 'browser' ? <BrowserSidebar startUrl={preview.url} /> : null}
         {preview.tab === 'editor' ? <EditorSidebar /> : null}
         {preview.tab === 'git' ? <GitSidebar /> : null}
-        {preview.tab === 'board' ? <KanbanSidebar /> : null}
       </div>
     </aside>
   );

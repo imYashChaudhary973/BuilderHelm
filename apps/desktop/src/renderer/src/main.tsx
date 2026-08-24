@@ -10,6 +10,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { App } from './App.js';
+import { KanbanBoard } from './components/kanban-board.js';
 import { ActionsPage } from './routes/actions.js';
 import { BoardPage } from './routes/board.js';
 import { ChatPage } from './routes/chat.js';
@@ -55,10 +56,15 @@ const projectsRoute = createRoute({
   path: '/projects',
   component: ProjectsPage,
 });
+const spaceRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/space',
+  component: BoardPage,
+});
 const boardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/board',
-  component: BoardPage,
+  component: KanbanBoard,
 });
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -67,6 +73,7 @@ const routeTree = rootRoute.addChildren([
   knowledgeRoute,
   actionsRoute,
   projectsRoute,
+  spaceRoute,
   boardRoute,
   providersRoute,
 ]);

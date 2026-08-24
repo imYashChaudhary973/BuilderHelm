@@ -17,13 +17,15 @@ function workspaceOf(spaces: ReturnType<typeof useSpaces>): string {
   );
 }
 
-export function KanbanSidebar(): React.JSX.Element {
+export function KanbanBoard(): React.JSX.Element {
   const spaces = useSpaces();
   const workspace = workspaceOf(spaces);
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [title, setTitle] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dropColumn, setDropColumn] = useState<KanbanColumn | null>(null);
   const workspaceName =
     workspace === 'global'
       ? 'All spaces'
@@ -76,6 +78,14 @@ export function KanbanSidebar(): React.JSX.Element {
     }
   }
 
+  async function dropCard(id: string, column: KanbanColumn): Promise<void> {
+    setDraggedId(null);
+    setDropColumn(null);
+    const card = cards.find((item) => item.id === id);
+    if (card === undefined || card.column === column) return;
+    await move(card, column);
+  }
+
   return (
     <section
       className="kanbanPage"
@@ -121,7 +131,8 @@ export function KanbanSidebar(): React.JSX.Element {
           <div>
             <h1 id="kanban-title">BuilderHelm Board</h1>
             <p>
-              {workspaceName} · {cards.length} {cards.length === 1 ? 'task' : 'tasks'}
+              {workspaceName} · {cards.length} {cards.length === 1 ? 'task' : 'tasks'} ·
+              Drag tasks between stages
             </p>
           </div>
         </div>
@@ -153,7 +164,32 @@ export function KanbanSidebar(): React.JSX.Element {
         {COLUMNS.map((column) => {
           const items = cards.filter((card) => card.column === column.id);
           return (
-            <section key={column.id} className="kanbanCol" data-column={column.id}>
+            <section
+              key={column.id}
+              className={
+                dropColumn === column.id ? 'kanbanCol kanbanDropTarget' : 'kanbanCol'
+              }
+              data-column={column.id}
+              onDragEnter={(event) => {
+                event.preventDefault();
+                setDropColumn(column.id);
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+                setDropColumn(column.id);
+              }}
+              onDragLeave={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                  setDropColumn((current) => (current === column.id ? null : current));
+                }
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                const id = event.dataTransfer.getData('text/plain') || draggedId;
+                if (id !== null) void dropCard(id, column.id);
+              }}
+            >
               <header>
                 <span>{column.label}</span>
                 <strong>{items.length}</strong>
@@ -161,7 +197,23 @@ export function KanbanSidebar(): React.JSX.Element {
               <ul>
                 {items.length === 0 ? <li className="kanbanEmpty">No tasks</li> : null}
                 {items.map((card) => (
-                  <li key={card.id}>
+                  <li
+                    key={card.id}
+                    className={
+                      draggedId === card.id ? 'kanbanCard kanbanDragging' : 'kanbanCard'
+                    }
+                    draggable={!busy}
+                    aria-grabbed={draggedId === card.id}
+                    onDragStart={(event) => {
+                      event.dataTransfer.effectAllowed = 'move';
+                      event.dataTransfer.setData('text/plain', card.id);
+                      setDraggedId(card.id);
+                    }}
+                    onDragEnd={() => {
+                      setDraggedId(null);
+                      setDropColumn(null);
+                    }}
+                  >
                     <p>{card.title}</p>
                     <div>
                       {column.id !== 'idea' ? (

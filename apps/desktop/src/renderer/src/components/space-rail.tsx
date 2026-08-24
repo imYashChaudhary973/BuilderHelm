@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useRouterState } from '@tanstack/react-router';
 import type { BoardSessionSummary } from '@zero/protocol/board';
 
 import { SPACE_COLORS, useSpaces } from '../space-store.js';
@@ -22,8 +22,19 @@ function TerminalGlyph(): React.JSX.Element {
   );
 }
 
+function BoardGlyph(): React.JSX.Element {
+  return (
+    <svg className="railTerm" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="4.5" y="5.5" width="4" height="13" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <rect x="10" y="5.5" width="4" height="8.5" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <rect x="15.5" y="5.5" width="4" height="11" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+    </svg>
+  );
+}
+
 export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React.JSX.Element {
   const navigate = useNavigate();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const spaces = useSpaces();
   const [menuId, setMenuId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -40,17 +51,38 @@ export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React
 
   function openSpace(session: BoardSessionSummary): void {
     spaces.activate(session.sessionId);
-    void navigate({ to: '/board' });
+    void navigate({ to: '/space' });
   }
   return (
-    <aside className={collapsed ? 'rail railCollapsed' : 'rail'} aria-label="Spaces">
+    <aside className={collapsed ? 'rail railCollapsed' : 'rail'} aria-label="BuilderHelm navigation">
+      <div
+        className={pathname === '/board' ? 'railRow railItemOn' : 'railRow'}
+        style={{ '--tile': '#b6d475' } as React.CSSProperties}
+      >
+        <button
+          type="button"
+          className={collapsed ? 'railTile' : 'railItem'}
+          title="BuilderHelm Board"
+          aria-current={pathname === '/board' ? 'page' : undefined}
+          onClick={() => void navigate({ to: '/board' })}
+        >
+          <BoardGlyph />
+          {collapsed ? null : (
+            <span className="railCopy">
+              <strong>BuilderHelm Board</strong>
+              <small>Tasks</small>
+            </span>
+          )}
+        </button>
+      </div>
+      <div className="railModeDivider" />
       <button
         type="button"
-        className={spaces.draft ? 'railNew railItemOn' : 'railNew'}
+        className={spaces.draft && pathname !== '/board' ? 'railNew railItemOn' : 'railNew'}
         title="New Space"
         onClick={() => {
           spaces.startDraft();
-          void navigate({ to: '/board' });
+          void navigate({ to: '/space' });
           setMenuId(null);
         }}
       >
@@ -58,7 +90,8 @@ export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React
       </button>
       <div className="railList">
         {spaces.spaces.map((space) => {
-          const on = !spaces.draft && spaces.activeId === space.sessionId;
+          const on =
+            pathname !== '/board' && !spaces.draft && spaces.activeId === space.sessionId;
           const meta = spaces.meta(space);
           const menuOpen = menuId === space.sessionId;
           const renaming = renamingId === space.sessionId;

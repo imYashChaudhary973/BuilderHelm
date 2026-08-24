@@ -483,6 +483,13 @@ html.is-fullscreen .shell {
   padding: 12px 6px;
 }
 
+.railModeDivider {
+  height: 1px;
+  margin: 2px 4px;
+  background: var(--line);
+}
+
+
 .railList {
   display: flex;
   flex: 1;
@@ -722,6 +729,7 @@ html.is-fullscreen .shell {
 }
 
 .content:has(.boardGrid),
+.content:has(.kanbanPage),
 .content:has(.spaceHome),
 .content:has(.spaceWizard),
 .content:has(.spaceStage) {
@@ -3205,15 +3213,67 @@ html.is-fullscreen .spaceHome {
     border-color 180ms ease;
 }
 
+@property --mode-edge-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes modeEdgeSweep {
+  0%,
+  10% {
+    --mode-edge-angle: 0deg;
+    opacity: 0.18;
+  }
+  16% {
+    opacity: 1;
+  }
+  46% {
+    --mode-edge-angle: 360deg;
+    opacity: 1;
+  }
+  52%,
+  100% {
+    --mode-edge-angle: 360deg;
+    opacity: 0.18;
+  }
+}
+
 .spaceMode::before {
-  content: '';
   position: absolute;
-  top: 0;
-  right: 20px;
-  left: 20px;
-  height: 1px;
-  background: linear-gradient(90deg, #6ff4af 0%, #e8ff6a 45%, #c9a0ff 100%);
-  opacity: 0.8;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--mode-edge-angle),
+    transparent 0deg 306deg,
+    rgba(201, 160, 255, 0.35) 320deg,
+    #6ff4af 332deg,
+    #ffffff 340deg,
+    #e8ff6a 347deg,
+    transparent 360deg
+  );
+  filter: drop-shadow(0 0 4px rgba(111, 244, 175, 0.7));
+  pointer-events: none;
+  content: '';
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: modeEdgeSweep 8s linear infinite;
+}
+
+.spaceModes li:nth-child(2) .spaceMode::before {
+  animation-delay: -2s;
+}
+
+.spaceModes li:nth-child(3) .spaceMode::before {
+  animation-delay: -4s;
+}
+
+.spaceModes li:nth-child(4) .spaceMode::before {
+  animation-delay: -6s;
 }
 
 .spaceMode:hover:not(:disabled),
@@ -4067,7 +4127,7 @@ html.is-fullscreen .spaceHome {
 
 .kanbanGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(150px, 1fr));
+  grid-template-columns: repeat(3, minmax(240px, 1fr));
   gap: 10px;
   min-height: 0;
   flex: 1;
@@ -4082,7 +4142,22 @@ html.is-fullscreen .spaceHome {
   border: 1px solid var(--line);
   border-radius: 10px;
   background: #0c0d0c;
+  transition:
+    border-color 160ms var(--ease-out),
+    background 160ms var(--ease-out),
+    box-shadow 160ms var(--ease-out);
 }
+
+.kanbanDropTarget {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent-dim) 55%, #0c0d0c);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+.kanbanDropTarget ul {
+  background: color-mix(in srgb, var(--accent-dim) 25%, transparent);
+}
+
 
 .kanbanCol[data-column='idea'] {
   border-top-color: #8b9288;
@@ -4156,6 +4231,28 @@ html.is-fullscreen .spaceHome {
   background: #121312;
 }
 
+.kanbanCard {
+  cursor: grab;
+  transition:
+    opacity 160ms var(--ease-out),
+    transform 160ms var(--ease-out),
+    border-color 160ms var(--ease-out);
+}
+
+.kanbanCard:hover {
+  border-color: rgba(182, 212, 117, 0.32);
+}
+
+.kanbanCard:active {
+  cursor: grabbing;
+}
+
+.kanbanDragging {
+  opacity: 0.35;
+  transform: scale(0.98);
+}
+
+
 .kanbanCol li p {
   min-width: 0;
   margin: 0;
@@ -4195,6 +4292,7 @@ html.is-fullscreen .spaceHome {
   color: var(--text-3);
   background: transparent !important;
   font-size: 11px;
+  cursor: default;
 }
 
 .boardToolbar {
@@ -4377,7 +4475,10 @@ html.is-fullscreen .spaceHome {
   .folderRow input,
   .slotSelect,
   .slotCard input,
-  .presetNameInput {
+  .presetNameInput,
+  .spaceMode::before,
+  .kanbanCard,
+  .kanbanCol {
     animation: none;
     transition: none;
   }
