@@ -8,6 +8,8 @@ export const SWARM_BUDGET_MS = 20 * 60 * 1000;
 export const SWARM_STUCK_MS = 90 * 1000;
 
 export type SwarmMemberStatus = 'starting' | 'running' | 'stuck' | 'exited' | 'failed';
+export type SwarmStuckAction = 'none' | 'nudge' | 'stop';
+
 export type SwarmRunStatus = 'running' | 'stuck' | 'budget' | 'stopped' | 'done';
 
 export interface SwarmAssignment {
@@ -43,6 +45,22 @@ export function swarmBrief(role: SwarmRole, job: string): string {
   const clipped = job.trim().slice(0, 2_000);
   return `You are the ${role} in a BuilderHelm Swarm.\nJob: ${clipped}\n\n${DUTY[role]}\n`;
 }
+export const SWARM_NUDGE =
+  'You have been silent. Report status in one line, then continue or say you are blocked.';
+
+
+export function swarmStuckAction(input: {
+  readonly status: SwarmMemberStatus;
+  readonly nudgedAt: number | null;
+  readonly now: number;
+  readonly stuckAfterMs: number;
+}): SwarmStuckAction {
+  if (input.status !== 'stuck') return 'none';
+  if (input.nudgedAt === null) return 'nudge';
+  if (input.now - input.nudgedAt >= input.stuckAfterMs) return 'stop';
+  return 'none';
+}
+
 
 export function swarmMemberStatus(input: {
   readonly paneStatus: BoardPaneStatus;

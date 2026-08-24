@@ -7,6 +7,7 @@ import {
   swarmBrief,
   swarmMemberStatus,
   swarmRunStatus,
+  swarmStuckAction,
 } from '../src/swarm.js';
 
 function detection(
@@ -80,5 +81,40 @@ describe('swarm policy', () => {
     const brief = swarmBrief('builder', 'x'.repeat(8_000));
     expect(brief.length).toBeLessThanOrEqual(10_000);
     expect(brief).toContain('You are the builder');
+  });
+
+  it('nudges once, then stops a pane that stays silent', () => {
+    expect(
+      swarmStuckAction({
+        status: 'stuck',
+        nudgedAt: null,
+        now: 90_000,
+        stuckAfterMs: 90_000,
+      }),
+    ).toBe('nudge');
+    expect(
+      swarmStuckAction({
+        status: 'stuck',
+        nudgedAt: 90_000,
+        now: 179_999,
+        stuckAfterMs: 90_000,
+      }),
+    ).toBe('none');
+    expect(
+      swarmStuckAction({
+        status: 'stuck',
+        nudgedAt: 90_000,
+        now: 180_000,
+        stuckAfterMs: 90_000,
+      }),
+    ).toBe('stop');
+    expect(
+      swarmStuckAction({
+        status: 'running',
+        nudgedAt: null,
+        now: 90_000,
+        stuckAfterMs: 90_000,
+      }),
+    ).toBe('none');
   });
 });

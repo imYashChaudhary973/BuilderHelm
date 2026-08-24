@@ -1,8 +1,13 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import type { BoardPaneStatus, BoardSessionSummary } from '@zero/protocol/board';
+import type {
+  BoardIsolation,
+  BoardPaneStatus,
+  BoardSessionSummary,
+} from '@zero/protocol/board';
 import {
   SWARM_BUDGET_MS,
+  SWARM_NUDGE,
   SWARM_PANE_COUNT,
   SWARM_STUCK_MS,
   assignSwarmPanes,
@@ -10,10 +15,11 @@ import {
   swarmBrief,
   swarmMemberStatus,
   swarmRunStatus,
+  swarmStuckAction,
   type SwarmAssignment,
 } from '@zero/protocol/swarm';
 import type { CorrelationId } from '@zero/shared';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { TerminalPane } from '../components/terminal-pane.js';
 import { useSpaces } from '../space-store.js';
@@ -56,6 +62,7 @@ function formatRemain(ms: number): string {
 interface LiveRun {
   readonly session: BoardSessionSummary;
   readonly assignments: readonly SwarmAssignment[];
+  readonly isolation: BoardIsolation;
   readonly startedAt: number;
   readonly stopped: boolean;
 }
@@ -70,7 +77,9 @@ export function SwarmPage(): React.JSX.Element {
   const [run, setRun] = useState<LiveRun | null>(null);
   const [lastOutput, setLastOutput] = useState<Record<string, number>>({});
   const [paneStatus, setPaneStatus] = useState<Record<string, BoardPaneStatus>>({});
+  const [nudgedAt, setNudgedAt] = useState<Record<string, number>>({});
   const [now, setNow] = useState(() => Date.now());
+  const stuckActed = useRef<Record<string, 'nudge' | 'stop'>>({});
 
   const agents = useQuery({
     queryKey: ['board-agents'],
@@ -115,28 +124,44 @@ export function SwarmPage(): React.JSX.Element {
       }
       const folder = folderPath.trim();
       if (folder.length === 0) throw new Error('Pick a folder first.');
-      const summary = await window.zero.board.createSession({
+      const panes = assignments.map((item, slot) => ({ slot, agentId: item.agentId }));
+      const base = {
         correlationId: crypto.randomUUID() as CorrelationId,
         folderPath: folder,
         paneCount: SWARM_PANE_COUNT,
-        isolation: 'shared',
-        panes: assignments.map((item, slot) => ({ slot, agentId: item.agentId })),
-      });
-      return { summary, assignments };
+        panes,
+      };
+      try {
+        const summary = await window.zero.board.createSession({
+          ...base,
+          paneCount: SWARM_PANE_COUNT,
+          isolation: 'worktree',
+        });
+        return { summary, assignments, isolation: 'worktree' as const };
+      } catch {
+        const summary = await window.zero.board.createSession({
+          ...base,
+          paneCount: SWARM_PANE_COUNT,
+          isolation: 'shared',
+        });
+        return { summary, assignments, isolation: 'shared' as const };
+      }
     },
     onMutate: () => setError(null),
-    onSuccess: ({ summary, assignments }) => {
+    onSuccess: ({ summary, assignments, isolation }) => {
       writeRecents(summary.folderPath);
       spaces.upsert(summary);
       spaces.rename(summary, `Swarm · ${folderName(summary.folderPath)}`);
       const startedAt = Date.now();
+      stuckActed.current = {};
+      setNudgedAt({});
       setPaneStatus(
         Object.fromEntries(summary.panes.map((pane) => [pane.paneId, pane.status])),
       );
       setLastOutput(
         Object.fromEntries(summary.panes.map((pane) => [pane.paneId, startedAt])),
       );
-      setRun({ session: summary, assignments, startedAt, stopped: false });
+      setRun({ session: summary, assignments, isolation, startedAt, stopped: false });
       window.setTimeout(() => {
         for (const [index, pane] of summary.panes.entries()) {
           const assignment = assignments[index];
@@ -198,6 +223,54 @@ export function SwarmPage(): React.JSX.Element {
     void stopRun(run);
   }, [run, status]);
 
+  useEffect(() => {
+    if (run === null || run.stopped) return;
+    for (const member of members) {
+      const paneId = member.pane.paneId;
+      if (member.status === 'running' || member.status === 'starting') {
+        if (nudgedAt[paneId] !== undefined) {
+          setNudgedAt((current) => {
+            const next = { ...current };
+            delete next[paneId];
+            return next;
+          });
+          delete stuckActed.current[paneId];
+        }
+        continue;
+      }
+      const action = swarmStuckAction({
+        status: member.status,
+        nudgedAt: nudgedAt[paneId] ?? null,
+        now,
+        stuckAfterMs: SWARM_STUCK_MS,
+      });
+      if (action === 'nudge' && stuckActed.current[paneId] === undefined) {
+        stuckActed.current[paneId] = 'nudge';
+        setNudgedAt((current) => ({ ...current, [paneId]: now }));
+        void window.zero.board
+          .write({
+            correlationId: crypto.randomUUID() as CorrelationId,
+            sessionId: run.session.sessionId,
+            paneId,
+            data: `${SWARM_NUDGE}\r`,
+          })
+          .catch(() => undefined);
+      }
+      if (action === 'stop' && stuckActed.current[paneId] !== 'stop') {
+        stuckActed.current[paneId] = 'stop';
+        void window.zero.board
+          .closePane({
+            correlationId: crypto.randomUUID() as CorrelationId,
+            sessionId: run.session.sessionId,
+            paneId,
+          })
+          .catch(() => undefined);
+        setPaneStatus((current) => ({ ...current, [paneId]: 'exited' }));
+      }
+    }
+  }, [members, now, nudgedAt, run]);
+
+
   async function browse(): Promise<void> {
     setError(null);
     const picked = await window.zero.board.selectFolder();
@@ -216,7 +289,9 @@ export function SwarmPage(): React.JSX.Element {
             <div>
               <h1 id="swarm-title">BuilderHelm Swarm</h1>
               <p>
-                {folderName(run.session.folderPath)} · {status} · {formatRemain(remain)} left
+                {folderName(run.session.folderPath)} ·{' '}
+                {run.isolation === 'worktree' ? 'worktrees' : 'shared folder'} · {status} ·{' '}
+                {formatRemain(remain)} left
               </p>
             </div>
           </div>
@@ -231,13 +306,19 @@ export function SwarmPage(): React.JSX.Element {
         </header>
         <p className="swarmJobLine">{job.trim()}</p>
         <ul className="swarmRoles">
-          {members.map((item) => (
-            <li key={item.pane.paneId}>
-              <strong>{item.assignment?.role ?? item.pane.title}</strong>
-              <span>{item.assignment?.agentId ?? item.pane.agentId}</span>
-              <em data-status={item.status}>{item.status}</em>
-            </li>
-          ))}
+          {members.map((item) => {
+            const label =
+              item.status === 'stuck' && nudgedAt[item.pane.paneId] !== undefined
+                ? 'nudged'
+                : item.status;
+            return (
+              <li key={item.pane.paneId}>
+                <strong>{item.assignment?.role ?? item.pane.title}</strong>
+                <span>{item.assignment?.agentId ?? item.pane.agentId}</span>
+                <em data-status={item.status}>{label}</em>
+              </li>
+            );
+          })}
         </ul>
         {error !== null && (
           <p className="errorBanner" role="alert">
@@ -273,7 +354,10 @@ export function SwarmPage(): React.JSX.Element {
     <section className="spaceStage" aria-labelledby="swarm-setup-title" data-core-status="ready">
       <div className="boardPage spaceWizard">
         <h1 id="swarm-setup-title">Start a swarm</h1>
-        <p className="lede">One job. Four roles. A 20-minute budget. Stuck after 90s of silence.</p>
+        <p className="lede">
+          One job. Four roles. Worktrees when the folder is a git repo. Nudge at 90s
+          silence, then stop that pane.
+        </p>
         <div className="wizardSection">
           <label className="wizardLabel" htmlFor="swarm-job">
             Job <span>What should the agents finish</span>
@@ -289,7 +373,7 @@ export function SwarmPage(): React.JSX.Element {
         </div>
         <div className="wizardSection">
           <label className="wizardLabel" htmlFor="swarm-folder">
-            Working folder <span>Shared checkout. Isolation comes later.</span>
+            Working folder <span>Git repo → one worktree per role. Else one shared folder.</span>
           </label>
           <div className="folderRow">
             <input
@@ -326,7 +410,8 @@ export function SwarmPage(): React.JSX.Element {
             Roles <span>Coordinator · Builder · Scout · Reviewer</span>
           </span>
           <p className="swarmHint">
-            Uses the first installed agent CLIs. Same CLI can hold more than one role.
+            Uses installed agent CLIs. Same CLI can hold more than one role. A silent
+            pane is nudged once, then closed.
           </p>
         </div>
         {error !== null && (

@@ -19,9 +19,9 @@ Git snapshots, PTY grid, app chrome.
 
 ## Next — Swarm
 
-First loop on `feat/swarm`: one job, four roles (coordinator, builder, scout,
-reviewer) on a 4-pane Space grid, 20-minute budget, 90s silence = stuck.
-Worktree isolation and richer coordinator policy come after this loop works.
+On `feat/swarm`: one job, four roles, worktree per role when the folder is a
+git repo (shared folder otherwise), 20-minute budget, 90s silence → nudge →
+stop that pane. Richer coordinator policy comes after this works in the app.
 
 ## Future directions — delegate and build
 

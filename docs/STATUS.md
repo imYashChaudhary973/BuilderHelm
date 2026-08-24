@@ -24,7 +24,7 @@ What the repository implements now. Product intent lives in
 | Editor | Workspace-scoped tree, tabs, save / save-all / autosave, word wrap |
 | Git | Branch, staged vs worktree, history, stage, unstage, commit |
 | Board | Project chooser, independent persisted boards, left-rail project tabs, drag-and-drop stages |
-| Swarm | Job + four roles on Space panes, 20-minute budget, 90s stuck policy (in progress on `feat/swarm`) |
+| Swarm | Four-role run, worktree-or-shared launch, 20-minute budget, nudge-then-stop stuck policy (`feat/swarm`) |
 
 ## Current application surfaces
 
