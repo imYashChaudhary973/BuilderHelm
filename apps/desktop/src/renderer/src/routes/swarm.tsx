@@ -2,6 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import type {
   BoardIsolation,
+  BoardLandPreview,
   BoardPaneStatus,
   BoardSessionSummary,
 } from '@zero/protocol/board';
@@ -24,6 +25,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { TerminalPane } from '../components/terminal-pane.js';
 import { useSpaces } from '../space-store.js';
+import { readLastJob, writeLastJob } from '../swarm-persist.js';
 
 const RECENTS_KEY = 'exeum.space.recents';
 
@@ -71,11 +73,13 @@ interface LiveRun {
 export function SwarmPage(): React.JSX.Element {
   const navigate = useNavigate();
   const spaces = useSpaces();
-  const [job, setJob] = useState('');
+  const [job, setJob] = useState(readLastJob());
   const [folderPath, setFolderPath] = useState('');
   const [homeDir, setHomeDir] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [run, setRun] = useState<LiveRun | null>(null);
+  const [landNotice, setLandNotice] = useState<string | null>(null);
+  const [landPreview, setLandPreview] = useState<BoardLandPreview | null>(null);
   const [lastOutput, setLastOutput] = useState<Record<string, number>>({});
   const [paneStatus, setPaneStatus] = useState<Record<string, BoardPaneStatus>>({});
   const [nudgedAt, setNudgedAt] = useState<Record<string, number>>({});
@@ -150,6 +154,7 @@ export function SwarmPage(): React.JSX.Element {
     },
     onMutate: () => setError(null),
     onSuccess: ({ summary, assignments, isolation }) => {
+      writeLastJob(job);
       writeRecents(summary.folderPath);
       spaces.upsert(summary);
       spaces.rename(summary, `Swarm · ${folderName(summary.folderPath)}`);
@@ -182,6 +187,49 @@ export function SwarmPage(): React.JSX.Element {
       }, 1_500);
     },
     onError: (cause: Error) => setError(cause.message),
+  });
+
+  const previewLand = useMutation({
+    mutationFn: (branch: string) => {
+      if (run === null) throw new Error('No live swarm');
+      return window.zero.board.previewLand({
+        correlationId: crypto.randomUUID() as CorrelationId,
+        repoPath: run.session.folderPath,
+        branch,
+      });
+    },
+    onMutate: () => {
+      setLandNotice(null);
+      setLandPreview(null);
+    },
+    onSuccess: (preview) => {
+      setLandPreview(preview);
+      const files =
+        preview.files.length === 0 ? 'no file changes' : preview.files.join(', ');
+      setLandNotice(
+        preview.ahead === 0
+          ? `${preview.branch} has no commits ahead of ${preview.base}`
+          : `${preview.ahead} commit(s) on ${preview.branch} vs ${preview.base}: ${files}. Click Land again to merge.`,
+      );
+    },
+    onError: (cause: Error) => setLandNotice(cause.message),
+  });
+
+  const land = useMutation({
+    mutationFn: (branch: string) => {
+      if (run === null) throw new Error('No live swarm');
+      return window.zero.board.land({
+        correlationId: crypto.randomUUID() as CorrelationId,
+        repoPath: run.session.folderPath,
+        branch,
+      });
+    },
+    onMutate: () => setLandNotice(null),
+    onSuccess: (result, branch) => {
+      setLandPreview(null);
+      setLandNotice(`Landed ${branch} at ${result.head.slice(0, 7)}`);
+    },
+    onError: (cause: Error) => setLandNotice(cause.message),
   });
 
   async function stopRun(current: LiveRun): Promise<void> {
@@ -329,23 +377,44 @@ export function SwarmPage(): React.JSX.Element {
             {error}
           </p>
         )}
+        {landNotice !== null && (
+          <p className="errorBanner" role="status">
+            {landNotice}
+          </p>
+        )}
         <div
           className="boardGrid"
           style={{ gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr' }}
         >
-          {run.session.panes.map((pane) => (
-            <TerminalPane
-              key={pane.paneId}
-              sessionId={run.session.sessionId}
-              pane={pane}
-              maximized={false}
-              landing={false}
-              confirmLand={false}
-              onToggleMaximize={() => undefined}
-              onClose={() => undefined}
-              onLand={undefined}
-            />
-          ))}
+          {run.session.panes.map((pane) => {
+            const canLand = run.isolation === 'worktree' && pane.branch !== null;
+            return (
+              <TerminalPane
+                key={pane.paneId}
+                sessionId={run.session.sessionId}
+                pane={pane}
+                maximized={false}
+                landing={canLand && (land.isPending || previewLand.isPending)}
+                confirmLand={
+                  canLand && landPreview?.branch === pane.branch && landPreview.ahead > 0
+                }
+                onToggleMaximize={() => undefined}
+                onClose={() => undefined}
+                onLand={
+                  canLand
+                    ? () => {
+                        const branch = pane.branch as string;
+                        if (landPreview?.branch === branch && landPreview.ahead > 0) {
+                          land.mutate(branch);
+                          return;
+                        }
+                        previewLand.mutate(branch);
+                      }
+                    : undefined
+                }
+              />
+            );
+          })}
         </div>
       </section>
     );

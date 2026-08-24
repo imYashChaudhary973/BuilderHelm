@@ -42,6 +42,16 @@ function Shell(): React.JSX.Element {
     .filter((item) => item.length > 0)
     .join(' ');
 
+  if (typeof window.zero === 'undefined') {
+    return (
+      <main className="content" role="main">
+        <p className="errorBanner" role="alert">
+          Open BuilderHelm from the desktop app.
+        </p>
+      </main>
+    );
+  }
+
   return (
     <div className={shellClass}>
       <header className="topbar">
