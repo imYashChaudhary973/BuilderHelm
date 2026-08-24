@@ -20,6 +20,7 @@
     "zod": "^4.0.0"
   },
   "scripts": {
+    "postinstall": "node scripts/ensure-node-pty.mjs",
     "build": "electron-vite build",
     "dev": "electron-vite dev",
     "dist": "electron-vite build && electron-builder --mac --arm64 --publish never",
