@@ -8,7 +8,7 @@ import {
 export const SWARM_ROLES = ['coordinator', 'builder', 'scout', 'reviewer'] as const;
 export type SwarmRole = (typeof SWARM_ROLES)[number];
 
-export const SWARM_PANE_COUNT = 4;
+export const SWARM_PANE_COUNT = 8;
 export const SWARM_BUDGET_MS = 20 * 60 * 1000;
 export const SWARM_STUCK_MS = 90 * 1000;
 
@@ -30,22 +30,62 @@ const DUTY: Record<SwarmRole, string> = {
   reviewer: 'Review the Builder work. Name bugs and missing tests. Do not rewrite everything.',
 };
 
-const SWARM_ALLOW_AGENTS: ReadonlySet<BoardAgentId> = new Set(['grok', 'opencode']);
-const SWARM_PREFER_AGENTS: readonly BoardAgentId[] = ['grok', 'opencode'];
 export const SWARM_OPENCODE_MODEL = 'openrouter/stealth/ox-alpha';
+
+export const SWARM_PRESETS = [
+  { id: 'recon', size: 3 as const, label: 'Recon', seats: { coordinator: 1, builder: 1, scout: 1, reviewer: 0 } },
+  { id: 'squad', size: 5 as const, label: 'Squad', seats: { coordinator: 1, builder: 2, scout: 1, reviewer: 1 } },
+  { id: 'crew', size: 8 as const, label: 'Crew', seats: { coordinator: 1, builder: 5, scout: 1, reviewer: 1 } },
+  { id: 'full', size: 12 as const, label: 'Full swarm', seats: { coordinator: 1, builder: 9, scout: 1, reviewer: 1 } },
+] as const;
+export type SwarmPresetId = (typeof SWARM_PRESETS)[number]['id'];
+
+export const SWARM_SKILLS = [
+  { id: 'commits', group: 'workflow', title: 'Incremental Commits', detail: 'Commit small, atomic changes.' },
+  { id: 'refactor', group: 'workflow', title: 'Refactor Only', detail: 'Restructure without changing behavior.' },
+  { id: 'monorepo', group: 'workflow', title: 'Monorepo Aware', detail: 'Respect package boundaries.' },
+  { id: 'tdd', group: 'quality', title: 'Test-Driven', detail: 'Write tests first, then implement.' },
+  { id: 'review', group: 'quality', title: 'Code Review', detail: 'Review all changes before merge.' },
+  { id: 'docs', group: 'quality', title: 'Documentation', detail: 'Document all public APIs.' },
+  { id: 'security', group: 'quality', title: 'Security Audit', detail: 'Check for vulnerabilities.' },
+  { id: 'dry', group: 'quality', title: 'DRY Principle', detail: 'Eliminate code duplication.' },
+  { id: 'a11y', group: 'quality', title: 'Accessibility', detail: 'Ensure UI meets WCAG.' },
+  { id: 'ci', group: 'ops', title: 'Keep CI Green', detail: 'Ensure all checks pass.' },
+  { id: 'migrations', group: 'ops', title: 'Migration Safe', detail: 'Ensure DB changes are safe.' },
+  { id: 'perf', group: 'analysis', title: 'Performance', detail: 'Optimize for speed and cost.' },
+] as const;
+export type SwarmSkillId = (typeof SWARM_SKILLS)[number]['id'];
+export type SwarmLaunchMode = 'safe' | 'skip';
+
+export function swarmPresetRoles(id: SwarmPresetId): SwarmRole[] {
+  const preset = SWARM_PRESETS.find((item) => item.id === id)!;
+  const roles: SwarmRole[] = [];
+  for (const role of SWARM_ROLES) {
+    for (let n = 0; n < preset.seats[role]; n += 1) roles.push(role);
+  }
+  return roles;
+}
+
+export function swarmSkillLines(ids: readonly string[]): string {
+  return SWARM_SKILLS.filter((skill) => ids.includes(skill.id))
+    .map((skill) => `${skill.title}: ${skill.detail}`)
+    .join('\n');
+}
 
 export function availableSwarmAgents(
   detections: readonly BoardAgentDetection[],
 ): BoardAgentId[] {
-  const ready = detections
-    .filter((item) => item.available && SWARM_ALLOW_AGENTS.has(item.id))
+  return detections
+    .filter((item) => item.available && item.id !== 'shell' && item.id !== 'custom')
     .map((item) => item.id);
-  return SWARM_PREFER_AGENTS.filter((id) => ready.includes(id));
 }
 
-export function assignSwarmPanes(agentIds: readonly BoardAgentId[]): SwarmAssignment[] {
-  if (agentIds.length === 0) return [];
-  return SWARM_ROLES.map((role, index) => ({
+export function assignSwarmPanes(
+  agentIds: readonly BoardAgentId[],
+  roles: readonly SwarmRole[] = SWARM_ROLES,
+): SwarmAssignment[] {
+  if (agentIds.length === 0 || roles.length === 0) return [];
+  return roles.map((role, index) => ({
     role,
     agentId: agentIds[index % agentIds.length]!,
   }));
@@ -66,15 +106,22 @@ export function swarmRoleTasks(job: string): Record<SwarmRole, string> {
   };
 }
 
-export function swarmPaneCommand(agentId: BoardAgentId, prompt: string): string {
+export function swarmPaneCommand(
+  agentId: BoardAgentId,
+  prompt: string,
+  mode: SwarmLaunchMode = 'safe',
+): string {
   const binary =
     BOARD_AGENT_CATALOG.find((entry) => entry.id === agentId)?.command || agentId;
+  const skip = mode === 'skip';
   const prefix =
     agentId === 'gemini'
       ? 'gemini --skip-trust '
       : agentId === 'opencode'
-        ? `opencode --model ${SWARM_OPENCODE_MODEL} --prompt `
-        : `${binary} `;
+        ? `opencode --model ${SWARM_OPENCODE_MODEL}${skip ? ' --auto' : ''} --prompt `
+        : agentId === 'claude' && skip
+          ? 'claude --dangerously-skip-permissions '
+          : `${binary} `;
   const budget = Math.max(1, 4_000 - prefix.length - 2);
   const body = prompt.trim().slice(0, budget).replaceAll("'", "'\\''");
   return `${prefix}'${body}'`;

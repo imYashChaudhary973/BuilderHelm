@@ -6,6 +6,7 @@ import {
   availableSwarmAgents,
   swarmBrief,
   swarmPaneCommand,
+  swarmPresetRoles,
   swarmRoleTasks,
   swarmMemberStatus,
   swarmRunStatus,
@@ -20,21 +21,18 @@ function detection(
 }
 
 describe('swarm assignment', () => {
-  it('uses only grok and opencode, grok first', () => {
+  it('uses every installed CLI and can fill a crew preset', () => {
     const agents = availableSwarmAgents([
       detection('shell', true),
       detection('claude', true),
-      detection('codex', true),
-      detection('gemini', true),
-      detection('opencode', true),
+      detection('codex', false),
       detection('grok', true),
     ]);
-    expect(agents).toEqual(['grok', 'opencode']);
-    expect(assignSwarmPanes(agents)).toEqual([
-      { role: 'coordinator', agentId: 'grok' },
-      { role: 'builder', agentId: 'opencode' },
-      { role: 'scout', agentId: 'grok' },
-      { role: 'reviewer', agentId: 'opencode' },
+    expect(agents).toEqual(['claude', 'grok']);
+    expect(assignSwarmPanes(agents, swarmPresetRoles('recon'))).toEqual([
+      { role: 'coordinator', agentId: 'claude' },
+      { role: 'builder', agentId: 'grok' },
+      { role: 'scout', agentId: 'claude' },
     ]);
   });
 

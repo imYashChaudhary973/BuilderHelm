@@ -1,32 +1,39 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import type {
-  BoardIsolation,
-  BoardLandPreview,
-  BoardPaneStatus,
-  BoardSessionSummary,
+import {
+  boardGridLayouts,
+  type BoardIsolation,
+  type BoardLandPreview,
+  type BoardPaneCount,
+  type BoardPaneStatus,
+  type BoardSessionSummary,
 } from '@zero/protocol/board';
 import {
   SWARM_BUDGET_MS,
   SWARM_NUDGE,
-  SWARM_PANE_COUNT,
   SWARM_STUCK_MS,
   assignSwarmPanes,
   availableSwarmAgents,
   swarmBrief,
   swarmPaneCommand,
+  swarmPresetRoles,
   swarmRoleTasks,
+  swarmSkillLines,
   swarmMemberStatus,
   swarmRunStatus,
   swarmStuckAction,
   type SwarmAssignment,
+  type SwarmLaunchMode,
+  type SwarmPresetId,
 } from '@zero/protocol/swarm';
 import type { CorrelationId } from '@zero/shared';
 import { useEffect, useMemo, useRef, useState } from 'react';
-
 import { TerminalPane } from '../components/terminal-pane.js';
 import { useSpaces } from '../space-store.js';
+import { SwarmSetup } from '../swarm-setup.js';
 import { readLastJob, writeLastJob } from '../swarm-persist.js';
+
+type WizardStep = 'mission' | 'roster' | 'launch';
 
 const RECENTS_KEY = 'exeum.space.recents';
 
@@ -77,6 +84,12 @@ export function SwarmPage(): React.JSX.Element {
   const [job, setJob] = useState(readLastJob());
   const [folderPath, setFolderPath] = useState('');
   const [homeDir, setHomeDir] = useState('');
+  const [step, setStep] = useState<WizardStep>('mission');
+  const [preset, setPreset] = useState<SwarmPresetId>('crew');
+  const [mode, setMode] = useState<SwarmLaunchMode>('safe');
+  const [skillIds, setSkillIds] = useState<string[]>([]);
+  const [swarmName, setSwarmName] = useState('');
+  const [roster, setRoster] = useState<SwarmAssignment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [run, setRun] = useState<LiveRun | null>(null);
   const [landNotice, setLandNotice] = useState<string | null>(null);
@@ -102,6 +115,17 @@ export function SwarmPage(): React.JSX.Element {
       .catch(() => undefined);
   }, []);
 
+  const detected = availableSwarmAgents(agents.data ?? []);
+  useEffect(() => {
+    const fill = detected[0];
+    if (fill === undefined) {
+      setRoster([]);
+      return;
+    }
+    setRoster(assignSwarmPanes([fill], swarmPresetRoles(preset)));
+  }, [detected[0], preset]);
+
+
   useEffect(() => {
     if (run === null) return;
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -123,42 +147,46 @@ export function SwarmPage(): React.JSX.Element {
 
   const launch = useMutation({
     mutationFn: async () => {
-      const detections = agents.data ?? (await window.zero.board.detectAgents());
-      const assignments = assignSwarmPanes(availableSwarmAgents(detections));
-      if (assignments.length === 0) {
+      if (roster.length === 0) {
         throw new Error('Install an agent CLI (Claude, Codex, Grok…) or open a Space instead.');
       }
       const folder = folderPath.trim();
       if (folder.length === 0) throw new Error('Pick a folder first.');
-      const panes = assignments.map((item, slot) => {
+      const paneCount = roster.length as BoardPaneCount;
+      const extras = swarmSkillLines(skillIds);
+      const panes = roster.map((item, slot) => {
         const brief = swarmBrief(item.role, job).trimEnd();
         const task = swarmRoleTasks(job)[item.role];
         return {
           slot,
           agentId: item.agentId,
-          command: swarmPaneCommand(item.agentId, `${brief}\n${task}`),
+          command: swarmPaneCommand(
+            item.agentId,
+            extras.length > 0 ? `${brief}\n${task}\n${extras}` : `${brief}\n${task}`,
+            mode,
+          ),
         };
       });
       const base = {
         correlationId: crypto.randomUUID() as CorrelationId,
         folderPath: folder,
-        paneCount: SWARM_PANE_COUNT,
+        paneCount,
         panes,
       };
       try {
         const summary = await window.zero.board.createSession({
           ...base,
-          paneCount: SWARM_PANE_COUNT,
+          paneCount,
           isolation: 'worktree',
         });
-        return { summary, assignments, isolation: 'worktree' as const };
+        return { summary, assignments: roster, isolation: 'worktree' as const };
       } catch {
         const summary = await window.zero.board.createSession({
           ...base,
-          paneCount: SWARM_PANE_COUNT,
+          paneCount,
           isolation: 'shared',
         });
-        return { summary, assignments, isolation: 'shared' as const };
+        return { summary, assignments: roster, isolation: 'shared' as const };
       }
     },
     onMutate: () => setError(null),
@@ -166,7 +194,7 @@ export function SwarmPage(): React.JSX.Element {
       writeLastJob(job);
       writeRecents(summary.folderPath);
       spaces.upsert(summary);
-      spaces.rename(summary, `Swarm · ${folderName(summary.folderPath)}`);
+      spaces.rename(summary, swarmName.trim() || `Swarm · ${folderName(summary.folderPath)}`);
       const startedAt = Date.now();
       stuckActed.current = {};
       setNudgedAt({});
@@ -376,7 +404,10 @@ export function SwarmPage(): React.JSX.Element {
         )}
         <div
           className="boardGrid"
-          style={{ gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr' }}
+          style={{
+            gridTemplateColumns: `repeat(${boardGridLayouts[run.session.paneCount].cols}, 1fr)`,
+            gridTemplateRows: `repeat(${boardGridLayouts[run.session.paneCount].rows}, 1fr)`,
+          }}
         >
           {run.session.panes.map((pane) => {
             const canLand = run.isolation === 'worktree' && pane.branch !== null;
@@ -413,101 +444,57 @@ export function SwarmPage(): React.JSX.Element {
   }
 
   const recents = readRecents();
-  const ready = job.trim().length > 0 && folderPath.trim().length > 0;
 
   return (
-    <section className="spaceStage" aria-labelledby="swarm-setup-title" data-core-status="ready">
-      <div className="boardPage spaceWizard">
-        <h1 id="swarm-setup-title">Start a swarm</h1>
-        <p className="lede">
-          One job. Four roles, each with a concrete assignment. Worktrees when the folder is a git repo. Nudge at 90s
-          silence, then stop that pane.
-        </p>
-        <div className="wizardSection">
-          <label className="wizardLabel" htmlFor="swarm-job">
-            Job <span>What should the agents finish</span>
-          </label>
-          <textarea
-            id="swarm-job"
-            className="swarmJob"
-            rows={5}
-            value={job}
-            placeholder="e.g. Add a failing test for the login form, then make it pass."
-            onChange={(event) => setJob(event.target.value)}
-          />
-        </div>
-        <div className="wizardSection">
-          <label className="wizardLabel" htmlFor="swarm-folder">
-            Working folder <span>Git repo → one worktree per role. Else one shared folder.</span>
-          </label>
-          <div className="folderRow">
-            <input
-              id="swarm-folder"
-              type="text"
-              value={folderPath}
-              placeholder={homeDir || 'Browse to a project folder'}
-              onChange={(event) => setFolderPath(event.target.value)}
-            />
-            <button className="secondaryButton" type="button" onClick={() => void browse()}>
-              Browse…
-            </button>
-          </div>
-          {recents.length > 0 && (
-            <div className="recentCards">
-              {recents.map((path) => (
-                <button
-                  key={path}
-                  type="button"
-                  className={`recentCard${folderPath === path ? ' recentCardActive' : ''}`}
-                  onClick={() => setFolderPath(path)}
-                >
-                  <span>
-                    <strong>{folderName(path)}</strong>
-                    <small>{path}</small>
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="wizardSection">
-          <span className="wizardLabel">
-            Roles <span>Coordinator · Builder · Scout · Reviewer</span>
-          </span>
-          <ul className="swarmRoles">
-            {Object.entries(swarmRoleTasks(job)).map(([role, task]) => (
-              <li key={role}>
-                <strong>{role}</strong>
-                <span>{task}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="swarmHint">
-            Uses Grok and OpenCode (ox-alpha). Claude and Codex are skipped. A silent
-            pane is nudged once, then closed.
-          </p>
-        </div>
-        {error !== null && (
-          <p className="wizardError" role="alert">
-            {error}
-          </p>
-        )}
-        <div className="spaceWizardFooter">
-          <button className="secondaryButton" type="button" onClick={() => void navigate({ to: '/' })}>
-            Back
-          </button>
-          <button
-            className="primaryButton"
-            type="button"
-            disabled={!ready || launch.isPending}
-            onClick={() => launch.mutate()}
-          >
-            {launch.isPending ? 'Starting…' : 'Launch swarm'}
-          </button>
-        </div>
-      </div>
-    </section>
+    <SwarmSetup
+      step={step}
+      job={job}
+      folderPath={folderPath}
+      homeDir={homeDir}
+      recents={recents}
+      preset={preset}
+      mode={mode}
+      skillIds={skillIds}
+      swarmName={swarmName}
+      roster={roster}
+      detected={detected}
+      error={error}
+      pending={launch.isPending}
+      onStep={setStep}
+      onJob={setJob}
+      onFolder={setFolderPath}
+      onBrowse={() => void browse()}
+      onPreset={setPreset}
+      onMode={setMode}
+      onToggleSkill={(id) =>
+        setSkillIds((current) =>
+          current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+        )
+      }
+      onName={setSwarmName}
+      onSeatAgent={(index, agentId) =>
+        setRoster((current) =>
+          current.map((seat, seatIndex) => (seatIndex === index ? { ...seat, agentId } : seat)),
+        )
+      }
+      onFillAll={(agentId) =>
+        setRoster((current) => current.map((seat) => ({ ...seat, agentId })))
+      }
+      onCancel={() => {
+        if (step === 'roster') {
+          setStep('mission');
+          return;
+        }
+        if (step === 'launch') {
+          setStep('roster');
+          return;
+        }
+        void navigate({ to: '/' });
+      }}
+      onLaunch={() => launch.mutate()}
+    />
   );
+
 }
 
 function SwarmGlyph(): React.JSX.Element {

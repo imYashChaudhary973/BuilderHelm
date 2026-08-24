@@ -48,7 +48,9 @@ export const BOARD_AGENT_CATALOG: readonly BoardAgentCatalogEntry[] = [
 export const boardPaneCountSchema = z.union([
   z.literal(1),
   z.literal(2),
+  z.literal(3),
   z.literal(4),
+  z.literal(5),
   z.literal(6),
   z.literal(8),
   z.literal(10),
@@ -60,7 +62,9 @@ export type BoardPaneCount = z.infer<typeof boardPaneCountSchema>;
 export const boardGridLayouts = {
   1: { cols: 1, rows: 1 },
   2: { cols: 1, rows: 2 },
+  3: { cols: 3, rows: 1 },
   4: { cols: 2, rows: 2 },
+  5: { cols: 3, rows: 2 },
   6: { cols: 3, rows: 2 },
   8: { cols: 4, rows: 2 },
   10: { cols: 5, rows: 2 },

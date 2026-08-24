@@ -733,6 +733,7 @@ html.is-fullscreen .shell {
 .content:has(.kanbanPage),
 .content:has(.memoryPage),
 .content:has(.swarmPage),
+.content:has(.swarmWizard),
 .content:has(.spaceHome),
 .content:has(.spaceWizard),
 .content:has(.spaceStage) {
@@ -2417,6 +2418,230 @@ fieldset legend {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+.swarmWizard {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 28px 24px 18px;
+  overflow: auto;
+  background: #070807;
+}
+
+.swarmSteps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.swarmStep {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 7px 14px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.swarmStepOn {
+  border-color: color-mix(in srgb, #b6d475 50%, transparent);
+  color: #b6d475;
+  background: color-mix(in srgb, #b6d475 10%, #0b0c0b);
+}
+
+.swarmStepLine {
+  width: 28px;
+  height: 1px;
+  background: var(--line);
+}
+
+.swarmWizardBody {
+  width: min(720px, 100%);
+  margin: 0 auto;
+}
+
+.swarmWizardHero {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.swarmWizardHero h1 {
+  margin: 0 0 8px;
+  font-size: 32px;
+  letter-spacing: -0.04em;
+}
+
+.swarmWizardHero em {
+  font-style: normal;
+  color: #b6d475;
+}
+
+.swarmWizardHero p,
+.swarmShareNote,
+.swarmFieldLabel,
+.swarmField > span {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.swarmField,
+.swarmFieldLabel {
+  display: block;
+  margin: 16px 0 8px;
+}
+
+.swarmField input {
+  width: 100%;
+}
+
+.swarmShareNote {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, #b6d475 10%, #0b0c0b);
+  color: #cfe6a4;
+}
+
+.swarmPresets,
+.swarmModes,
+.swarmSkillGrid {
+  display: grid;
+  gap: 10px;
+}
+
+.swarmPresets {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.swarmModes {
+  grid-template-columns: 1fr 1fr;
+}
+
+.swarmSkillGrid {
+  grid-template-columns: 1fr 1fr;
+}
+
+.swarmPreset,
+.swarmModeCard,
+.swarmSkill {
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: #0c0d0c;
+  color: var(--text);
+}
+
+.swarmPreset {
+  text-align: center;
+}
+
+.swarmPresetOn,
+.swarmModeOn,
+.swarmSkillOn {
+  border-color: color-mix(in srgb, #b6d475 55%, transparent);
+  background: color-mix(in srgb, #b6d475 8%, #0c0d0c);
+}
+
+.swarmPreset strong {
+  display: block;
+  font-size: 22px;
+}
+
+.swarmPreset span,
+.swarmModeCard span,
+.swarmSkill span {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-3);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.swarmFillRow,
+.swarmWizardFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.swarmFillRow {
+  margin: 14px 0;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.swarmSeatList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.swarmSeatList li {
+  display: grid;
+  grid-template-columns: 28px 1fr 160px;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.swarmSeatList strong {
+  text-transform: capitalize;
+}
+
+.swarmRecap {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+}
+
+.swarmRecap li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.swarmRecap span {
+  color: var(--text-3);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.swarmWizardFoot {
+  width: min(720px, 100%);
+  margin: 28px auto 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.swarmStepMeta {
+  color: var(--text-3);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.content:has(.swarmWizard) {
+  padding: 0;
+  overflow: auto;
+}
+
 
 /* ---------- ACTIONS ---------- */
 
