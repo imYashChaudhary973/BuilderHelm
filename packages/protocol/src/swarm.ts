@@ -45,6 +45,17 @@ export function swarmBrief(role: SwarmRole, job: string): string {
   const clipped = job.trim().slice(0, 2_000);
   return `You are the ${role} in a BuilderHelm Swarm.\nJob: ${clipped}\n\n${DUTY[role]}\n`;
 }
+export function swarmRoleTasks(job: string): Record<SwarmRole, string> {
+  const clipped = job.trim().slice(0, 200);
+  const suffix = clipped ? ` Job: ${clipped}` : '';
+  return {
+    coordinator: (DUTY.coordinator + suffix).trim().slice(0, 500),
+    builder: (DUTY.builder + suffix).trim().slice(0, 500),
+    scout: (DUTY.scout + suffix).trim().slice(0, 500),
+    reviewer: (DUTY.reviewer + suffix).trim().slice(0, 500),
+  };
+}
+
 export const SWARM_NUDGE =
   'You have been silent. Report status in one line, then continue or say you are blocked.';
 

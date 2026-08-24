@@ -5,6 +5,7 @@ import {
   assignSwarmPanes,
   availableSwarmAgents,
   swarmBrief,
+  swarmRoleTasks,
   swarmMemberStatus,
   swarmRunStatus,
   swarmStuckAction,
@@ -116,5 +117,31 @@ describe('swarm policy', () => {
         stuckAfterMs: 90_000,
       }),
     ).toBe('none');
+  });
+});
+
+describe('swarmRoleTasks', () => {
+  it('returns four tasks that mention a non-empty job', () => {
+    const job = 'ship the swarm pane';
+    const tasks = swarmRoleTasks(job);
+    expect(Object.keys(tasks)).toEqual(['coordinator', 'builder', 'scout', 'reviewer']);
+    for (const role of ['coordinator', 'builder', 'scout', 'reviewer'] as const) {
+      const task = tasks[role];
+      expect(task.trim()).toBe(task);
+      expect(task.length).toBeGreaterThanOrEqual(1);
+      expect(task.length).toBeLessThanOrEqual(500);
+      expect(task).toContain(job);
+    }
+  });
+
+  it('returns four generic tasks for whitespace jobs', () => {
+    for (const job of ['', '   ']) {
+      const tasks = swarmRoleTasks(job);
+      expect(Object.keys(tasks)).toEqual(['coordinator', 'builder', 'scout', 'reviewer']);
+      for (const task of Object.values(tasks)) {
+        expect(task.trim().length).toBeGreaterThanOrEqual(1);
+        expect(task.length).toBeLessThanOrEqual(500);
+      }
+    }
   });
 });

@@ -13,6 +13,7 @@ import {
   assignSwarmPanes,
   availableSwarmAgents,
   swarmBrief,
+  swarmRoleTasks,
   swarmMemberStatus,
   swarmRunStatus,
   swarmStuckAction,
@@ -166,12 +167,15 @@ export function SwarmPage(): React.JSX.Element {
         for (const [index, pane] of summary.panes.entries()) {
           const assignment = assignments[index];
           if (assignment === undefined) continue;
+          const brief = swarmBrief(assignment.role, job).trimEnd();
+          const task = swarmRoleTasks(job)[assignment.role];
+          const data = `${brief}\n${task.slice(0, Math.max(0, 10_000 - brief.length - 2))}\r`;
           void window.zero.board
             .write({
               correlationId: crypto.randomUUID() as CorrelationId,
               sessionId: summary.sessionId,
               paneId: pane.paneId,
-              data: `${swarmBrief(assignment.role, job).trimEnd()}\r`,
+              data,
             })
             .catch(() => undefined);
         }
@@ -355,7 +359,7 @@ export function SwarmPage(): React.JSX.Element {
       <div className="boardPage spaceWizard">
         <h1 id="swarm-setup-title">Start a swarm</h1>
         <p className="lede">
-          One job. Four roles. Worktrees when the folder is a git repo. Nudge at 90s
+          One job. Four roles, each with a concrete assignment. Worktrees when the folder is a git repo. Nudge at 90s
           silence, then stop that pane.
         </p>
         <div className="wizardSection">
