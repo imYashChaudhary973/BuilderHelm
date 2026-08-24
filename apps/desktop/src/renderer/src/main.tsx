@@ -16,6 +16,7 @@ import { BoardPage } from './routes/board.js';
 import { ChatPage } from './routes/chat.js';
 import { MemoryPage } from './routes/memory.js';
 import { ProvidersPage } from './routes/settings/providers.js';
+import { SwarmPage } from './routes/swarm.js';
 import { TodayPage } from './routes/today.js';
 import { ProjectsPage } from './routes/projects.js';
 import './styles.css';
@@ -66,6 +67,11 @@ const boardRoute = createRoute({
   path: '/board',
   component: KanbanBoard,
 });
+const swarmRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/swarm',
+  component: SwarmPage,
+});
 const routeTree = rootRoute.addChildren([
   indexRoute,
   todayRoute,
@@ -75,6 +81,7 @@ const routeTree = rootRoute.addChildren([
   projectsRoute,
   spaceRoute,
   boardRoute,
+  swarmRoute,
   providersRoute,
 ]);
 const router = createRouter({

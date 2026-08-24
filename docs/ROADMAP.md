@@ -19,8 +19,9 @@ Git snapshots, PTY grid, app chrome.
 
 ## Next — Swarm
 
-Multi-agent runs with roles, budgets, and stuck-agent policy. Reuse Space
-panes as the execution surface.
+First loop on `feat/swarm`: one job, four roles (coordinator, builder, scout,
+reviewer) on a 4-pane Space grid, 20-minute budget, 90s silence = stuck.
+Worktree isolation and richer coordinator policy come after this loop works.
 
 ## Future directions — delegate and build
 

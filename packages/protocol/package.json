@@ -55,6 +55,10 @@
     "./kanban": {
       "types": "./dist/kanban.d.ts",
       "import": "./src/kanban.ts"
+    },
+    "./swarm": {
+      "types": "./dist/swarm.d.ts",
+      "import": "./src/swarm.ts"
     }
   },
   "dependencies": {

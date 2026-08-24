@@ -732,6 +732,7 @@ html.is-fullscreen .shell {
 .content:has(.boardGrid),
 .content:has(.kanbanPage),
 .content:has(.memoryPage),
+.content:has(.swarmPage),
 .content:has(.spaceHome),
 .content:has(.spaceWizard),
 .content:has(.spaceStage) {
@@ -2304,6 +2305,116 @@ fieldset legend {
   .knowledgeSource {
     flex: 0 0 auto;
     min-height: 320px;
+  }
+}
+
+/* ---------- SWARM ---------- */
+
+.swarmPage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  padding: 16px 18px 18px;
+  overflow: hidden;
+  background: #070807;
+}
+
+.swarmMark {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, #7ec8e3 46%, transparent);
+  border-radius: 10px;
+  color: #b7e4f3;
+  background: color-mix(in srgb, #7ec8e3 13%, #0b0c0b);
+}
+
+.swarmJob {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #0c0d0c;
+  color: var(--text);
+  font: inherit;
+}
+
+.swarmJob:focus {
+  outline: 1px solid color-mix(in srgb, #7ec8e3 50%, transparent);
+}
+
+.swarmHint {
+  margin: 8px 0 0;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.swarmJobLine {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.swarmRoles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.swarmRoles li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #0c0d0c;
+}
+
+.swarmRoles strong {
+  text-transform: capitalize;
+  font-size: 13px;
+}
+
+.swarmRoles span {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.swarmRoles em {
+  font-style: normal;
+  font-size: 11px;
+  color: #b6d475;
+}
+
+.swarmRoles em[data-status='stuck'],
+.swarmRoles em[data-status='failed'] {
+  color: #ff8f73;
+}
+
+.swarmRoles em[data-status='exited'],
+.swarmRoles em[data-status='starting'] {
+  color: var(--text-3);
+}
+
+.swarmPage .boardGrid {
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-width: 760px) {
+  .swarmRoles {
+    grid-template-columns: 1fr 1fr;
   }
 }
 

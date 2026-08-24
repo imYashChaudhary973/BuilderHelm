@@ -45,10 +45,21 @@ function MemoryGlyph(): React.JSX.Element {
   );
 }
 
+function SwarmGlyph(): React.JSX.Element {
+  return (
+    <svg className="railTerm" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="6.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="6.5" cy="16.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="17.5" cy="16.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M10.6 8.1 7.8 14.4M13.4 8.1l2.8 6.3M8.5 16.5h7" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
 export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React.JSX.Element {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const featureOpen = pathname === '/board' || pathname === '/memory';
+  const featureOpen = pathname === '/board' || pathname === '/memory' || pathname === '/swarm';
   const boards = useBoards();
   const boardProjects = useQuery({
     queryKey: ['kanban-projects'],
@@ -119,6 +130,26 @@ export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React
             <span className="railCopy">
               <strong>BuilderHelm Memory</strong>
               <small>Private recall</small>
+            </span>
+          )}
+        </button>
+      </div>
+      <div
+        className={pathname === '/swarm' ? 'railRow railItemOn' : 'railRow'}
+        style={{ '--tile': '#7ec8e3' } as React.CSSProperties}
+      >
+        <button
+          type="button"
+          className={collapsed ? 'railTile' : 'railItem'}
+          title="BuilderHelm Swarm"
+          aria-current={pathname === '/swarm' ? 'page' : undefined}
+          onClick={() => void navigate({ to: '/swarm' })}
+        >
+          <SwarmGlyph />
+          {collapsed ? null : (
+            <span className="railCopy">
+              <strong>BuilderHelm Swarm</strong>
+              <small>Many agents, one job</small>
             </span>
           )}
         </button>

@@ -1,0 +1,84 @@
+import { describe, expect, it } from 'vitest';
+
+import type { BoardAgentDetection } from '../src/board.js';
+import {
+  assignSwarmPanes,
+  availableSwarmAgents,
+  swarmBrief,
+  swarmMemberStatus,
+  swarmRunStatus,
+} from '../src/swarm.js';
+
+function detection(
+  id: BoardAgentDetection['id'],
+  available: boolean,
+): BoardAgentDetection {
+  return { id, label: id, available, path: available ? `/bin/${id}` : null };
+}
+
+describe('swarm assignment', () => {
+  it('ignores shell and missing CLIs, then wraps four roles', () => {
+    const agents = availableSwarmAgents([
+      detection('shell', true),
+      detection('claude', true),
+      detection('codex', false),
+      detection('grok', true),
+    ]);
+    expect(agents).toEqual(['claude', 'grok']);
+    expect(assignSwarmPanes(agents)).toEqual([
+      { role: 'coordinator', agentId: 'claude' },
+      { role: 'builder', agentId: 'grok' },
+      { role: 'scout', agentId: 'claude' },
+      { role: 'reviewer', agentId: 'grok' },
+    ]);
+  });
+
+  it('returns no panes when no agent CLI is installed', () => {
+    expect(assignSwarmPanes(availableSwarmAgents([detection('shell', true)]))).toEqual(
+      [],
+    );
+  });
+});
+
+describe('swarm policy', () => {
+  it('marks a silent running pane stuck and a timed-out run as budget', () => {
+    expect(
+      swarmMemberStatus({
+        paneStatus: 'running',
+        lastActivityAt: 0,
+        now: 90_000,
+        stuckAfterMs: 90_000,
+      }),
+    ).toBe('stuck');
+    expect(
+      swarmRunStatus({
+        members: ['running', 'stuck', 'starting', 'running'],
+        elapsedMs: 1_000,
+        budgetMs: 20 * 60 * 1000,
+        stopped: false,
+      }),
+    ).toBe('stuck');
+    expect(
+      swarmRunStatus({
+        members: ['running', 'running', 'running', 'running'],
+        elapsedMs: 20 * 60 * 1000,
+        budgetMs: 20 * 60 * 1000,
+        stopped: false,
+      }),
+    ).toBe('budget');
+    expect(
+      swarmRunStatus({
+        members: ['exited', 'failed', 'exited', 'exited'],
+        elapsedMs: 10,
+        budgetMs: 20 * 60 * 1000,
+        stopped: false,
+      }),
+    ).toBe('done');
+  });
+
+  it('keeps role briefs inside the pane write limit', () => {
+    const brief = swarmBrief('builder', 'x'.repeat(8_000));
+    expect(brief.length).toBeLessThanOrEqual(10_000);
+    expect(brief).toContain('You are the builder');
+  });
+});

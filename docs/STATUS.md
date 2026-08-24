@@ -1,8 +1,8 @@
 # Implementation Status
 
-- Last reviewed: 2026-08-24
+- Last reviewed: 2026-08-25
 - Baseline: BuilderHelm chrome landed on `main` at `c9726ab`
-- Active work: Board (Kanban) on `feat/editor`
+- Active work: Swarm first loop on `feat/swarm`
 
 What the repository implements now. Product intent lives in
 [PRODUCT](PRODUCT.md), [UX](UX.md), and [ROADMAP](ROADMAP.md).
@@ -24,12 +24,14 @@ What the repository implements now. Product intent lives in
 | Editor | Workspace-scoped tree, tabs, save / save-all / autosave, word wrap |
 | Git | Branch, staged vs worktree, history, stage, unstage, commit |
 | Board | Project chooser, independent persisted boards, left-rail project tabs, drag-and-drop stages |
+| Swarm | Job + four roles on Space panes, 20-minute budget, 90s stuck policy (in progress on `feat/swarm`) |
 
 ## Current application surfaces
 
 - BuilderHelm Space (home, workspace setup, agent pick, live terminals)
 - BuilderHelm Board (multi-project Kanban with isolated tasks and drag and drop)
 - BuilderHelm Memory (private Obsidian recall with inspectable citations)
+- BuilderHelm Swarm (job setup and four-role run; first loop)
 - App chrome (top bar + left feature rail + tools panel)
 - Browser, editor, and Git tools tabs
 - Provider and model settings
@@ -67,4 +69,4 @@ pnpm smoke:desktop
   executes them.
 - Ready work lands on `main`. Permission or security changes still use a PR.
 - Windows and Linux desktops are not verified yet.
-- Swarm, Skills, Bridge, and phone pairing are not built yet.
+- Swarm first loop is on `feat/swarm`. Skills, Bridge, and phone pairing are not built yet.

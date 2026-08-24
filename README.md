@@ -35,9 +35,9 @@ What runs today: [status](docs/STATUS.md). What it is for: [product](docs/PRODUC
 | Mode | Status | Job |
 | --- | --- | --- |
 | **Space** | Live | Folder + layout + optional agents → a grid of real terminals |
-| **Swarm** | Later | Coordinated agents on one job |
-| **Board** | Later | Kanban. Not the terminal grid |
-| **Memory** | Later | Knowledge the agents may read and write |
+| **Swarm** | In progress | One job, four roles, budget and stuck policy |
+| **Board** | Live | Kanban. Not the terminal grid |
+| **Memory** | Live | Private Obsidian recall with citations |
 
 Chrome that already ships: top bar (Space / Swarm / Board / Memory / Skills / Settings) and a left rail of stacked Spaces.
 

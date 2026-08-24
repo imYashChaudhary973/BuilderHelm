@@ -44,7 +44,7 @@ const MODES = [
     id: 'swarm',
     name: 'BuilderHelm Swarm',
     shortcut: '⌘S',
-    enabled: false,
+    enabled: true,
     promise:
       'Many agents, one job. Coordinators, builders, scouts, and reviewers with budgets and guardrails.',
   },
@@ -304,6 +304,10 @@ export function BoardPage(): React.JSX.Element {
       if (event.key.toLowerCase() === 'm') {
         event.preventDefault();
         void navigate({ to: '/memory' });
+      }
+      if (event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        void navigate({ to: '/swarm' });
       }
     };
     window.addEventListener('keydown', onKey);
@@ -615,9 +619,17 @@ export function BoardPage(): React.JSX.Element {
                   className="spaceMode"
                   disabled={!mode.enabled}
                   onClick={() => {
-                    if (mode.id === 'board' || mode.id === 'memory') {
-                      if (mode.id === 'board') boards.choose();
-                      void navigate({ to: mode.id === 'board' ? '/board' : '/memory' });
+                    if (mode.id === 'board') {
+                      boards.choose();
+                      void navigate({ to: '/board' });
+                      return;
+                    }
+                    if (mode.id === 'memory') {
+                      void navigate({ to: '/memory' });
+                      return;
+                    }
+                    if (mode.id === 'swarm') {
+                      void navigate({ to: '/swarm' });
                       return;
                     }
                     if (mode.enabled) setPhase('workspace');
