@@ -6,6 +6,8 @@ import type { BoardPaneStatus, BoardPaneSummary } from '@zero/protocol/board';
 import type { CorrelationId } from '@zero/shared';
 import { useEffect, useRef, useState } from 'react';
 
+const MIN_COLS = 80;
+const MIN_ROWS = 24;
 interface TerminalPaneProps {
   readonly sessionId: string;
   readonly pane: BoardPaneSummary;
@@ -41,6 +43,12 @@ export function TerminalPane({
       convertEol: false,
       fontSize: 13,
       cursorBlink: true,
+      allowProposedApi: true,
+      windowOptions: {
+        getWinSizePixels: true,
+        getCellSizePixels: true,
+        getWinSizeChars: true,
+      },
       theme: { background: '#0b0d12', foreground: '#e8eaf0', cursor: '#b6d475' },
     });
     const fit = new FitAddon();
@@ -50,17 +58,24 @@ export function TerminalPane({
     serializeRef.current = serialize;
     termRef.current = term;
     term.open(host);
-    fit.fit();
 
-    const observer = new ResizeObserver(() => {
+    const applySize = (): void => {
       fit.fit();
+      const cols = Math.max(MIN_COLS, term.cols);
+      const rows = Math.max(MIN_ROWS, term.rows);
+      if (term.cols !== cols || term.rows !== rows) term.resize(cols, rows);
       void window.zero.board.resize({
         correlationId: crypto.randomUUID() as CorrelationId,
         sessionId,
         paneId: pane.paneId,
-        cols: term.cols,
-        rows: term.rows,
+        cols,
+        rows,
       });
+    };
+    applySize();
+
+    const observer = new ResizeObserver(() => {
+      applySize();
     });
     observer.observe(host);
 

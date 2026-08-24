@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import type { BoardSessionSummary } from '@zero/protocol/board';
 
@@ -28,11 +28,20 @@ export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React
   const [menuId, setMenuId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (menuId === null) return;
+    const close = (): void => {
+      if (renamingId !== null) return;
+      setMenuId(null);
+    };
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, [menuId, renamingId]);
+
   function openSpace(session: BoardSessionSummary): void {
     spaces.activate(session.sessionId);
     void navigate({ to: '/board' });
   }
-
   return (
     <aside className={collapsed ? 'rail railCollapsed' : 'rail'} aria-label="Spaces">
       <button
@@ -51,18 +60,19 @@ export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React
         {spaces.spaces.map((space) => {
           const on = !spaces.draft && spaces.activeId === space.sessionId;
           const meta = spaces.meta(space);
-          const hovered = menuId === space.sessionId;
+          const menuOpen = menuId === space.sessionId;
           const renaming = renamingId === space.sessionId;
           return (
             <div
               key={space.sessionId}
               className={on ? 'railRow railItemOn' : 'railRow'}
               style={{ '--tile': meta.color } as React.CSSProperties}
-              onMouseEnter={() => setMenuId(space.sessionId)}
-              onMouseLeave={() => {
-                if (renaming) return;
-                setMenuId((current) => (current === space.sessionId ? null : current));
+              onContextMenu={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setMenuId(space.sessionId);
               }}
+              onClick={(event) => event.stopPropagation()}
             >
               <button
                 type="button"
@@ -82,7 +92,7 @@ export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React
                   </span>
                 )}
               </button>
-              {hovered && (
+              {menuOpen && (
                 <div className="railMenu" role="menu">
                   {renaming ? (
                     <input

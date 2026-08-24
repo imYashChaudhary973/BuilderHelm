@@ -4117,6 +4117,7 @@ html.is-fullscreen .spaceHome {
   flex: 1;
   min-height: 180px;
   padding: 4px;
+  overflow: auto;
 }
 
 @media (prefers-reduced-motion: reduce) {
