@@ -59,7 +59,7 @@ const MODES = [
     id: 'memory',
     name: 'BuilderHelm Memory',
     shortcut: '⌘M',
-    enabled: false,
+    enabled: true,
     promise:
       'A living knowledge graph. Persistent memory your agents read and write as they build. Context that compounds.',
   },
@@ -297,6 +297,10 @@ export function BoardPage(): React.JSX.Element {
       if (event.key.toLowerCase() === 'b') {
         event.preventDefault();
         void navigate({ to: '/board' });
+      }
+      if (event.key.toLowerCase() === 'm') {
+        event.preventDefault();
+        void navigate({ to: '/memory' });
       }
     };
     window.addEventListener('keydown', onKey);
@@ -608,8 +612,8 @@ export function BoardPage(): React.JSX.Element {
                   className="spaceMode"
                   disabled={!mode.enabled}
                   onClick={() => {
-                    if (mode.id === 'board') {
-                      void navigate({ to: '/board' });
+                    if (mode.id === 'board' || mode.id === 'memory') {
+                      void navigate({ to: mode.id === 'board' ? '/board' : '/memory' });
                       return;
                     }
                     if (mode.enabled) setPhase('workspace');

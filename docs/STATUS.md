@@ -14,7 +14,7 @@ What the repository implements now. Product intent lives in
 | Foundation | pnpm workspace, secure Electron boundary, SQLite migrations, typed IPC, observability |
 | Providers | Keychain-backed settings, discovery, audit events |
 | Model gateway | Provider-independent adapters, streaming chat, canonical history |
-| Knowledge | Read-only Obsidian retrieval with citations |
+| Memory | Left-rail BuilderHelm Memory, local Obsidian indexing, cited answers and source previews |
 | Actions | Schema-backed tools, permissions, approvals, receipts |
 | Projects | Dashboard, Git status and history, Today summary |
 | Space | BuilderHelm Space home, wizard, per-pane agents, live xterm grid |
@@ -29,11 +29,11 @@ What the repository implements now. Product intent lives in
 
 - BuilderHelm Space (home, workspace setup, agent pick, live terminals)
 - BuilderHelm Board (left-rail Kanban with drag and drop)
+- BuilderHelm Memory (private Obsidian recall with inspectable citations)
 - App chrome (top bar + left feature rail + tools panel)
 - Browser, editor, and Git tools tabs
 - Provider and model settings
 - Multi-provider chat
-- Obsidian knowledge retrieval
 - Permissioned actions, tasks, and receipts
 - Projects and Git continuity
 - Today dashboard
@@ -67,4 +67,4 @@ pnpm smoke:desktop
   executes them.
 - Ready work lands on `main`. Permission or security changes still use a PR.
 - Windows and Linux desktops are not verified yet.
-- Swarm, Memory, Skills, Bridge, and phone pairing are not built yet.
+- Swarm, Skills, Bridge, and phone pairing are not built yet.

@@ -32,9 +32,21 @@ function BoardGlyph(): React.JSX.Element {
   );
 }
 
+function MemoryGlyph(): React.JSX.Element {
+  return (
+    <svg className="railTerm" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="7" cy="12" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="17" cy="7.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="17" cy="16.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M9 12h6M15.2 8.8 9 11.3M15.2 15.2 9 12.7" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
 export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React.JSX.Element {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const featureOpen = pathname === '/board' || pathname === '/memory';
   const spaces = useSpaces();
   const [menuId, setMenuId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -75,10 +87,30 @@ export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React
           )}
         </button>
       </div>
+      <div
+        className={pathname === '/memory' ? 'railRow railItemOn' : 'railRow'}
+        style={{ '--tile': '#c9a0ff' } as React.CSSProperties}
+      >
+        <button
+          type="button"
+          className={collapsed ? 'railTile' : 'railItem'}
+          title="BuilderHelm Memory"
+          aria-current={pathname === '/memory' ? 'page' : undefined}
+          onClick={() => void navigate({ to: '/memory' })}
+        >
+          <MemoryGlyph />
+          {collapsed ? null : (
+            <span className="railCopy">
+              <strong>BuilderHelm Memory</strong>
+              <small>Private recall</small>
+            </span>
+          )}
+        </button>
+      </div>
       <div className="railModeDivider" />
       <button
         type="button"
-        className={spaces.draft && pathname !== '/board' ? 'railNew railItemOn' : 'railNew'}
+        className={spaces.draft && !featureOpen ? 'railNew railItemOn' : 'railNew'}
         title="New Space"
         onClick={() => {
           spaces.startDraft();
@@ -90,8 +122,7 @@ export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React
       </button>
       <div className="railList">
         {spaces.spaces.map((space) => {
-          const on =
-            pathname !== '/board' && !spaces.draft && spaces.activeId === space.sessionId;
+          const on = !featureOpen && !spaces.draft && spaces.activeId === space.sessionId;
           const meta = spaces.meta(space);
           const menuOpen = menuId === space.sessionId;
           const renaming = renamingId === space.sessionId;

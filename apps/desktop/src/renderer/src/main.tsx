@@ -14,7 +14,7 @@ import { KanbanBoard } from './components/kanban-board.js';
 import { ActionsPage } from './routes/actions.js';
 import { BoardPage } from './routes/board.js';
 import { ChatPage } from './routes/chat.js';
-import { KnowledgePage } from './routes/knowledge.js';
+import { MemoryPage } from './routes/memory.js';
 import { ProvidersPage } from './routes/settings/providers.js';
 import { TodayPage } from './routes/today.js';
 import { ProjectsPage } from './routes/projects.js';
@@ -41,10 +41,10 @@ const chatRoute = createRoute({
   path: '/chat',
   component: ChatPage,
 });
-const knowledgeRoute = createRoute({
+const memoryRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/knowledge',
-  component: KnowledgePage,
+  path: '/memory',
+  component: MemoryPage,
 });
 const actionsRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -70,7 +70,7 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   todayRoute,
   chatRoute,
-  knowledgeRoute,
+  memoryRoute,
   actionsRoute,
   projectsRoute,
   spaceRoute,
