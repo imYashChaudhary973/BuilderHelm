@@ -121,16 +121,25 @@ describe('swarm policy', () => {
 });
 
 describe('swarmRoleTasks', () => {
+  const PREFIX = {
+    coordinator: 'Coordinate:',
+    builder: 'Build:',
+    scout: 'Scout:',
+    reviewer: 'Review:',
+  } as const;
+
   it('returns four tasks that mention a non-empty job', () => {
     const job = 'ship the swarm pane';
     const tasks = swarmRoleTasks(job);
     expect(Object.keys(tasks)).toEqual(['coordinator', 'builder', 'scout', 'reviewer']);
+    expect(new Set(Object.values(tasks)).size).toBe(4);
     for (const role of ['coordinator', 'builder', 'scout', 'reviewer'] as const) {
       const task = tasks[role];
       expect(task.trim()).toBe(task);
       expect(task.length).toBeGreaterThanOrEqual(1);
       expect(task.length).toBeLessThanOrEqual(500);
       expect(task).toContain(job);
+      expect(task.startsWith(PREFIX[role])).toBe(true);
     }
   });
 
@@ -138,10 +147,24 @@ describe('swarmRoleTasks', () => {
     for (const job of ['', '   ']) {
       const tasks = swarmRoleTasks(job);
       expect(Object.keys(tasks)).toEqual(['coordinator', 'builder', 'scout', 'reviewer']);
-      for (const task of Object.values(tasks)) {
+      expect(new Set(Object.values(tasks)).size).toBe(4);
+      for (const role of ['coordinator', 'builder', 'scout', 'reviewer'] as const) {
+        const task = tasks[role];
         expect(task.trim().length).toBeGreaterThanOrEqual(1);
         expect(task.length).toBeLessThanOrEqual(500);
+        expect(task.startsWith(PREFIX[role])).toBe(true);
       }
+    }
+  });
+
+  it('embeds the first 200 chars of a trimmed job', () => {
+    const job = `  ${'x'.repeat(300)}  `;
+    const clipped = 'x'.repeat(200);
+    const tasks = swarmRoleTasks(job);
+    expect(new Set(Object.values(tasks)).size).toBe(4);
+    for (const task of Object.values(tasks)) {
+      expect(task).toContain(clipped);
+      expect(task).not.toContain('x'.repeat(201));
     }
   });
 });

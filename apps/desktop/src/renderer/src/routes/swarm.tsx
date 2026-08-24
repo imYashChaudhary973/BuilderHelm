@@ -413,6 +413,14 @@ export function SwarmPage(): React.JSX.Element {
           <span className="wizardLabel">
             Roles <span>Coordinator · Builder · Scout · Reviewer</span>
           </span>
+          <ul className="swarmRoles">
+            {Object.entries(swarmRoleTasks(job)).map(([role, task]) => (
+              <li key={role}>
+                <strong>{role}</strong>
+                <span>{task}</span>
+              </li>
+            ))}
+          </ul>
           <p className="swarmHint">
             Uses installed agent CLIs. Same CLI can hold more than one role. A silent
             pane is nudged once, then closed.

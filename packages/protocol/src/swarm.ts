@@ -47,12 +47,12 @@ export function swarmBrief(role: SwarmRole, job: string): string {
 }
 export function swarmRoleTasks(job: string): Record<SwarmRole, string> {
   const clipped = job.trim().slice(0, 200);
-  const suffix = clipped ? ` Job: ${clipped}` : '';
+  const body = clipped || 'the swarm job';
   return {
-    coordinator: (DUTY.coordinator + suffix).trim().slice(0, 500),
-    builder: (DUTY.builder + suffix).trim().slice(0, 500),
-    scout: (DUTY.scout + suffix).trim().slice(0, 500),
-    reviewer: (DUTY.reviewer + suffix).trim().slice(0, 500),
+    coordinator: `Coordinate: ${body}`,
+    builder: `Build: ${body}`,
+    scout: `Scout: ${body}`,
+    reviewer: `Review: ${body}`,
   };
 }
 
