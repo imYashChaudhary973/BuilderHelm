@@ -1,4 +1,9 @@
-import type { BoardAgentDetection, BoardAgentId, BoardPaneStatus } from './board.js';
+import {
+  BOARD_AGENT_CATALOG,
+  type BoardAgentDetection,
+  type BoardAgentId,
+  type BoardPaneStatus,
+} from './board.js';
 
 export const SWARM_ROLES = ['coordinator', 'builder', 'scout', 'reviewer'] as const;
 export type SwarmRole = (typeof SWARM_ROLES)[number];
@@ -55,6 +60,16 @@ export function swarmRoleTasks(job: string): Record<SwarmRole, string> {
     reviewer: `Review: ${body}`,
   };
 }
+
+export function swarmPaneCommand(agentId: BoardAgentId, prompt: string): string {
+  const binary =
+    BOARD_AGENT_CATALOG.find((entry) => entry.id === agentId)?.command || agentId;
+  const prefix = agentId === 'gemini' ? 'gemini --skip-trust ' : `${binary} `;
+  const budget = Math.max(1, 4_000 - prefix.length - 2);
+  const body = prompt.trim().slice(0, budget).replaceAll("'", "'\\''");
+  return `${prefix}'${body}'`;
+}
+
 
 export const SWARM_NUDGE =
   'You have been silent. Report status in one line, then continue or say you are blocked.';

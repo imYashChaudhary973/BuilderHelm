@@ -5,6 +5,7 @@ import {
   assignSwarmPanes,
   availableSwarmAgents,
   swarmBrief,
+  swarmPaneCommand,
   swarmRoleTasks,
   swarmMemberStatus,
   swarmRunStatus,
@@ -166,5 +167,17 @@ describe('swarmRoleTasks', () => {
       expect(task).toContain(clipped);
       expect(task).not.toContain('x'.repeat(201));
     }
+  });
+});
+
+describe('swarmPaneCommand', () => {
+  it('quotes the prompt and keeps gemini skip-trust', () => {
+    expect(swarmPaneCommand('claude', "fix the 'login' form")).toBe(
+      "claude 'fix the '\\''login'\\'' form'",
+    );
+    expect(swarmPaneCommand('gemini', 'review the diff')).toBe(
+      "gemini --skip-trust 'review the diff'",
+    );
+    expect(swarmPaneCommand('codex', 'x'.repeat(8_000)).length).toBeLessThanOrEqual(4_000);
   });
 });

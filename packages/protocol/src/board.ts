@@ -79,7 +79,7 @@ export const boardPaneSpecSchema = z
   .object({
     slot: z.number().int().min(0).max(11),
     agentId: boardAgentIdSchema,
-    command: z.string().trim().min(1).max(500).optional(),
+    command: z.string().trim().min(1).max(4_000).optional(),
   })
   .strict()
   .refine(

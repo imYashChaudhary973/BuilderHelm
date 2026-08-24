@@ -14,6 +14,7 @@ import {
   assignSwarmPanes,
   availableSwarmAgents,
   swarmBrief,
+  swarmPaneCommand,
   swarmRoleTasks,
   swarmMemberStatus,
   swarmRunStatus,
@@ -129,7 +130,15 @@ export function SwarmPage(): React.JSX.Element {
       }
       const folder = folderPath.trim();
       if (folder.length === 0) throw new Error('Pick a folder first.');
-      const panes = assignments.map((item, slot) => ({ slot, agentId: item.agentId }));
+      const panes = assignments.map((item, slot) => {
+        const brief = swarmBrief(item.role, job).trimEnd();
+        const task = swarmRoleTasks(job)[item.role];
+        return {
+          slot,
+          agentId: item.agentId,
+          command: swarmPaneCommand(item.agentId, `${brief}\n${task}`),
+        };
+      });
       const base = {
         correlationId: crypto.randomUUID() as CorrelationId,
         folderPath: folder,
@@ -168,23 +177,6 @@ export function SwarmPage(): React.JSX.Element {
         Object.fromEntries(summary.panes.map((pane) => [pane.paneId, startedAt])),
       );
       setRun({ session: summary, assignments, isolation, startedAt, stopped: false });
-      window.setTimeout(() => {
-        for (const [index, pane] of summary.panes.entries()) {
-          const assignment = assignments[index];
-          if (assignment === undefined) continue;
-          const brief = swarmBrief(assignment.role, job).trimEnd();
-          const task = swarmRoleTasks(job)[assignment.role];
-          const data = `${brief}\n${task.slice(0, Math.max(0, 10_000 - brief.length - 2))}\r`;
-          void window.zero.board
-            .write({
-              correlationId: crypto.randomUUID() as CorrelationId,
-              sessionId: summary.sessionId,
-              paneId: pane.paneId,
-              data,
-            })
-            .catch(() => undefined);
-        }
-      }, 4_000);
     },
     onError: (cause: Error) => setError(cause.message),
   });
