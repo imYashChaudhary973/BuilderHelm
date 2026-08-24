@@ -112,4 +112,5 @@ Open a PR, do not push `main`, when any of these hold:
 - Read this file, `docs/STACK.md`, and `docs/STATUS.md` before changing product scope.
 - Prefer the smallest change that satisfies the goal.
 - Verify in the worktree you edited, not a sibling checkout.
+- Start the desktop from a feature worktree yourself (`hub` + `pnpm --filter @zero/desktop dev`). Set `ZERO_DATABASE_PATH` to a temp sqlite. Do not share `userData/zero.sqlite` with main or sibling worktrees. Never ask the user to `cd` or `pnpm dev`.
 - Do not force-push `main`.

@@ -162,7 +162,7 @@ app.whenReady().then(() => {
   const databasePath =
     process.env.ZERO_SMOKE_TEST === '1'
       ? join(app.getPath('temp'), `zero-os-smoke-${process.pid}.sqlite`)
-      : join(app.getPath('userData'), 'zero.sqlite');
+      : (process.env.ZERO_DATABASE_PATH ?? join(app.getPath('userData'), 'zero.sqlite'));
   smokeDatabasePath = process.env.ZERO_SMOKE_TEST === '1' ? databasePath : undefined;
   core = bootstrapCore({ databasePath, secretStore: new KeyringSecretStore() });
   boardPty = new BoardPtyManager();
