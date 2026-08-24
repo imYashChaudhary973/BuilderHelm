@@ -14,6 +14,7 @@ export const boardAgentIds = [
   'cursor',
   'copilot',
   'omp',
+  'pi',
   'kimi',
   'custom',
 ] as const;
@@ -39,6 +40,7 @@ export const BOARD_AGENT_CATALOG: readonly BoardAgentCatalogEntry[] = [
   { id: 'cursor', label: 'Cursor', command: 'cursor' },
   { id: 'copilot', label: 'Copilot', command: 'copilot' },
   { id: 'omp', label: 'Oh My Pi', command: 'omp' },
+  { id: 'pi', label: 'Pi', command: 'pi' },
   { id: 'kimi', label: 'Kimi', command: 'kimi' },
   { id: 'custom', label: 'Custom command', command: '' },
 ];

@@ -27,6 +27,7 @@ const FEATURED_AGENT_IDS: readonly BoardAgentId[] = [
   'kimi',
   'antigravity',
   'opencode',
+  'pi',
 ];
 const MODES = [
   {

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <defs>
+    <linearGradient id="omp-pi" x1="7" y1="3" x2="17" y2="21" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#e879f9"/>
+      <stop offset="0.48" stop-color="#818cf8"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+  </defs>
+  <path
+    fill="url(#omp-pi)"
+    d="M4.6 5.1c0-.7.55-1.25 1.25-1.25h12.3c.7 0 1.25.55 1.25 1.25s-.55 1.25-1.25 1.25h-1.55v11.3c0 .95-.77 1.72-1.72 1.72h-.46c-.95 0-1.72-.77-1.72-1.72V7.6H10.4v9.15c0 .8-.65 1.45-1.45 1.45h-.4c-.8 0-1.45-.65-1.45-1.45V7.6H5.85c-.7 0-1.25-.55-1.25-1.5Z"
+  />
+</svg>
