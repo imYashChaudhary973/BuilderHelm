@@ -20,19 +20,21 @@ function detection(
 }
 
 describe('swarm assignment', () => {
-  it('ignores shell and missing CLIs, then wraps four roles', () => {
+  it('uses only grok and opencode, grok first', () => {
     const agents = availableSwarmAgents([
       detection('shell', true),
       detection('claude', true),
-      detection('codex', false),
+      detection('codex', true),
+      detection('gemini', true),
+      detection('opencode', true),
       detection('grok', true),
     ]);
-    expect(agents).toEqual(['claude', 'grok']);
+    expect(agents).toEqual(['grok', 'opencode']);
     expect(assignSwarmPanes(agents)).toEqual([
-      { role: 'coordinator', agentId: 'claude' },
-      { role: 'builder', agentId: 'grok' },
-      { role: 'scout', agentId: 'claude' },
-      { role: 'reviewer', agentId: 'grok' },
+      { role: 'coordinator', agentId: 'grok' },
+      { role: 'builder', agentId: 'opencode' },
+      { role: 'scout', agentId: 'grok' },
+      { role: 'reviewer', agentId: 'opencode' },
     ]);
   });
 
@@ -171,12 +173,12 @@ describe('swarmRoleTasks', () => {
 });
 
 describe('swarmPaneCommand', () => {
-  it('quotes the prompt and keeps gemini skip-trust', () => {
+  it('quotes the prompt and pins OpenCode to ox-alpha', () => {
     expect(swarmPaneCommand('claude', "fix the 'login' form")).toBe(
       "claude 'fix the '\\''login'\\'' form'",
     );
-    expect(swarmPaneCommand('gemini', 'review the diff')).toBe(
-      "gemini --skip-trust 'review the diff'",
+    expect(swarmPaneCommand('opencode', 'review the diff')).toBe(
+      "opencode --model openrouter/stealth/ox-alpha --prompt 'review the diff'",
     );
     expect(swarmPaneCommand('codex', 'x'.repeat(8_000)).length).toBeLessThanOrEqual(4_000);
   });

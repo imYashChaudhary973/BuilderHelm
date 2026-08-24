@@ -30,12 +30,17 @@ const DUTY: Record<SwarmRole, string> = {
   reviewer: 'Review the Builder work. Name bugs and missing tests. Do not rewrite everything.',
 };
 
+const SWARM_ALLOW_AGENTS: ReadonlySet<BoardAgentId> = new Set(['grok', 'opencode']);
+const SWARM_PREFER_AGENTS: readonly BoardAgentId[] = ['grok', 'opencode'];
+export const SWARM_OPENCODE_MODEL = 'openrouter/stealth/ox-alpha';
+
 export function availableSwarmAgents(
   detections: readonly BoardAgentDetection[],
 ): BoardAgentId[] {
-  return detections
-    .filter((item) => item.available && item.id !== 'shell' && item.id !== 'custom')
+  const ready = detections
+    .filter((item) => item.available && SWARM_ALLOW_AGENTS.has(item.id))
     .map((item) => item.id);
+  return SWARM_PREFER_AGENTS.filter((id) => ready.includes(id));
 }
 
 export function assignSwarmPanes(agentIds: readonly BoardAgentId[]): SwarmAssignment[] {
@@ -64,7 +69,12 @@ export function swarmRoleTasks(job: string): Record<SwarmRole, string> {
 export function swarmPaneCommand(agentId: BoardAgentId, prompt: string): string {
   const binary =
     BOARD_AGENT_CATALOG.find((entry) => entry.id === agentId)?.command || agentId;
-  const prefix = agentId === 'gemini' ? 'gemini --skip-trust ' : `${binary} `;
+  const prefix =
+    agentId === 'gemini'
+      ? 'gemini --skip-trust '
+      : agentId === 'opencode'
+        ? `opencode --model ${SWARM_OPENCODE_MODEL} --prompt `
+        : `${binary} `;
   const budget = Math.max(1, 4_000 - prefix.length - 2);
   const body = prompt.trim().slice(0, budget).replaceAll("'", "'\\''");
   return `${prefix}'${body}'`;

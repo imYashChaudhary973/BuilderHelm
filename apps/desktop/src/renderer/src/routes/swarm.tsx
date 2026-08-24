@@ -483,7 +483,7 @@ export function SwarmPage(): React.JSX.Element {
             ))}
           </ul>
           <p className="swarmHint">
-            Uses installed agent CLIs. Same CLI can hold more than one role. A silent
+            Uses Grok and OpenCode (ox-alpha). Claude and Codex are skipped. A silent
             pane is nudged once, then closed.
           </p>
         </div>
