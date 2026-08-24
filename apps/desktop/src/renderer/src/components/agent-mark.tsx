@@ -1,6 +1,6 @@
 import type { BoardAgentId } from '@zero/protocol/board';
 
-import logo from '../assets/logo.png';
+import ompMark from '../assets/omp.svg';
 import piMark from '../assets/pi.svg';
 
 type MarkSpec = {
@@ -83,7 +83,7 @@ export function AgentMark({
 
 function Mark({ id }: { readonly id: BoardAgentId }): React.JSX.Element {
   if (id === 'omp') {
-    return <img className="agentMarkImg" src={logo} width={18} height={18} alt="" />;
+    return <img className="agentMarkImg" src={ompMark} width={18} height={18} alt="" />;
   }
   if (id === 'pi') {
     return <img className="agentMarkImg" src={piMark} width={18} height={18} alt="" />;

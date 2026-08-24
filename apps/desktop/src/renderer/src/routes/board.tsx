@@ -28,6 +28,7 @@ const FEATURED_AGENT_IDS: readonly BoardAgentId[] = [
   'antigravity',
   'opencode',
   'pi',
+  'omp',
 ];
 const MODES = [
   {
