@@ -23,12 +23,12 @@ What the repository implements now. Product intent lives in
 | Browser | Localhost preview, recents, last tab, stage-clipped BrowserView |
 | Editor | Workspace-scoped tree, tabs, save / save-all / autosave, word wrap |
 | Git | Branch, staged vs worktree, history, stage, unstage, commit |
-| Board | Left-rail BuilderHelm Board, drag-and-drop stages, persisted per workspace |
+| Board | Project chooser, independent persisted boards, left-rail project tabs, drag-and-drop stages |
 
 ## Current application surfaces
 
 - BuilderHelm Space (home, workspace setup, agent pick, live terminals)
-- BuilderHelm Board (left-rail Kanban with drag and drop)
+- BuilderHelm Board (multi-project Kanban with isolated tasks and drag and drop)
 - BuilderHelm Memory (private Obsidian recall with inspectable citations)
 - App chrome (top bar + left feature rail + tools panel)
 - Browser, editor, and Git tools tabs
@@ -46,8 +46,8 @@ SQLite, model policy, provider credentials, knowledge retrieval,
 permission decisions, and tool execution. Provider wire formats stay
 inside `@zero/model-gateway`.
 
-SQLite is at migration 9. Migration 8 stores Space presets. Migration 9
-stores Kanban cards.
+SQLite is at migration 10. Migration 9 stores Kanban cards. Migration 10
+stores independent Board projects and adopts the existing board.
 
 Unsigned macOS `BuilderHelm.app`: `pnpm --filter @zero/desktop dist`.
 

@@ -1,7 +1,9 @@
+import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import type { BoardSessionSummary } from '@zero/protocol/board';
 
+import { useBoards } from '../board-store.js';
 import { SPACE_COLORS, useSpaces } from '../space-store.js';
 
 function TerminalGlyph(): React.JSX.Element {
@@ -47,6 +49,11 @@ export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const featureOpen = pathname === '/board' || pathname === '/memory';
+  const boards = useBoards();
+  const boardProjects = useQuery({
+    queryKey: ['kanban-projects'],
+    queryFn: () => window.zero.board.listProjects({}),
+  });
   const spaces = useSpaces();
   const [menuId, setMenuId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -68,21 +75,30 @@ export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React
   return (
     <aside className={collapsed ? 'rail railCollapsed' : 'rail'} aria-label="BuilderHelm navigation">
       <div
-        className={pathname === '/board' ? 'railRow railItemOn' : 'railRow'}
+        className={
+          pathname === '/board' && boards.activeId === null
+            ? 'railRow railItemOn'
+            : 'railRow'
+        }
         style={{ '--tile': '#b6d475' } as React.CSSProperties}
       >
         <button
           type="button"
           className={collapsed ? 'railTile' : 'railItem'}
           title="BuilderHelm Board"
-          aria-current={pathname === '/board' ? 'page' : undefined}
-          onClick={() => void navigate({ to: '/board' })}
+          aria-current={
+            pathname === '/board' && boards.activeId === null ? 'page' : undefined
+          }
+          onClick={() => {
+            boards.choose();
+            void navigate({ to: '/board' });
+          }}
         >
           <BoardGlyph />
           {collapsed ? null : (
             <span className="railCopy">
               <strong>BuilderHelm Board</strong>
-              <small>Tasks</small>
+              <small>Choose project</small>
             </span>
           )}
         </button>
@@ -121,6 +137,42 @@ export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React
         {collapsed ? '+' : '+ New Space'}
       </button>
       <div className="railList">
+        {(boardProjects.data ?? []).map((project) => {
+          const on = pathname === '/board' && boards.activeId === project.id;
+          return (
+            <div
+              key={project.id}
+              className={on ? 'railRow railItemOn' : 'railRow'}
+              style={{ '--tile': '#b6d475' } as React.CSSProperties}
+            >
+              <button
+                type="button"
+                className={collapsed ? 'railTile' : 'railItem'}
+                title={project.name}
+                aria-label={`${project.name} Board, ${project.taskCount} ${
+                  project.taskCount === 1 ? 'task' : 'tasks'
+                }`}
+                aria-current={on ? 'page' : undefined}
+                onClick={() => {
+                  boards.open(project.id);
+                  void navigate({ to: '/board' });
+                }}
+              >
+                <BoardGlyph />
+                {collapsed ? (
+                  <span className="railBadge">{project.taskCount}</span>
+                ) : (
+                  <span className="railCopy">
+                    <strong>{project.name}</strong>
+                    <small>
+                      Board · {project.taskCount} {project.taskCount === 1 ? 'task' : 'tasks'}
+                    </small>
+                  </span>
+                )}
+              </button>
+            </div>
+          );
+        })}
         {spaces.spaces.map((space) => {
           const on = !featureOpen && !spaces.draft && spaces.activeId === space.sessionId;
           const meta = spaces.meta(space);

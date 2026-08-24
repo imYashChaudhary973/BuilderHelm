@@ -11,6 +11,17 @@ const correlationIdSchema = z
 export const kanbanColumnSchema = z.enum(['idea', 'doing', 'shipped']);
 export type KanbanColumn = z.infer<typeof kanbanColumnSchema>;
 
+export const kanbanProjectSchema = z
+  .object({
+    id: z.string().min(1).max(4096),
+    name: z.string().trim().min(1).max(120),
+    taskCount: z.number().int().nonnegative(),
+    createdAt: z.string().min(1),
+    updatedAt: z.string().min(1),
+  })
+  .strict();
+export type KanbanProject = z.infer<typeof kanbanProjectSchema>;
+
 export const kanbanCardSchema = z
   .object({
     id: z.string().uuid(),
@@ -21,6 +32,16 @@ export const kanbanCardSchema = z
   })
   .strict();
 export type KanbanCard = z.infer<typeof kanbanCardSchema>;
+
+export const kanbanProjectListInputSchema = z.object({}).strict();
+export type KanbanProjectListInput = z.infer<typeof kanbanProjectListInputSchema>;
+
+export const kanbanProjectCreateInputSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120),
+  })
+  .strict();
+export type KanbanProjectCreateInput = z.infer<typeof kanbanProjectCreateInputSchema>;
 
 export const kanbanListInputSchema = z
   .object({
@@ -44,6 +65,19 @@ export const kanbanMoveInputSchema = z
   })
   .strict();
 export type KanbanMoveInput = z.infer<typeof kanbanMoveInputSchema>;
+
+export const kanbanProjectListRequestSchema = z
+  .object({
+    correlationId: correlationIdSchema,
+    input: kanbanProjectListInputSchema,
+  })
+  .strict();
+export const kanbanProjectCreateRequestSchema = z
+  .object({
+    correlationId: correlationIdSchema,
+    input: kanbanProjectCreateInputSchema,
+  })
+  .strict();
 
 export const kanbanListRequestSchema = z
   .object({
@@ -70,6 +104,9 @@ function ipcResult<T extends z.ZodType>(value: T) {
     z.object({ ok: z.literal(false), error: modelErrorSchema }).strict(),
   ]);
 }
+
+export const kanbanProjectListIpcResponseSchema = ipcResult(z.array(kanbanProjectSchema));
+export const kanbanProjectCreateIpcResponseSchema = ipcResult(kanbanProjectSchema);
 
 export const kanbanListIpcResponseSchema = ipcResult(z.array(kanbanCardSchema));
 export const kanbanCreateIpcResponseSchema = ipcResult(kanbanCardSchema);

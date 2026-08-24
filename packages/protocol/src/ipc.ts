@@ -23,6 +23,9 @@ import type {
   KanbanCreateInput,
   KanbanListInput,
   KanbanMoveInput,
+  KanbanProject,
+  KanbanProjectCreateInput,
+  KanbanProjectListInput,
 } from './kanban.js';
 
 import type { BrowserCommandInput, BrowserState } from './browser.js';
@@ -127,6 +130,8 @@ export const ipcChannels = {
   boardPresetDelete: 'zero:board:preset-delete',
   boardLand: 'zero:board:land',
   boardLandPreview: 'zero:board:land-preview',
+  kanbanProjectList: 'zero:kanban:project-list',
+  kanbanProjectCreate: 'zero:kanban:project-create',
   kanbanList: 'zero:kanban:list',
   kanbanCreate: 'zero:kanban:create',
   kanbanMove: 'zero:kanban:move',
@@ -227,6 +232,8 @@ export interface ZeroDesktopApi {
     deletePreset(input: BoardPresetDeleteInput): Promise<{ readonly deleted: true }>;
     land(input: BoardLandInput): Promise<BoardLandResult>;
     previewLand(input: BoardLandInput): Promise<BoardLandPreview>;
+    listProjects(input: KanbanProjectListInput): Promise<KanbanProject[]>;
+    createProject(input: KanbanProjectCreateInput): Promise<KanbanProject>;
     listCards(input: KanbanListInput): Promise<KanbanCard[]>;
     createCard(input: KanbanCreateInput): Promise<KanbanCard>;
     moveCard(input: KanbanMoveInput): Promise<KanbanCard>;

@@ -34,12 +34,42 @@ describe('migration runner', () => {
     const database = createTestDatabase();
     const result = runMigrations(database, migrations);
 
-    expect(result).toEqual({ applied: [1, 2, 3, 4, 5, 6, 7, 8, 9], currentVersion: 9 });
+    expect(result).toEqual({
+      applied: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      currentVersion: 10,
+    });
     expect(
       database.queryOne<{ count: number }>(
         "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'zero_metadata'",
       ),
     ).toEqual({ count: 1 });
+  });
+
+  it('adopts existing cards into a BuilderHelm project board', () => {
+    const database = createTestDatabase();
+    runMigrations(database, migrations.slice(0, 9));
+    database.run(
+      `INSERT INTO kanban_cards (id, workspace, title, column_name, created_at)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        '00000000-0000-4000-8000-000000000001',
+        'global',
+        'Existing task',
+        'idea',
+        '2026-08-24T00:00:00.000Z',
+      ],
+    );
+
+    expect(runMigrations(database, migrations)).toEqual({
+      applied: [10],
+      currentVersion: 10,
+    });
+    expect(
+      database.queryOne<{ id: string; name: string }>(
+        `SELECT id, name FROM kanban_projects WHERE id = ?`,
+        ['global'],
+      ),
+    ).toEqual({ id: 'global', name: 'BuilderHelm' });
   });
 
   it('is idempotent after the latest migration', () => {
@@ -48,7 +78,7 @@ describe('migration runner', () => {
 
     expect(runMigrations(database, migrations)).toEqual({
       applied: [],
-      currentVersion: 9,
+      currentVersion: 10,
     });
   });
 
@@ -64,7 +94,7 @@ describe('migration runner', () => {
     openDatabases.push(reopened);
     expect(runMigrations(reopened, migrations)).toEqual({
       applied: [],
-      currentVersion: 9,
+      currentVersion: 10,
     });
   });
 

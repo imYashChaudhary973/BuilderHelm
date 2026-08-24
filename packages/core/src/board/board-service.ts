@@ -9,11 +9,14 @@ import {
   BOARD_AGENT_CATALOG,
   boardPresetRecordSchema,
   kanbanCardSchema,
+  kanbanProjectCreateInputSchema,
+  kanbanProjectSchema,
   type BoardAgentDetection,
   type BoardPresetRecord,
   type BoardPresetSpec,
   type KanbanCard,
   type KanbanColumn,
+  type KanbanProject,
 } from '@zero/protocol';
 import { normalizeError, utcNow, ZeroError, type CorrelationId } from '@zero/shared';
 
@@ -306,6 +309,70 @@ export class BoardService {
     return { landed: true, head };
   }
 
+  listProjects(): KanbanProject[] {
+    return this.database
+      .queryAll<{
+        id: string;
+        name: string;
+        task_count: number;
+        created_at: string;
+        updated_at: string;
+      }>(
+        `SELECT
+           projects.id,
+           projects.name,
+           count(cards.id) AS task_count,
+           projects.created_at,
+           projects.updated_at
+         FROM kanban_projects AS projects
+         LEFT JOIN kanban_cards AS cards ON cards.workspace = projects.id
+         GROUP BY projects.id
+         ORDER BY projects.updated_at DESC, projects.created_at DESC`,
+      )
+      .map((row) =>
+        kanbanProjectSchema.parse({
+          id: row.id,
+          name: row.name,
+          taskCount: row.task_count,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        }),
+      );
+  }
+
+  createProject(name: string, correlationId: CorrelationId): KanbanProject {
+    const input = kanbanProjectCreateInputSchema.parse({ name });
+    const duplicate = this.database.queryOne<{ id: string }>(
+      `SELECT id FROM kanban_projects WHERE name = ? COLLATE NOCASE`,
+      [input.name],
+    );
+    if (duplicate !== undefined) {
+      throw new ZeroError(
+        'VALIDATION_FAILED',
+        'A Board project with that name already exists',
+      );
+    }
+    const now = utcNow();
+    const project = kanbanProjectSchema.parse({
+      id: randomUUID(),
+      name: input.name,
+      taskCount: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+    this.database.run(
+      `INSERT INTO kanban_projects (id, name, created_at, updated_at)
+       VALUES (?, ?, ?, ?)`,
+      [project.id, project.name, project.createdAt, project.updatedAt],
+    );
+    this.logger.info({
+      event: 'kanban.project_created',
+      correlationId,
+      data: { projectId: project.id },
+    });
+    return project;
+  }
+
   listCards(workspace: string): KanbanCard[] {
     return this.database
       .queryAll<{
@@ -333,18 +400,35 @@ export class BoardService {
   }
 
   createCard(workspace: string, title: string, correlationId: CorrelationId): KanbanCard {
-    const card: KanbanCard = {
+    if (
+      this.database.queryOne<{ id: string }>(
+        `SELECT id FROM kanban_projects WHERE id = ?`,
+        [workspace],
+      ) === undefined
+    ) {
+      throw new ZeroError(
+        'VALIDATION_FAILED',
+        'Select a Board project before adding tasks',
+      );
+    }
+    const card = kanbanCardSchema.parse({
       id: randomUUID(),
       workspace,
       title,
       column: 'idea',
       createdAt: utcNow(),
-    };
-    this.database.run(
-      `INSERT INTO kanban_cards (id, workspace, title, column_name, created_at)
-       VALUES (?, ?, ?, ?, ?)`,
-      [card.id, card.workspace, card.title, card.column, card.createdAt],
-    );
+    });
+    this.database.transaction(() => {
+      this.database.run(
+        `INSERT INTO kanban_cards (id, workspace, title, column_name, created_at)
+         VALUES (?, ?, ?, ?, ?)`,
+        [card.id, card.workspace, card.title, card.column, card.createdAt],
+      );
+      this.database.run(`UPDATE kanban_projects SET updated_at = ? WHERE id = ?`, [
+        card.createdAt,
+        workspace,
+      ]);
+    });
     this.logger.info({
       event: 'kanban.card_created',
       correlationId,
@@ -353,23 +437,31 @@ export class BoardService {
     return card;
   }
   moveCard(id: string, column: KanbanColumn, correlationId: CorrelationId): KanbanCard {
-    this.database.run(`UPDATE kanban_cards SET column_name = ? WHERE id = ?`, [
-      column,
-      id,
-    ]);
-    const row = this.database.queryOne<{
-      id: string;
-      workspace: string;
-      title: string;
-      column_name: string;
-      created_at: string;
-    }>(
-      `SELECT id, workspace, title, column_name, created_at FROM kanban_cards WHERE id = ?`,
-      [id],
-    );
-    if (row === undefined) {
-      throw new ZeroError('VALIDATION_FAILED', 'That card is gone');
-    }
+    const updatedAt = utcNow();
+    const row = this.database.transaction(() => {
+      this.database.run(`UPDATE kanban_cards SET column_name = ? WHERE id = ?`, [
+        column,
+        id,
+      ]);
+      const found = this.database.queryOne<{
+        id: string;
+        workspace: string;
+        title: string;
+        column_name: string;
+        created_at: string;
+      }>(
+        `SELECT id, workspace, title, column_name, created_at FROM kanban_cards WHERE id = ?`,
+        [id],
+      );
+      if (found === undefined) {
+        throw new ZeroError('VALIDATION_FAILED', 'That card is gone');
+      }
+      this.database.run(`UPDATE kanban_projects SET updated_at = ? WHERE id = ?`, [
+        updatedAt,
+        found.workspace,
+      ]);
+      return found;
+    });
     this.logger.info({
       event: 'kanban.card_moved',
       correlationId,

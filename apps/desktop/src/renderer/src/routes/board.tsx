@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react';
 import { TerminalPane } from '../components/terminal-pane.js';
 import { SignalField } from '../components/signal-field.js';
 import { AgentMark } from '../components/agent-mark.js';
+import { useBoards } from '../board-store.js';
 import { useSpaces } from '../space-store.js';
 import logo from '../assets/logo.png';
 const PANE_COUNTS: readonly BoardPaneCount[] = [1, 2, 4, 6, 8, 10, 12];
@@ -234,6 +235,7 @@ function looksLikeCd(value: string): boolean {
 
 export function BoardPage(): React.JSX.Element {
   const navigate = useNavigate();
+  const boards = useBoards();
   const spaceStore = useSpaces();
   const session =
     spaceStore.spaces.find((item) => item.sessionId === spaceStore.activeId) ?? null;
@@ -296,6 +298,7 @@ export function BoardPage(): React.JSX.Element {
       }
       if (event.key.toLowerCase() === 'b') {
         event.preventDefault();
+        boards.choose();
         void navigate({ to: '/board' });
       }
       if (event.key.toLowerCase() === 'm') {
@@ -305,7 +308,7 @@ export function BoardPage(): React.JSX.Element {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [phase, navigate]);
+  }, [phase, navigate, boards]);
 
   useEffect(() => {
     if (!spaceStore.wantSetup) return;
@@ -613,6 +616,7 @@ export function BoardPage(): React.JSX.Element {
                   disabled={!mode.enabled}
                   onClick={() => {
                     if (mode.id === 'board' || mode.id === 'memory') {
+                      if (mode.id === 'board') boards.choose();
                       void navigate({ to: mode.id === 'board' ? '/board' : '/memory' });
                       return;
                     }

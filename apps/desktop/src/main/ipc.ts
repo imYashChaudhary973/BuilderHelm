@@ -45,6 +45,10 @@ import {
   kanbanListRequestSchema,
   kanbanMoveIpcResponseSchema,
   kanbanMoveRequestSchema,
+  kanbanProjectCreateIpcResponseSchema,
+  kanbanProjectCreateRequestSchema,
+  kanbanProjectListIpcResponseSchema,
+  kanbanProjectListRequestSchema,
 } from '@zero/protocol/kanban';
 import {
   chatCreateRequestSchema,
@@ -850,6 +854,34 @@ export function registerIpcHandlers(
       });
     }
   });
+  ipcMain.handle(ipcChannels.kanbanProjectList, (_event, input: unknown) => {
+    try {
+      kanbanProjectListRequestSchema.parse(input);
+      return kanbanProjectListIpcResponseSchema.parse({
+        ok: true,
+        value: core.board.listProjects(),
+      });
+    } catch (error) {
+      return kanbanProjectListIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.kanbanProjectCreate, (_event, input: unknown) => {
+    try {
+      const request = kanbanProjectCreateRequestSchema.parse(input);
+      return kanbanProjectCreateIpcResponseSchema.parse({
+        ok: true,
+        value: core.board.createProject(request.input.name, request.correlationId),
+      });
+    } catch (error) {
+      return kanbanProjectCreateIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
   ipcMain.handle(ipcChannels.kanbanList, (_event, input: unknown) => {
     try {
       const request = kanbanListRequestSchema.parse(input);
@@ -1092,6 +1124,8 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.boardPresetDelete);
     ipcMain.removeHandler(ipcChannels.boardLand);
     ipcMain.removeHandler(ipcChannels.boardLandPreview);
+    ipcMain.removeHandler(ipcChannels.kanbanProjectList);
+    ipcMain.removeHandler(ipcChannels.kanbanProjectCreate);
     ipcMain.removeHandler(ipcChannels.kanbanList);
     ipcMain.removeHandler(ipcChannels.kanbanCreate);
     ipcMain.removeHandler(ipcChannels.kanbanMove);

@@ -14,7 +14,7 @@ Git snapshots, PTY grid, app chrome.
   usable xterm grid, stacked Spaces.
 - Chrome: top bar, left rail, Browser / Editor / Git sidebars.
 - Git write: stage, unstage, commit.
-- Board: To Do / In Progress / Complete kanban with persisted drag and drop.
+- Board: named project boards, isolated tasks, left-rail tabs, and persisted drag and drop.
 - Memory: private Obsidian retrieval, cited answers, source previews, and recent questions.
 
 ## Next — Swarm

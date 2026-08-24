@@ -41,6 +41,10 @@ import {
   kanbanListIpcResponseSchema,
   kanbanMoveInputSchema,
   kanbanMoveIpcResponseSchema,
+  kanbanProjectCreateInputSchema,
+  kanbanProjectCreateIpcResponseSchema,
+  kanbanProjectListInputSchema,
+  kanbanProjectListIpcResponseSchema,
 } from '@zero/protocol/kanban';
 import {
   ipcChannels,
@@ -440,6 +444,23 @@ const api: ZeroDesktopApi = {
         boardLandInputSchema.parse(input),
       );
       return unwrap(boardLandPreviewIpcResponseSchema.parse(response));
+    },
+    async listProjects(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.kanbanProjectList, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: kanbanProjectListInputSchema.parse(input),
+      });
+      return unwrap(kanbanProjectListIpcResponseSchema.parse(response));
+    },
+    async createProject(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.kanbanProjectCreate,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          input: kanbanProjectCreateInputSchema.parse(input),
+        },
+      );
+      return unwrap(kanbanProjectCreateIpcResponseSchema.parse(response));
     },
     async listCards(input) {
       const response: unknown = await ipcRenderer.invoke(ipcChannels.kanbanList, {

@@ -128,17 +128,42 @@ describe('BoardService worktrees', () => {
 });
 
 describe('BoardService kanban', () => {
-  it('creates a card in idea and moves it to shipped', () => {
+  it('keeps project boards and their tasks isolated', () => {
     const database = openDatabase(':memory:');
     runMigrations(database, migrations);
     const service = new BoardService(database, logger);
-    const id = createCorrelationId();
-    const created = service.createCard('/tmp/app', 'Ship Board', id);
-    expect(created.column).toBe('idea');
-    expect(service.listCards('/tmp/app')).toHaveLength(1);
-    const moved = service.moveCard(created.id, 'shipped', id);
-    expect(moved.column).toBe('shipped');
-    expect(service.listCards('/tmp/app')[0]?.column).toBe('shipped');
+    const correlationId = createCorrelationId();
+    const builderHelm = service.createProject('BuilderHelm', correlationId);
+    const zenVoice = service.createProject('ZenVoice', correlationId);
+    const builderTask = service.createCard(
+      builderHelm.id,
+      'Ship multi-project boards',
+      correlationId,
+    );
+    service.createCard(zenVoice.id, 'Refine voice capture', correlationId);
+
+    expect(service.listCards(builderHelm.id).map((card) => card.title)).toEqual([
+      'Ship multi-project boards',
+    ]);
+    expect(service.listCards(zenVoice.id).map((card) => card.title)).toEqual([
+      'Refine voice capture',
+    ]);
+    expect(service.moveCard(builderTask.id, 'shipped', correlationId).column).toBe(
+      'shipped',
+    );
+    expect(service.listCards(zenVoice.id)[0]?.column).toBe('idea');
+    expect(
+      service
+        .listProjects()
+        .map((project) => ({ name: project.name, taskCount: project.taskCount }))
+        .sort((left, right) => left.name.localeCompare(right.name)),
+    ).toEqual([
+      { name: 'BuilderHelm', taskCount: 1 },
+      { name: 'ZenVoice', taskCount: 1 },
+    ]);
+    expect(() => service.createProject('zenvoice', correlationId)).toThrow(
+      'already exists',
+    );
     database.close();
   });
 });

@@ -1,6 +1,7 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
+import { BoardProvider } from './board-store.js';
 import logo from './assets/logo.png';
 import { SidePanel } from './components/side-panel.js';
 import { SpaceRail } from './components/space-rail.js';
@@ -138,10 +139,12 @@ function GearIcon(): React.JSX.Element {
 }
 export function App(): React.JSX.Element {
   return (
-    <SpaceProvider>
-      <PreviewProvider>
-        <Shell />
-      </PreviewProvider>
-    </SpaceProvider>
+    <BoardProvider>
+      <SpaceProvider>
+        <PreviewProvider>
+          <Shell />
+        </PreviewProvider>
+      </SpaceProvider>
+    </BoardProvider>
   );
 }

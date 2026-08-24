@@ -7,6 +7,7 @@ import { toolsPermissionsActionsMigration } from './0006-tools-permissions-actio
 import { projectContinuityMigration } from './0007-project-continuity.js';
 import { boardPresetsMigration } from './0008-board-presets.js';
 import { kanbanCardsMigration } from './0009-kanban-cards.js';
+import { kanbanProjectsMigration } from './0010-kanban-projects.js';
 
 export const migrations = [
   phaseZeroMigration,
@@ -18,6 +19,7 @@ export const migrations = [
   projectContinuityMigration,
   boardPresetsMigration,
   kanbanCardsMigration,
+  kanbanProjectsMigration,
 ] as const;
 
 export {
@@ -30,4 +32,5 @@ export {
   projectContinuityMigration,
   boardPresetsMigration,
   kanbanCardsMigration,
+  kanbanProjectsMigration,
 };

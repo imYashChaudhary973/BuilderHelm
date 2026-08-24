@@ -728,6 +728,7 @@ html.is-fullscreen .shell {
   padding: 24px 28px 36px;
 }
 
+.content:has(.boardChooser),
 .content:has(.boardGrid),
 .content:has(.kanbanPage),
 .content:has(.memoryPage),
@@ -4278,6 +4279,198 @@ html.is-fullscreen .spaceHome {
   font-size: 13px;
 }
 
+.boardChooser {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+  min-height: 0;
+  padding: clamp(22px, 4vw, 54px);
+  overflow: auto;
+  background: #070807;
+}
+
+.boardChooserHeader,
+.boardChooserGrid {
+  width: min(100%, 1060px);
+  margin: 0 auto;
+}
+
+.boardChooserHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.boardChooserHeader h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: 24px;
+}
+
+.boardChooserHeader p {
+  margin: 4px 0 0;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.boardChooserGrid {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.78fr) minmax(380px, 1.22fr);
+  gap: 14px;
+  min-height: 0;
+}
+
+.boardProjectCreate,
+.boardProjectLibrary {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #0c0d0c;
+}
+
+.boardProjectCreate {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: clamp(22px, 3vw, 34px);
+}
+
+.boardChooserStep {
+  color: var(--accent-bright);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.boardProjectCreate h2,
+.boardProjectLibrary h2 {
+  margin: 8px 0 0;
+  color: var(--text);
+  font-size: 17px;
+}
+
+.boardProjectCreate > p {
+  max-width: 42ch;
+  margin: 7px 0 22px;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.boardProjectCreate label {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 12px;
+  color: var(--text-2);
+  font-size: 11px;
+}
+
+.boardProjectCreate input {
+  width: 100%;
+}
+
+.boardProjectLibrary {
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  overflow: hidden;
+}
+
+.boardProjectLibrary > div {
+  padding: 5px 4px 15px;
+  border-bottom: 1px solid var(--line);
+}
+
+.boardProjectLibrary ul {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-height: 0;
+  margin: 0;
+  padding: 12px 0 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.boardProjectLibrary li > button {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--text);
+  background: #111211;
+  text-align: left;
+}
+
+.boardProjectLibrary li > button:hover {
+  border-color: var(--accent-line);
+  background: var(--accent-dim);
+}
+
+.boardProjectIcon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--accent-bright);
+  background: var(--accent-dim);
+}
+
+.boardProjectLibrary button > span:nth-child(2) {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.boardProjectLibrary strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.boardProjectLibrary small,
+.boardProjectLibrary button > span:last-child {
+  color: var(--text-3);
+  font-size: 10px;
+}
+
+.boardProjectLibrary button > span:last-child {
+  color: var(--accent-bright);
+  font-weight: 650;
+}
+
+.boardChooserEmpty {
+  margin: auto;
+  padding: 30px;
+  color: var(--text-3);
+  font-size: 12px;
+  text-align: center;
+}
+
+@media (max-width: 820px) {
+  .boardChooserGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .boardProjectLibrary {
+    min-height: 300px;
+  }
+}
+
 .kanbanPage {
   display: flex;
   flex: 1;
@@ -4330,6 +4523,14 @@ html.is-fullscreen .spaceHome {
   margin: 3px 0 0;
   color: var(--text-3);
   font-size: 11px;
+}
+
+.kanbanHeadActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .kanbanAdd {
