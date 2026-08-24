@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 import type {
   BoardAgentDetection,
   BoardAgentId,
@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react';
 import { TerminalPane } from '../components/terminal-pane.js';
 import { SignalField } from '../components/signal-field.js';
 import { AgentMark } from '../components/agent-mark.js';
+import { usePreview } from '../preview-store.js';
 import { useSpaces } from '../space-store.js';
 import logo from '../assets/logo.png';
 const PANE_COUNTS: readonly BoardPaneCount[] = [1, 2, 4, 6, 8, 10, 12];
@@ -33,7 +34,7 @@ const FEATURED_AGENT_IDS: readonly BoardAgentId[] = [
 const MODES = [
   {
     id: 'space',
-    name: 'Space',
+    name: 'BuilderHelm Space',
     shortcut: '⌘T',
     enabled: true,
     promise:
@@ -41,7 +42,7 @@ const MODES = [
   },
   {
     id: 'swarm',
-    name: 'Swarm',
+    name: 'BuilderHelm Swarm',
     shortcut: '⌘S',
     enabled: false,
     promise:
@@ -49,7 +50,7 @@ const MODES = [
   },
   {
     id: 'board',
-    name: 'Board',
+    name: 'BuilderHelm Board',
     shortcut: '⌘B',
     enabled: true,
     promise:
@@ -57,7 +58,7 @@ const MODES = [
   },
   {
     id: 'memory',
-    name: 'Memory',
+    name: 'BuilderHelm Memory',
     shortcut: '⌘M',
     enabled: false,
     promise:
@@ -233,7 +234,7 @@ function looksLikeCd(value: string): boolean {
 }
 
 export function BoardPage(): React.JSX.Element {
-  const navigate = useNavigate();
+  const preview = usePreview();
   const spaceStore = useSpaces();
   const session =
     spaceStore.spaces.find((item) => item.sessionId === spaceStore.activeId) ?? null;
@@ -296,12 +297,12 @@ export function BoardPage(): React.JSX.Element {
       }
       if (event.key.toLowerCase() === 'b') {
         event.preventDefault();
-        void navigate({ to: '/kanban' });
+        preview.setTab('board');
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [phase, navigate]);
+  }, [phase, preview]);
 
   useEffect(() => {
     if (!spaceStore.wantSetup) return;
@@ -510,7 +511,7 @@ export function BoardPage(): React.JSX.Element {
       <section className="boardPage" aria-labelledby="board-title" data-core-status="ready">
         <div className="boardToolbar">
           <h1 id="board-title">
-            Space · {folderName(session.folderPath)} · {session.paneCount} terminals
+            BuilderHelm Space · {folderName(session.folderPath)} · {session.paneCount} terminals
           </h1>
           <button
             className="secondaryButton"
@@ -609,7 +610,7 @@ export function BoardPage(): React.JSX.Element {
                   disabled={!mode.enabled}
                   onClick={() => {
                     if (mode.id === 'board') {
-                      void navigate({ to: '/kanban' });
+                      preview.setTab('board');
                       return;
                     }
                     if (mode.enabled) setPhase('workspace');
@@ -641,10 +642,10 @@ export function BoardPage(): React.JSX.Element {
           </ul>
           <p className="spaceHomeKeys">
             <span>
-              <kbd>⌘T</kbd> Space
+              <kbd>⌘T</kbd> BuilderHelm Space
             </span>
             <span>
-              <kbd>⌘S</kbd> Swarm
+              <kbd>⌘S</kbd> BuilderHelm Swarm
             </span>
             <Link to="/settings/providers">
               <kbd>⌘,</kbd> Settings

@@ -17,18 +17,18 @@ What the repository implements now. Product intent lives in
 | Knowledge | Read-only Obsidian retrieval with citations |
 | Actions | Schema-backed tools, permissions, approvals, receipts |
 | Projects | Dashboard, Git status and history, Today summary |
-| Space | Home, wizard, Open without AI, per-pane agents, live xterm grid |
+| Space | BuilderHelm Space home, wizard, per-pane agents, live xterm grid |
 | Brand | BuilderHelm name, tagline, helm mark |
 | Chrome | Icon tools panel, 18–60% resize, Space rail |
 | Browser | Localhost preview, recents, last tab, stage-clipped BrowserView |
 | Editor | Workspace-scoped tree, tabs, save / save-all / autosave, word wrap |
 | Git | Branch, staged vs worktree, history, stage, unstage, commit |
-| Board | Idea / Doing / Shipped kanban, persisted per workspace |
+| Board | BuilderHelm Board tools tab, To Do / In Progress / Complete, persisted per workspace |
 
 ## Current application surfaces
 
-- Space (home, workspace setup, agent pick, live terminals)
-- Board (Idea / Doing / Shipped)
+- BuilderHelm Space (home, workspace setup, agent pick, live terminals)
+- BuilderHelm Board (tools sidebar Kanban)
 - App chrome (top bar + left rail + tools panel)
 - Browser, editor, and Git sidebars
 - Provider and model settings

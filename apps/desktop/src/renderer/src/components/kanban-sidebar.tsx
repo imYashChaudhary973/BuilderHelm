@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import { useSpaces } from '../space-store.js';
 
 const COLUMNS: readonly { id: KanbanColumn; label: string }[] = [
-  { id: 'idea', label: 'Idea' },
-  { id: 'doing', label: 'Doing' },
-  { id: 'shipped', label: 'Shipped' },
+  { id: 'idea', label: 'To Do' },
+  { id: 'doing', label: 'In Progress' },
+  { id: 'shipped', label: 'Complete' },
 ];
 
 function workspaceOf(spaces: ReturnType<typeof useSpaces>): string {
@@ -17,13 +17,17 @@ function workspaceOf(spaces: ReturnType<typeof useSpaces>): string {
   );
 }
 
-export function KanbanPage(): React.JSX.Element {
+export function KanbanSidebar(): React.JSX.Element {
   const spaces = useSpaces();
   const workspace = workspaceOf(spaces);
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [title, setTitle] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const workspaceName =
+    workspace === 'global'
+      ? 'All spaces'
+      : (workspace.split('/').filter(Boolean).at(-1) ?? 'Workspace');
 
   useEffect(() => {
     let alive = true;
@@ -79,9 +83,47 @@ export function KanbanPage(): React.JSX.Element {
       data-core-status="ready"
     >
       <header className="kanbanHead">
-        <div>
-          <p className="eyebrow">Board</p>
-          <h1 id="kanban-title">Plan the work</h1>
+        <div className="kanbanIdentity">
+          <span className="kanbanMark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18">
+              <rect
+                x="4.5"
+                y="5.5"
+                width="4"
+                height="13"
+                rx="1.2"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+              />
+              <rect
+                x="10"
+                y="5.5"
+                width="4"
+                height="8.5"
+                rx="1.2"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+              />
+              <rect
+                x="15.5"
+                y="5.5"
+                width="4"
+                height="11"
+                rx="1.2"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+              />
+            </svg>
+          </span>
+          <div>
+            <h1 id="kanban-title">BuilderHelm Board</h1>
+            <p>
+              {workspaceName} · {cards.length} {cards.length === 1 ? 'task' : 'tasks'}
+            </p>
+          </div>
         </div>
         <form
           className="kanbanAdd"
@@ -91,13 +133,14 @@ export function KanbanPage(): React.JSX.Element {
           }}
         >
           <input
+            aria-label="Task title"
             value={title}
-            placeholder="New idea"
+            placeholder="New task"
             disabled={busy}
             onChange={(event) => setTitle(event.target.value)}
           />
           <button type="submit" disabled={busy || title.trim().length === 0}>
-            Add
+            + New task
           </button>
         </form>
       </header>
@@ -110,11 +153,13 @@ export function KanbanPage(): React.JSX.Element {
         {COLUMNS.map((column) => {
           const items = cards.filter((card) => card.column === column.id);
           return (
-            <section key={column.id} className="kanbanCol">
+            <section key={column.id} className="kanbanCol" data-column={column.id}>
               <header>
-                {column.label} <strong>{items.length}</strong>
+                <span>{column.label}</span>
+                <strong>{items.length}</strong>
               </header>
               <ul>
+                {items.length === 0 ? <li className="kanbanEmpty">No tasks</li> : null}
                 {items.map((card) => (
                   <li key={card.id}>
                     <p>{card.title}</p>
@@ -122,6 +167,7 @@ export function KanbanPage(): React.JSX.Element {
                       {column.id !== 'idea' ? (
                         <button
                           type="button"
+                          aria-label={`Move ${card.title} back`}
                           disabled={busy}
                           onClick={() =>
                             void move(card, column.id === 'doing' ? 'idea' : 'doing')
@@ -133,6 +179,7 @@ export function KanbanPage(): React.JSX.Element {
                       {column.id !== 'shipped' ? (
                         <button
                           type="button"
+                          aria-label={`Move ${card.title} forward`}
                           disabled={busy}
                           onClick={() =>
                             void move(card, column.id === 'idea' ? 'doing' : 'shipped')
