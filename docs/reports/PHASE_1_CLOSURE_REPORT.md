@@ -71,6 +71,6 @@
 ## Git state
 
 - Baseline branch: `main`
-- Remote: `origin` → `https://github.com/imYashChaudhary973/Axiom-Zero.git`
+- Remote: `origin` → `https://github.com/imYashChaudhary973/BuilderHelm.git`
 - Commit: `fef6212` (`feat: establish secure desktop foundation`)
 - Push: completed to `origin/main`

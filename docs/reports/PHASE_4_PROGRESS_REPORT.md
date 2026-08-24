@@ -153,7 +153,7 @@ approval belong to Phase 9 in the execution roadmap and were not added here.
 
 - Committed as `3131971` and pushed to
   `origin/phase-4/tools-permissions-action-chat`.
-- Published as [draft PR #3](https://github.com/imYashChaudhary973/Axiom-Zero/pull/3),
+- Published as [draft PR #3](https://github.com/imYashChaudhary973/BuilderHelm/pull/3),
   stacked on `phase-3/obsidian-memory`.
 - Pull-request CI passed and GitHub reports the PR as mergeable.
 - Deterministic manual task creation, task update, auto-approval, denial, receipt,

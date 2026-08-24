@@ -97,7 +97,7 @@ add/change/delete indexing without sending personal notes to a paid provider.
 
 - Committed as `0aaecc9` and pushed to
   `origin/phase-3/obsidian-memory`.
-- Published as [draft PR #2](https://github.com/imYashChaudhary973/Axiom-Zero/pull/2),
+- Published as [draft PR #2](https://github.com/imYashChaudhary973/BuilderHelm/pull/2),
   stacked on `phase-2/model-gateway-chat`.
 - Pull-request CI passed and GitHub reports the PR as mergeable.
 - Manual acceptance used an isolated two-note test vault and a configured local
