@@ -39,6 +39,14 @@ import {
   boardWriteIpcResponseSchema,
 } from '@zero/protocol/board';
 import {
+  kanbanCreateIpcResponseSchema,
+  kanbanCreateRequestSchema,
+  kanbanListIpcResponseSchema,
+  kanbanListRequestSchema,
+  kanbanMoveIpcResponseSchema,
+  kanbanMoveRequestSchema,
+} from '@zero/protocol/kanban';
+import {
   chatCreateRequestSchema,
   chatGetRequestSchema,
   chatListRequestSchema,
@@ -842,6 +850,47 @@ export function registerIpcHandlers(
       });
     }
   });
+  ipcMain.handle(ipcChannels.kanbanList, (_event, input: unknown) => {
+    try {
+      const request = kanbanListRequestSchema.parse(input);
+      return kanbanListIpcResponseSchema.parse({
+        ok: true,
+        value: core.board.listCards(request.input.workspace),
+      });
+    } catch (error) {
+      return kanbanListIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.kanbanCreate, (_event, input: unknown) => {
+    try {
+      const request = kanbanCreateRequestSchema.parse(input);
+      return kanbanCreateIpcResponseSchema.parse({
+        ok: true,
+        value: core.board.createCard(
+          request.input.workspace,
+          request.input.title,
+          request.correlationId,
+        ),
+      });
+    } catch (error) {
+      return kanbanCreateIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.kanbanMove, (_event, input: unknown) => {
+    try {
+      const request = kanbanMoveRequestSchema.parse(input);
+      return kanbanMoveIpcResponseSchema.parse({
+        ok: true,
+        value: core.board.moveCard(
+          request.input.id,
+          request.input.column,
+          request.correlationId,
+        ),
+      });
+    } catch (error) {
+      return kanbanMoveIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
 
   ipcMain.handle(ipcChannels.browserCommand, async (event, input: unknown) => {
     try {
@@ -1043,6 +1092,9 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.boardPresetDelete);
     ipcMain.removeHandler(ipcChannels.boardLand);
     ipcMain.removeHandler(ipcChannels.boardLandPreview);
+    ipcMain.removeHandler(ipcChannels.kanbanList);
+    ipcMain.removeHandler(ipcChannels.kanbanCreate);
+    ipcMain.removeHandler(ipcChannels.kanbanMove);
     ipcMain.removeHandler(ipcChannels.browserCommand);
     ipcMain.removeHandler(ipcChannels.editorPick);
     ipcMain.removeHandler(ipcChannels.editorRead);

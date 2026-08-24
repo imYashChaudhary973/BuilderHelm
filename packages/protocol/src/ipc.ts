@@ -18,6 +18,13 @@ import type {
   BoardPresetSaveInput,
   BoardSessionSummary,
 } from './board.js';
+import type {
+  KanbanCard,
+  KanbanCreateInput,
+  KanbanListInput,
+  KanbanMoveInput,
+} from './kanban.js';
+
 import type { BrowserCommandInput, BrowserState } from './browser.js';
 import type {
   EditorCreateInput,
@@ -120,6 +127,9 @@ export const ipcChannels = {
   boardPresetDelete: 'zero:board:preset-delete',
   boardLand: 'zero:board:land',
   boardLandPreview: 'zero:board:land-preview',
+  kanbanList: 'zero:kanban:list',
+  kanbanCreate: 'zero:kanban:create',
+  kanbanMove: 'zero:kanban:move',
   browserCommand: 'zero:browser:command',
   editorPick: 'zero:editor:pick',
   editorRead: 'zero:editor:read',
@@ -217,6 +227,9 @@ export interface ZeroDesktopApi {
     deletePreset(input: BoardPresetDeleteInput): Promise<{ readonly deleted: true }>;
     land(input: BoardLandInput): Promise<BoardLandResult>;
     previewLand(input: BoardLandInput): Promise<BoardLandPreview>;
+    listCards(input: KanbanListInput): Promise<KanbanCard[]>;
+    createCard(input: KanbanCreateInput): Promise<KanbanCard>;
+    moveCard(input: KanbanMoveInput): Promise<KanbanCard>;
     onPaneEvent(
       sessionId: string,
       listener: (event: BoardPaneEventEnvelope) => void,

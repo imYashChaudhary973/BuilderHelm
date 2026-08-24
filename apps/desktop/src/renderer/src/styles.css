@@ -3137,7 +3137,6 @@ html.is-fullscreen .spaceHome {
   width: min(820px, calc(100% - 96px));
 }
 
-
 .spaceHomeBrand {
   display: flex;
   align-items: center;
@@ -3369,7 +3368,6 @@ html.is-fullscreen .spaceHome {
   gap: 10px;
 }
 
-
 .wizardLabelRow {
   display: flex;
   align-items: baseline;
@@ -3445,7 +3443,6 @@ html.is-fullscreen .spaceHome {
   text-align: left;
   color: inherit;
 }
-
 
 .recentCard small {
   display: block;
@@ -3639,7 +3636,6 @@ html.is-fullscreen .spaceHome {
 .spaceWizard .lede {
   margin-top: -8px;
 }
-
 
 .spaceWizard h1,
 .spaceWizard .lede {
@@ -3972,6 +3968,98 @@ html.is-fullscreen .spaceHome {
   font-size: 13px;
 }
 
+.kanbanPage {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  min-height: 0;
+}
+
+.kanbanHead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.kanbanHead h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.kanbanAdd {
+  display: flex;
+  gap: 8px;
+}
+
+.kanbanAdd input {
+  width: 240px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-1);
+  color: var(--text);
+}
+
+.kanbanGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  min-height: 0;
+  flex: 1;
+}
+
+.kanbanCol {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #0c0c0c;
+}
+
+.kanbanCol header {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.kanbanCol ul {
+  list-style: none;
+  margin: 0;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+}
+
+.kanbanCol li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #121212;
+}
+
+.kanbanCol li p {
+  margin: 0;
+}
+
+.kanbanCol li button {
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+}
+
 .boardToolbar {
   display: flex;
   align-items: center;
@@ -4225,7 +4313,6 @@ html.is-fullscreen .spaceHome {
   color: var(--bg);
   background: var(--accent);
 }
-
 
 .sideBody {
   display: flex;

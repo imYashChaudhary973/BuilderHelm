@@ -2,7 +2,7 @@
 
 - Last reviewed: 2026-08-24
 - Baseline: BuilderHelm chrome landed on `main` at `c9726ab`
-- Active work: Git stage/commit on `feat/editor`
+- Active work: Board (Kanban) on `feat/editor`
 
 What the repository implements now. Product intent lives in
 [PRODUCT](PRODUCT.md), [UX](UX.md), and [ROADMAP](ROADMAP.md).
@@ -22,11 +22,13 @@ What the repository implements now. Product intent lives in
 | Chrome | Icon tools panel, 18–60% resize, Space rail |
 | Browser | Localhost preview, recents, last tab, stage-clipped BrowserView |
 | Editor | Workspace-scoped tree, tabs, save / save-all / autosave, word wrap |
-| Git | Branch, staged vs worktree, history (read-only until the next slice) |
+| Git | Branch, staged vs worktree, history, stage, unstage, commit |
+| Board | Idea / Doing / Shipped kanban, persisted per workspace |
 
 ## Current application surfaces
 
 - Space (home, workspace setup, agent pick, live terminals)
+- Board (Idea / Doing / Shipped)
 - App chrome (top bar + left rail + tools panel)
 - Browser, editor, and Git sidebars
 - Provider and model settings
@@ -44,8 +46,8 @@ SQLite, model policy, provider credentials, knowledge retrieval,
 permission decisions, and tool execution. Provider wire formats stay
 inside `@zero/model-gateway`.
 
-SQLite is at migration 8. Migration 7 stores project repository snapshots.
-Migration 8 stores Space presets.
+SQLite is at migration 9. Migration 8 stores Space presets. Migration 9
+stores Kanban cards.
 
 Unsigned macOS `BuilderHelm.app`: `pnpm --filter @zero/desktop dist`.
 
@@ -65,5 +67,4 @@ pnpm smoke:desktop
   executes them.
 - Ready work lands on `main`. Permission or security changes still use a PR.
 - Windows and Linux desktops are not verified yet.
-- Swarm, Kanban Board, Memory, Skills, Bridge, and phone pairing are not
-  built yet. Git stage/commit is on `feat/editor`, not on `main` yet.
+- Swarm, Memory, Skills, Bridge, and phone pairing are not built yet.

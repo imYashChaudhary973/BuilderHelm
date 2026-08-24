@@ -126,3 +126,19 @@ describe('BoardService worktrees', () => {
     database.close();
   });
 });
+
+describe('BoardService kanban', () => {
+  it('creates a card in idea and moves it to shipped', () => {
+    const database = openDatabase(':memory:');
+    runMigrations(database, migrations);
+    const service = new BoardService(database, logger);
+    const id = createCorrelationId();
+    const created = service.createCard('/tmp/app', 'Ship Board', id);
+    expect(created.column).toBe('idea');
+    expect(service.listCards('/tmp/app')).toHaveLength(1);
+    const moved = service.moveCard(created.id, 'shipped', id);
+    expect(moved.column).toBe('shipped');
+    expect(service.listCards('/tmp/app')[0]?.column).toBe('shipped');
+    database.close();
+  });
+});

@@ -12,18 +12,13 @@ Git snapshots, PTY grid, app chrome.
 
 - Space: home, folder/layout wizard, Open without AI, per-pane agents,
   usable xterm grid, stacked Spaces.
-- Chrome: top bar modes and left rail.
+- Chrome: top bar, left rail, Browser / Editor / Git sidebars.
+- Git write: stage, unstage, commit.
+- Board: Idea / Doing / Shipped kanban, persisted per workspace.
 
-## Next — right sidebar
+## Next — Memory
 
-Exit: a usable browser in the right rail (localhost + URL). Editor and
-Git after that. Do not fake empty panels.
-
-## Then — Board and Memory
-
-- **Board:** Kanban. Ideas → tasks → shipped. New route, not a rename of
-  the terminal grid.
-- **Memory:** promote today's Obsidian retrieval into the Memory mode.
+Promote today's Obsidian retrieval into the Memory mode.
 
 ## Then — Swarm
 
@@ -32,7 +27,7 @@ panes as the execution surface.
 
 ## Later — platform
 
-Only after Space + chrome + one right-rail panel work:
+Only after Space + Board + Memory work:
 
 - Settings shell beyond providers
 - Mobile companion + QR LAN pair

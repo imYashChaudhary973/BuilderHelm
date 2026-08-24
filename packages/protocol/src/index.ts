@@ -10,3 +10,4 @@ export * from './knowledge.js';
 export * from './model.js';
 export * from './providers.js';
 export * from './projects.js';
+export * from './kanban.js';

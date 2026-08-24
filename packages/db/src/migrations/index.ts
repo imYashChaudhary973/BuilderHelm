@@ -6,6 +6,7 @@ import { obsidianKnowledgeMigration } from './0005-obsidian-knowledge.js';
 import { toolsPermissionsActionsMigration } from './0006-tools-permissions-actions.js';
 import { projectContinuityMigration } from './0007-project-continuity.js';
 import { boardPresetsMigration } from './0008-board-presets.js';
+import { kanbanCardsMigration } from './0009-kanban-cards.js';
 
 export const migrations = [
   phaseZeroMigration,
@@ -16,6 +17,7 @@ export const migrations = [
   toolsPermissionsActionsMigration,
   projectContinuityMigration,
   boardPresetsMigration,
+  kanbanCardsMigration,
 ] as const;
 
 export {
@@ -27,4 +29,5 @@ export {
   providerSettingsMigration,
   projectContinuityMigration,
   boardPresetsMigration,
+  kanbanCardsMigration,
 };

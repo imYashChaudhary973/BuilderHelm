@@ -13,6 +13,7 @@ import { App } from './App.js';
 import { ActionsPage } from './routes/actions.js';
 import { BoardPage } from './routes/board.js';
 import { ChatPage } from './routes/chat.js';
+import { KanbanPage } from './routes/kanban.js';
 import { KnowledgePage } from './routes/knowledge.js';
 import { ProvidersPage } from './routes/settings/providers.js';
 import { TodayPage } from './routes/today.js';
@@ -60,6 +61,11 @@ const boardRoute = createRoute({
   path: '/board',
   component: BoardPage,
 });
+const kanbanRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/kanban',
+  component: KanbanPage,
+});
 const routeTree = rootRoute.addChildren([
   indexRoute,
   todayRoute,
@@ -68,6 +74,7 @@ const routeTree = rootRoute.addChildren([
   actionsRoute,
   projectsRoute,
   boardRoute,
+  kanbanRoute,
   providersRoute,
 ]);
 const router = createRouter({

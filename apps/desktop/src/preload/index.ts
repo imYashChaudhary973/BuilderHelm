@@ -35,6 +35,14 @@ import {
   type BoardPaneEventEnvelope,
 } from '@zero/protocol/board';
 import {
+  kanbanCreateInputSchema,
+  kanbanCreateIpcResponseSchema,
+  kanbanListInputSchema,
+  kanbanListIpcResponseSchema,
+  kanbanMoveInputSchema,
+  kanbanMoveIpcResponseSchema,
+} from '@zero/protocol/kanban';
+import {
   ipcChannels,
   systemHealthResponseSchema,
   type ZeroDesktopApi,
@@ -432,6 +440,27 @@ const api: ZeroDesktopApi = {
         boardLandInputSchema.parse(input),
       );
       return unwrap(boardLandPreviewIpcResponseSchema.parse(response));
+    },
+    async listCards(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.kanbanList, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: kanbanListInputSchema.parse(input),
+      });
+      return unwrap(kanbanListIpcResponseSchema.parse(response));
+    },
+    async createCard(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.kanbanCreate, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: kanbanCreateInputSchema.parse(input),
+      });
+      return unwrap(kanbanCreateIpcResponseSchema.parse(response));
+    },
+    async moveCard(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.kanbanMove, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: kanbanMoveInputSchema.parse(input),
+      });
+      return unwrap(kanbanMoveIpcResponseSchema.parse(response));
     },
     onPaneEvent(sessionId, listener) {
       let listeners = boardListeners.get(sessionId);

@@ -8,9 +8,12 @@ import type { Logger } from '@zero/observability';
 import {
   BOARD_AGENT_CATALOG,
   boardPresetRecordSchema,
+  kanbanCardSchema,
   type BoardAgentDetection,
   type BoardPresetRecord,
   type BoardPresetSpec,
+  type KanbanCard,
+  type KanbanColumn,
 } from '@zero/protocol';
 import { normalizeError, utcNow, ZeroError, type CorrelationId } from '@zero/shared';
 
@@ -301,5 +304,83 @@ export class BoardService {
       data: { repoPath, branch, head },
     });
     return { landed: true, head };
+  }
+
+  listCards(workspace: string): KanbanCard[] {
+    return this.database
+      .queryAll<{
+        id: string;
+        workspace: string;
+        title: string;
+        column_name: string;
+        created_at: string;
+      }>(
+        `SELECT id, workspace, title, column_name, created_at
+         FROM kanban_cards
+         WHERE workspace = ?
+         ORDER BY created_at ASC`,
+        [workspace],
+      )
+      .map((row) =>
+        kanbanCardSchema.parse({
+          id: row.id,
+          workspace: row.workspace,
+          title: row.title,
+          column: row.column_name,
+          createdAt: row.created_at,
+        }),
+      );
+  }
+
+  createCard(workspace: string, title: string, correlationId: CorrelationId): KanbanCard {
+    const card: KanbanCard = {
+      id: randomUUID(),
+      workspace,
+      title,
+      column: 'idea',
+      createdAt: utcNow(),
+    };
+    this.database.run(
+      `INSERT INTO kanban_cards (id, workspace, title, column_name, created_at)
+       VALUES (?, ?, ?, ?, ?)`,
+      [card.id, card.workspace, card.title, card.column, card.createdAt],
+    );
+    this.logger.info({
+      event: 'kanban.card_created',
+      correlationId,
+      data: { cardId: card.id, workspace },
+    });
+    return card;
+  }
+  moveCard(id: string, column: KanbanColumn, correlationId: CorrelationId): KanbanCard {
+    this.database.run(`UPDATE kanban_cards SET column_name = ? WHERE id = ?`, [
+      column,
+      id,
+    ]);
+    const row = this.database.queryOne<{
+      id: string;
+      workspace: string;
+      title: string;
+      column_name: string;
+      created_at: string;
+    }>(
+      `SELECT id, workspace, title, column_name, created_at FROM kanban_cards WHERE id = ?`,
+      [id],
+    );
+    if (row === undefined) {
+      throw new ZeroError('VALIDATION_FAILED', 'That card is gone');
+    }
+    this.logger.info({
+      event: 'kanban.card_moved',
+      correlationId,
+      data: { cardId: id, column },
+    });
+    return kanbanCardSchema.parse({
+      id: row.id,
+      workspace: row.workspace,
+      title: row.title,
+      column: row.column_name,
+      createdAt: row.created_at,
+    });
   }
 }

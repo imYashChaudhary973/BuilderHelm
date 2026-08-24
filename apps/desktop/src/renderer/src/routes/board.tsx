@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import type {
   BoardAgentDetection,
   BoardAgentId,
@@ -51,7 +51,7 @@ const MODES = [
     id: 'board',
     name: 'Board',
     shortcut: '⌘B',
-    enabled: false,
+    enabled: true,
     promise:
       'Plan the work. Work the plan. A Kanban board built for builders — turn loose ideas into shipped tasks.',
   },
@@ -233,6 +233,7 @@ function looksLikeCd(value: string): boolean {
 }
 
 export function BoardPage(): React.JSX.Element {
+  const navigate = useNavigate();
   const spaceStore = useSpaces();
   const session =
     spaceStore.spaces.find((item) => item.sessionId === spaceStore.activeId) ?? null;
@@ -293,10 +294,14 @@ export function BoardPage(): React.JSX.Element {
         event.preventDefault();
         setPhase('workspace');
       }
+      if (event.key.toLowerCase() === 'b') {
+        event.preventDefault();
+        void navigate({ to: '/kanban' });
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [phase]);
+  }, [phase, navigate]);
 
   useEffect(() => {
     if (!spaceStore.wantSetup) return;
@@ -603,6 +608,10 @@ export function BoardPage(): React.JSX.Element {
                   className="spaceMode"
                   disabled={!mode.enabled}
                   onClick={() => {
+                    if (mode.id === 'board') {
+                      void navigate({ to: '/kanban' });
+                      return;
+                    }
                     if (mode.enabled) setPhase('workspace');
                   }}
                 >

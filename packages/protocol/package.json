@@ -51,6 +51,10 @@
     "./projects": {
       "types": "./dist/projects.d.ts",
       "import": "./src/projects.ts"
+    },
+    "./kanban": {
+      "types": "./dist/kanban.d.ts",
+      "import": "./src/kanban.ts"
     }
   },
   "dependencies": {
