@@ -22,13 +22,59 @@ Git snapshots, PTY grid, app chrome.
 Multi-agent runs with roles, budgets, and stuck-agent policy. Reuse Space
 panes as the execution surface.
 
+## Future directions — delegate and build
+
+These are directional capabilities to evaluate after Swarm. BuilderHelm should
+adapt the interaction patterns to its local-first security model rather than
+clone the referenced product.
+
+### Agent, Code, and Chat in one window
+
+- Add a title-bar mode switch that changes the rail, workspace, and composer
+  while preserving each mode's state.
+- Give named agents their own chat history, working status, skills, settings,
+  tool-call trace, and approval queue.
+- Keep model, reasoning, permission, build, token-usage, and voice controls
+  consistent across modes.
+
+### Dockable ADE workspace
+
+- Expand BuilderHelm Space into a workspace tree of local projects, agent CLIs,
+  shells, localhost previews, and task threads.
+- Dock terminals, browser previews, and agent threads beside the work, with a
+  one-click tidy layout.
+- Continue launching Claude Code, Codex, and other compatible CLIs from the
+  user's PATH over local folders.
+
+### Scheduled agent routines
+
+- Run named agents on explicit schedules for recurring research, summaries,
+  maintenance, and outreach preparation.
+- Include enable/disable controls, recurrence, run history, failure status,
+  budgets, permissions, and approval gates before external side effects.
+
+### Voice inside BuilderHelm
+
+- Add hold-to-talk dictation, such as Fn-to-record, directly to the real
+  composer with a visible recording state and explicit send.
+- Keep wake-word listening out of scope; voice starts only from deliberate user
+  input.
+
+### Secure plugin catalog
+
+- Add permission-scoped integrations for social publishing, lead enrichment,
+  video analytics, image generation, and future services.
+- Store credentials in Keychain, keep secrets out of engine prompts, preview
+  requested access, and expose connection and audit status.
+
 ## Later — platform
 
-Only after Space + Board + Memory work:
+Platform work starts after Swarm and only when it supports a proven product
+loop:
 
 - Settings shell beyond providers
 - Mobile companion + QR LAN pair
-- Voice assistant (credits)
+- Usage credits, budgets, and billing controls
 - Auto-update + About
 
 ## Explicitly not on this roadmap
