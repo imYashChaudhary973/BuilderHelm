@@ -22,6 +22,8 @@ import { ZeroError } from '@zero/shared';
 import { Notification, type WebContents } from 'electron';
 import { spawn, type IPty } from 'node-pty';
 
+import { nextStartupAck } from './startup-ack.js';
+
 interface PaneMeta {
   slot: number;
   agentId: BoardAgentId;
@@ -30,6 +32,7 @@ interface PaneMeta {
   branch: string | null;
   cwd: string;
   output: string;
+  acked: Set<string>;
   pty: IPty | null;
 }
 
@@ -52,6 +55,7 @@ function resolveCommand(agentId: BoardAgentId, override: string | undefined): st
   if (command.length === 0) {
     throw new ZeroError('VALIDATION_FAILED', `Unknown board agent ${agentId}`);
   }
+  if (agentId === 'gemini') return `${command} --skip-trust`;
   return command;
 }
 
@@ -153,7 +157,7 @@ export class BoardPtyManager {
     const sessionId = randomUUID();
     const session: SessionRecord = { sender, panes: new Map() };
     this.sessions.set(sessionId, session);
-    const panes: Array<{ paneId: string } & Omit<PaneMeta, 'output' | 'pty'>> = [];
+    const panes: Array<{ paneId: string } & Omit<PaneMeta, 'output' | 'pty' | 'acked'>> = [];
     try {
       for (const spec of [...input.panes].sort((a, b) => a.slot - b.slot)) {
         const command = resolveCommand(spec.agentId, spec.command);
@@ -173,6 +177,7 @@ export class BoardPtyManager {
           branch: location.branch,
           cwd: location.cwd,
           output: '',
+          acked: new Set(),
           pty,
         };
         session.panes.set(paneId, meta);
@@ -181,6 +186,11 @@ export class BoardPtyManager {
           const next = meta.output + text;
           meta.output =
             next.length <= maxBufferedChars ? next : next.slice(-maxBufferedChars);
+          const ack = nextStartupAck(meta.output, meta.acked);
+          if (ack !== null) {
+            meta.acked.add(ack.id);
+            pty.write(ack.reply);
+          }
           this.forward(sessionId, paneId, {
             type: 'data',
             data: Buffer.from(text, 'utf8').toString('base64'),

@@ -184,7 +184,7 @@ export function SwarmPage(): React.JSX.Element {
             })
             .catch(() => undefined);
         }
-      }, 1_500);
+      }, 4_000);
     },
     onError: (cause: Error) => setError(cause.message),
   });
