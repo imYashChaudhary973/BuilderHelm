@@ -95,6 +95,21 @@ export type SwarmRunEventListener = (runId: string) => void;
 
 /** One execution plus one retry. */
 const MAX_ATTEMPTS = 2;
+
+/** Skills each role actually uses; a seat sees its own standing directives. */
+const ROLE_SKILLS: Record<string, readonly string[]> = {
+  coordinator: ['review', 'ci', 'errors', 'commits'],
+  builder: ['commits', 'tdd', 'monorepo', 'types', 'lint', 'errors', 'migrations'],
+  scout: ['monorepo', 'perf', 'privacy'],
+  reviewer: ['review', 'security', 'a11y', 'dry', 'docs', 'types'],
+};
+
+function roleSkills(run: SwarmRunRecord, role: string) {
+  const allowed = new Set(ROLE_SKILLS[role] ?? []);
+  return SWARM_SKILLS.filter(
+    (skill) => run.skillIds.includes(skill.id) && allowed.has(skill.id),
+  ).map((skill) => ({ title: skill.title, directive: skill.directive }));
+}
 const DIRECTIVES_CONSUMED = 'directives consumed:';
 
 /**
@@ -485,9 +500,8 @@ export class SwarmService {
         prompt: buildSeatPrompt({
           role: current.role,
           mission: run.mission,
-          skills: SWARM_SKILLS.filter((skill) => run.skillIds.includes(skill.id)).map(
-            (skill) => ({ title: skill.title, directive: skill.directive }),
-          ),
+          skills: roleSkills(run, current.role),
+          swarmDigest: this.swarmDigest(run.id),
           task: { title: active.title, detail: active.detail, files: active.files },
           directives,
         }),
@@ -698,6 +712,10 @@ export class SwarmService {
       mission: run.mission,
       snapshot,
       maxTasks: swarmPlanBudget(run.presetId),
+      roster: this.repository
+        .listSeats(runId)
+        .map((seat) => `${seat.role}/${seat.agentId}`)
+        .join(', '),
     });
     const created: SwarmTaskRecord[] = [];
     for (const task of planned) {
@@ -727,9 +745,30 @@ export class SwarmService {
   }
 
   /**
-   * Removes seat worktrees once a run is over. A branch that still holds
-   * unlanded commits is left alone and reported, so no work is thrown away.
+   * Compact shared context (Cognition's shared-trace fix): the roster and a
+   * one-line summary of every landed task, so seats' implicit decisions
+   * converge instead of diverging.
    */
+  private swarmDigest(runId: string): string {
+    const seats = this.repository.listSeats(runId);
+    const roster = seats.map((seat) => `${seat.role}/${seat.agentId}`).join(', ');
+    const landed = this.repository
+      .listTasks(runId)
+      .filter((task) => task.status === 'landed')
+      .map(
+        (task) =>
+          `- ${task.title}${
+            task.landedCommit === null ? '' : ` (${task.landedCommit.slice(0, 7)})`
+          }: ${task.detail === null ? 'landed' : task.detail.slice(0, 160)}`,
+      );
+    if (landed.length === 0) return `Swarm roster: ${roster}.`;
+    return [
+      `Swarm roster: ${roster}.`,
+      'Work already landed by other seats (do not redo or contradict it):',
+      ...landed.slice(-12),
+    ].join('\n');
+  }
+
   private async retireWorktrees(run: SwarmRunRecord): Promise<void> {
     const base = await this.board.readBranch(run.folderPath);
     for (const row of this.repository.listSeats(run.id)) {

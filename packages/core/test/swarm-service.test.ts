@@ -293,6 +293,69 @@ describe('SwarmService dispatch', () => {
   });
 });
 
+describe('SwarmService shared context', () => {
+  it('puts the roster and landed work into later seat prompts', async () => {
+    const prompts: string[] = [];
+    const inner = committingRunner([]);
+    const runner: SwarmSeatRunner = {
+      async execute(input) {
+        prompts.push(input.prompt);
+        return inner.execute(input);
+      },
+    };
+    const { service, repo } = setup(runner);
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    service.addTask(
+      run.id,
+      { title: 'Alpha', detail: 'write the fixture', files: ['src/a.ts'] },
+      createCorrelationId(),
+    );
+    service.addTask(
+      run.id,
+      { title: 'Beta', files: ['src/b.ts'] },
+      createCorrelationId(),
+    );
+
+    await service.pump(run.id);
+
+    expect(prompts).toHaveLength(2);
+    expect(prompts[0]).toContain('Swarm roster:');
+    expect(prompts[0]).toContain('builder/grok');
+    expect(prompts[0]).not.toContain('Work already landed');
+    expect(prompts[1]).toContain('Work already landed by other seats');
+    expect(prompts[1]).toContain('Alpha');
+    expect(prompts[1]).toContain('write the fixture');
+  });
+
+  it('gives a builder only the skills its role uses', async () => {
+    const prompts: string[] = [];
+    const inner = committingRunner([]);
+    const runner: SwarmSeatRunner = {
+      async execute(input) {
+        prompts.push(input.prompt);
+        return inner.execute(input);
+      },
+    };
+    const { service, repo } = setup(runner);
+    const run = service.createRun(
+      { ...createInput(repo, 1), skillIds: ['tdd', 'review', 'security'] },
+      createCorrelationId(),
+    );
+    service.addTask(
+      run.id,
+      { title: 'Wire', files: ['src/w.ts'] },
+      createCorrelationId(),
+    );
+
+    await service.pump(run.id);
+
+    expect(prompts).toHaveLength(1);
+    expect(prompts[0]).toContain('Test-Driven');
+    expect(prompts[0]).not.toContain('Code Review');
+    expect(prompts[0]).not.toContain('Security');
+  });
+});
+
 describe('SwarmService launch events and warm start', () => {
   it('warms builder worktrees before any task runs', async () => {
     const { service, repo } = setup(committingRunner([]));

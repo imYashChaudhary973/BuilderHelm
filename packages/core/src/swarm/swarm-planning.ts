@@ -86,6 +86,7 @@ export interface SwarmPlanRequest {
   readonly mission: string;
   readonly snapshot: RepoSnapshot;
   readonly maxTasks: number;
+  readonly roster: string;
 }
 
 export interface SwarmPlanner {
@@ -97,6 +98,9 @@ export function buildPlanPrompt(request: SwarmPlanRequest): string {
   return [
     'You are the coordinator of a BuilderHelm swarm. Split the mission into',
     `at most ${request.maxTasks} independent tasks for parallel builders.`,
+    '',
+    `Roster: ${request.roster}`,
+    'Builders implement. Scouts investigate. Reviewers review. Do not invent roles this roster does not have.',
     '',
     'Rules:',
     '- Every task names the exact files it owns. No two tasks may share a file.',

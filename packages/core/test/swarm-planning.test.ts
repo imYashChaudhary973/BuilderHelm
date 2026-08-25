@@ -78,12 +78,15 @@ describe('normalizeSwarmPlan', () => {
       mission: 'add retries',
       snapshot: { files: ['src/a.ts'], truncated: true },
       maxTasks: 4,
+      roster: 'coordinator/claude, builder/grok',
     });
 
     expect(prompt).toContain('at most 4 independent tasks');
     expect(prompt).toContain('No two tasks may share a file');
     expect(prompt).toContain('add retries');
     expect(prompt).toContain('(truncated)');
+    expect(prompt).toContain('coordinator/claude, builder/grok');
+    expect(prompt).toContain('Do not invent roles');
   });
 });
 
@@ -124,6 +127,23 @@ describe('buildSeatPrompt', () => {
     expect(tail).toContain('three attempts');
     expect(tail).toContain('- src/up.ts');
     expect(tail).toContain('skip the docs for now');
+  });
+
+  it('puts the swarm digest in the prefix, not the task tail', () => {
+    const prompt = buildSeatPrompt({
+      ...base,
+      swarmDigest:
+        'Swarm roster: builder/grok.\nWork already landed by other seats (do not redo or contradict it):\n- Alpha: landed',
+      task: { title: 'Beta', detail: null, files: ['src/b.ts'] },
+    });
+    const marker = prompt.indexOf(SWARM_PROMPT_TASK_MARKER);
+    const prefix = prompt.slice(0, marker);
+    const tail = prompt.slice(marker);
+
+    expect(prefix).toContain('Swarm roster: builder/grok.');
+    expect(prefix).toContain('Alpha');
+    expect(tail).not.toContain('Swarm roster');
+    expect(tail).toContain('Beta');
   });
 });
 

@@ -29,6 +29,8 @@ export interface SeatPromptInput {
   };
   readonly directives: readonly string[];
   readonly contextPack?: string;
+  /** Shared swarm context: roster plus what has already landed. */
+  readonly swarmDigest?: string;
 }
 
 /**
@@ -48,6 +50,9 @@ export function buildSeatPrompt(input: SeatPromptInput): string {
       : 'Standing directives: none',
     '',
     `Mission: ${input.mission.trim()}`,
+    input.swarmDigest !== undefined && input.swarmDigest.length > 0
+      ? `\n${input.swarmDigest}`
+      : '',
     input.contextPack !== undefined && input.contextPack.length > 0
       ? `\nContext:\n${input.contextPack}`
       : '',
