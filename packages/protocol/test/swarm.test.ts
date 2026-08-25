@@ -2,6 +2,15 @@ import { describe, expect, it } from 'vitest';
 
 import type { BoardAgentDetection } from '../src/board.js';
 import {
+  swarmCreateRequestSchema,
+  swarmDirectRequestSchema,
+  swarmRunSchema,
+  swarmSeatSchema,
+  swarmStopRequestSchema,
+  swarmTaskSchema,
+  swarmMessageSchema,
+} from '../src/swarm.js';
+import {
   assignSwarmPanes,
   availableSwarmAgents,
   swarmAddSeat,
@@ -248,5 +257,124 @@ describe('swarmSeatArgv', () => {
     );
     expect(() => swarmSeatArgv('pi', 'job', 'full')).toThrow(/does not support full/);
     expect(() => swarmSeatArgv('claude', '   ', 'auto')).toThrow(/must not be empty/);
+  });
+});
+
+describe('swarm persistence schemas', () => {
+  const baseRun = {
+    id: '00000000-0000-4000-8000-000000000001',
+    name: 'Swarm One',
+    folderPath: '/tmp/repo',
+    mission: 'ship the feature',
+    launchMode: 'auto',
+    presetId: 'skiff',
+    boardSessionId: null,
+    status: 'running',
+    startedAt: '2026-08-25T10:00:00.000Z',
+    endedAt: null,
+    budgetMs: 20 * 60 * 1000,
+  } as const;
+
+  it('round-trips a run, seat, task, and message', () => {
+    expect(swarmRunSchema.parse(baseRun)).toEqual(baseRun);
+    const seat = {
+      id: '00000000-0000-4000-8000-000000000002',
+      runId: baseRun.id,
+      role: 'builder',
+      agentId: 'grok',
+      mode: 'auto',
+      paneId: null,
+      worktreePath: null,
+      branch: null,
+      status: 'queued',
+      tokensUsed: 0,
+      costUsd: 0,
+    };
+    expect(swarmSeatSchema.parse(seat)).toEqual(seat);
+    const task = {
+      id: '00000000-0000-4000-8000-000000000003',
+      runId: baseRun.id,
+      seatId: null,
+      title: 'Implement X',
+      detail: null,
+      files: ['src/x.ts'],
+      status: 'pending',
+      dependsOn: [],
+      attempts: 0,
+      landedCommit: null,
+      createdAt: '2026-08-25T10:00:00.000Z',
+      updatedAt: '2026-08-25T10:00:00.000Z',
+    };
+    expect(swarmTaskSchema.parse(task)).toEqual(task);
+    const message = {
+      id: '00000000-0000-4000-8000-000000000004',
+      runId: baseRun.id,
+      seatId: null,
+      kind: 'directive',
+      body: 'wrap up',
+      createdAt: '2026-08-25T10:01:00.000Z',
+    };
+    expect(swarmMessageSchema.parse(message)).toEqual(message);
+  });
+
+  it('rejects unknown statuses, modes, and non-uuid ids', () => {
+    expect(() => swarmRunSchema.parse({ ...baseRun, status: 'bogus' })).toThrow();
+    expect(() => swarmRunSchema.parse({ ...baseRun, launchMode: 'yolo' })).toThrow();
+    expect(() => swarmRunSchema.parse({ ...baseRun, id: 'not-a-uuid' })).toThrow();
+    expect(() =>
+      swarmTaskSchema.parse({
+        id: '00000000-0000-4000-8000-000000000003',
+        runId: baseRun.id,
+        seatId: null,
+        title: 'X',
+        detail: null,
+        files: [],
+        status: 'bogus',
+        dependsOn: [],
+        attempts: 0,
+        landedCommit: null,
+        createdAt: '2026-08-25T10:00:00.000Z',
+        updatedAt: '2026-08-25T10:00:00.000Z',
+      }),
+    ).toThrow();
+  });
+
+  it('validates create, direct, task-update, and stop requests', () => {
+    const correlationId = '00000000-0000-4000-8000-000000000005';
+    expect(
+      swarmCreateRequestSchema.parse({
+        correlationId,
+        input: {
+          name: 'Swarm One',
+          folderPath: '/tmp/repo',
+          mission: 'ship it',
+          launchMode: 'auto',
+          presetId: 'skiff',
+          seats: [{ role: 'coordinator', agentId: 'claude' }],
+        },
+      }),
+    ).toBeTypeOf('object');
+    expect(() =>
+      swarmCreateRequestSchema.parse({
+        correlationId,
+        input: {
+          name: '',
+          folderPath: '/tmp/repo',
+          mission: 'ship it',
+          launchMode: 'auto',
+          presetId: 'skiff',
+          seats: [],
+        },
+      }),
+    ).toThrow();
+    expect(() =>
+      swarmDirectRequestSchema.parse({
+        correlationId,
+        input: { runId: baseRun.id, seatIds: [], body: 'go' },
+      }),
+    ).toThrow();
+    expect(() =>
+      swarmStopRequestSchema.parse({ correlationId, runId: 'nope' }),
+    ).toThrow();
   });
 });

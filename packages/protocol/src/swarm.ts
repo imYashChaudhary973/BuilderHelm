@@ -1,8 +1,11 @@
 import {
+  boardAgentIdSchema,
   type BoardAgentDetection,
   type BoardAgentId,
   type BoardPaneStatus,
 } from './board.js';
+import { modelErrorSchema } from './model.js';
+import { z } from 'zod';
 
 export const SWARM_ROLES = ['coordinator', 'builder', 'scout', 'reviewer'] as const;
 export type SwarmRole = (typeof SWARM_ROLES)[number];
@@ -481,3 +484,227 @@ export function swarmGraphHub(roles: readonly SwarmRole[]): number {
   const hub = roles.findIndex((role) => role === 'coordinator');
   return hub >= 0 ? hub : 0;
 }
+
+/* ---------------------------------------------------------------------------
+ * Swarm persistence contracts (migration 0012). Runtime schemas, not just
+ * types: every IPC crossing and repository row validates through these.
+ * ------------------------------------------------------------------------ */
+
+export const swarmRunStatusSchema = z.enum([
+  'running',
+  'stuck',
+  'budget',
+  'stopped',
+  'done',
+  'failed',
+]);
+export type SwarmRunRecordStatus = z.infer<typeof swarmRunStatusSchema>;
+
+export const swarmSeatStatusSchema = z.enum([
+  'queued',
+  'booting',
+  'working',
+  'idle',
+  'exited',
+  'failed',
+]);
+export type SwarmSeatStatus = z.infer<typeof swarmSeatStatusSchema>;
+
+export const swarmTaskStatusSchema = z.enum([
+  'pending',
+  'in_progress',
+  'review',
+  'landed',
+  'failed',
+  'skipped',
+]);
+export type SwarmTaskStatus = z.infer<typeof swarmTaskStatusSchema>;
+
+export const swarmMessageKindSchema = z.enum([
+  'directive',
+  'seat_report',
+  'coordinator_note',
+  'task_event',
+  'system',
+]);
+export type SwarmMessageKind = z.infer<typeof swarmMessageKindSchema>;
+
+const uuidSchema = z.string().uuid();
+
+export const swarmRunSchema = z
+  .object({
+    id: uuidSchema,
+    name: z.string().trim().min(1).max(120),
+    folderPath: z.string().min(1).max(4096),
+    mission: z.string().trim().min(1).max(10_000),
+    launchMode: z.enum(SWARM_LAUNCH_MODES),
+    presetId: z.enum(['skiff', 'cutter', 'frigate', 'flagship']),
+    boardSessionId: uuidSchema.nullable(),
+    status: swarmRunStatusSchema,
+    startedAt: z.string().datetime(),
+    endedAt: z.string().datetime().nullable(),
+    budgetMs: z
+      .number()
+      .int()
+      .min(60_000)
+      .max(24 * 60 * 60_000),
+  })
+  .strict();
+export type SwarmRunRecord = z.infer<typeof swarmRunSchema>;
+
+export const swarmSeatSchema = z
+  .object({
+    id: uuidSchema,
+    runId: uuidSchema,
+    role: z.enum(SWARM_ROLES),
+    agentId: boardAgentIdSchema,
+    mode: z.enum(SWARM_LAUNCH_MODES),
+    paneId: uuidSchema.nullable(),
+    worktreePath: z.string().min(1).max(4096).nullable(),
+    branch: z.string().min(1).max(255).nullable(),
+    status: swarmSeatStatusSchema,
+    tokensUsed: z.number().int().min(0),
+    costUsd: z.number().min(0),
+  })
+  .strict();
+export type SwarmSeatRecord = z.infer<typeof swarmSeatSchema>;
+
+export const swarmTaskSchema = z
+  .object({
+    id: uuidSchema,
+    runId: uuidSchema,
+    seatId: uuidSchema.nullable(),
+    title: z.string().trim().min(1).max(500),
+    detail: z.string().max(10_000).nullable(),
+    files: z.array(z.string().min(1).max(4096)).max(200),
+    status: swarmTaskStatusSchema,
+    dependsOn: z.array(uuidSchema).max(50),
+    attempts: z.number().int().min(0).max(3),
+    landedCommit: z.string().min(7).max(40).nullable(),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
+export type SwarmTaskRecord = z.infer<typeof swarmTaskSchema>;
+
+export const swarmMessageSchema = z
+  .object({
+    id: uuidSchema,
+    runId: uuidSchema,
+    seatId: uuidSchema.nullable(),
+    kind: swarmMessageKindSchema,
+    body: z.string().min(1).max(4_000),
+    createdAt: z.string().datetime(),
+  })
+  .strict();
+export type SwarmMessageRecord = z.infer<typeof swarmMessageSchema>;
+
+/* IPC payloads ----------------------------------------------------------- */
+
+const swarmCorrelationSchema = z.string().uuid();
+
+export const swarmCreateInputSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120),
+    folderPath: z.string().min(1).max(4096),
+    mission: z.string().trim().min(1).max(10_000),
+    launchMode: z.enum(SWARM_LAUNCH_MODES),
+    presetId: z.enum(['skiff', 'cutter', 'frigate', 'flagship']),
+    seats: z
+      .array(
+        z
+          .object({
+            role: z.enum(SWARM_ROLES),
+            agentId: boardAgentIdSchema,
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(12),
+  })
+  .strict();
+export type SwarmCreateInput = z.infer<typeof swarmCreateInputSchema>;
+
+export const swarmStateSchema = z
+  .object({
+    run: swarmRunSchema,
+    seats: z.array(swarmSeatSchema),
+    tasks: z.array(swarmTaskSchema),
+    messages: z.array(swarmMessageSchema).max(500),
+  })
+  .strict();
+export type SwarmState = z.infer<typeof swarmStateSchema>;
+
+export const swarmDirectInputSchema = z
+  .object({
+    runId: uuidSchema,
+    seatIds: z.array(uuidSchema).min(1).max(12),
+    body: z.string().trim().min(1).max(4_000),
+  })
+  .strict();
+export type SwarmDirectInput = z.infer<typeof swarmDirectInputSchema>;
+
+export const swarmTaskUpdateInputSchema = z
+  .object({
+    runId: uuidSchema,
+    taskId: uuidSchema,
+    status: swarmTaskStatusSchema,
+    detail: z.string().max(10_000).optional(),
+  })
+  .strict();
+export type SwarmTaskUpdateInput = z.infer<typeof swarmTaskUpdateInputSchema>;
+
+export const swarmStopInputSchema = z
+  .object({
+    runId: uuidSchema,
+  })
+  .strict();
+export type SwarmStopInput = z.infer<typeof swarmStopInputSchema>;
+
+function swarmIpcResult<T extends z.ZodType>(value: T) {
+  return z.discriminatedUnion('ok', [
+    z.object({ ok: z.literal(true), value }).strict(),
+    z.object({ ok: z.literal(false), error: modelErrorSchema }).strict(),
+  ]);
+}
+
+export const swarmCreateRequestSchema = z
+  .object({
+    correlationId: swarmCorrelationSchema,
+    input: swarmCreateInputSchema,
+  })
+  .strict();
+export const swarmStateRequestSchema = z
+  .object({
+    correlationId: swarmCorrelationSchema,
+    runId: uuidSchema,
+  })
+  .strict();
+export const swarmDirectRequestSchema = z
+  .object({
+    correlationId: swarmCorrelationSchema,
+    input: swarmDirectInputSchema,
+  })
+  .strict();
+export const swarmTaskUpdateRequestSchema = z
+  .object({
+    correlationId: swarmCorrelationSchema,
+    input: swarmTaskUpdateInputSchema,
+  })
+  .strict();
+export const swarmStopRequestSchema = z
+  .object({
+    correlationId: swarmCorrelationSchema,
+    runId: uuidSchema,
+  })
+  .strict();
+
+export const swarmCreateIpcResponseSchema = swarmIpcResult(swarmRunSchema);
+export const swarmStateIpcResponseSchema = swarmIpcResult(swarmStateSchema);
+export const swarmDirectIpcResponseSchema = swarmIpcResult(
+  z.object({ queued: z.literal(true) }).strict(),
+);
+export const swarmTaskUpdateIpcResponseSchema = swarmIpcResult(swarmTaskSchema);
+export const swarmStopIpcResponseSchema = swarmIpcResult(
+  z.object({ stopped: z.literal(true) }).strict(),
+);

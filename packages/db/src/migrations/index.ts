@@ -9,6 +9,7 @@ import { boardPresetsMigration } from './0008-board-presets.js';
 import { kanbanCardsMigration } from './0009-kanban-cards.js';
 import { kanbanProjectsMigration } from './0010-kanban-projects.js';
 import { kanbanReviewCancelledMigration } from './0011-kanban-review-cancelled.js';
+import { swarmPersistenceMigration } from './0012-swarm-persistence.js';
 
 export const migrations = [
   phaseZeroMigration,
@@ -22,6 +23,7 @@ export const migrations = [
   kanbanCardsMigration,
   kanbanProjectsMigration,
   kanbanReviewCancelledMigration,
+  swarmPersistenceMigration,
 ] as const;
 
 export {
@@ -36,4 +38,5 @@ export {
   kanbanCardsMigration,
   kanbanProjectsMigration,
   kanbanReviewCancelledMigration,
+  swarmPersistenceMigration,
 };
