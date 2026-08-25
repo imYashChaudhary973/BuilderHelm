@@ -14,14 +14,14 @@ Language and platform: [docs/STACK.md](docs/STACK.md). Do not reopen TypeScript 
 ## Git layout
 
 ```
-Desktop/Axiom - PIOS                         # do not treat as main
-Desktop/Axiom - PIOS-worktrees/main          # origin/main only
-Desktop/Axiom - PIOS-worktrees/<name>        # one feature each
+Desktop/BuilderHelm                          # do not treat as main
+Desktop/BuilderHelm-worktrees/main           # origin/main only
+Desktop/BuilderHelm-worktrees/<name>         # one feature each
 ```
 
 - Never commit on `main` inside a feature checkout.
 - New work from current `origin/main`: `scripts/worktree-add <name>`
-  → `feat/<name>` at `Axiom - PIOS-worktrees/<name>`.
+  → `feat/<name>` at `BuilderHelm-worktrees/<name>`.
 - New work that depends on an unmerged branch: cut the worktree from that
   branch (`git worktree add -b feat/<name> <dest> <branch>`), not from
   `origin/main`.
@@ -76,7 +76,7 @@ and the diff is the feature (plus its tests). Do not ask again.
 Steps:
 
 ```sh
-cd "/Users/yashchaudhary/Desktop/Axiom - PIOS-worktrees/main"
+cd "/Users/yashchaudhary/Desktop/BuilderHelm-worktrees/main"
 git pull --ff-only
 git merge --ff-only feat/<name>   # rebase onto main first if not fast-forward
 git push origin main
