@@ -238,14 +238,17 @@ function Mission({
         <h1 id="swarm-setup-title">
           Define the <em>mission</em>
         </h1>
-        <p>Where the swarm works, what it should ship, and the brief every seat reads.</p>
+        <p>
+          Any folder works. If it is not a git repo, BuilderHelm initializes one so seats
+          can isolate.
+        </p>
       </header>
       <label className="swarmField">
         <span>Working folder</span>
         <div className="folderRow">
           <input
             value={folderPath}
-            placeholder={homeDir || 'Browse to a project folder'}
+            placeholder={homeDir || 'Browse to any project folder'}
             onChange={(event) => onFolder(event.target.value)}
           />
           <button className="secondaryButton" type="button" onClick={onBrowse}>

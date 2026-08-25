@@ -706,15 +706,9 @@ export function registerIpcHandlers(
     try {
       const request = swarmCreateRequestSchema.parse(input);
       const runner = requireSwarmRunner();
-      // Seats need worktrees, so the folder must be a git repository we can
-      // write beside. Failing here beats accepting a doomed run.
-      const branch = await core.board.readBranch(request.input.folderPath);
-      if (branch === null) {
-        throw new ZeroError(
-          'VALIDATION_FAILED',
-          'Pick a git repository: swarm seats need worktrees, and this folder is not one.',
-        );
-      }
+      // Seats need worktrees. Plain folders get `git init` plus an empty
+      // commit so isolation works without making the user think about git.
+      const repo = await core.board.ensureRepository(request.input.folderPath);
       const run = core.swarm.createRun(request.input, request.correlationId);
       const sessionId = runner.openSession(
         run.id,
@@ -723,6 +717,12 @@ export function registerIpcHandlers(
         event.sender,
       );
       core.swarm.attachBoardSession(run.id, sessionId);
+      if (repo.initialized) {
+        core.swarm.note(
+          run.id,
+          `Initialized a git repository on ${repo.branch} so seats can isolate. Your files were not committed.`,
+        );
+      }
       swarmSenders.set(run.id, event.sender);
       // Launch is instant: warm the seats and plan in the background while
       // the live view already shows the coordinating phase.

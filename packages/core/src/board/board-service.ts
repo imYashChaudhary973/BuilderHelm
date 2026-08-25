@@ -220,6 +220,40 @@ export class BoardService {
     }
   }
 
+  /**
+   * Makes a folder a git repository with an empty initial commit when it is
+   * not one already, so swarm worktrees have a HEAD to branch from.
+   */
+  async ensureRepository(
+    cwd: string,
+  ): Promise<{ readonly initialized: boolean; readonly branch: string }> {
+    const existing = await this.readBranch(cwd);
+    if (existing !== null) return { initialized: false, branch: existing };
+    await execFileAsync('git', ['init'], { cwd, timeout: 15_000 });
+    await execFileAsync(
+      'git',
+      [
+        '-c',
+        'user.name=BuilderHelm',
+        '-c',
+        'user.email=swarm@builderhelm.local',
+        'commit',
+        '--allow-empty',
+        '-m',
+        'BuilderHelm: initial commit',
+      ],
+      { cwd, timeout: 15_000 },
+    );
+    const branch = await this.readBranch(cwd);
+    if (branch === null) {
+      throw new ZeroError(
+        'VALIDATION_FAILED',
+        'Could not initialize a git repository in this folder',
+      );
+    }
+    return { initialized: true, branch };
+  }
+
   async previewLand(
     repoPath: string,
     branch: string,

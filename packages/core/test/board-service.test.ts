@@ -127,6 +127,43 @@ describe('BoardService worktrees', () => {
   });
 });
 
+describe('BoardService ensureRepository', () => {
+  it('initializes a plain folder with an empty commit', async () => {
+    const folder = mkdtempSync(join(tmpdir(), 'zero-board-plain-'));
+    temporaryDirectories.push(folder);
+    const database = openDatabase(':memory:');
+    runMigrations(database, migrations);
+    const service = new BoardService(database, logger);
+
+    const first = await service.ensureRepository(folder);
+    const second = await service.ensureRepository(folder);
+
+    expect(first.initialized).toBe(true);
+    expect(first.branch.length).toBeGreaterThan(0);
+    expect(second.initialized).toBe(false);
+    expect(second.branch).toBe(first.branch);
+    const worktree = await service.createWorktree(
+      folder,
+      'p1-plain',
+      createCorrelationId(),
+    );
+    expect(worktree.branch).toBe('exeum/p1-plain');
+    database.close();
+  });
+
+  it('leaves an existing repository untouched', async () => {
+    const repo = createRepository();
+    const database = openDatabase(':memory:');
+    runMigrations(database, migrations);
+    const service = new BoardService(database, logger);
+
+    const result = await service.ensureRepository(repo);
+
+    expect(result).toEqual({ initialized: false, branch: 'main' });
+    database.close();
+  });
+});
+
 describe('BoardService kanban', () => {
   it('keeps project boards and their tasks isolated', () => {
     const database = openDatabase(':memory:');

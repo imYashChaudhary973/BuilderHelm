@@ -218,6 +218,12 @@ export class SwarmService {
     this.emit(runId);
   }
 
+  /** Appends a system note to the ledger (launch notices, operator context). */
+  note(runId: string, body: string): void {
+    this.requireRun(runId);
+    this.appendMessage(runId, null, 'system', body.slice(0, 4_000));
+  }
+
   /**
    * No dispatcher survives a process restart, so any run still marked running
    * at startup is stopped and its in-flight tasks return to pending. That

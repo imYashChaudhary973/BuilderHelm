@@ -2673,7 +2673,7 @@ fieldset legend {
 
 .swarmWizardHero h1 {
   margin: 0 0 8px;
-  font-size: 32px;
+  font-size: clamp(28px, 3.4vw, 40px);
   letter-spacing: -0.04em;
 }
 
