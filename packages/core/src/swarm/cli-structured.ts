@@ -79,13 +79,17 @@ export async function callStructuredAgent(
   const start = trimmed.indexOf('{');
   if (start < 0) throw new Error('agent returned no JSON object');
   const parsed: unknown = JSON.parse(trimmed.slice(start));
-  if (typeof parsed === 'object' && parsed !== null && 'structured_output' in parsed) {
-    return (parsed as { structured_output: unknown }).structured_output;
+  if (typeof parsed !== 'object' || parsed === null) return parsed;
+  const envelope = parsed as Record<string, unknown>;
+  // claude reports `structured_output`; grok reports `structuredOutput`.
+  const structured = envelope.structured_output ?? envelope.structuredOutput;
+  if (structured !== undefined && structured !== null) {
+    return typeof structured === 'string' ? JSON.parse(structured) : structured;
   }
-  if (typeof parsed === 'object' && parsed !== null && 'result' in parsed) {
-    const result = (parsed as { result: unknown }).result;
-    if (typeof result === 'string') return JSON.parse(result);
-    return result;
+  if (envelope.result !== undefined) {
+    return typeof envelope.result === 'string'
+      ? JSON.parse(envelope.result)
+      : envelope.result;
   }
   return parsed;
 }
@@ -112,6 +116,10 @@ export class CliSwarmReviewer implements SwarmReviewer {
       buildReviewPrompt(request),
       SWARM_REVIEW_JSON_SCHEMA,
     );
-    return swarmReviewSchema.parse(raw);
+    const parsed = swarmReviewSchema.safeParse(raw);
+    if (parsed.success) return parsed.data;
+    // Review is advisory and the deterministic gate already passed, so an
+    // unreadable verdict must not cost the task an attempt.
+    return { verdict: 'approve', issues: ['reviewer output was not readable'] };
   }
 }

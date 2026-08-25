@@ -746,12 +746,10 @@ export const swarmPlanSchema = z
   .strict();
 export type SwarmPlanPayload = z.infer<typeof swarmPlanSchema>;
 
-export const swarmReviewSchema = z
-  .object({
-    verdict: z.enum(['approve', 'fix']),
-    issues: z.array(z.string().trim().min(1).max(2_000)).max(50).optional(),
-  })
-  .strict();
+export const swarmReviewSchema = z.object({
+  verdict: z.enum(['approve', 'fix']),
+  issues: z.array(z.string().trim().min(1).max(2_000)).max(50).optional(),
+});
 export type SwarmReviewVerdict = z.infer<typeof swarmReviewSchema>;
 
 /** JSON Schema handed to CLIs that constrain output. */
