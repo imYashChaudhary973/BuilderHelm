@@ -1,8 +1,8 @@
 # Implementation Status
 
-- Last reviewed: 2026-08-23
+- Last reviewed: 2026-08-24
 - Baseline: Phases 0–5 and Board landed on `main` at `b7bdb96`
-- Active work: Phase 6 coding workspace, starting from the Board
+- Active work: Phase 6 coding workspace on `feat/coding-loop`
 
 This document is the canonical summary of what the repository implements now.
 The [blueprint](blueprint/00_README.md) describes intended product direction,
@@ -18,7 +18,7 @@ while [phase reports](reports/README.md) preserve checkpoint evidence.
 | 3     | Complete    | Read-only Obsidian indexing, local retrieval, cited answers, source viewing, and change detection                         |
 | 4     | Complete    | Schema-backed tools, deterministic permissions, exact approvals, action receipts, and action chat                         |
 | 5     | Complete    | Project dashboard, repository attachment, Git status and history, Today summary, and project continuity                   |
-| 6     | In progress | Exeum Board: xterm grid, per-pane worktrees, agent CLI launch, and land of `exeum/*` branches                             |
+| 6     | In progress | Board plus permissioned `project.run_tests`, coding-bug fixture, and inspectable land diff |
 | 7–12  | Planned     | Research, automation, voice, health, content, advanced graph, and product hardening                                       |
 
 ## Current application surfaces
@@ -29,7 +29,7 @@ while [phase reports](reports/README.md) preserve checkpoint evidence.
 - Obsidian knowledge retrieval
 - Permissioned actions, tasks, and receipts
 - Projects and Git continuity
-- Exeum Board (terminal grid, isolated worktrees, land)
+- Exeum Board (terminal grid, isolated worktrees, land with unified diff)
 
 ## Current architecture
 
@@ -66,5 +66,5 @@ treat those historical test counts as the result for the current worktree.
 - Models can propose actions, but deterministic application code validates
   permission and executes them.
 - Board land merges locally and does not push remotes or open pull requests.
+- `project.run_tests` runs hardcoded `node --test` in a registered repo after approval. It is not a generic shell.
 - Voice, autonomous coding, automation, HealthKit, and publishing integrations
-  are not implemented yet.

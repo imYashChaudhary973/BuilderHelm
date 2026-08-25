@@ -1,6 +1,19 @@
-import { ActionRepository, migrations, openDatabase, runMigrations } from '@zero/db';
+import { execFileSync } from 'node:child_process';
+import { cpSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import {
+  ActionRepository,
+  migrations,
+  openDatabase,
+  ProjectRepositoryStore,
+  runMigrations,
+} from '@zero/db';
 import { createLogger } from '@zero/observability';
 import type { ModelRequest } from '@zero/protocol/model';
+import { projectRunTestsResultSchema } from '@zero/protocol/actions';
 import { createCorrelationId, createId } from '@zero/shared';
 import { createWorkToolRegistry, PermissionEngine } from '@zero/tools';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -9,9 +22,13 @@ import { ActionService } from '../src/actions/action-service.js';
 import type { ModelService } from '../src/models/model-service.js';
 
 const databases: ReturnType<typeof openDatabase>[] = [];
+const temporaryDirectories: string[] = [];
 
 afterEach(() => {
   while (databases.length > 0) databases.pop()?.close();
+  for (const directory of temporaryDirectories.splice(0)) {
+    rmSync(directory, { force: true, recursive: true });
+  }
 });
 
 function fixture(modelCalls: Array<{ name: string; arguments: unknown }> = []) {
@@ -38,17 +55,20 @@ function fixture(modelCalls: Array<{ name: string; arguments: unknown }> = []) {
   } as unknown as ModelService;
   let now = new Date('2026-08-11T04:30:00.000Z');
   const logs: string[] = [];
+  const projectRepositories = new ProjectRepositoryStore(database);
   const service = new ActionService(
     repository,
     models,
     createLogger((line) => logs.push(line)),
     createWorkToolRegistry(),
     new PermissionEngine(),
+    projectRepositories,
     () => new Date(now),
   );
   return {
     database,
     repository,
+    projectRepositories,
     service,
     logs,
     captured: () => captured,
@@ -73,6 +93,48 @@ async function createProject(test: ReturnType<typeof fixture>, name = 'Project A
   expect(executed.kind).toBe('executed');
   return test.repository.listProjects()[0]!;
 }
+
+function copyCodingBugFixture(): string {
+  const root = mkdtempSync(join(tmpdir(), 'zero-coding-bug-'));
+  temporaryDirectories.push(root);
+  cpSync(
+    fileURLToPath(new URL('../../../tests/fixtures/coding-bug', import.meta.url)),
+    root,
+    { recursive: true },
+  );
+  execFileSync('git', ['init', '-b', 'main'], { cwd: root });
+  execFileSync('git', ['config', 'user.name', 'Fixture User'], { cwd: root });
+  execFileSync('git', ['config', 'user.email', 'fixture@example.test'], { cwd: root });
+  execFileSync('git', ['add', '.'], { cwd: root });
+  execFileSync('git', ['commit', '-m', 'coding-bug fixture'], { cwd: root });
+  return realpathSync.native(root);
+}
+
+function registerProjectRepo(
+  store: ProjectRepositoryStore,
+  projectId: string,
+  rootPath: string,
+): void {
+  const now = '2026-08-11T04:30:00.000Z';
+  store.replaceSnapshot(
+    {
+      id: createId(),
+      projectId,
+      rootPath,
+      directoryName: 'coding-bug',
+      branch: 'main',
+      headSha: '0'.repeat(40),
+      dirtyCount: 0,
+      aheadCount: 0,
+      behindCount: 0,
+      lastSyncedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    },
+    [],
+  );
+}
+
 
 describe('action service', () => {
   it('creates one task after one explicit approval and records an immutable receipt', async () => {
@@ -374,5 +436,70 @@ describe('action service', () => {
         )
         .map((event) => event.eventType),
     ).toEqual(expect.arrayContaining(['agent.model_invoked', 'agent.model_failed']));
+  });
+
+  it('proposes project.run_tests and requires approval', async () => {
+    const test = fixture();
+    await createProject(test);
+    const proposed = await test.service.command(
+      { requestId: createId(), text: 'run tests for Project A', modelRef: null },
+      createCorrelationId(),
+      new AbortController().signal,
+    );
+    expect(proposed).toMatchObject({
+      kind: 'approval_required',
+      approval: { toolId: 'project.run_tests', reversible: false },
+    });
+    expect(
+      test.repository.listReceipts().some((receipt) => receipt.toolId === 'project.run_tests'),
+    ).toBe(false);
+  });
+
+  it('records a failing node:test run after approval', async () => {
+    const test = fixture();
+    const project = await createProject(test);
+    registerProjectRepo(test.projectRepositories, project.id, copyCodingBugFixture());
+    const proposed = await test.service.command(
+      { requestId: createId(), text: 'run tests for Project A', modelRef: null },
+      createCorrelationId(),
+      new AbortController().signal,
+    );
+    if (proposed.kind !== 'approval_required') throw new Error('Expected approval');
+    const executed = await test.service.approve(
+      proposed.approval.id,
+      createCorrelationId(),
+    );
+    expect(executed.kind).toBe('executed');
+    if (executed.kind !== 'executed') throw new Error('Expected executed');
+    const result = projectRunTestsResultSchema.parse(executed.receipt.result);
+    expect(result.passed).toBe(false);
+    expect(result.exitCode).not.toBe(0);
+  });
+
+  it('rejects auto-approval for project.run_tests', () => {
+    const test = fixture();
+    expect(() =>
+      test.service.updatePolicy(
+        { toolId: 'project.run_tests', mode: 'auto_approve' },
+        createCorrelationId(),
+      ),
+    ).toThrow('cannot be auto-approved');
+  });
+
+  it('fails approval when the project has no registered repository', async () => {
+    const test = fixture();
+    await createProject(test);
+    const proposed = await test.service.command(
+      { requestId: createId(), text: 'run tests for Project A', modelRef: null },
+      createCorrelationId(),
+      new AbortController().signal,
+    );
+    if (proposed.kind !== 'approval_required') throw new Error('Expected approval');
+    await expect(
+      test.service.approve(proposed.approval.id, createCorrelationId()),
+    ).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+      message: 'The project has no registered repository',
+    });
   });
 });

@@ -449,6 +449,13 @@ export class ActionRepository {
     this.insertAudit(audit);
   }
 
+  recordReceipt(
+    receipt: ActionReceiptWrite,
+    audit: MutationAudit,
+  ): StoredActionReceipt {
+    return this.mutate(receipt, audit, () => {});
+  }
+
   createProject(
     project: ProjectWrite,
     receipt: ActionReceiptWrite,

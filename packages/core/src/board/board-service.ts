@@ -221,6 +221,7 @@ export class BoardService {
     readonly ahead: number;
     readonly files: readonly string[];
     readonly stat: string;
+    readonly diff: string;
   }> {
     assertExeumBranch(branch);
     const current = await this.readBranch(repoPath);
@@ -231,21 +232,29 @@ export class BoardService {
       throw new ZeroError('VALIDATION_FAILED', 'Cannot land a branch into itself');
     }
     const range = `${current}...${branch}`;
-    const [{ stdout: countOut }, { stdout: namesOut }, { stdout: statOut }] =
-      await Promise.all([
-        execFileAsync('git', ['rev-list', '--count', `${current}..${branch}`], {
-          cwd: repoPath,
-          timeout: 15_000,
-        }),
-        execFileAsync('git', ['diff', '--name-only', range], {
-          cwd: repoPath,
-          timeout: 15_000,
-        }),
-        execFileAsync('git', ['diff', '--stat', range], {
-          cwd: repoPath,
-          timeout: 15_000,
-        }),
-      ]);
+    const [
+      { stdout: countOut },
+      { stdout: namesOut },
+      { stdout: statOut },
+      { stdout: diffOut },
+    ] = await Promise.all([
+      execFileAsync('git', ['rev-list', '--count', `${current}..${branch}`], {
+        cwd: repoPath,
+        timeout: 15_000,
+      }),
+      execFileAsync('git', ['diff', '--name-only', range], {
+        cwd: repoPath,
+        timeout: 15_000,
+      }),
+      execFileAsync('git', ['diff', '--stat', range], {
+        cwd: repoPath,
+        timeout: 15_000,
+      }),
+      execFileAsync('git', ['diff', range], {
+        cwd: repoPath,
+        timeout: 15_000,
+      }),
+    ]);
     const ahead = Number.parseInt(countOut.trim(), 10);
     if (!Number.isFinite(ahead)) {
       throw new ZeroError('TOOL_EXECUTION_FAILED', 'Could not count commits to land');
@@ -256,7 +265,13 @@ export class BoardService {
       correlationId,
       data: { repoPath, branch, base: current, ahead, files },
     });
-    return { branch, base: current, ahead, files, stat: statOut.trim() };
+    const suffix = '\n...[truncated]';
+    const limit = 64_000;
+    const diff =
+      diffOut.length <= limit
+        ? diffOut
+        : `${diffOut.slice(0, limit - suffix.length)}${suffix}`;
+    return { branch, base: current, ahead, files, stat: statOut.trim(), diff };
   }
 
   async landBranch(

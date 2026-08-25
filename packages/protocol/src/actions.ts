@@ -25,6 +25,7 @@ export const workToolIdSchema = z.enum([
   'task.list',
   'task.create',
   'task.update',
+  'project.run_tests',
 ]);
 export const taskPrioritySchema = z.enum(['low', 'medium', 'high']);
 export const taskStatusSchema = z.enum([
@@ -88,6 +89,17 @@ export const projectCreateInputSchema = z
   .strict();
 export const projectGetStatusInputSchema = z
   .object({ projectId: z.string().uuid() })
+  .strict();
+export const projectRunTestsInputSchema = z
+  .object({ projectId: z.string().uuid() })
+  .strict();
+export const projectRunTestsResultSchema = z
+  .object({
+    exitCode: z.number().int(),
+    passed: z.boolean(),
+    stdout: z.string().max(8_000),
+    stderr: z.string().max(8_000),
+  })
   .strict();
 export const projectAddDecisionInputSchema = z
   .object({
@@ -306,6 +318,8 @@ export type Task = z.infer<typeof taskSchema>;
 export type ProjectDecision = z.infer<typeof projectDecisionSchema>;
 export type ProjectCreateInput = z.input<typeof projectCreateInputSchema>;
 export type ProjectGetStatusInput = z.infer<typeof projectGetStatusInputSchema>;
+export type ProjectRunTestsInput = z.infer<typeof projectRunTestsInputSchema>;
+export type ProjectRunTestsResult = z.infer<typeof projectRunTestsResultSchema>;
 export type ProjectAddDecisionInput = z.input<typeof projectAddDecisionInputSchema>;
 export type TaskListInput = z.infer<typeof taskListInputSchema>;
 export type TaskCreateInput = z.input<typeof taskCreateInputSchema>;

@@ -44,4 +44,36 @@ describe('deterministic action intent parser', () => {
     });
     expect((intent?.input as { dueAt: string }).dueAt.slice(0, 10)).toBe('2026-08-12');
   });
+
+  it('parses run-tests commands against a named project', () => {
+    const database = openDatabase(':memory:');
+    databases.push(database);
+    runMigrations(database, migrations);
+    const repository = new ActionRepository(database);
+    const projectId = createId();
+    const now = utcNow();
+    database.run(
+      `INSERT INTO projects (
+        id, name, normalized_name, description, status, created_at, updated_at
+      ) VALUES (?, ?, ?, NULL, 'active', ?, ?)`,
+      [projectId, 'Project A', normalizeWorkName('Project A'), now, now],
+    );
+
+    expect(
+      parseDeterministicAction('run tests for Project A', repository, new Date(now)),
+    ).toEqual({
+      toolId: 'project.run_tests',
+      input: { projectId },
+    });
+    expect(
+      parseDeterministicAction(
+        'run the tests in Project A',
+        repository,
+        new Date(now),
+      ),
+    ).toEqual({
+      toolId: 'project.run_tests',
+      input: { projectId },
+    });
+  });
 });

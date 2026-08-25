@@ -327,6 +327,17 @@ export function BoardPage(): React.JSX.Element {
             {error}
           </p>
         )}
+        {landPreview !== null && (
+          <div>
+            <ul>
+              {landPreview.files.map((file) => (
+                <li key={file}>{file}</li>
+              ))}
+            </ul>
+            <p>{landPreview.stat}</p>
+            <pre className="landDiff">{landPreview.diff}</pre>
+          </div>
+        )}
         <div
           className={`boardGrid${maximized ? ' boardGridMaximized' : ''}`}
           style={{

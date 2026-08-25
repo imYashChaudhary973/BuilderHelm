@@ -196,5 +196,17 @@ export function parseDeterministicAction(
     }
   }
 
+  const runTests =
+    /^run\s+(?:the\s+)?tests\s+(?:for|in|on)\s+(.+?)[.!]?$/i.exec(command);
+  if (runTests !== null) {
+    const target = projectFromStart(runTests[1]!, projects);
+    if (target !== null && target.remainder.replace(/[?!.]/g, '').trim().length === 0) {
+      return {
+        toolId: 'project.run_tests',
+        input: { projectId: target.project.id },
+      };
+    }
+  }
+
   return null;
 }

@@ -81,16 +81,18 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     logger,
   );
   const actionRepository = new ActionRepository(database);
+  const projectRepositories = new ProjectRepositoryStore(database);
   const actions = new ActionService(
     actionRepository,
     models,
     logger,
     createWorkToolRegistry(),
     new PermissionEngine(),
+    projectRepositories,
   );
   const projects = new ProjectService(
     actionRepository,
-    new ProjectRepositoryStore(database),
+    projectRepositories,
     logger,
   );
   const board = new BoardService(database, logger);

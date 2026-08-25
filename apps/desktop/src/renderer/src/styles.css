@@ -2972,6 +2972,14 @@ fieldset legend {
   grid-template-rows: 1fr;
 }
 
+.landDiff {
+  margin: 0;
+  max-height: 240px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
 .terminalPane {
   display: flex;
   flex-direction: column;

@@ -24,6 +24,22 @@ describe('tool registry and permission engine', () => {
     expect(() => registry.parseInput('task.create', { projectId, title: '' })).toThrow(
       'arguments are invalid',
     );
+    expect(registry.parseInput('project.run_tests', { projectId })).toEqual({
+      projectId,
+    });
+    expect(() =>
+      registry.parseInput('project.run_tests', {
+        projectId,
+        command: 'rm -rf /',
+      }),
+    ).toThrow('arguments are invalid');
+    expect(registry.modelDefinitions().map((tool) => tool.name)).toContain(
+      'project_run_tests',
+    );
+    expect(registry.descriptor('project.run_tests')).toMatchObject({
+      risk: 'external_side_effect',
+      rollbackSupport: 'none',
+    });
   });
 
   it('requires explicit approval for writes unless a narrow policy allows them', () => {

@@ -4,6 +4,8 @@ import {
   projectDecisionSchema,
   projectGetStatusInputSchema,
   projectSchema,
+  projectRunTestsInputSchema,
+  projectRunTestsResultSchema,
   projectStatusResultSchema,
   taskCreateInputSchema,
   taskListInputSchema,
@@ -100,6 +102,16 @@ const descriptors = {
     idempotency: 'single_use_approval',
     rollbackSupport: 'automatic',
   }),
+  projectRunTests: toolDescriptorSchema.parse({
+    id: 'project.run_tests',
+    modelName: 'project_run_tests',
+    description: 'Run the registered repository test suite with node --test.',
+    risk: 'external_side_effect',
+    dataScopes: ['projects'],
+    timeoutMs: 15_000,
+    idempotency: 'none',
+    rollbackSupport: 'none',
+  }),
 } as const;
 
 export function createWorkToolRegistry(): ToolRegistry {
@@ -154,6 +166,15 @@ export function createWorkToolRegistry(): ToolRegistry {
       outputSchema: taskSchema,
       summarize: () => 'Update task',
       resources: (input) => [{ type: 'task', id: input.taskId, label: input.taskId }],
+    }),
+    contract({
+      descriptor: descriptors.projectRunTests,
+      inputSchema: projectRunTestsInputSchema,
+      outputSchema: projectRunTestsResultSchema,
+      summarize: (input) => `Run tests for project ${input.projectId}`,
+      resources: (input) => [
+        { type: 'project', id: input.projectId, label: input.projectId },
+      ],
     }),
   ]);
 }

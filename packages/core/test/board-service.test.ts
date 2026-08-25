@@ -90,6 +90,7 @@ describe('BoardService worktrees', () => {
     expect(preview.ahead).toBe(1);
     expect(preview.files).toEqual(['extra.md']);
     expect(preview.stat).toContain('extra.md');
+    expect(preview.diff).toContain('extra.md');
     expect(existsSync(join(repo, 'extra.md'))).toBe(false);
     database.close();
   });

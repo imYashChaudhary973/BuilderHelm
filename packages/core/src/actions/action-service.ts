@@ -1,3 +1,7 @@
+import { execFile } from 'node:child_process';
+import { realpathSync } from 'node:fs';
+import { promisify } from 'node:util';
+
 import type {
   ActionReceiptWrite,
   ApprovalRequestWrite,
@@ -8,6 +12,7 @@ import type {
   StoredProjectDecision,
   StoredTask,
   ActionRepository,
+  ProjectRepositoryStore,
   ProjectDecisionWrite,
   ProjectWrite,
   TaskWrite,
@@ -52,6 +57,7 @@ import {
 
 const approvalLifetimeMs = 10 * 60 * 1_000;
 const defaultPolicyUpdatedAt = '1970-01-01T00:00:00.000Z';
+const execFileAsync = promisify(execFile);
 
 interface PlannedAction extends ParsedActionIntent {
   readonly requestId: string;
@@ -185,6 +191,7 @@ export class ActionService {
     private readonly logger: Logger,
     private readonly registry: ToolRegistry,
     private readonly permissions: PermissionEngine,
+    private readonly projectRepositories: ProjectRepositoryStore,
     private readonly clock: () => Date = () => new Date(),
   ) {}
 
@@ -313,6 +320,14 @@ export class ActionService {
       modelRef: stored.modelRef,
     };
     try {
+      if (plan.toolId === 'project.run_tests') {
+        return await this.executeRunTests(
+          plan,
+          approvalCorrelationId,
+          stored.id,
+          'granted',
+        );
+      }
       return this.executeWrite(plan, approvalCorrelationId, stored.id, 'granted');
     } catch (error) {
       const normalized = normalizeError(error, 'TOOL_EXECUTION_FAILED');
@@ -866,6 +881,126 @@ export class ActionService {
           : mutation.kind === 'task_update'
             ? this.repository.updateTask(mutation.value, receiptWrite, mutationAudit)
             : this.repository.addDecision(mutation.value, receiptWrite, mutationAudit);
+    const receipt = toReceipt(stored);
+    this.logger.info({
+      event: 'action.executed',
+      correlationId,
+      data: {
+        receiptId: receipt.id,
+        toolId: receipt.toolId,
+        approvalState: receipt.approvalState,
+      },
+    });
+    return this.executedOutcome(receipt);
+  }
+
+  private async executeRunTests(
+    plan: PlannedAction,
+    correlationId: CorrelationId,
+    approvalId: string | null,
+    approvalState: 'auto_approved' | 'granted',
+  ): Promise<ActionCommandOutcome> {
+    const descriptor = this.registry.descriptor(plan.toolId);
+    const projectId = String(object(plan.input).projectId);
+    const storedRepo = this.projectRepositories.findByProjectId(projectId);
+    if (storedRepo === undefined) {
+      throw new ZeroError(
+        'VALIDATION_FAILED',
+        'The project has no registered repository',
+      );
+    }
+    let resolvedRoot: string;
+    try {
+      resolvedRoot = realpathSync.native(storedRepo.rootPath);
+    } catch (cause) {
+      throw new ZeroError('PERMISSION_DENIED', 'The repository location changed', {
+        cause,
+      });
+    }
+    if (resolvedRoot !== storedRepo.rootPath) {
+      throw new ZeroError('PERMISSION_DENIED', 'The repository location changed');
+    }
+
+    let exitCode = 0;
+    let stdout = '';
+    let stderr = '';
+    try {
+      const result = await execFileAsync('node', ['--test'], {
+        cwd: resolvedRoot,
+        timeout: 15_000,
+        maxBuffer: 2_000_000,
+        windowsHide: true,
+        encoding: 'utf8',
+        env: { ...process.env, NODE_OPTIONS: '' },
+      });
+      stdout = result.stdout.slice(0, 8_000);
+      stderr = result.stderr.slice(0, 8_000);
+    } catch (error) {
+      const failure = error as { code?: unknown; stdout?: unknown; stderr?: unknown };
+      if (typeof failure.code !== 'number') {
+        throw new ZeroError(
+          'TOOL_EXECUTION_FAILED',
+          'The test runner failed to start',
+          { cause: error },
+        );
+      }
+      exitCode = failure.code;
+      stdout = String(failure.stdout ?? '').slice(0, 8_000);
+      stderr = String(failure.stderr ?? '').slice(0, 8_000);
+    }
+
+    const output = this.registry.parseOutput(plan.toolId, {
+      exitCode,
+      passed: exitCode === 0,
+      stdout,
+      stderr,
+    });
+    const now = utcNowFrom(this.clock());
+    const resources = this.resources(plan);
+    const receiptWrite: ActionReceiptWrite = {
+      id: createId(),
+      requestId: plan.requestId,
+      correlationId,
+      actorType: plan.actorType,
+      actorId: actorId(plan),
+      modelRef: plan.modelRef,
+      toolId: plan.toolId,
+      requestedAction: this.registry.summarize(plan.toolId, plan.input),
+      argumentsJson: JSON.stringify(plan.input),
+      approvalState,
+      resultJson: JSON.stringify(output),
+      affectedResourcesJson: JSON.stringify(resources),
+      rollbackJson: null,
+      createdAt: now,
+    };
+    const stored = this.repository.recordReceipt(receiptWrite, {
+      approvalId,
+      approvalGranted:
+        approvalId === null
+          ? null
+          : audit({
+              eventType: 'approval.granted',
+              actorType: 'user',
+              actorId: null,
+              correlationId,
+              riskLevel: descriptor.risk,
+              resources,
+              after: { toolId: plan.toolId },
+              approvalId,
+              createdAt: now,
+            }),
+      executed: audit({
+        eventType: 'agent.tool_executed',
+        actorType: plan.actorType,
+        actorId: actorId(plan),
+        correlationId,
+        riskLevel: descriptor.risk,
+        resources,
+        after: output,
+        approvalId,
+        createdAt: now,
+      }),
+    });
     const receipt = toReceipt(stored);
     this.logger.info({
       event: 'action.executed',

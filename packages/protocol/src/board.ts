@@ -270,6 +270,7 @@ export const boardLandPreviewSchema = z
     ahead: z.number().int().nonnegative(),
     files: z.array(z.string().min(1).max(4096)).max(500),
     stat: z.string().max(16_000),
+    diff: z.string().max(64_000),
   })
   .strict();
 export type BoardLandPreview = z.infer<typeof boardLandPreviewSchema>;
