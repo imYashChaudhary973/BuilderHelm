@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BOARD_AGENT_CATALOG, type BoardAgentId } from '@zero/protocol/board';
 import {
+  swarmPlanBudget,
   SWARM_PRESETS,
   SWARM_SKILLS,
   type SwarmAssignment,
@@ -12,6 +13,11 @@ import {
 type Step = 'mission' | 'roster' | 'launch';
 
 const SKILL_GROUPS = ['workflow', 'quality', 'ops', 'analysis'] as const;
+
+/** Rough per-run band from seat count; the live meter is the real number. */
+function costBand(seats: number): string {
+  return `$${(seats * 0.15).toFixed(2)}–$${(seats * 0.6).toFixed(2)}`;
+}
 
 export function SwarmSetup({
   step,
@@ -270,12 +276,24 @@ function Mission({
           className="swarmJob"
           rows={7}
           value={job}
-          placeholder="What should this swarm accomplish? Agents will read this as their mission brief."
+          placeholder="What should this swarm accomplish? Drop files to tag them with @path."
           onChange={(event) => onJob(event.target.value)}
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={(event) => {
+            // Dropped paths become @tags the planner can read as context.
+            const paths = [...event.dataTransfer.files]
+              .map((file) => file.name)
+              .filter((name) => name.length > 0);
+            if (paths.length === 0) return;
+            event.preventDefault();
+            const tags = paths.map((path) => `@${path}`).join(' ');
+            onJob(job.trimEnd().length === 0 ? tags : `${job.trimEnd()}\n${tags}`);
+          }}
         />
       </label>
       <p className="swarmShareNote">
-        Shared with all agents so they can coordinate and stay aligned.
+        Shared with every seat as the cache-stable part of their prompt. Drop files onto
+        the brief to tag them.
       </p>
     </div>
   );
@@ -345,6 +363,10 @@ function Roster({
         {counts.builder === 1 ? '' : 's'} · {counts.scout} scout
         {counts.scout === 1 ? '' : 's'} · {counts.reviewer} reviewer
         {counts.reviewer === 1 ? '' : 's'}
+      </p>
+      <p className="swarmCostBand">
+        Up to {swarmPlanBudget(preset)} tasks · rough spend {costBand(roster.length)} per
+        run, metered live per seat
       </p>
       <span className="swarmFieldLabel">Launch mode</span>
       <div className="swarmModes">

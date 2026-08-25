@@ -41,6 +41,16 @@ import {
   boardWriteIpcResponseSchema,
 } from '@zero/protocol/board';
 import {
+  swarmCreateIpcResponseSchema,
+  swarmCreateRequestSchema,
+  swarmDirectIpcResponseSchema,
+  swarmDirectRequestSchema,
+  swarmStateIpcResponseSchema,
+  swarmStateRequestSchema,
+  swarmStopIpcResponseSchema,
+  swarmStopRequestSchema,
+} from '@zero/protocol/swarm';
+import {
   kanbanCreateIpcResponseSchema,
   kanbanCreateRequestSchema,
   kanbanDeleteIpcResponseSchema,
@@ -132,8 +142,9 @@ import {
   projectRepositorySelectRequestSchema,
 } from '@zero/protocol/projects';
 import { createCorrelationId, normalizeError, ZeroError } from '@zero/shared';
-import { LocalGitInspector } from '@zero/core';
+import { CliSwarmPlanner, LocalGitInspector, type SwarmPlanner } from '@zero/core';
 import type { BoardPtyManager } from './board-pty-manager.js';
+import type { PtySwarmRunner } from './swarm-runner.js';
 import { PreviewBrowser } from './preview-browser.js';
 import {
   commitGit,
@@ -187,6 +198,7 @@ function sendChatEvent(
 export function registerIpcHandlers(
   core: CoreRuntime,
   board?: BoardPtyManager,
+  swarmRunner?: PtySwarmRunner,
 ): () => void {
   const preview = new PreviewBrowser();
   const activeStreams = new Map<
@@ -636,12 +648,110 @@ export function registerIpcHandlers(
     }
   });
 
+  function requireSwarmRunner(): PtySwarmRunner {
+    if (swarmRunner === undefined) {
+      throw new ZeroError('VALIDATION_FAILED', 'Swarm host is not available');
+    }
+    return swarmRunner;
+  }
+
+  /**
+   * Decomposition needs a CLI that can constrain output to a JSON Schema.
+   * Without one the swarm still runs, as a single task for one builder.
+   */
+  async function pickSwarmPlanner(folderPath: string): Promise<SwarmPlanner> {
+    const detections = await core.board.detectAgents();
+    const structured = detections.find(
+      (item) => item.available && (item.id === 'claude' || item.id === 'grok'),
+    );
+    if (structured === undefined) {
+      return {
+        async plan(request) {
+          return [
+            {
+              title: request.mission.split('\n')[0]?.slice(0, 200) ?? 'Swarm mission',
+              detail: request.mission,
+              files: [],
+              dependsOn: [],
+            },
+          ];
+        },
+      };
+    }
+    return new CliSwarmPlanner({ agentId: structured.id, cwd: folderPath });
+  }
+
   function requireBoard(): BoardPtyManager {
     if (board === undefined) {
       throw new ZeroError('INTEGRATION_OFFLINE', 'Board terminal host is not available');
     }
     return board;
   }
+
+  ipcMain.handle(ipcChannels.swarmCreate, async (event, input: unknown) => {
+    try {
+      const request = swarmCreateRequestSchema.parse(input);
+      const runner = requireSwarmRunner();
+      const run = core.swarm.createRun(request.input, request.correlationId);
+      const sessionId = runner.openSession(
+        run.id,
+        request.input.folderPath,
+        'worktree',
+        event.sender,
+      );
+      core.swarm.attachBoardSession(run.id, sessionId);
+      const planner = await pickSwarmPlanner(request.input.folderPath);
+      await core.swarm.planTasks(run.id, planner, request.correlationId);
+      void core.swarm.pump(run.id).catch((error: unknown) => {
+        core.logger.error({
+          event: 'swarm.pump_failed',
+          correlationId: request.correlationId,
+          data: { runId: run.id, error: normalizeError(error).message },
+        });
+      });
+      return swarmCreateIpcResponseSchema.parse({ ok: true, value: run });
+    } catch (error) {
+      return swarmCreateIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.swarmState, (_event, input: unknown) => {
+    try {
+      const request = swarmStateRequestSchema.parse(input);
+      return swarmStateIpcResponseSchema.parse({
+        ok: true,
+        value: core.swarm.state(request.runId),
+      });
+    } catch (error) {
+      return swarmStateIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.swarmDirect, (_event, input: unknown) => {
+    try {
+      const request = swarmDirectRequestSchema.parse(input);
+      core.swarm.direct(
+        request.input.runId,
+        request.input.seatIds,
+        request.input.body,
+        request.correlationId,
+      );
+      return swarmDirectIpcResponseSchema.parse({ ok: true, value: { queued: true } });
+    } catch (error) {
+      return swarmDirectIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.swarmStop, (_event, input: unknown) => {
+    try {
+      const request = swarmStopRequestSchema.parse(input);
+      core.swarm.stop(request.runId);
+      swarmRunner?.release(request.runId);
+      return swarmStopIpcResponseSchema.parse({ ok: true, value: { stopped: true } });
+    } catch (error) {
+      return swarmStopIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
 
   ipcMain.handle(ipcChannels.boardCreate, async (event, input: unknown) => {
     try {
@@ -1174,6 +1284,10 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.chatGet);
     ipcMain.removeHandler(ipcChannels.chatStreamStart);
     ipcMain.removeHandler(ipcChannels.chatStreamCancel);
+    ipcMain.removeHandler(ipcChannels.swarmCreate);
+    ipcMain.removeHandler(ipcChannels.swarmState);
+    ipcMain.removeHandler(ipcChannels.swarmDirect);
+    ipcMain.removeHandler(ipcChannels.swarmStop);
     ipcMain.removeHandler(ipcChannels.boardCreate);
     ipcMain.removeHandler(ipcChannels.boardWrite);
     ipcMain.removeHandler(ipcChannels.boardResize);

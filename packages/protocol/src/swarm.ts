@@ -4,6 +4,8 @@ import {
   type BoardAgentId,
   type BoardPaneStatus,
 } from './board.js';
+import type { CorrelationId } from '@zero/shared';
+
 import { modelErrorSchema } from './model.js';
 import { z } from 'zod';
 
@@ -63,6 +65,20 @@ export const SWARM_PRESETS = [
   },
 ] as const;
 export type SwarmPresetId = (typeof SWARM_PRESETS)[number]['id'];
+
+/** Task ceiling per preset: effort scales with the roster, not model whim. */
+export function swarmPlanBudget(presetId: SwarmPresetId): number {
+  switch (presetId) {
+    case 'skiff':
+      return 3;
+    case 'cutter':
+      return 6;
+    case 'frigate':
+      return 10;
+    default:
+      return 14;
+  }
+}
 
 export const SWARM_SKILLS = [
   {
@@ -539,6 +555,7 @@ export const swarmRunSchema = z
     mission: z.string().trim().min(1).max(10_000),
     launchMode: z.enum(SWARM_LAUNCH_MODES),
     presetId: z.enum(['skiff', 'cutter', 'frigate', 'flagship']),
+    skillIds: z.array(z.string().min(1).max(64)).max(32),
     boardSessionId: uuidSchema.nullable(),
     status: swarmRunStatusSchema,
     startedAt: z.string().datetime(),
@@ -601,7 +618,10 @@ export type SwarmMessageRecord = z.infer<typeof swarmMessageSchema>;
 
 /* IPC payloads ----------------------------------------------------------- */
 
-const swarmCorrelationSchema = z.string().uuid();
+const swarmCorrelationSchema = z
+  .string()
+  .uuid()
+  .transform((value) => value as CorrelationId);
 
 export const swarmCreateInputSchema = z
   .object({
@@ -610,6 +630,7 @@ export const swarmCreateInputSchema = z
     mission: z.string().trim().min(1).max(10_000),
     launchMode: z.enum(SWARM_LAUNCH_MODES),
     presetId: z.enum(['skiff', 'cutter', 'frigate', 'flagship']),
+    skillIds: z.array(z.string().min(1).max(64)).max(32),
     seats: z
       .array(
         z

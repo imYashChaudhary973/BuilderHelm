@@ -12,6 +12,7 @@ export const swarmPersistenceMigration: Migration = {
         mission TEXT NOT NULL CHECK (length(mission) BETWEEN 1 AND 10000),
         launch_mode TEXT NOT NULL CHECK (launch_mode IN ('safe', 'auto', 'full')),
         preset_id TEXT NOT NULL CHECK (preset_id IN ('skiff', 'cutter', 'frigate', 'flagship')),
+        skills_json TEXT NOT NULL CHECK (json_valid(skills_json)),
         board_session_id TEXT,
         status TEXT NOT NULL CHECK (status IN (
           'running', 'stuck', 'budget', 'stopped', 'done', 'failed'

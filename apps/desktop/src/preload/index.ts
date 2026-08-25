@@ -37,6 +37,16 @@ import {
   type BoardPaneEventEnvelope,
 } from '@zero/protocol/board';
 import {
+  swarmCreateIpcResponseSchema,
+  swarmCreateRequestSchema,
+  swarmDirectIpcResponseSchema,
+  swarmDirectRequestSchema,
+  swarmStateIpcResponseSchema,
+  swarmStateRequestSchema,
+  swarmStopIpcResponseSchema,
+  swarmStopRequestSchema,
+} from '@zero/protocol/swarm';
+import {
   kanbanCreateInputSchema,
   kanbanCreateIpcResponseSchema,
   kanbanDeleteInputSchema,
@@ -363,6 +373,36 @@ const api: ZeroDesktopApi = {
         input: permissionPolicyUpdateInputSchema.parse(input),
       });
       return unwrap(permissionPolicyUpdateIpcResponseSchema.parse(response));
+    },
+  },
+  swarm: {
+    async create(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.swarmCreate,
+        swarmCreateRequestSchema.parse(input),
+      );
+      return unwrap(swarmCreateIpcResponseSchema.parse(response));
+    },
+    async state(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.swarmState,
+        swarmStateRequestSchema.parse(input),
+      );
+      return unwrap(swarmStateIpcResponseSchema.parse(response));
+    },
+    async direct(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.swarmDirect,
+        swarmDirectRequestSchema.parse(input),
+      );
+      return unwrap(swarmDirectIpcResponseSchema.parse(response));
+    },
+    async stop(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.swarmStop,
+        swarmStopRequestSchema.parse(input),
+      );
+      return unwrap(swarmStopIpcResponseSchema.parse(response));
     },
   },
   board: {

@@ -7,6 +7,7 @@ export interface SwarmRunWrite {
   readonly mission: string;
   readonly launchMode: string;
   readonly presetId: string;
+  readonly skillIds: readonly string[];
   readonly boardSessionId: string | null;
   readonly status: string;
   readonly startedAt: string;
@@ -59,6 +60,7 @@ interface StoredSwarmRun extends Record<string, unknown> {
   mission: string;
   launch_mode: string;
   preset_id: string;
+  skills_json: string;
   board_session_id: string | null;
   status: string;
   started_at: string;
@@ -112,6 +114,7 @@ function toRunWrite(row: StoredSwarmRun): SwarmRunWrite {
     mission: row.mission,
     launchMode: row.launch_mode,
     presetId: row.preset_id,
+    skillIds: JSON.parse(row.skills_json) as string[],
     boardSessionId: row.board_session_id,
     status: row.status,
     startedAt: row.started_at,
@@ -171,8 +174,8 @@ export class SwarmRepository {
     this.database.transaction(() => {
       this.database.run(
         `INSERT INTO swarm_runs (id, name, folder_path, mission, launch_mode, preset_id,
-           board_session_id, status, started_at, ended_at, budget_ms)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           skills_json, board_session_id, status, started_at, ended_at, budget_ms)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           run.id,
           run.name,
@@ -180,6 +183,7 @@ export class SwarmRepository {
           run.mission,
           run.launchMode,
           run.presetId,
+          JSON.stringify(run.skillIds),
           run.boardSessionId,
           run.status,
           run.startedAt,

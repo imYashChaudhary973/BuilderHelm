@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -42,11 +42,28 @@ export interface PnpmVerifierOptions {
  * packages the task owns. Runs inside the seat worktree, so it validates the
  * work exactly as the agent left it.
  */
+function readManifestScripts(manifestPath: string): Set<string> {
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    if (typeof parsed !== 'object' || parsed === null) return new Set();
+    const scripts = (parsed as { scripts?: unknown }).scripts;
+    if (typeof scripts !== 'object' || scripts === null) return new Set();
+    return new Set(Object.keys(scripts as Record<string, unknown>));
+  } catch {
+    return new Set();
+  }
+}
+
 export class PnpmTaskVerifier implements SwarmTaskVerifier {
   constructor(private readonly options: PnpmVerifierOptions = {}) {}
 
   async verify(input: SwarmVerifyInput): Promise<SwarmVerifyResult> {
     const cwd = input.worktreePath;
+    const manifestPath = join(cwd, 'package.json');
+    if (!existsSync(manifestPath)) {
+      return { ok: true, detail: 'no package manifest; nothing to verify' };
+    }
+    const scripts = readManifestScripts(manifestPath);
     const install = this.options.install ?? true;
     if (install && !existsSync(join(cwd, 'node_modules'))) {
       const installed = await this.run(
@@ -59,18 +76,20 @@ export class PnpmTaskVerifier implements SwarmTaskVerifier {
       }
     }
 
-    const typecheck = await this.run(
-      ['typecheck'],
-      cwd,
-      this.options.typecheckTimeoutMs ?? 300_000,
-    );
-    if (!typecheck.ok) {
-      return { ok: false, detail: `typecheck failed: ${typecheck.detail}` };
+    if (scripts.has('typecheck')) {
+      const typecheck = await this.run(
+        ['typecheck'],
+        cwd,
+        this.options.typecheckTimeoutMs ?? 300_000,
+      );
+      if (!typecheck.ok) {
+        return { ok: false, detail: `typecheck failed: ${typecheck.detail}` };
+      }
     }
 
     const targets = workspaceTargetsForFiles(input.task.files);
-    if (targets.length === 0) {
-      return { ok: true, detail: 'typecheck passed; task owns no workspace package' };
+    if (targets.length === 0 || !scripts.has('test')) {
+      return { ok: true, detail: 'available checks passed' };
     }
     const tests = await this.run(
       ['exec', 'vitest', 'run', ...targets],

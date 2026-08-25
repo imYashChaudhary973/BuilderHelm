@@ -21,6 +21,12 @@ import type {
   BoardSessionSummary,
 } from './board.js';
 import type {
+  SwarmCreateInput,
+  SwarmDirectInput,
+  SwarmRunRecord,
+  SwarmState,
+} from './swarm.js';
+import type {
   KanbanCard,
   KanbanCreateInput,
   KanbanDeleteInput,
@@ -229,6 +235,24 @@ export interface ZeroDesktopApi {
     approve(input: ApprovalResolveInput): Promise<ActionCommandOutcome>;
     reject(input: ApprovalResolveInput): Promise<ApprovalRequest>;
     updatePolicy(input: PermissionPolicyUpdateInput): Promise<PermissionPolicy>;
+  };
+  readonly swarm: {
+    create(input: {
+      readonly correlationId: CorrelationId;
+      readonly input: SwarmCreateInput;
+    }): Promise<SwarmRunRecord>;
+    state(input: {
+      readonly correlationId: CorrelationId;
+      readonly runId: string;
+    }): Promise<SwarmState>;
+    direct(input: {
+      readonly correlationId: CorrelationId;
+      readonly input: SwarmDirectInput;
+    }): Promise<{ queued: true }>;
+    stop(input: {
+      readonly correlationId: CorrelationId;
+      readonly runId: string;
+    }): Promise<{ stopped: true }>;
   };
   readonly board: {
     homeDir(): Promise<string>;

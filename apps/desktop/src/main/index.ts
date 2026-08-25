@@ -7,12 +7,14 @@ import { app, BrowserWindow, session } from 'electron';
 
 import { registerIpcHandlers } from './ipc.js';
 import { BoardPtyManager, probePty } from './board-pty-manager.js';
+import { PtySwarmRunner } from './swarm-runner.js';
 import { KeyringSecretStore } from './keyring-secret-store.js';
 import { buildContentSecurityPolicy, secureWebPreferences } from './security.js';
 
 let core: CoreRuntime | undefined;
 let unregisterIpc: (() => void) | undefined;
 let boardPty: BoardPtyManager | undefined;
+let swarmRunner: PtySwarmRunner | undefined;
 let smokeDatabasePath: string | undefined;
 
 function isAllowedNavigation(currentUrl: string, destinationUrl: string): boolean {
@@ -164,8 +166,13 @@ app.whenReady().then(() => {
       ? join(app.getPath('temp'), `zero-os-smoke-${process.pid}.sqlite`)
       : (process.env.ZERO_DATABASE_PATH ?? join(app.getPath('userData'), 'zero.sqlite'));
   smokeDatabasePath = process.env.ZERO_SMOKE_TEST === '1' ? databasePath : undefined;
-  core = bootstrapCore({ databasePath, secretStore: new KeyringSecretStore() });
   boardPty = new BoardPtyManager();
+  swarmRunner = new PtySwarmRunner(boardPty);
+  core = bootstrapCore({
+    databasePath,
+    secretStore: new KeyringSecretStore(),
+    swarmRunner,
+  });
   if (process.env.ZERO_PTY_PROBE !== undefined && process.env.ZERO_PTY_PROBE.length > 0) {
     core.logger.info({
       event: 'pty.probe',
@@ -173,7 +180,7 @@ app.whenReady().then(() => {
       data: { result: probePty(process.env.ZERO_PTY_PROBE) },
     });
   }
-  unregisterIpc = registerIpcHandlers(core, boardPty);
+  unregisterIpc = registerIpcHandlers(core, boardPty, swarmRunner);
   createWindow();
 
   app.on('activate', () => {

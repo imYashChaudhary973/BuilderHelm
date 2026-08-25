@@ -175,6 +175,44 @@ export function probePty(cwd: string): string {
 export class BoardPtyManager {
   private readonly sessions = new Map<string, SessionRecord>();
   private readonly closing = new Set<string>();
+  private readonly exitWaiters = new Map<
+    string,
+    ((value: { exitCode: number; output: string }) => void)[]
+  >();
+
+  /** Session with no panes yet: swarm seats attach panes per task. */
+  createEmptySession(
+    folderPath: string,
+    isolation: BoardIsolation,
+    sender: WebContents,
+  ): string {
+    const sessionId = randomUUID();
+    this.sessions.set(sessionId, {
+      sender,
+      folderPath,
+      isolation,
+      worktreeTag: randomUUID().slice(0, 8),
+      panes: new Map(),
+    });
+    return sessionId;
+  }
+
+  /** Resolves when the pane's process exits, with everything it printed. */
+  waitForPaneExit(
+    sessionId: string,
+    paneId: string,
+  ): Promise<{ exitCode: number; output: string }> {
+    const pane = this.requirePane(sessionId, paneId);
+    if (pane.pty === null) {
+      return Promise.resolve({ exitCode: 0, output: pane.output });
+    }
+    // Executor form: the repo targets ES2022, which has no Promise.withResolvers.
+    return new Promise<{ exitCode: number; output: string }>((resolve) => {
+      const waiters = this.exitWaiters.get(paneId) ?? [];
+      waiters.push(resolve);
+      this.exitWaiters.set(paneId, waiters);
+    });
+  }
 
   async createSession(
     input: BoardCreateInput,
@@ -319,6 +357,10 @@ export class BoardPtyManager {
     });
     pty.onExit(({ exitCode }) => {
       meta.pty = null;
+      for (const resolve of this.exitWaiters.get(paneId) ?? []) {
+        resolve({ exitCode, output: meta.output });
+      }
+      this.exitWaiters.delete(paneId);
       this.forward(sessionId, paneId, {
         type: 'status',
         status: exitCode >= 0 ? 'exited' : 'failed',

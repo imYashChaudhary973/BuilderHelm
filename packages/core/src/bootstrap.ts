@@ -22,6 +22,13 @@ import { ActionService } from './actions/action-service.js';
 import { createWorkToolRegistry, PermissionEngine } from '@zero/tools';
 import { ProjectService } from './projects/project-service.js';
 import { BoardService } from './board/board-service.js';
+import { PnpmTaskVerifier } from './swarm/pnpm-verifier.js';
+import {
+  SwarmService,
+  type SwarmSeatRunner,
+  type SwarmTaskVerifier,
+} from './swarm/swarm-service.js';
+import type { SwarmReviewer } from './swarm/swarm-reviewer.js';
 import type { SecretStore } from './secrets/secret-store.js';
 
 export interface CoreOptions {
@@ -29,6 +36,10 @@ export interface CoreOptions {
   readonly secretStore: SecretStore;
   readonly logSink?: LogSink;
   readonly modelGatewayFetch?: GatewayFetch;
+  /** Host adapter that runs swarm seats; without it swarms fail closed. */
+  readonly swarmRunner?: SwarmSeatRunner;
+  readonly swarmVerifier?: SwarmTaskVerifier;
+  readonly swarmReviewer?: SwarmReviewer;
 }
 
 export interface CoreRuntime {
@@ -40,6 +51,7 @@ export interface CoreRuntime {
   readonly actions: ActionService;
   readonly projects: ProjectService;
   readonly board: BoardService;
+  readonly swarm: SwarmService;
   health(correlationId: CorrelationId): SystemHealthResponse;
   close(): void;
 }
@@ -94,6 +106,24 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     logger,
   );
   const board = new BoardService(database, logger);
+  const swarmRunner: SwarmSeatRunner = options.swarmRunner ?? {
+    async execute() {
+      return {
+        status: 'failed',
+        summary: 'no swarm runner is attached to this host',
+        tokensUsed: 0,
+        costUsd: 0,
+      };
+    },
+  };
+  const swarm = new SwarmService(
+    database,
+    logger,
+    board,
+    swarmRunner,
+    options.swarmVerifier ?? new PnpmTaskVerifier(),
+    options.swarmReviewer === undefined ? {} : { reviewer: options.swarmReviewer },
+  );
   return {
     logger,
     chats,
@@ -103,6 +133,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     actions,
     projects,
     board,
+    swarm,
     health(correlationId) {
       return {
         status: 'ok',

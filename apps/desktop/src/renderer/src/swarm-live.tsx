@@ -1,18 +1,41 @@
-import type { BoardPaneStatus, BoardPaneSummary } from '@zero/protocol/board';
 import {
   swarmGraphHub,
   swarmGraphPoints,
   swarmSeatLabel,
-  type SwarmAssignment,
-  type SwarmMemberStatus,
-  type SwarmRunStatus,
+  type SwarmRole,
+  type SwarmRunRecordStatus,
+  type SwarmSeatStatus,
+  type SwarmState,
 } from '@zero/protocol/swarm';
 import { useMemo, useState, type ReactNode } from 'react';
 
-export interface SwarmLiveMember {
-  readonly pane: BoardPaneSummary;
-  readonly assignment: SwarmAssignment | undefined;
-  readonly status: SwarmMemberStatus;
+export interface SwarmLiveSeat {
+  readonly seatId: string;
+  readonly paneId: string | null;
+  readonly role: SwarmRole;
+  readonly agentId: string;
+  readonly status: SwarmSeatStatus;
+  readonly tokensUsed: number;
+  readonly costUsd: number;
+  readonly branch: string | null;
+}
+
+type InspectorTab = 'agent' | 'plan' | 'chat' | 'activity' | 'roster';
+
+const TABS: readonly { readonly id: InspectorTab; readonly label: string }[] = [
+  { id: 'agent', label: 'Agent' },
+  { id: 'plan', label: 'Plan' },
+  { id: 'chat', label: 'Chat' },
+  { id: 'activity', label: 'Activity' },
+  { id: 'roster', label: 'Roster' },
+];
+
+function money(value: number): string {
+  return value >= 0.01 ? `$${value.toFixed(2)}` : `$${value.toFixed(4)}`;
+}
+
+function clockOf(iso: string): string {
+  return iso.slice(11, 19);
 }
 
 export function SwarmLive({
@@ -22,7 +45,9 @@ export function SwarmLive({
   isolation,
   status,
   remainLabel,
-  members,
+  seats,
+  state,
+  previews,
   stopped,
   children,
   onStopAll,
@@ -33,32 +58,34 @@ export function SwarmLive({
   readonly job: string;
   readonly folder: string;
   readonly isolation: 'worktree' | 'shared';
-  readonly status: SwarmRunStatus;
+  readonly status: SwarmRunRecordStatus;
   readonly remainLabel: string;
-  readonly members: readonly SwarmLiveMember[];
+  readonly seats: readonly SwarmLiveSeat[];
+  readonly state: SwarmState | null;
+  readonly previews: Readonly<Record<string, string>>;
   readonly stopped: boolean;
   readonly children: ReactNode;
   readonly onStopAll: () => void;
-  readonly onStopSeat: (paneId: string) => void;
-  readonly onDirect: (paneIds: readonly string[], text: string) => void;
+  readonly onStopSeat: (seatId: string) => void;
+  readonly onDirect: (seatIds: readonly string[], text: string) => void;
 }): React.JSX.Element {
   const [view, setView] = useState<'graph' | 'terminals'>('graph');
+  const [tab, setTab] = useState<InspectorTab>('roster');
   const [target, setTarget] = useState('all');
   const [draft, setDraft] = useState('');
-  const roles = members.map((item) => item.assignment?.role ?? 'builder');
+  const roles = seats.map((seat) => seat.role);
   const points = useMemo(() => swarmGraphPoints(roles), [roles]);
   const hub = swarmGraphHub(roles);
+  const tasks = state?.tasks ?? [];
+  const landed = tasks.filter((task) => task.status === 'landed').length;
+  const selected = seats.find((seat) => seat.seatId === target);
 
   function send(): void {
     const text = draft.trim();
     if (text.length === 0) return;
-    const paneIds =
-      target === 'all'
-        ? members.map((item) => item.pane.paneId)
-        : members
-            .filter((item) => item.pane.paneId === target)
-            .map((item) => item.pane.paneId);
-    onDirect(paneIds, text);
+    const ids =
+      target === 'all' ? seats.map((seat) => seat.seatId) : [target].filter(Boolean);
+    onDirect(ids, text);
     setDraft('');
   }
 
@@ -71,6 +98,7 @@ export function SwarmLive({
           <p>
             {folder} · {isolation === 'worktree' ? 'worktrees' : 'shared folder'} ·{' '}
             {status} · {remainLabel}
+            {tasks.length > 0 ? ` · ${landed}/${tasks.length} tasks landed` : ''}
           </p>
         </div>
         <div className="swarmLiveActions">
@@ -110,7 +138,7 @@ export function SwarmLive({
               {points.map((point, index) =>
                 index === hub ? null : (
                   <line
-                    key={members[index]?.pane.paneId ?? index}
+                    key={seats[index]?.seatId ?? index}
                     x1={points[hub]?.x ?? 50}
                     y1={points[hub]?.y ?? 72}
                     x2={point.x}
@@ -119,23 +147,27 @@ export function SwarmLive({
                 ),
               )}
             </svg>
-            {members.map((member, index) => {
+            {seats.map((seat, index) => {
               const point = points[index] ?? { x: 50, y: 50 };
-              const on = target === member.pane.paneId;
+              const on = target === seat.seatId;
+              const preview = seat.paneId === null ? '' : (previews[seat.paneId] ?? '');
               return (
                 <button
-                  key={member.pane.paneId}
+                  key={seat.seatId}
                   type="button"
                   className={on ? 'swarmNode swarmNodeOn' : 'swarmNode'}
-                  data-role={member.assignment?.role ?? 'builder'}
-                  data-status={member.status}
+                  data-role={seat.role}
+                  data-status={seat.status}
                   style={{ left: `${point.x}%`, top: `${point.y}%` }}
-                  onClick={() => setTarget(member.pane.paneId)}
+                  onClick={() => setTarget(seat.seatId)}
                 >
                   <i />
                   <strong>{swarmSeatLabel(roles, index)}</strong>
-                  <span>{member.assignment?.agentId ?? member.pane.agentId}</span>
-                  <em>{statusLabel(member.status)}</em>
+                  <span>{seat.agentId}</span>
+                  <em>{seat.status}</em>
+                  {preview.length > 0 ? (
+                    <span className="swarmNodePreview">{preview.slice(-160)}</span>
+                  ) : null}
                 </button>
               );
             })}
@@ -143,35 +175,116 @@ export function SwarmLive({
         ) : (
           children
         )}
-        <aside className="swarmRosterRail" aria-label="Roster">
-          <header>
-            <strong>Roster</strong>
-            <span>{members.length} seats</span>
-          </header>
-          <ul>
-            {members.map((member, index) => (
-              <li key={member.pane.paneId}>
-                <div>
-                  <strong>{swarmSeatLabel(roles, index)}</strong>
-                  <em data-status={member.status}>{statusLabel(member.status)}</em>
-                </div>
-                <p>
-                  {member.assignment?.role ?? 'builder'} ·{' '}
-                  {member.assignment?.agentId ?? member.pane.agentId}
-                  {member.assignment?.auto ? ' · auto' : ''}
-                </p>
-                <button
-                  type="button"
-                  disabled={
-                    stopped || member.status === 'exited' || member.status === 'failed'
-                  }
-                  onClick={() => onStopSeat(member.pane.paneId)}
-                >
-                  Stop
-                </button>
-              </li>
+        <aside className="swarmRosterRail" aria-label="Swarm inspector">
+          <nav className="swarmTabs" aria-label="Inspector tabs">
+            {TABS.map((entry) => (
+              <button
+                key={entry.id}
+                type="button"
+                className={tab === entry.id ? 'swarmTab swarmTabOn' : 'swarmTab'}
+                onClick={() => setTab(entry.id)}
+              >
+                {entry.label}
+              </button>
             ))}
-          </ul>
+          </nav>
+
+          {tab === 'roster' ? (
+            <ul className="swarmRosterList">
+              {seats.map((seat, index) => (
+                <li key={seat.seatId}>
+                  <div>
+                    <strong>{swarmSeatLabel(roles, index)}</strong>
+                    <em data-status={seat.status}>{seat.status}</em>
+                  </div>
+                  <p>
+                    {seat.role} · {seat.agentId}
+                    {seat.tokensUsed > 0
+                      ? ` · ${seat.tokensUsed} tok · ${money(seat.costUsd)}`
+                      : ''}
+                  </p>
+                  <button
+                    type="button"
+                    disabled={stopped || seat.status === 'exited'}
+                    onClick={() => onStopSeat(seat.seatId)}
+                  >
+                    Stop
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          {tab === 'agent' ? (
+            <div className="swarmInspectorBody">
+              {selected === undefined ? (
+                <p>Select a seat in the graph to inspect it.</p>
+              ) : (
+                <dl>
+                  <dt>Role</dt>
+                  <dd>{selected.role}</dd>
+                  <dt>CLI</dt>
+                  <dd>{selected.agentId}</dd>
+                  <dt>Status</dt>
+                  <dd>{selected.status}</dd>
+                  <dt>Branch</dt>
+                  <dd>{selected.branch ?? 'not created yet'}</dd>
+                  <dt>Spend</dt>
+                  <dd>
+                    {selected.tokensUsed} tokens · {money(selected.costUsd)}
+                  </dd>
+                </dl>
+              )}
+            </div>
+          ) : null}
+
+          {tab === 'plan' ? (
+            <ol className="swarmPlanList">
+              {tasks.length === 0 ? <li>No tasks planned yet.</li> : null}
+              {tasks.map((task) => (
+                <li key={task.id} data-status={task.status}>
+                  <strong>{task.title}</strong>
+                  <span>
+                    {task.status}
+                    {task.dependsOn.length > 0
+                      ? ` · waits on ${task.dependsOn.length}`
+                      : ''}
+                    {task.attempts > 1 ? ` · attempt ${task.attempts}` : ''}
+                  </span>
+                  {task.files.length > 0 ? <em>{task.files.join(', ')}</em> : null}
+                </li>
+              ))}
+            </ol>
+          ) : null}
+
+          {tab === 'chat' ? (
+            <ul className="swarmChatList">
+              {(state?.messages ?? [])
+                .filter(
+                  (message) =>
+                    message.kind === 'directive' ||
+                    message.kind === 'coordinator_note' ||
+                    message.kind === 'seat_report',
+                )
+                .map((message) => (
+                  <li key={message.id} data-kind={message.kind}>
+                    <span>{message.kind}</span>
+                    <p>{message.body}</p>
+                  </li>
+                ))}
+            </ul>
+          ) : null}
+
+          {tab === 'activity' ? (
+            <ul className="swarmActivityList">
+              {[...(state?.messages ?? [])].reverse().map((message) => (
+                <li key={message.id} data-kind={message.kind}>
+                  <span>{clockOf(message.createdAt)}</span>
+                  <p>{message.body}</p>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </aside>
       </div>
       <form
@@ -183,8 +296,8 @@ export function SwarmLive({
       >
         <select value={target} onChange={(event) => setTarget(event.target.value)}>
           <option value="all">@all</option>
-          {members.map((member, index) => (
-            <option key={member.pane.paneId} value={member.pane.paneId}>
+          {seats.map((seat, index) => (
+            <option key={seat.seatId} value={seat.seatId}>
               @{swarmSeatLabel(roles, index)}
             </option>
           ))}
@@ -204,8 +317,4 @@ export function SwarmLive({
       </form>
     </section>
   );
-}
-
-function statusLabel(status: SwarmMemberStatus | BoardPaneStatus): string {
-  return status;
 }

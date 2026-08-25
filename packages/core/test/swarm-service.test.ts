@@ -97,6 +97,7 @@ function createInput(repo: string, builders: number): SwarmCreateInput {
     mission: 'ship the fixtures',
     launchMode: 'auto',
     presetId: 'skiff',
+    skillIds: ['tdd'],
     seats: [
       { role: 'coordinator', agentId: 'claude' },
       ...Array.from(

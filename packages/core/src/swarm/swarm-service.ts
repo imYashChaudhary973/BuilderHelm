@@ -6,6 +6,8 @@ import { SwarmRepository, type ZeroDatabase } from '@zero/db';
 import type { Logger } from '@zero/observability';
 import {
   SWARM_BUDGET_MS,
+  SWARM_SKILLS,
+  swarmPlanBudget,
   swarmRunSchema,
   swarmSeatSchema,
   swarmStateSchema,
@@ -26,12 +28,9 @@ import {
 } from '@zero/shared';
 
 import type { BoardService } from '../board/board-service.js';
-import {
-  buildRepoSnapshot,
-  swarmPlanBudget,
-  type SwarmPlanner,
-} from './swarm-planning.js';
+import { buildRepoSnapshot, type SwarmPlanner } from './swarm-planning.js';
 import type { SwarmReviewer } from './swarm-reviewer.js';
+import { buildSeatPrompt } from './swarm-prompt.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -51,6 +50,8 @@ export interface SwarmExecuteInput {
   readonly branch: string;
   /** Operator directives queued since this seat's last invocation. */
   readonly directives: readonly string[];
+  /** Cache-stable prompt composed by the service, ready for the CLI. */
+  readonly prompt: string;
 }
 
 /** Adapters run one task on one seat. Implementations must always resolve. */
@@ -127,6 +128,7 @@ export class SwarmService {
       mission: input.mission,
       launchMode: input.launchMode,
       presetId: input.presetId,
+      skillIds: [...input.skillIds],
       boardSessionId: null,
       status: 'running',
       startedAt: utcNow(),
@@ -357,6 +359,15 @@ export class SwarmService {
         worktreePath,
         branch,
         directives,
+        prompt: buildSeatPrompt({
+          role: current.role,
+          mission: run.mission,
+          skills: SWARM_SKILLS.filter((skill) => run.skillIds.includes(skill.id)).map(
+            (skill) => ({ title: skill.title, directive: skill.directive }),
+          ),
+          task: { title: active.title, detail: active.detail, files: active.files },
+          directives,
+        }),
       });
       if (directives.length > 0) {
         this.appendMessage(

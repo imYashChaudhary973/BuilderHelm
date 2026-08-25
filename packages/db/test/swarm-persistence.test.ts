@@ -26,8 +26,8 @@ function seedRun(database: ZeroDatabase): string {
   const id = '00000000-0000-4000-8000-000000000001';
   database.run(
     `INSERT INTO swarm_runs (id, name, folder_path, mission, launch_mode, preset_id,
-       board_session_id, status, started_at, ended_at, budget_ms)
-     VALUES (?, ?, ?, ?, ?, ?, NULL, 'running', ?, NULL, ?)`,
+       skills_json, board_session_id, status, started_at, ended_at, budget_ms)
+     VALUES (?, ?, ?, ?, ?, ?, '[]', NULL, 'running', ?, NULL, ?)`,
     [
       id,
       'Swarm One',
@@ -71,8 +71,8 @@ describe('swarm persistence migration', () => {
     expect(() =>
       database.run(
         `INSERT INTO swarm_runs (id, name, folder_path, mission, launch_mode, preset_id,
-           board_session_id, status, started_at, ended_at, budget_ms)
-         VALUES (?, ?, ?, ?, ?, ?, NULL, 'bogus', ?, NULL, ?)`,
+           skills_json, board_session_id, status, started_at, ended_at, budget_ms)
+         VALUES (?, ?, ?, ?, ?, ?, '[]', NULL, 'bogus', ?, NULL, ?)`,
         [
           '00000000-0000-4000-8000-000000000009',
           'X',
@@ -88,8 +88,8 @@ describe('swarm persistence migration', () => {
     expect(() =>
       database.run(
         `INSERT INTO swarm_runs (id, name, folder_path, mission, launch_mode, preset_id,
-           board_session_id, status, started_at, ended_at, budget_ms)
-         VALUES (?, ?, ?, ?, 'yolo', ?, NULL, 'running', ?, NULL, ?)`,
+           skills_json, board_session_id, status, started_at, ended_at, budget_ms)
+         VALUES (?, ?, ?, ?, 'yolo', ?, '[]', NULL, 'running', ?, NULL, ?)`,
         [
           '00000000-0000-4000-8000-000000000009',
           'X',

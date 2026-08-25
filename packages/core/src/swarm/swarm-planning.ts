@@ -1,6 +1,8 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
+export { swarmPlanBudget } from '@zero/protocol';
+
 import { swarmPlanSchema } from '@zero/protocol';
 
 const execFileAsync = promisify(execFile);
@@ -40,20 +42,6 @@ export interface PlannedTask {
   readonly files: readonly string[];
   /** Indices into the returned array; always strictly earlier entries. */
   readonly dependsOn: readonly number[];
-}
-
-/** Task ceiling per preset. Effort scales with roster, not with model whim. */
-export function swarmPlanBudget(presetId: string): number {
-  switch (presetId) {
-    case 'skiff':
-      return 3;
-    case 'cutter':
-      return 6;
-    case 'frigate':
-      return 10;
-    default:
-      return 14;
-  }
 }
 
 /**

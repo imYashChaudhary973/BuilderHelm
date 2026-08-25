@@ -1,38 +1,21 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
+import { gridForCount, type BoardPaneSummary } from '@zero/protocol/board';
 import {
-  boardPaneCounts,
-  gridForCount,
-  type BoardIsolation,
-  type BoardLandPreview,
-  type BoardPaneCount,
-  type BoardPaneStatus,
-  type BoardSessionSummary,
-} from '@zero/protocol/board';
-import {
-  SWARM_BUDGET_MS,
-  SWARM_NUDGE,
-  SWARM_STUCK_MS,
   assignSwarmPanes,
   availableSwarmAgents,
   swarmAddSeat,
-  swarmBrief,
-  swarmSeatArgv,
   swarmPresetRoles,
-  swarmRoleTasks,
-  swarmSkillLines,
-  swarmMemberStatus,
-  swarmRunStatus,
-  swarmStuckAction,
   type SwarmAssignment,
   type SwarmLaunchMode,
   type SwarmPresetId,
+  type SwarmRunRecord,
+  type SwarmState,
 } from '@zero/protocol/swarm';
 import type { CorrelationId } from '@zero/shared';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { TerminalPane } from '../components/terminal-pane.js';
-import { useSpaces } from '../space-store.js';
-import { SwarmLive } from '../swarm-live.js';
+import { SwarmLive, type SwarmLiveSeat } from '../swarm-live.js';
 import { SwarmSetup } from '../swarm-setup.js';
 import { readLastJob, writeLastJob } from '../swarm-persist.js';
 
@@ -73,17 +56,8 @@ function formatRemain(ms: number): string {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
-interface LiveRun {
-  readonly session: BoardSessionSummary;
-  readonly assignments: readonly SwarmAssignment[];
-  readonly isolation: BoardIsolation;
-  readonly startedAt: number;
-  readonly stopped: boolean;
-}
-
 export function SwarmPage(): React.JSX.Element {
   const navigate = useNavigate();
-  const spaces = useSpaces();
   const [job, setJob] = useState(readLastJob());
   const [folderPath, setFolderPath] = useState('');
   const [homeDir, setHomeDir] = useState('');
@@ -94,14 +68,9 @@ export function SwarmPage(): React.JSX.Element {
   const [swarmName, setSwarmName] = useState('');
   const [roster, setRoster] = useState<SwarmAssignment[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [run, setRun] = useState<LiveRun | null>(null);
-  const [landNotice, setLandNotice] = useState<string | null>(null);
-  const [landPreview, setLandPreview] = useState<BoardLandPreview | null>(null);
-  const [lastOutput, setLastOutput] = useState<Record<string, number>>({});
-  const [paneStatus, setPaneStatus] = useState<Record<string, BoardPaneStatus>>({});
-  const [nudgedAt, setNudgedAt] = useState<Record<string, number>>({});
+  const [run, setRun] = useState<SwarmRunRecord | null>(null);
+  const [previews, setPreviews] = useState<Record<string, string>>({});
   const [now, setNow] = useState(() => Date.now());
-  const stuckActed = useRef<Record<string, 'nudge' | 'stop'>>({});
 
   const agents = useQuery({
     queryKey: ['board-agents'],
@@ -134,18 +103,31 @@ export function SwarmPage(): React.JSX.Element {
     return () => window.clearInterval(timer);
   }, [run]);
 
+  // The ledger is the source of truth for tasks, seats, and messages.
+  const state = useQuery({
+    queryKey: ['swarm-state', run?.id],
+    enabled: run !== null,
+    refetchInterval: 1_200,
+    queryFn: (): Promise<SwarmState> =>
+      window.zero.swarm.state({
+        correlationId: crypto.randomUUID() as CorrelationId,
+        runId: run!.id,
+      }),
+  });
+
+  // Mini terminal previews come from the pane stream the grid already uses.
   useEffect(() => {
-    if (run === null) return;
-    return window.zero.board.onPaneEvent(run.session.sessionId, (envelope) => {
-      const event = envelope.event;
-      if (event.type === 'data') {
-        setLastOutput((current) => ({ ...current, [envelope.paneId]: Date.now() }));
-        return;
-      }
-      const nextStatus = event.status;
-      setPaneStatus((current) => ({ ...current, [envelope.paneId]: nextStatus }));
+    const sessionId = run?.boardSessionId ?? null;
+    if (sessionId === null) return;
+    return window.zero.board.onPaneEvent(sessionId, (envelope) => {
+      if (envelope.event.type !== 'data') return;
+      const text = atob(envelope.event.data);
+      setPreviews((current) => ({
+        ...current,
+        [envelope.paneId]: `${current[envelope.paneId] ?? ''}${text}`.slice(-400),
+      }));
     });
-  }, [run]);
+  }, [run?.boardSessionId]);
 
   const launch = useMutation({
     mutationFn: async () => {
@@ -155,210 +137,62 @@ export function SwarmPage(): React.JSX.Element {
         );
       }
       const folder = folderPath.trim();
-      const paneCount = roster.length as BoardPaneCount;
-      if (!(boardPaneCounts as readonly number[]).includes(roster.length)) {
-        throw new Error(
-          `No terminal grid for ${roster.length} seats. Use 1–6, 8, 10, or 12.`,
-        );
-      }
-      const extras = swarmSkillLines(skillIds);
-      const panes = roster.map((item, slot) => {
-        const brief = swarmBrief(item.role, job).trimEnd();
-        const task = swarmRoleTasks(job)[item.role];
-        const effective: SwarmLaunchMode =
-          mode === 'full' ? 'full' : item.auto ? 'auto' : mode;
-        return {
-          slot,
-          agentId: item.agentId,
-          argv: swarmSeatArgv(
-            item.agentId,
-            extras.length > 0 ? `${brief}\n${task}\n${extras}` : `${brief}\n${task}`,
-            effective,
-          ),
-        };
-      });
-      const base = {
+      if (folder.length === 0) throw new Error('Pick a folder first.');
+      if (job.trim().length === 0) throw new Error('Write a mission first.');
+      return window.zero.swarm.create({
         correlationId: crypto.randomUUID() as CorrelationId,
-        folderPath: folder,
-        paneCount,
-        panes,
-      };
-      try {
-        const summary = await window.zero.board.createSession({
-          ...base,
-          paneCount,
-          isolation: 'worktree',
-        });
-        return { summary, assignments: roster, isolation: 'worktree' as const };
-      } catch (cause) {
-        // Only a non-repo folder legitimately downgrades to shared. Real
-        // failures surface instead of silently switching isolation.
-        if (!(cause instanceof Error) || !cause.message.includes('git repository')) {
-          throw cause;
-        }
-        const summary = await window.zero.board.createSession({
-          ...base,
-          paneCount,
-          isolation: 'shared',
-        });
-        return { summary, assignments: roster, isolation: 'shared' as const };
-      }
+        input: {
+          name: swarmName.trim() || `Swarm · ${folderName(folder)}`,
+          folderPath: folder,
+          mission: job.trim(),
+          launchMode: mode,
+          presetId: preset,
+          skillIds,
+          seats: roster.map((seat) => ({ role: seat.role, agentId: seat.agentId })),
+        },
+      });
     },
     onMutate: () => setError(null),
-    onSuccess: ({ summary, assignments, isolation }) => {
+    onSuccess: (created) => {
       writeLastJob(job);
-      writeRecents(summary.folderPath);
-      spaces.upsert(summary);
-      spaces.rename(
-        summary,
-        swarmName.trim() || `Swarm · ${folderName(summary.folderPath)}`,
-      );
-      const startedAt = Date.now();
-      stuckActed.current = {};
-      setNudgedAt({});
-      setPaneStatus(
-        Object.fromEntries(summary.panes.map((pane) => [pane.paneId, pane.status])),
-      );
-      setLastOutput(
-        Object.fromEntries(summary.panes.map((pane) => [pane.paneId, startedAt])),
-      );
-      setRun({ session: summary, assignments, isolation, startedAt, stopped: false });
+      writeRecents(created.folderPath);
+      setPreviews({});
+      setRun(created);
     },
     onError: (cause: Error) => setError(cause.message),
   });
 
-  const previewLand = useMutation({
-    mutationFn: (branch: string) => {
-      if (run === null) throw new Error('No live swarm');
-      return window.zero.board.previewLand({
+  const stop = useMutation({
+    mutationFn: (runId: string) =>
+      window.zero.swarm.stop({
         correlationId: crypto.randomUUID() as CorrelationId,
-        repoPath: run.session.folderPath,
-        branch,
-      });
-    },
-    onMutate: () => {
-      setLandNotice(null);
-      setLandPreview(null);
-    },
-    onSuccess: (preview) => {
-      setLandPreview(preview);
-      const files =
-        preview.files.length === 0 ? 'no file changes' : preview.files.join(', ');
-      setLandNotice(
-        preview.ahead === 0
-          ? `${preview.branch} has no commits ahead of ${preview.base}`
-          : `${preview.ahead} commit(s) on ${preview.branch} vs ${preview.base}: ${files}. Click Land again to merge.`,
-      );
-    },
-    onError: (cause: Error) => setLandNotice(cause.message),
+        runId,
+      }),
+    onError: (cause: Error) => setError(cause.message),
   });
 
-  const land = useMutation({
-    mutationFn: (branch: string) => {
-      if (run === null) throw new Error('No live swarm');
-      return window.zero.board.land({
+  const direct = useMutation({
+    mutationFn: (input: { readonly seatIds: readonly string[]; readonly body: string }) =>
+      window.zero.swarm.direct({
         correlationId: crypto.randomUUID() as CorrelationId,
-        repoPath: run.session.folderPath,
-        branch,
-      });
-    },
-    onMutate: () => setLandNotice(null),
-    onSuccess: (result, branch) => {
-      setLandPreview(null);
-      setLandNotice(`Landed ${branch} at ${result.head.slice(0, 7)}`);
-    },
-    onError: (cause: Error) => setLandNotice(cause.message),
+        input: { runId: run!.id, seatIds: [...input.seatIds], body: input.body },
+      }),
+    onError: (cause: Error) => setError(cause.message),
   });
 
-  async function stopRun(current: LiveRun): Promise<void> {
-    setRun({ ...current, stopped: true });
-    for (const pane of current.session.panes) {
-      await window.zero.board
-        .closePane({
-          correlationId: crypto.randomUUID() as CorrelationId,
-          sessionId: current.session.sessionId,
-          paneId: pane.paneId,
-        })
-        .catch(() => undefined);
-    }
-    spaces.drop(current.session.sessionId);
-  }
-
-  const members = useMemo(() => {
-    if (run === null) return [];
-    return run.session.panes.map((pane, index) => {
-      const assignment = run.assignments[index];
-      const status = swarmMemberStatus({
-        paneStatus: paneStatus[pane.paneId] ?? pane.status,
-        lastActivityAt: lastOutput[pane.paneId] ?? run.startedAt,
-        now,
-        stuckAfterMs: SWARM_STUCK_MS,
-      });
-      return { pane, assignment, status };
-    });
-  }, [lastOutput, now, paneStatus, run]);
-
-  const status =
-    run === null
-      ? null
-      : swarmRunStatus({
-          members: members.map((item) => item.status),
-          elapsedMs: now - run.startedAt,
-          budgetMs: SWARM_BUDGET_MS,
-          stopped: run.stopped,
-        });
-
-  useEffect(() => {
-    if (run === null || run.stopped || status !== 'budget') return;
-    void stopRun(run);
-  }, [run, status]);
-
-  useEffect(() => {
-    if (run === null || run.stopped) return;
-    for (const member of members) {
-      const paneId = member.pane.paneId;
-      if (member.status === 'running' || member.status === 'starting') {
-        if (nudgedAt[paneId] !== undefined) {
-          setNudgedAt((current) => {
-            const next = { ...current };
-            delete next[paneId];
-            return next;
-          });
-          delete stuckActed.current[paneId];
-        }
-        continue;
-      }
-      const action = swarmStuckAction({
-        status: member.status,
-        nudgedAt: nudgedAt[paneId] ?? null,
-        now,
-        stuckAfterMs: SWARM_STUCK_MS,
-      });
-      if (action === 'nudge' && stuckActed.current[paneId] === undefined) {
-        stuckActed.current[paneId] = 'nudge';
-        setNudgedAt((current) => ({ ...current, [paneId]: now }));
-        void window.zero.board
-          .write({
-            correlationId: crypto.randomUUID() as CorrelationId,
-            sessionId: run.session.sessionId,
-            paneId,
-            data: `${SWARM_NUDGE}\r`,
-          })
-          .catch(() => undefined);
-      }
-      if (action === 'stop' && stuckActed.current[paneId] !== 'stop') {
-        stuckActed.current[paneId] = 'stop';
-        void window.zero.board
-          .closePane({
-            correlationId: crypto.randomUUID() as CorrelationId,
-            sessionId: run.session.sessionId,
-            paneId,
-          })
-          .catch(() => undefined);
-        setPaneStatus((current) => ({ ...current, [paneId]: 'exited' }));
-      }
-    }
-  }, [members, now, nudgedAt, run]);
+  const seats: SwarmLiveSeat[] = useMemo(() => {
+    const rows = state.data?.seats ?? [];
+    return rows.map((seat) => ({
+      seatId: seat.id,
+      paneId: seat.paneId,
+      role: seat.role,
+      agentId: seat.agentId,
+      status: seat.status,
+      tokensUsed: seat.tokensUsed,
+      costUsd: seat.costUsd,
+      branch: seat.branch,
+    }));
+  }, [state.data]);
 
   async function browse(): Promise<void> {
     setError(null);
@@ -367,7 +201,24 @@ export function SwarmPage(): React.JSX.Element {
   }
 
   if (run !== null) {
-    const remain = SWARM_BUDGET_MS - (now - run.startedAt);
+    const ledger = state.data ?? null;
+    const status = ledger?.run.status ?? run.status;
+    const startedMs = Date.parse(ledger?.run.startedAt ?? run.startedAt);
+    const remain = (ledger?.run.budgetMs ?? run.budgetMs) - (now - startedMs);
+    const stopped = status !== 'running';
+    const panes: BoardPaneSummary[] = seats
+      .filter((seat) => seat.paneId !== null)
+      .map((seat, index) => ({
+        paneId: seat.paneId!,
+        slot: index,
+        agentId: seat.agentId as BoardPaneSummary['agentId'],
+        title: `${seat.agentId} · ${seat.role}`,
+        status: seat.status === 'exited' ? 'exited' : 'running',
+        branch: seat.branch,
+        cwd: run.folderPath,
+      }));
+    const grid = gridForCount(Math.max(1, panes.length));
+
     return (
       <>
         {error !== null && (
@@ -375,85 +226,49 @@ export function SwarmPage(): React.JSX.Element {
             {error}
           </p>
         )}
-        {landNotice !== null && (
-          <p className="errorBanner" role="status">
-            {landNotice}
-          </p>
-        )}
         <SwarmLive
-          name={swarmName.trim() || `Swarm · ${folderName(run.session.folderPath)}`}
-          job={job}
-          folder={folderName(run.session.folderPath)}
-          isolation={run.isolation}
-          status={status ?? 'running'}
+          name={run.name}
+          job={run.mission}
+          folder={folderName(run.folderPath)}
+          isolation="worktree"
+          status={status}
           remainLabel={`${formatRemain(remain)} left`}
-          members={members}
-          stopped={run.stopped}
-          onStopAll={() => void stopRun(run)}
-          onStopSeat={(paneId) => {
-            void window.zero.board
-              .closePane({
-                correlationId: crypto.randomUUID() as CorrelationId,
-                sessionId: run.session.sessionId,
-                paneId,
-              })
-              .catch(() => undefined);
-            setPaneStatus((current) => ({ ...current, [paneId]: 'exited' }));
-          }}
-          onDirect={(paneIds, text) => {
-            for (const paneId of paneIds) {
-              void window.zero.board
-                .write({
-                  correlationId: crypto.randomUUID() as CorrelationId,
-                  sessionId: run.session.sessionId,
-                  paneId,
-                  data: `${text}\r`,
-                })
-                .catch(() => undefined);
-            }
-          }}
+          seats={seats}
+          state={ledger}
+          previews={previews}
+          stopped={stopped}
+          onStopAll={() => stop.mutate(run.id)}
+          onStopSeat={(seatId) =>
+            direct.mutate({
+              seatIds: [seatId],
+              body: 'Wrap up and stop after this task.',
+            })
+          }
+          onDirect={(seatIds, text) => direct.mutate({ seatIds, body: text })}
         >
           <div
             className="boardGrid"
             style={{
-              gridTemplateColumns: `repeat(${gridForCount(run.session.paneCount).cols}, 1fr)`,
-              gridTemplateRows: `repeat(${gridForCount(run.session.paneCount).rows}, 1fr)`,
+              gridTemplateColumns: `repeat(${grid.cols}, 1fr)`,
+              gridTemplateRows: `repeat(${grid.rows}, 1fr)`,
             }}
           >
-            {run.session.panes.map((pane) => {
-              const canLand = run.isolation === 'worktree' && pane.branch !== null;
-              return (
-                <TerminalPane
-                  key={pane.paneId}
-                  sessionId={run.session.sessionId}
-                  pane={pane}
-                  maximized={false}
-                  landing={canLand && (land.isPending || previewLand.isPending)}
-                  confirmLand={
-                    canLand &&
-                    landPreview?.branch === pane.branch &&
-                    landPreview.ahead > 0
-                  }
-                  onToggleMaximize={() => undefined}
-                  onClose={() => undefined}
-                  onAdd={undefined}
-                  onDragStart={() => undefined}
-                  onDrop={() => undefined}
-                  onLand={
-                    canLand
-                      ? () => {
-                          const branch = pane.branch as string;
-                          if (landPreview?.branch === branch && landPreview.ahead > 0) {
-                            land.mutate(branch);
-                            return;
-                          }
-                          previewLand.mutate(branch);
-                        }
-                      : undefined
-                  }
-                />
-              );
-            })}
+            {panes.map((pane) => (
+              <TerminalPane
+                key={pane.paneId}
+                sessionId={run.boardSessionId ?? ''}
+                pane={pane}
+                maximized={false}
+                landing={false}
+                confirmLand={false}
+                onToggleMaximize={() => undefined}
+                onClose={() => undefined}
+                onAdd={undefined}
+                onDragStart={() => undefined}
+                onDrop={() => undefined}
+                onLand={undefined}
+              />
+            ))}
           </div>
         </SwarmLive>
       </>
