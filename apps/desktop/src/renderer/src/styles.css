@@ -4578,7 +4578,7 @@ html.is-fullscreen .spaceHome {
 
 .kanbanGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(240px, 1fr));
+  grid-template-columns: repeat(5, minmax(200px, 1fr));
   gap: 10px;
   min-height: 0;
   flex: 1;
@@ -4618,8 +4618,16 @@ html.is-fullscreen .spaceHome {
   border-top-color: var(--accent);
 }
 
+.kanbanCol[data-column='review'] {
+  border-top-color: #c4a35a;
+}
+
 .kanbanCol[data-column='shipped'] {
   border-top-color: #72b869;
+}
+
+.kanbanCol[data-column='cancelled'] {
+  border-top-color: #c45a5a;
 }
 
 .kanbanCol header {
@@ -4640,7 +4648,7 @@ html.is-fullscreen .spaceHome {
   gap: 7px;
 }
 
-.kanbanCol header span::before {
+.kanbanCol header > span:first-child::before {
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -4657,6 +4665,29 @@ html.is-fullscreen .spaceHome {
   color: var(--text-3);
   background: var(--bg-1);
   font-size: 10px;
+}
+.kanbanColMeta {
+  gap: 6px;
+}
+
+.kanbanCol header button {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text-2);
+  background: transparent;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.kanbanCol header button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent-bright);
+  background: var(--accent-dim);
 }
 
 .kanbanCol ul {
@@ -4704,13 +4735,43 @@ html.is-fullscreen .spaceHome {
 }
 
 
-.kanbanCol li p {
+.kanbanCardTitle {
   min-width: 0;
-  margin: 0;
-  overflow-wrap: anywhere;
-  color: var(--text);
+  width: auto !important;
+  height: auto !important;
+  justify-content: flex-start;
+  border: 0 !important;
+  color: var(--text) !important;
+  background: transparent !important;
   font-size: 12px;
+  font-weight: 500;
   line-height: 1.35;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+
+.kanbanCardEdit,
+.kanbanCompose input {
+  min-width: 0;
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  color: var(--text);
+  background: #0c0d0c;
+  font: inherit;
+  font-size: 12px;
+}
+
+.kanbanCompose {
+  padding: 6px !important;
+  border-style: dashed !important;
+  background: transparent !important;
+}
+
+.kanbanCompose form {
+  width: 100%;
 }
 
 .kanbanCol li > div {
@@ -4798,6 +4859,21 @@ html.is-fullscreen .spaceHome {
     var(--shadow-card);
 }
 
+.terminalPaneDragging {
+  opacity: 0.4;
+}
+
+.terminalPaneGhost {
+  position: fixed;
+  top: -10000px;
+  left: 0;
+  z-index: 40;
+  overflow: hidden;
+  pointer-events: none;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  transform: rotate(1.5deg) scale(0.96);
+}
+
 .paneHeader {
   display: flex;
   align-items: center;
@@ -4805,6 +4881,7 @@ html.is-fullscreen .spaceHome {
   padding: 7px 10px;
   border-bottom: 1px solid var(--line);
   background: var(--glass-strong);
+  cursor: grab;
 }
 
 .paneTitle {
@@ -4907,9 +4984,20 @@ html.is-fullscreen .spaceHome {
 
 .paneTerminalHost {
   flex: 1;
-  min-height: 180px;
+  min-width: 0;
+  min-height: 0;
   padding: 4px;
-  overflow: auto;
+  overflow: hidden;
+}
+
+.paneTerminalHost .xterm,
+.paneTerminalHost .xterm-viewport,
+.paneTerminalHost .xterm-screen {
+  overflow-x: hidden !important;
+}
+
+.paneHeader {
+  cursor: grab;
 }
 
 @media (prefers-reduced-motion: reduce) {

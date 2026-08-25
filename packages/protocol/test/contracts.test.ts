@@ -4,7 +4,9 @@ import { describe, expect, it } from 'vitest';
 import {
   actionCommandRequestSchema,
   approvalResolveRequestSchema,
+  BOARD_AGENT_CATALOG,
   boardPaneSpecSchema,
+  gridForCount,
   createEvent,
   createProviderInputSchema,
   modelCapabilityOverrideUpdateRequestSchema,
@@ -204,9 +206,21 @@ describe('board pane specs', () => {
     expect(boardPaneSpecSchema.parse({ slot: 0, agentId: 'shell' }).agentId).toBe(
       'shell',
     );
+    expect(boardPaneSpecSchema.parse({ slot: 0, agentId: 'kiro' }).agentId).toBe(
+      'kiro',
+    );
+    expect(
+      BOARD_AGENT_CATALOG.find((entry) => entry.id === 'kiro')?.command,
+    ).toBe('kiro-cli');
     expect(
       boardPaneSpecSchema.safeParse({ slot: 0, agentId: 'custom' }).success,
     ).toBe(false);
+  });
+
+  it('lays out extra terminals across a row instead of a leftover column', () => {
+    expect(gridForCount(2)).toEqual({ cols: 2, rows: 1 });
+    expect(gridForCount(6)).toEqual({ cols: 3, rows: 2 });
+    expect(gridForCount(7)).toEqual({ cols: 4, rows: 2 });
   });
 });
 

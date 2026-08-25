@@ -10,12 +10,14 @@ import {
   ipcChannels,
   type BoardAgentId,
   type BoardCreateInput,
+  type BoardIsolation,
   type BoardPaneCloseInput,
   type BoardPaneDrainInput,
   type BoardPaneEvent,
-  type BoardPaneResizeInput,
   type BoardPaneStatus,
+  type BoardPaneSummary,
   type BoardPaneWriteInput,
+  type BoardPaneResizeInput,
   type BoardSessionSummary,
 } from '@zero/protocol';
 import { ZeroError } from '@zero/shared';
@@ -35,6 +37,9 @@ interface PaneMeta {
 
 interface SessionRecord {
   sender: WebContents;
+  folderPath: string;
+  isolation: BoardIsolation;
+  worktreeTag: string;
   panes: Map<string, PaneMeta>;
 }
 
@@ -151,58 +156,21 @@ export class BoardPtyManager {
     sender: WebContents,
   ): Promise<BoardSessionSummary> {
     const sessionId = randomUUID();
-    const session: SessionRecord = { sender, panes: new Map() };
+    const worktreeTag = randomUUID().slice(0, 8);
+    const session: SessionRecord = {
+      sender,
+      folderPath: input.folderPath,
+      isolation: input.isolation,
+      worktreeTag,
+      panes: new Map(),
+    };
     this.sessions.set(sessionId, session);
-    const panes: Array<{ paneId: string } & Omit<PaneMeta, 'output' | 'pty'>> = [];
+    const panes: BoardPaneSummary[] = [];
     try {
       for (const spec of [...input.panes].sort((a, b) => a.slot - b.slot)) {
-        const command = resolveCommand(spec.agentId, spec.command);
-        const paneId = randomUUID();
-        const location = await locate(spec.slot);
-        const label = agentLabelById[spec.agentId] ?? spec.agentId;
-        const title =
-          location.branch === null
-            ? `${label} · ${basename(location.cwd)} #${spec.slot + 1}`
-            : `${label} · ${location.branch}`;
-        const pty = spawnPty(location.cwd, command, 120, 30);
-        const meta: PaneMeta = {
-          slot: spec.slot,
-          agentId: spec.agentId,
-          title,
-          status: 'running',
-          branch: location.branch,
-          cwd: location.cwd,
-          output: '',
-          pty,
-        };
-        session.panes.set(paneId, meta);
-        pty.onData((chunk) => {
-          const text = typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8');
-          const next = meta.output + text;
-          meta.output =
-            next.length <= maxBufferedChars ? next : next.slice(-maxBufferedChars);
-          this.forward(sessionId, paneId, {
-            type: 'data',
-            data: Buffer.from(text, 'utf8').toString('base64'),
-          });
-        });
-        pty.onExit(({ exitCode }) => {
-          meta.pty = null;
-          this.forward(sessionId, paneId, {
-            type: 'status',
-            status: exitCode >= 0 ? 'exited' : 'failed',
-            exitCode,
-          });
-        });
-        panes.push({
-          paneId,
-          slot: meta.slot,
-          agentId: meta.agentId,
-          title: meta.title,
-          status: meta.status,
-          branch: meta.branch,
-          cwd: meta.cwd,
-        });
+        panes.push(
+          await this.attachPane(sessionId, session, spec.slot, spec.agentId, spec.command, locate),
+        );
       }
     } catch (error) {
       for (const pane of session.panes.values()) pane.pty?.kill();
@@ -212,9 +180,97 @@ export class BoardPtyManager {
     return {
       sessionId,
       folderPath: input.folderPath,
-      paneCount: input.paneCount,
+      paneCount: panes.length,
       isolation: input.isolation,
       panes,
+    };
+  }
+
+  sessionContext(sessionId: string): {
+    readonly folderPath: string;
+    readonly isolation: BoardIsolation;
+    readonly worktreeTag: string;
+  } {
+    const session = this.sessions.get(sessionId);
+    if (session === undefined) {
+      throw new ZeroError('VALIDATION_FAILED', 'Unknown pane session or pane');
+    }
+    return {
+      folderPath: session.folderPath,
+      isolation: session.isolation,
+      worktreeTag: session.worktreeTag,
+    };
+  }
+
+  async addPane(
+    sessionId: string,
+    agentId: BoardAgentId,
+    command: string | undefined,
+    locate: (slot: number) => Promise<{ cwd: string; branch: string | null }>,
+  ): Promise<BoardPaneSummary> {
+    const session = this.sessions.get(sessionId);
+    if (session === undefined) {
+      throw new ZeroError('VALIDATION_FAILED', 'Unknown pane session or pane');
+    }
+    if (session.panes.size >= 12) {
+      throw new ZeroError('VALIDATION_FAILED', 'This Space is already at 12 terminals');
+    }
+    return this.attachPane(sessionId, session, session.panes.size, agentId, command, locate);
+  }
+
+  private async attachPane(
+    sessionId: string,
+    session: SessionRecord,
+    slot: number,
+    agentId: BoardAgentId,
+    commandOverride: string | undefined,
+    locate: (slot: number) => Promise<{ cwd: string; branch: string | null }>,
+  ): Promise<BoardPaneSummary> {
+    const command = resolveCommand(agentId, commandOverride);
+    const paneId = randomUUID();
+    const location = await locate(slot);
+    const label = agentLabelById[agentId] ?? agentId;
+    const title =
+      location.branch === null
+        ? `${label} · ${basename(location.cwd)} #${slot + 1}`
+        : `${label} · ${location.branch}`;
+    const pty = spawnPty(location.cwd, command, 120, 30);
+    const meta: PaneMeta = {
+      slot,
+      agentId,
+      title,
+      status: 'running',
+      branch: location.branch,
+      cwd: location.cwd,
+      output: '',
+      pty,
+    };
+    session.panes.set(paneId, meta);
+    pty.onData((chunk) => {
+      const text = typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8');
+      const next = meta.output + text;
+      meta.output = next.length <= maxBufferedChars ? next : next.slice(-maxBufferedChars);
+      this.forward(sessionId, paneId, {
+        type: 'data',
+        data: Buffer.from(text, 'utf8').toString('base64'),
+      });
+    });
+    pty.onExit(({ exitCode }) => {
+      meta.pty = null;
+      this.forward(sessionId, paneId, {
+        type: 'status',
+        status: exitCode >= 0 ? 'exited' : 'failed',
+        exitCode,
+      });
+    });
+    return {
+      paneId,
+      slot: meta.slot,
+      agentId: meta.agentId,
+      title: meta.title,
+      status: meta.status,
+      branch: meta.branch,
+      cwd: meta.cwd,
     };
   }
 
@@ -229,10 +285,20 @@ export class BoardPtyManager {
   }
 
   async closePane(input: BoardPaneCloseInput): Promise<void> {
-    const pane = this.requirePane(input.sessionId, input.paneId);
+    const session = this.sessions.get(input.sessionId);
+    const pane = session?.panes.get(input.paneId);
+    if (session === undefined || pane === undefined) {
+      throw new ZeroError('VALIDATION_FAILED', 'Unknown pane session or pane');
+    }
     this.closing.add(input.paneId);
     pane.pty?.kill();
     pane.pty = null;
+    session.panes.delete(input.paneId);
+    [...session.panes.values()]
+      .sort((left, right) => left.slot - right.slot)
+      .forEach((item, index) => {
+        item.slot = index;
+      });
   }
 
   drainPane(input: BoardPaneDrainInput): { data: string } {

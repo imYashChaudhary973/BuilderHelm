@@ -35,8 +35,8 @@ describe('migration runner', () => {
     const result = runMigrations(database, migrations);
 
     expect(result).toEqual({
-      applied: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-      currentVersion: 10,
+      applied: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      currentVersion: 11,
     });
     expect(
       database.queryOne<{ count: number }>(
@@ -61,8 +61,8 @@ describe('migration runner', () => {
     );
 
     expect(runMigrations(database, migrations)).toEqual({
-      applied: [10],
-      currentVersion: 10,
+      applied: [10, 11],
+      currentVersion: 11,
     });
     expect(
       database.queryOne<{ id: string; name: string }>(
@@ -70,6 +70,29 @@ describe('migration runner', () => {
         ['global'],
       ),
     ).toEqual({ id: 'global', name: 'BuilderHelm' });
+    for (const column of ['review', 'cancelled'] as const) {
+      database.run(
+        `INSERT INTO kanban_cards (id, workspace, title, column_name, created_at)
+         VALUES (?, ?, ?, ?, ?)`,
+        [
+          column === 'review'
+            ? '00000000-0000-4000-8000-000000000002'
+            : '00000000-0000-4000-8000-000000000003',
+          'global',
+          column,
+          column,
+          '2026-08-24T00:00:01.000Z',
+        ],
+      );
+    }
+    expect(
+      database
+        .queryAll<{ column_name: string }>(
+          `SELECT column_name FROM kanban_cards WHERE workspace = ? ORDER BY column_name`,
+          ['global'],
+        )
+        .map((row) => row.column_name),
+    ).toEqual(['cancelled', 'idea', 'review']);
   });
 
   it('is idempotent after the latest migration', () => {
@@ -78,7 +101,7 @@ describe('migration runner', () => {
 
     expect(runMigrations(database, migrations)).toEqual({
       applied: [],
-      currentVersion: 10,
+      currentVersion: 11,
     });
   });
 
@@ -94,7 +117,7 @@ describe('migration runner', () => {
     openDatabases.push(reopened);
     expect(runMigrations(reopened, migrations)).toEqual({
       applied: [],
-      currentVersion: 10,
+      currentVersion: 11,
     });
   });
 

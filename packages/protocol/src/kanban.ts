@@ -8,7 +8,13 @@ const correlationIdSchema = z
   .uuid()
   .transform((value) => value as CorrelationId);
 
-export const kanbanColumnSchema = z.enum(['idea', 'doing', 'shipped']);
+export const kanbanColumnSchema = z.enum([
+  'idea',
+  'doing',
+  'review',
+  'shipped',
+  'cancelled',
+]);
 export type KanbanColumn = z.infer<typeof kanbanColumnSchema>;
 
 export const kanbanProjectSchema = z
@@ -54,9 +60,25 @@ export const kanbanCreateInputSchema = z
   .object({
     workspace: z.string().min(1).max(4096),
     title: z.string().trim().min(1).max(200),
+    column: kanbanColumnSchema.optional(),
   })
   .strict();
 export type KanbanCreateInput = z.infer<typeof kanbanCreateInputSchema>;
+
+export const kanbanUpdateInputSchema = z
+  .object({
+    id: z.string().uuid(),
+    title: z.string().trim().min(1).max(200),
+  })
+  .strict();
+export type KanbanUpdateInput = z.infer<typeof kanbanUpdateInputSchema>;
+
+export const kanbanDeleteInputSchema = z
+  .object({
+    id: z.string().uuid(),
+  })
+  .strict();
+export type KanbanDeleteInput = z.infer<typeof kanbanDeleteInputSchema>;
 
 export const kanbanMoveInputSchema = z
   .object({
@@ -97,6 +119,18 @@ export const kanbanMoveRequestSchema = z
     input: kanbanMoveInputSchema,
   })
   .strict();
+export const kanbanUpdateRequestSchema = z
+  .object({
+    correlationId: correlationIdSchema,
+    input: kanbanUpdateInputSchema,
+  })
+  .strict();
+export const kanbanDeleteRequestSchema = z
+  .object({
+    correlationId: correlationIdSchema,
+    input: kanbanDeleteInputSchema,
+  })
+  .strict();
 
 function ipcResult<T extends z.ZodType>(value: T) {
   return z.discriminatedUnion('ok', [
@@ -111,3 +145,7 @@ export const kanbanProjectCreateIpcResponseSchema = ipcResult(kanbanProjectSchem
 export const kanbanListIpcResponseSchema = ipcResult(z.array(kanbanCardSchema));
 export const kanbanCreateIpcResponseSchema = ipcResult(kanbanCardSchema);
 export const kanbanMoveIpcResponseSchema = ipcResult(kanbanCardSchema);
+export const kanbanUpdateIpcResponseSchema = ipcResult(kanbanCardSchema);
+export const kanbanDeleteIpcResponseSchema = ipcResult(
+  z.object({ deleted: z.literal(true) }).strict(),
+);

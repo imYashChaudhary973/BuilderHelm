@@ -9,8 +9,11 @@ import {
   BOARD_AGENT_CATALOG,
   boardPresetRecordSchema,
   kanbanCardSchema,
+  kanbanCreateInputSchema,
+  kanbanDeleteInputSchema,
   kanbanProjectCreateInputSchema,
   kanbanProjectSchema,
+  kanbanUpdateInputSchema,
   type BoardAgentDetection,
   type BoardPresetRecord,
   type BoardPresetSpec,
@@ -399,7 +402,12 @@ export class BoardService {
       );
   }
 
-  createCard(workspace: string, title: string, correlationId: CorrelationId): KanbanCard {
+  createCard(
+    workspace: string,
+    title: string,
+    correlationId: CorrelationId,
+    column: KanbanColumn = 'idea',
+  ): KanbanCard {
     if (
       this.database.queryOne<{ id: string }>(
         `SELECT id FROM kanban_projects WHERE id = ?`,
@@ -411,11 +419,12 @@ export class BoardService {
         'Select a Board project before adding tasks',
       );
     }
+    const input = kanbanCreateInputSchema.parse({ workspace, title, column });
     const card = kanbanCardSchema.parse({
       id: randomUUID(),
-      workspace,
-      title,
-      column: 'idea',
+      workspace: input.workspace,
+      title: input.title,
+      column: input.column ?? 'idea',
       createdAt: utcNow(),
     });
     this.database.transaction(() => {
@@ -432,7 +441,7 @@ export class BoardService {
     this.logger.info({
       event: 'kanban.card_created',
       correlationId,
-      data: { cardId: card.id, workspace },
+      data: { cardId: card.id, workspace, column: card.column },
     });
     return card;
   }
@@ -474,5 +483,70 @@ export class BoardService {
       column: row.column_name,
       createdAt: row.created_at,
     });
+  }
+  updateCard(id: string, title: string, correlationId: CorrelationId): KanbanCard {
+    const input = kanbanUpdateInputSchema.parse({ id, title });
+    const updatedAt = utcNow();
+    const row = this.database.transaction(() => {
+      this.database.run(`UPDATE kanban_cards SET title = ? WHERE id = ?`, [
+        input.title,
+        input.id,
+      ]);
+      const found = this.database.queryOne<{
+        id: string;
+        workspace: string;
+        title: string;
+        column_name: string;
+        created_at: string;
+      }>(
+        `SELECT id, workspace, title, column_name, created_at FROM kanban_cards WHERE id = ?`,
+        [input.id],
+      );
+      if (found === undefined) {
+        throw new ZeroError('VALIDATION_FAILED', 'That card is gone');
+      }
+      this.database.run(`UPDATE kanban_projects SET updated_at = ? WHERE id = ?`, [
+        updatedAt,
+        found.workspace,
+      ]);
+      return found;
+    });
+    this.logger.info({
+      event: 'kanban.card_updated',
+      correlationId,
+      data: { cardId: input.id },
+    });
+    return kanbanCardSchema.parse({
+      id: row.id,
+      workspace: row.workspace,
+      title: row.title,
+      column: row.column_name,
+      createdAt: row.created_at,
+    });
+  }
+
+  deleteCard(id: string, correlationId: CorrelationId): { deleted: true } {
+    const input = kanbanDeleteInputSchema.parse({ id });
+    const updatedAt = utcNow();
+    this.database.transaction(() => {
+      const found = this.database.queryOne<{ workspace: string }>(
+        `SELECT workspace FROM kanban_cards WHERE id = ?`,
+        [input.id],
+      );
+      if (found === undefined) {
+        throw new ZeroError('VALIDATION_FAILED', 'That card is gone');
+      }
+      this.database.run(`DELETE FROM kanban_cards WHERE id = ?`, [input.id]);
+      this.database.run(`UPDATE kanban_projects SET updated_at = ? WHERE id = ?`, [
+        updatedAt,
+        found.workspace,
+      ]);
+    });
+    this.logger.info({
+      event: 'kanban.card_deleted',
+      correlationId,
+      data: { cardId: input.id },
+    });
+    return { deleted: true };
   }
 }
