@@ -1,0 +1,723 @@
+{
+  "name": "BuilderHelm symbol asset pack",
+  "version": 1,
+  "generatedAt": "2026-08-23T21:27:19.546Z",
+  "source": "builderhelm-selected-original.png",
+  "assets": [
+    {
+      "path": "README.md",
+      "bytes": 2348,
+      "sha256": "28ecf1ce899e148b9eb38714257bb880a3eedf07b9919019be98e27817c9285a"
+    },
+    {
+      "path": "app/android/adaptive-background-432.png",
+      "bytes": 1194,
+      "sha256": "92e51d809ec15ae2e90cf5e21fe06ed805b672eb110c4f115b889ded327df160",
+      "width": 432,
+      "height": 432,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/android/adaptive-foreground-432.png",
+      "bytes": 52577,
+      "sha256": "f0d3ad320232fd846b38b34adf16815470fe187d4880b839ec6c10450bfc8b71",
+      "width": 432,
+      "height": 432,
+      "format": "png",
+      "hasAlpha": true
+    },
+    {
+      "path": "app/android/adaptive-icon.xml",
+      "bytes": 276,
+      "sha256": "723b6d024a326e5981972c4defe9655be404a91c85c53c5daa14dcee79008c1e"
+    },
+    {
+      "path": "app/android/mipmap-hdpi/ic_launcher.png",
+      "bytes": 6723,
+      "sha256": "273b66013e63b0b2493061efaf54df65b671074aa6712e156e134c3802573e50",
+      "width": 72,
+      "height": 72,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/android/mipmap-mdpi/ic_launcher.png",
+      "bytes": 3505,
+      "sha256": "73e9e9c0ca6f46e785a44e62095c2d2795a12cc99b62cc8bf96ef88b16ad3001",
+      "width": 48,
+      "height": 48,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/android/mipmap-xhdpi/ic_launcher.png",
+      "bytes": 10778,
+      "sha256": "8148d8f6e018af919a635b6c3ce5ec37718f57e0e8cabae885cf2fc03462bf8d",
+      "width": 96,
+      "height": 96,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/android/mipmap-xxhdpi/ic_launcher.png",
+      "bytes": 20679,
+      "sha256": "3e89c8e6b736ea03c630917b105a6a06826b0fe267e3ba845fb8fe9ffcf2e52d",
+      "width": 144,
+      "height": 144,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/android/mipmap-xxxhdpi/ic_launcher.png",
+      "bytes": 33580,
+      "sha256": "99492f4b5becec2be7d16fcbedaefbfc8937f44e309f84bfca682e3043533ad5",
+      "width": 192,
+      "height": 192,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/android/play-store-512.png",
+      "bytes": 218486,
+      "sha256": "8cca446951d1e84f769c9b0bb9ed6478e56836da13434febad3ef3c76b9297f5",
+      "width": 512,
+      "height": 512,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/ios/builderhelm-1024.png",
+      "bytes": 902783,
+      "sha256": "f9c6192598dbb93453468133ef35ded61eb1775a4a3bd4f99ac5803a8fe0036a",
+      "width": 1024,
+      "height": 1024,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/ios/builderhelm-120.png",
+      "bytes": 15589,
+      "sha256": "9a7d888366b4a17092ffb980bd35a449a47f70dccfc18dfc350f8f2a65d15dbf",
+      "width": 120,
+      "height": 120,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/ios/builderhelm-152.png",
+      "bytes": 22587,
+      "sha256": "59e7d6bb1bc8c11e96724150d308833a765ca5b1143dbfdba7c966bd2994ba7f",
+      "width": 152,
+      "height": 152,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/ios/builderhelm-167.png",
+      "bytes": 26382,
+      "sha256": "4ab2a1cdbc1e477e9a0d74f2db7e53d037179ccba8dda0271c91b4543dcac841",
+      "width": 167,
+      "height": 167,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/ios/builderhelm-180.png",
+      "bytes": 30062,
+      "sha256": "2eed30b7ef84b2438488729c2d281d9e5b8f31fccf35accdd1179cd7e216c34a",
+      "width": 180,
+      "height": 180,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/ios/builderhelm-40.png",
+      "bytes": 2636,
+      "sha256": "49afb4138fa6ed7669a4b0ff45db64df2cfece1a8a7a03050edf6ccf8d18f209",
+      "width": 40,
+      "height": 40,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/ios/builderhelm-58.png",
+      "bytes": 4718,
+      "sha256": "1bb26c8d082fb5a1906755e7de4d09f605b3a087ca4cf5e337d70a8acd3fddda",
+      "width": 58,
+      "height": 58,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/ios/builderhelm-60.png",
+      "bytes": 5009,
+      "sha256": "68400a1e74c0afb6590eb31d3bd3dcbba5a02dc6937d59332268dad4b4499adf",
+      "width": 60,
+      "height": 60,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/ios/builderhelm-76.png",
+      "bytes": 7362,
+      "sha256": "e621effc8d8c1a9eb536f9bb6527a10104f44932b1cd4ad72666e92fdc0c77f9",
+      "width": 76,
+      "height": 76,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/ios/builderhelm-80.png",
+      "bytes": 8038,
+      "sha256": "a1381250be11e191143ff06087a7359c8048e46a7a02397614ae1cbc8c153169",
+      "width": 80,
+      "height": 80,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/ios/builderhelm-87.png",
+      "bytes": 9178,
+      "sha256": "591efd02a5fe251a09be42c7cad7bb35b4201899dcba5424737e4c316981af33",
+      "width": 87,
+      "height": 87,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/linux/hicolor/128x128/apps/builderhelm.png",
+      "bytes": 16985,
+      "sha256": "27c05bd1bf0dd7bbb94dab0695db267a82d2fc6fe2cec21cc641745ae962c318",
+      "width": 128,
+      "height": 128,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/linux/hicolor/16x16/apps/builderhelm.png",
+      "bytes": 673,
+      "sha256": "d9f17f56f13a03645958caf7d909c5c9f2e29bfcb97fd0c32bb3d87f48975392",
+      "width": 16,
+      "height": 16,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/linux/hicolor/24x24/apps/builderhelm.png",
+      "bytes": 1197,
+      "sha256": "103a39365f54bc16c15bf5cc105e984c0f9276acef9341cfabb1f6a6bc149343",
+      "width": 24,
+      "height": 24,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/linux/hicolor/256x256/apps/builderhelm.png",
+      "bytes": 55055,
+      "sha256": "b181d7b05404bf84f3eb1ec5aaad6b54c13991280396f113f11a1b57e137db3d",
+      "width": 256,
+      "height": 256,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/linux/hicolor/32x32/apps/builderhelm.png",
+      "bytes": 1821,
+      "sha256": "b9649e525ec64d5931ede5b0ec73cb39637544f9b01d6802a76de4f90d376915",
+      "width": 32,
+      "height": 32,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/linux/hicolor/48x48/apps/builderhelm.png",
+      "bytes": 3505,
+      "sha256": "73e9e9c0ca6f46e785a44e62095c2d2795a12cc99b62cc8bf96ef88b16ad3001",
+      "width": 48,
+      "height": 48,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/linux/hicolor/512x512/apps/builderhelm.png",
+      "bytes": 218486,
+      "sha256": "8cca446951d1e84f769c9b0bb9ed6478e56836da13434febad3ef3c76b9297f5",
+      "width": 512,
+      "height": 512,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/linux/hicolor/64x64/apps/builderhelm.png",
+      "bytes": 5567,
+      "sha256": "eb42b4d68ac742cf8845c5677266a9d0579a4dc65c4497acc5a08f4c4f56f1a1",
+      "width": 64,
+      "height": 64,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/macos/BuilderHelm.icns",
+      "bytes": 1825243,
+      "sha256": "c6bc7903a7590ec16d2f321477df5c4cf440253a094137cb3fba0008f5d0eac4"
+    },
+    {
+      "path": "app/macos/BuilderHelm.iconset/icon_128x128.png",
+      "bytes": 16985,
+      "sha256": "27c05bd1bf0dd7bbb94dab0695db267a82d2fc6fe2cec21cc641745ae962c318",
+      "width": 128,
+      "height": 128,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/macos/BuilderHelm.iconset/icon_128x128@2x.png",
+      "bytes": 55055,
+      "sha256": "b181d7b05404bf84f3eb1ec5aaad6b54c13991280396f113f11a1b57e137db3d",
+      "width": 256,
+      "height": 256,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/macos/BuilderHelm.iconset/icon_16x16.png",
+      "bytes": 673,
+      "sha256": "d9f17f56f13a03645958caf7d909c5c9f2e29bfcb97fd0c32bb3d87f48975392",
+      "width": 16,
+      "height": 16,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/macos/BuilderHelm.iconset/icon_16x16@2x.png",
+      "bytes": 1821,
+      "sha256": "b9649e525ec64d5931ede5b0ec73cb39637544f9b01d6802a76de4f90d376915",
+      "width": 32,
+      "height": 32,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/macos/BuilderHelm.iconset/icon_256x256.png",
+      "bytes": 55055,
+      "sha256": "b181d7b05404bf84f3eb1ec5aaad6b54c13991280396f113f11a1b57e137db3d",
+      "width": 256,
+      "height": 256,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/macos/BuilderHelm.iconset/icon_256x256@2x.png",
+      "bytes": 218486,
+      "sha256": "8cca446951d1e84f769c9b0bb9ed6478e56836da13434febad3ef3c76b9297f5",
+      "width": 512,
+      "height": 512,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/macos/BuilderHelm.iconset/icon_32x32.png",
+      "bytes": 1821,
+      "sha256": "b9649e525ec64d5931ede5b0ec73cb39637544f9b01d6802a76de4f90d376915",
+      "width": 32,
+      "height": 32,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/macos/BuilderHelm.iconset/icon_32x32@2x.png",
+      "bytes": 5567,
+      "sha256": "eb42b4d68ac742cf8845c5677266a9d0579a4dc65c4497acc5a08f4c4f56f1a1",
+      "width": 64,
+      "height": 64,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/macos/BuilderHelm.iconset/icon_512x512.png",
+      "bytes": 218486,
+      "sha256": "8cca446951d1e84f769c9b0bb9ed6478e56836da13434febad3ef3c76b9297f5",
+      "width": 512,
+      "height": 512,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/macos/BuilderHelm.iconset/icon_512x512@2x.png",
+      "bytes": 902783,
+      "sha256": "f9c6192598dbb93453468133ef35ded61eb1775a4a3bd4f99ac5803a8fe0036a",
+      "width": 1024,
+      "height": 1024,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/macos/png/builderhelm-1024.png",
+      "bytes": 902783,
+      "sha256": "f9c6192598dbb93453468133ef35ded61eb1775a4a3bd4f99ac5803a8fe0036a",
+      "width": 1024,
+      "height": 1024,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/macos/png/builderhelm-128.png",
+      "bytes": 16985,
+      "sha256": "27c05bd1bf0dd7bbb94dab0695db267a82d2fc6fe2cec21cc641745ae962c318",
+      "width": 128,
+      "height": 128,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/macos/png/builderhelm-16.png",
+      "bytes": 673,
+      "sha256": "d9f17f56f13a03645958caf7d909c5c9f2e29bfcb97fd0c32bb3d87f48975392",
+      "width": 16,
+      "height": 16,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/macos/png/builderhelm-256.png",
+      "bytes": 55055,
+      "sha256": "b181d7b05404bf84f3eb1ec5aaad6b54c13991280396f113f11a1b57e137db3d",
+      "width": 256,
+      "height": 256,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/macos/png/builderhelm-32.png",
+      "bytes": 1821,
+      "sha256": "b9649e525ec64d5931ede5b0ec73cb39637544f9b01d6802a76de4f90d376915",
+      "width": 32,
+      "height": 32,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/macos/png/builderhelm-512.png",
+      "bytes": 218486,
+      "sha256": "8cca446951d1e84f769c9b0bb9ed6478e56836da13434febad3ef3c76b9297f5",
+      "width": 512,
+      "height": 512,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/macos/png/builderhelm-64.png",
+      "bytes": 5567,
+      "sha256": "eb42b4d68ac742cf8845c5677266a9d0579a4dc65c4497acc5a08f4c4f56f1a1",
+      "width": 64,
+      "height": 64,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/windows/builderhelm-128.png",
+      "bytes": 16985,
+      "sha256": "27c05bd1bf0dd7bbb94dab0695db267a82d2fc6fe2cec21cc641745ae962c318",
+      "width": 128,
+      "height": 128,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/windows/builderhelm-16.png",
+      "bytes": 673,
+      "sha256": "d9f17f56f13a03645958caf7d909c5c9f2e29bfcb97fd0c32bb3d87f48975392",
+      "width": 16,
+      "height": 16,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/windows/builderhelm-24.png",
+      "bytes": 1197,
+      "sha256": "103a39365f54bc16c15bf5cc105e984c0f9276acef9341cfabb1f6a6bc149343",
+      "width": 24,
+      "height": 24,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/windows/builderhelm-256.png",
+      "bytes": 55055,
+      "sha256": "b181d7b05404bf84f3eb1ec5aaad6b54c13991280396f113f11a1b57e137db3d",
+      "width": 256,
+      "height": 256,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/windows/builderhelm-32.png",
+      "bytes": 1821,
+      "sha256": "b9649e525ec64d5931ede5b0ec73cb39637544f9b01d6802a76de4f90d376915",
+      "width": 32,
+      "height": 32,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/windows/builderhelm-48.png",
+      "bytes": 3505,
+      "sha256": "73e9e9c0ca6f46e785a44e62095c2d2795a12cc99b62cc8bf96ef88b16ad3001",
+      "width": 48,
+      "height": 48,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/windows/builderhelm-64.png",
+      "bytes": 5567,
+      "sha256": "eb42b4d68ac742cf8845c5677266a9d0579a4dc65c4497acc5a08f4c4f56f1a1",
+      "width": 64,
+      "height": 64,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "app/windows/builderhelm.ico",
+      "bytes": 68704,
+      "sha256": "a68ad53833194a8b2967fb7d1c818faef4d63ddbd22a3c216c5644ad490fbc03"
+    },
+    {
+      "path": "favicon/favicon-16x16.png",
+      "bytes": 673,
+      "sha256": "d9f17f56f13a03645958caf7d909c5c9f2e29bfcb97fd0c32bb3d87f48975392",
+      "width": 16,
+      "height": 16,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "favicon/favicon-32x32.png",
+      "bytes": 1821,
+      "sha256": "b9649e525ec64d5931ede5b0ec73cb39637544f9b01d6802a76de4f90d376915",
+      "width": 32,
+      "height": 32,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "favicon/favicon-48x48.png",
+      "bytes": 3505,
+      "sha256": "73e9e9c0ca6f46e785a44e62095c2d2795a12cc99b62cc8bf96ef88b16ad3001",
+      "width": 48,
+      "height": 48,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "favicon/favicon.ico",
+      "bytes": 3390,
+      "sha256": "328b287e4716289c108e7884b701515b8915089c11df4b149bff6004c2ff1ca7"
+    },
+    {
+      "path": "master/builderhelm-master-dark-4096.png",
+      "bytes": 4227805,
+      "sha256": "ba108e0c14b2effd3790f05717905942a7084cbe12a1e18d739bbb55790047db",
+      "width": 4096,
+      "height": 4096,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "master/builderhelm-master-dark.png",
+      "bytes": 1399126,
+      "sha256": "7926355504edb41ea98720e8f843efc3e8881b696535d402fb64ffb51046c1be",
+      "width": 1254,
+      "height": 1254,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "master/builderhelm-master-light-4096.png",
+      "bytes": 613946,
+      "sha256": "7dab4df97ac241a0762367117ef1f8f78db5fa2aece0ff4f61d489e0465c22a5",
+      "width": 4096,
+      "height": 4096,
+      "format": "png",
+      "hasAlpha": true
+    },
+    {
+      "path": "master/builderhelm-master-transparent-4096.png",
+      "bytes": 1234716,
+      "sha256": "d661fd2ad6ad7757590e6ab16c735686d893dd5f173b4f91eed502f6507d4852",
+      "width": 4096,
+      "height": 4096,
+      "format": "png",
+      "hasAlpha": true
+    },
+    {
+      "path": "monochrome/builderhelm-mono-black-4096.png",
+      "bytes": 442860,
+      "sha256": "824108c7bcd4b311d5f1bd6482f4a9be47bb4b68ff2d499f7d9d64d0a7e121ad",
+      "width": 4096,
+      "height": 4096,
+      "format": "png",
+      "hasAlpha": true
+    },
+    {
+      "path": "monochrome/builderhelm-mono-white-4096.png",
+      "bytes": 483276,
+      "sha256": "44a5b3835ec0d7040666fc816287419e613328f669fbdfc9189b0c0bdf013a77",
+      "width": 4096,
+      "height": 4096,
+      "format": "png",
+      "hasAlpha": true
+    },
+    {
+      "path": "previews/transparent-on-checkerboard.png",
+      "bytes": 57889,
+      "sha256": "62b7262488cd4b80ea0f48311be12462405175a08e3e1ead30fb47a9680f60b1",
+      "width": 512,
+      "height": 512,
+      "format": "png",
+      "hasAlpha": true
+    },
+    {
+      "path": "pwa/icon-192.png",
+      "bytes": 33580,
+      "sha256": "99492f4b5becec2be7d16fcbedaefbfc8937f44e309f84bfca682e3043533ad5",
+      "width": 192,
+      "height": 192,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "pwa/icon-512.png",
+      "bytes": 218486,
+      "sha256": "8cca446951d1e84f769c9b0bb9ed6478e56836da13434febad3ef3c76b9297f5",
+      "width": 512,
+      "height": 512,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "pwa/maskable-icon-512.png",
+      "bytes": 218486,
+      "sha256": "8cca446951d1e84f769c9b0bb9ed6478e56836da13434febad3ef3c76b9297f5",
+      "width": 512,
+      "height": 512,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "pwa/site.webmanifest",
+      "bytes": 485,
+      "sha256": "f24c7b514bae155b1b27db390eaf8c65061bdd1d77b615cf1bcacf65df6eb2f2"
+    },
+    {
+      "path": "social/open-graph-1200x630.png",
+      "bytes": 70756,
+      "sha256": "988ae1d2e4e0dbd2cedb2492966c3436a4b42c4ce5c0a87c1c326ad81e3b0cdb",
+      "width": 1200,
+      "height": 630,
+      "format": "png",
+      "hasAlpha": true
+    },
+    {
+      "path": "social/profile-400.png",
+      "bytes": 133194,
+      "sha256": "a1dad67d2504af7ee8b9ba31541a0b3116aae9c2a4fa534fb9bb95a166289907",
+      "width": 400,
+      "height": 400,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "social/profile-800.png",
+      "bytes": 555130,
+      "sha256": "d438413242738cda1e18e8d91bd7e3fb785b7cbc74653164ae73db1cf6b6effc",
+      "width": 800,
+      "height": 800,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "social/twitter-card-1200x600.png",
+      "bytes": 64676,
+      "sha256": "948ae908585f67cf93ff4593afb637763e14109668c5809daa4d819e58ebdf6d",
+      "width": 1200,
+      "height": 600,
+      "format": "png",
+      "hasAlpha": true
+    },
+    {
+      "path": "source/builderhelm-selected-original.png",
+      "bytes": 733191,
+      "sha256": "a38b9f27d47d1e604864ea29c354e2201f03425239e484edc99b913ae201b7d8",
+      "width": 1024,
+      "height": 1024,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "tools/generate-assets.mjs",
+      "bytes": 11662,
+      "sha256": "6b618d6e5f3d79d7fd74b187e2b5a6ada33b627e4b9177a2b5c4bc5b230b4b8a"
+    },
+    {
+      "path": "web/apple-touch-icon-180.png",
+      "bytes": 30062,
+      "sha256": "2eed30b7ef84b2438488729c2d281d9e5b8f31fccf35accdd1179cd7e216c34a",
+      "width": 180,
+      "height": 180,
+      "format": "png",
+      "hasAlpha": false
+    },
+    {
+      "path": "web/browserconfig.xml",
+      "bytes": 219,
+      "sha256": "2c1de0d001351e4d8181be66450d0c92715a3908f79a158aefc08badad6d2d0a"
+    },
+    {
+      "path": "web/logo-light-background-512.png",
+      "bytes": 38529,
+      "sha256": "f52c2fbcb14c711d4f54e2d824d8bd3dc1854b205b19109bed557de757d894e6",
+      "width": 512,
+      "height": 512,
+      "format": "png",
+      "hasAlpha": true
+    },
+    {
+      "path": "web/logo-mono-black-512.png",
+      "bytes": 29805,
+      "sha256": "55a17704f540d123ea6bdbc61d7cdf60d5b7e7da9f65b136667f5f93af12e8ad",
+      "width": 512,
+      "height": 512,
+      "format": "png",
+      "hasAlpha": true
+    },
+    {
+      "path": "web/logo-mono-white-512.png",
+      "bytes": 32978,
+      "sha256": "30bcaee274fb0d66e61805bd8f970ed82befcb89db07e54c6f1667ff252656f2",
+      "width": 512,
+      "height": 512,
+      "format": "png",
+      "hasAlpha": true
+    },
+    {
+      "path": "web/logo-transparent-512.png",
+      "bytes": 69514,
+      "sha256": "22f169e75c1255e68bb72332b0cf88625eb2bb630e2f268d384399f4e807ae50",
+      "width": 512,
+      "height": 512,
+      "format": "png",
+      "hasAlpha": true
+    },
+    {
+      "path": "web/mstile-150.png",
+      "bytes": 22205,
+      "sha256": "298aaba9a993a9dc27274493639efaab167820b364752114ecc496b6e27bb0fd",
+      "width": 150,
+      "height": 150,
+      "format": "png",
+      "hasAlpha": false
+    }
+  ]
+}
