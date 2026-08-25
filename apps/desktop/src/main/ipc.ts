@@ -745,6 +745,7 @@ export function registerIpcHandlers(
         request.sessionId,
         request.agentId,
         request.command,
+        request.argv,
         async (slot) => {
           if (context.isolation === 'worktree') {
             const worktree = await core.board.createWorktree(

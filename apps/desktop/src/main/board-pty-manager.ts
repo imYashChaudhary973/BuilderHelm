@@ -13,6 +13,7 @@ import {
   type BoardAgentId,
   type BoardCreateInput,
   type BoardIsolation,
+  type BoardPaneArgv,
   type BoardPaneCloseInput,
   type BoardPaneDrainInput,
   type BoardPaneEvent,
@@ -114,6 +115,23 @@ function ensureHelper(): string {
   return helper;
 }
 
+function spawnArgvPty(
+  cwd: string,
+  argv: BoardPaneArgv,
+  cols: number,
+  rows: number,
+): IPty {
+  ensureHelper();
+  const workdir = resolveWorkdir(cwd);
+  return spawn(argv.binary, [...argv.args], {
+    name: 'xterm-256color',
+    cols,
+    rows,
+    cwd: workdir,
+    env: { ...terminalEnv(), PWD: workdir },
+  });
+}
+
 function spawnPty(cwd: string, command: string, cols: number, rows: number): IPty {
   const helper = ensureHelper();
   const shell = existsSync('/bin/zsh') ? '/bin/zsh' : '/bin/bash';
@@ -183,6 +201,7 @@ export class BoardPtyManager {
             spec.slot,
             spec.agentId,
             spec.command,
+            spec.argv,
             locate,
           ),
         );
@@ -221,6 +240,7 @@ export class BoardPtyManager {
     sessionId: string,
     agentId: BoardAgentId,
     command: string | undefined,
+    argv: BoardPaneArgv | undefined,
     locate: (slot: number) => Promise<{ cwd: string; branch: string | null }>,
   ): Promise<BoardPaneSummary> {
     const session = this.sessions.get(sessionId);
@@ -236,16 +256,17 @@ export class BoardPtyManager {
       session.panes.size,
       agentId,
       command,
+      argv,
       locate,
     );
   }
-
   private async attachPane(
     sessionId: string,
     session: SessionRecord,
     slot: number,
     agentId: BoardAgentId,
     commandOverride: string | undefined,
+    argv: BoardPaneArgv | undefined,
     locate: (slot: number) => Promise<{ cwd: string; branch: string | null }>,
   ): Promise<BoardPaneSummary> {
     const command = resolveCommand(agentId, commandOverride);
@@ -256,7 +277,10 @@ export class BoardPtyManager {
       location.branch === null
         ? `${label} · ${basename(location.cwd)} #${slot + 1}`
         : `${label} · ${location.branch}`;
-    const pty = spawnPty(location.cwd, command, 120, 30);
+    const pty =
+      argv !== undefined
+        ? spawnArgvPty(location.cwd, argv, 120, 30)
+        : spawnPty(location.cwd, command, 120, 30);
     const meta: PaneMeta = {
       slot,
       agentId,

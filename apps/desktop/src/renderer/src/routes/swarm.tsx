@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import {
+  boardPaneCounts,
   gridForCount,
   type BoardIsolation,
   type BoardLandPreview,
@@ -16,7 +17,7 @@ import {
   availableSwarmAgents,
   swarmAddSeat,
   swarmBrief,
-  swarmPaneCommand,
+  swarmSeatArgv,
   swarmPresetRoles,
   swarmRoleTasks,
   swarmSkillLines,
@@ -88,7 +89,7 @@ export function SwarmPage(): React.JSX.Element {
   const [homeDir, setHomeDir] = useState('');
   const [step, setStep] = useState<WizardStep>('mission');
   const [preset, setPreset] = useState<SwarmPresetId>('frigate');
-  const [mode, setMode] = useState<SwarmLaunchMode>('safe');
+  const [mode, setMode] = useState<SwarmLaunchMode>('auto');
   const [skillIds, setSkillIds] = useState<string[]>([]);
   const [swarmName, setSwarmName] = useState('');
   const [roster, setRoster] = useState<SwarmAssignment[]>([]);
@@ -154,19 +155,25 @@ export function SwarmPage(): React.JSX.Element {
         );
       }
       const folder = folderPath.trim();
-      if (folder.length === 0) throw new Error('Pick a folder first.');
       const paneCount = roster.length as BoardPaneCount;
+      if (!(boardPaneCounts as readonly number[]).includes(roster.length)) {
+        throw new Error(
+          `No terminal grid for ${roster.length} seats. Use 1–6, 8, 10, or 12.`,
+        );
+      }
       const extras = swarmSkillLines(skillIds);
       const panes = roster.map((item, slot) => {
         const brief = swarmBrief(item.role, job).trimEnd();
         const task = swarmRoleTasks(job)[item.role];
+        const effective: SwarmLaunchMode =
+          mode === 'full' ? 'full' : item.auto ? 'auto' : mode;
         return {
           slot,
           agentId: item.agentId,
-          command: swarmPaneCommand(
+          argv: swarmSeatArgv(
             item.agentId,
             extras.length > 0 ? `${brief}\n${task}\n${extras}` : `${brief}\n${task}`,
-            item.auto || mode === 'skip' ? 'skip' : 'safe',
+            effective,
           ),
         };
       });
@@ -183,7 +190,12 @@ export function SwarmPage(): React.JSX.Element {
           isolation: 'worktree',
         });
         return { summary, assignments: roster, isolation: 'worktree' as const };
-      } catch {
+      } catch (cause) {
+        // Only a non-repo folder legitimately downgrades to shared. Real
+        // failures surface instead of silently switching isolation.
+        if (!(cause instanceof Error) || !cause.message.includes('git repository')) {
+          throw cause;
+        }
         const summary = await window.zero.board.createSession({
           ...base,
           paneCount,

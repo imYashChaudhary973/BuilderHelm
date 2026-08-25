@@ -58,6 +58,20 @@ export const boardPaneCountSchema = z.union([
   z.literal(10),
   z.literal(12),
 ]);
+
+/** Terminal counts that have a shipped grid layout. Single source for guards. */
+export const boardPaneCounts = [
+  1, 2, 3, 4, 5, 6, 8, 10, 12,
+] as const satisfies readonly BoardPaneCount[];
+
+/** Direct argv launch: no shell, no quoting, no length cap beyond ARG_MAX headroom. */
+export const boardPaneArgvSchema = z
+  .object({
+    binary: z.string().min(1).max(4096),
+    args: z.array(z.string().max(100_000)).max(64),
+  })
+  .strict();
+export type BoardPaneArgv = z.infer<typeof boardPaneArgvSchema>;
 export type BoardPaneCount = z.infer<typeof boardPaneCountSchema>;
 
 /** Fixed grid per pane count: cols x rows. */
@@ -93,6 +107,7 @@ export const boardPaneSpecSchema = z
     slot: z.number().int().min(0).max(11),
     agentId: boardAgentIdSchema,
     command: z.string().trim().min(1).max(4_000).optional(),
+    argv: boardPaneArgvSchema.optional(),
   })
   .strict()
   .refine(
@@ -220,6 +235,7 @@ export const boardAddPaneInputSchema = z
     sessionId: z.string().uuid(),
     agentId: boardAgentIdSchema,
     command: z.string().trim().min(1).max(500).optional(),
+    argv: boardPaneArgvSchema.optional(),
   })
   .strict();
 export type BoardAddPaneInput = z.infer<typeof boardAddPaneInputSchema>;

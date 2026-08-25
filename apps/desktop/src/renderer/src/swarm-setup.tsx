@@ -354,16 +354,25 @@ function Roster({
           onClick={() => onMode('safe')}
         >
           <strong>Safe</strong>
-          <span>Agents ask before privileged file or command actions.</span>
+          <span>Read and analyze only. Unapproved actions fail closed.</span>
         </button>
         <button
           type="button"
-          className={mode === 'skip' ? 'swarmModeCard swarmModeOn' : 'swarmModeCard'}
-          onClick={() => onMode('skip')}
+          className={mode === 'auto' ? 'swarmModeCard swarmModeOn' : 'swarmModeCard'}
+          onClick={() => onMode('auto')}
         >
-          <strong>Skip permissions</strong>
+          <strong>Auto-edit</strong>
+          <span>Agents edit files freely; shell commands still gated.</span>
+        </button>
+        <button
+          type="button"
+          className={mode === 'full' ? 'swarmModeCard swarmModeOn' : 'swarmModeCard'}
+          onClick={() => onMode('full')}
+        >
+          <strong>Full bypass</strong>
           <span>
-            Trusted local workspaces only. Applies each CLI approval-bypass preset.
+            Trusted local workspaces only. Skips every approval; worktree isolation
+            strongly advised.
           </span>
         </button>
       </div>
@@ -558,8 +567,10 @@ function Review({
           <span>Mode</span>
           <strong>
             {mode === 'safe'
-              ? 'Safe — agents ask before privileged actions'
-              : 'Skip permissions'}
+              ? 'Safe — read and analyze only'
+              : mode === 'auto'
+                ? 'Auto-edit — files yes, commands gated'
+                : 'Full bypass — every approval skipped'}
           </strong>
         </li>
         <li>

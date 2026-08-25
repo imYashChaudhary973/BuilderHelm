@@ -8,7 +8,7 @@ import {
   swarmBrief,
   swarmGraphHub,
   swarmGraphPoints,
-  swarmPaneCommand,
+  swarmSeatArgv,
   swarmPresetRoles,
   swarmRemoveSeat,
   swarmRoleTasks,
@@ -200,16 +200,53 @@ describe('swarmRoleTasks', () => {
   });
 });
 
-describe('swarmPaneCommand', () => {
-  it('quotes the prompt and pins OpenCode to ox-alpha', () => {
-    expect(swarmPaneCommand('claude', "fix the 'login' form")).toBe(
-      "claude 'fix the '\\''login'\\'' form'",
+describe('swarmSeatArgv', () => {
+  it('maps every mode to verified claude flags', () => {
+    expect(swarmSeatArgv('claude', 'fix the login form', 'safe')).toEqual({
+      binary: 'claude',
+      args: ['-p', 'fix the login form', '--permission-mode', 'dontAsk'],
+    });
+    expect(swarmSeatArgv('claude', 'fix it', 'auto')).toEqual({
+      binary: 'claude',
+      args: ['-p', 'fix it', '--permission-mode', 'acceptEdits'],
+    });
+    expect(swarmSeatArgv('claude', 'fix it', 'full')).toEqual({
+      binary: 'claude',
+      args: ['-p', 'fix it', '--dangerously-skip-permissions'],
+    });
+  });
+
+  it('maps codex exec sandbox and gemini approval modes', () => {
+    expect(swarmSeatArgv('codex', 'ship', 'auto')).toEqual({
+      binary: 'codex',
+      args: ['exec', '--sandbox', 'workspace-write', '--approve-for-me', 'ship'],
+    });
+    expect(swarmSeatArgv('gemini', 'ship', 'full')).toEqual({
+      binary: 'gemini',
+      args: ['-p', 'ship', '--skip-trust', '--approval-mode', 'yolo'],
+    });
+    expect(
+      swarmSeatArgv('gemini', 'ship', 'auto').args.filter(
+        (arg) => arg === '--skip-trust',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('passes long prompts through argv without shell quoting', () => {
+    const prompt = `${'x'.repeat(8_000)} 'quoted' "double" $HOME \\n`;
+    const { binary, args } = swarmSeatArgv('grok', prompt, 'auto');
+    expect(binary).toBe('grok');
+    expect(args).toEqual(['-p', prompt.trim(), '--permission-mode', 'acceptEdits']);
+  });
+
+  it('fails closed for CLIs without a verified headless command or mode', () => {
+    expect(() => swarmSeatArgv('kiro', 'job', 'auto')).toThrow(/no verified headless/);
+    expect(() => swarmSeatArgv('cursor', 'job', 'auto')).toThrow(/no verified headless/);
+    expect(() => swarmSeatArgv('custom', 'job', 'auto')).toThrow(/no verified headless/);
+    expect(() => swarmSeatArgv('opencode', 'job', 'safe')).toThrow(
+      /does not support safe/,
     );
-    expect(swarmPaneCommand('opencode', 'review the diff')).toBe(
-      "opencode --model openrouter/stealth/ox-alpha --prompt 'review the diff'",
-    );
-    expect(swarmPaneCommand('codex', 'x'.repeat(8_000)).length).toBeLessThanOrEqual(
-      4_000,
-    );
+    expect(() => swarmSeatArgv('pi', 'job', 'full')).toThrow(/does not support full/);
+    expect(() => swarmSeatArgv('claude', '   ', 'auto')).toThrow(/must not be empty/);
   });
 });
