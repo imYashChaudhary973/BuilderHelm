@@ -53,6 +53,13 @@ pnpm dev
 
 macOS. Node.js 22.13+. pnpm 11.16 via Corepack.
 
+### One checkout rule
+
+Launch and build the app from **one** worktree only: `Axiom - PIOS-worktrees/main`.
+Feature work happens on branches that get merged and their worktrees removed —
+never leave orphan worktrees or uncommitted experiments lying around. If a
+worktree is not `main`, it is not the app you are running.
+
 Provider credentials go in the Keychain, not the repo or SQLite.
 
 ---
