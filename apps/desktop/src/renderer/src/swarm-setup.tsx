@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { BOARD_AGENT_CATALOG, type BoardAgentId } from '@zero/protocol/board';
 import {
   SWARM_PRESETS,
@@ -9,6 +10,8 @@ import {
 } from '@zero/protocol/swarm';
 
 type Step = 'mission' | 'roster' | 'launch';
+
+const SKILL_GROUPS = ['workflow', 'quality', 'ops', 'analysis'] as const;
 
 export function SwarmSetup({
   step,
@@ -34,6 +37,9 @@ export function SwarmSetup({
   onName,
   onSeatAgent,
   onFillAll,
+  onAddSeat,
+  onRemoveSeat,
+  onToggleAuto,
   onCancel,
   onLaunch,
 }: {
@@ -60,21 +66,43 @@ export function SwarmSetup({
   readonly onName: (value: string) => void;
   readonly onSeatAgent: (index: number, agentId: BoardAgentId) => void;
   readonly onFillAll: (agentId: BoardAgentId) => void;
+  readonly onAddSeat: (role: SwarmRole) => void;
+  readonly onRemoveSeat: (index: number) => void;
+  readonly onToggleAuto: (index: number) => void;
   readonly onCancel: () => void;
   readonly onLaunch: () => void;
 }): React.JSX.Element {
   const missionReady = job.trim().length > 0 && folderPath.trim().length > 0;
   const canLaunch = missionReady && roster.length > 0 && !pending;
   const counts = countRoles(roster);
+  const stepNo = step === 'mission' ? 1 : step === 'roster' ? 2 : 3;
 
   return (
     <section className="swarmWizard" aria-labelledby="swarm-setup-title">
       <nav className="swarmSteps" aria-label="Swarm setup">
-        <StepChip id="mission" label="Mission" current={step} done={step !== 'mission'} onClick={onStep} />
+        <StepChip
+          id="mission"
+          label="Mission"
+          current={step}
+          done={step !== 'mission'}
+          onClick={onStep}
+        />
         <span className="swarmStepLine" />
-        <StepChip id="roster" label="Roster" current={step} done={step === 'launch'} onClick={onStep} />
+        <StepChip
+          id="roster"
+          label="Roster"
+          current={step}
+          done={step === 'launch'}
+          onClick={onStep}
+        />
         <span className="swarmStepLine" />
-        <StepChip id="launch" label="Launch" current={step} done={false} onClick={onStep} />
+        <StepChip
+          id="launch"
+          label="Launch"
+          current={step}
+          done={false}
+          onClick={onStep}
+        />
       </nav>
 
       {step === 'mission' ? (
@@ -101,6 +129,9 @@ export function SwarmSetup({
           onToggleSkill={onToggleSkill}
           onSeatAgent={onSeatAgent}
           onFillAll={onFillAll}
+          onAddSeat={onAddSeat}
+          onRemoveSeat={onRemoveSeat}
+          onToggleAuto={onToggleAuto}
         />
       ) : null}
       {step === 'launch' ? (
@@ -126,10 +157,15 @@ export function SwarmSetup({
           {step === 'mission' ? 'Cancel' : 'Back'}
         </button>
         <span className="swarmStepMeta">
-          Step {step === 'mission' ? 1 : step === 'roster' ? 2 : 3} of 3
+          Step {stepNo} of 3{swarmName.trim() ? ` · ${swarmName.trim()}` : ''}
         </span>
         {step === 'launch' ? (
-          <button className="primaryButton" type="button" disabled={!canLaunch} onClick={onLaunch}>
+          <button
+            className="primaryButton"
+            type="button"
+            disabled={!canLaunch}
+            onClick={onLaunch}
+          >
             {pending ? 'Starting…' : 'Launch swarm'}
           </button>
         ) : (
@@ -196,7 +232,7 @@ function Mission({
         <h1 id="swarm-setup-title">
           Define the <em>mission</em>
         </h1>
-        <p>Where your swarm works, what it should accomplish, and any context it should read first.</p>
+        <p>Where the swarm works, what it should ship, and the brief every seat reads.</p>
       </header>
       <label className="swarmField">
         <span>Working folder</span>
@@ -238,7 +274,9 @@ function Mission({
           onChange={(event) => onJob(event.target.value)}
         />
       </label>
-      <p className="swarmShareNote">Shared with all agents so they can coordinate and stay aligned.</p>
+      <p className="swarmShareNote">
+        Shared with all agents so they can coordinate and stay aligned.
+      </p>
     </div>
   );
 }
@@ -255,6 +293,9 @@ function Roster({
   onToggleSkill,
   onSeatAgent,
   onFillAll,
+  onAddSeat,
+  onRemoveSeat,
+  onToggleAuto,
 }: {
   readonly preset: SwarmPresetId;
   readonly mode: SwarmLaunchMode;
@@ -267,15 +308,23 @@ function Roster({
   readonly onToggleSkill: (id: string) => void;
   readonly onSeatAgent: (index: number, agentId: BoardAgentId) => void;
   readonly onFillAll: (agentId: BoardAgentId) => void;
+  readonly onAddSeat: (role: SwarmRole) => void;
+  readonly onRemoveSeat: (index: number) => void;
+  readonly onToggleAuto: (index: number) => void;
 }): React.JSX.Element {
   const first = detected[0];
+  const [openSkill, setOpenSkill] = useState<string | null>(null);
+  const full = roster.length >= 12;
   return (
     <div className="swarmWizardBody">
       <header className="swarmWizardHero">
         <h1 id="swarm-setup-title">
           Build your <em>roster</em>
         </h1>
-        <p>Pick a preset, then add or remove agents. This is the team that will ship your code.</p>
+        <p>
+          Pick a preset, then add or remove agents. This is the team that will ship your
+          code.
+        </p>
       </header>
       <span className="swarmFieldLabel">Quick presets</span>
       <div className="swarmPresets">
@@ -292,8 +341,10 @@ function Roster({
         ))}
       </div>
       <p className="swarmHint">
-        {counts.coordinator} coord · {counts.builder} builder{counts.builder === 1 ? '' : 's'} ·{' '}
-        {counts.scout} scout · {counts.reviewer} reviewer
+        {counts.coordinator} coord · {counts.builder} builder
+        {counts.builder === 1 ? '' : 's'} · {counts.scout} scout
+        {counts.scout === 1 ? '' : 's'} · {counts.reviewer} reviewer
+        {counts.reviewer === 1 ? '' : 's'}
       </p>
       <span className="swarmFieldLabel">Launch mode</span>
       <div className="swarmModes">
@@ -311,11 +362,24 @@ function Roster({
           onClick={() => onMode('skip')}
         >
           <strong>Skip permissions</strong>
-          <span>Trusted local workspaces only. Applies each CLI approval-bypass preset.</span>
+          <span>
+            Trusted local workspaces only. Applies each CLI approval-bypass preset.
+          </span>
         </button>
       </div>
-      <div className="swarmFillRow">
-        <span>{roster.length} total</span>
+      <div className="swarmRoleChips">
+        {(['coordinator', 'builder', 'scout', 'reviewer'] as const).map((role) => (
+          <button
+            key={role}
+            type="button"
+            disabled={full}
+            onClick={() => onAddSeat(role)}
+          >
+            + {counts[role]} {role}
+            {counts[role] === 1 ? '' : 's'}
+          </button>
+        ))}
+        <em>{roster.length} total</em>
         {first !== undefined ? (
           <label>
             Fill all
@@ -351,23 +415,83 @@ function Roster({
                 </option>
               ))}
             </select>
+            <button
+              type="button"
+              className={seat.auto ? 'swarmAuto swarmAutoOn' : 'swarmAuto'}
+              onClick={() => onToggleAuto(index)}
+            >
+              Auto
+            </button>
+            <button
+              type="button"
+              className="swarmSeatDrop"
+              onClick={() => onRemoveSeat(index)}
+            >
+              ×
+            </button>
           </li>
         ))}
       </ol>
+      <button
+        type="button"
+        className="swarmAddSeat"
+        disabled={full || first === undefined}
+        onClick={() => onAddSeat('builder')}
+      >
+        + Add agent
+      </button>
       <span className="swarmFieldLabel">Swarm skills</span>
-      <div className="swarmSkillGrid">
-        {SWARM_SKILLS.map((skill) => (
-          <button
-            key={skill.id}
-            type="button"
-            className={skillIds.includes(skill.id) ? 'swarmSkill swarmSkillOn' : 'swarmSkill'}
-            onClick={() => onToggleSkill(skill.id)}
-          >
-            <strong>{skill.title}</strong>
-            <span>{skill.detail}</span>
-          </button>
-        ))}
-      </div>
+      {SKILL_GROUPS.map((group) => (
+        <div key={group} className="swarmSkillGroup">
+          <span>{group}</span>
+          <div className="swarmSkillGrid">
+            {SWARM_SKILLS.filter((skill) => skill.group === group).map((skill) => {
+              const on = skillIds.includes(skill.id);
+              const open = openSkill === skill.id;
+              return (
+                <div
+                  key={skill.id}
+                  className={on ? 'swarmSkill swarmSkillOn' : 'swarmSkill'}
+                >
+                  <button
+                    type="button"
+                    className="swarmSkillHead"
+                    onClick={() => onToggleSkill(skill.id)}
+                  >
+                    <strong>{skill.title}</strong>
+                    <span>{skill.detail}</span>
+                    <i className={on ? 'swarmSwitch swarmSwitchOn' : 'swarmSwitch'} />
+                  </button>
+                  {on ? (
+                    <button
+                      type="button"
+                      className="swarmSkillMore"
+                      onClick={() => setOpenSkill(open ? null : skill.id)}
+                    >
+                      {open ? 'Hide directive' : 'Show directive'}
+                    </button>
+                  ) : null}
+                  {on && open ? (
+                    <p className="swarmSkillDirective">
+                      <span>Agent directive</span>
+                      {skill.directive}
+                    </p>
+                  ) : null}
+                  {on ? (
+                    <button
+                      type="button"
+                      className="swarmSkillDrop"
+                      onClick={() => onToggleSkill(skill.id)}
+                    >
+                      Remove skill
+                    </button>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -390,17 +514,28 @@ function Review({
   readonly onName: (value: string) => void;
 }): React.JSX.Element {
   const counts = countRoles(roster);
+  const skills = SWARM_SKILLS.filter((skill) => skillIds.includes(skill.id)).map(
+    (skill) => skill.title,
+  );
+  const autos = roster.filter((seat) => seat.auto).length;
   return (
     <div className="swarmWizardBody">
       <header className="swarmWizardHero">
         <h1 id="swarm-setup-title">
           Review &amp; <em>launch</em>
         </h1>
-        <p>Name your swarm and double-check the briefing. Everything can still be changed mid-flight.</p>
+        <p>
+          Name the swarm and check the brief. Seats can still change after launch in a
+          later slice.
+        </p>
       </header>
       <label className="swarmField">
         <span>Swarm name — auto-named if left blank</span>
-        <input value={swarmName} placeholder="Swarm 1" onChange={(event) => onName(event.target.value)} />
+        <input
+          value={swarmName}
+          placeholder="Swarm 1"
+          onChange={(event) => onName(event.target.value)}
+        />
       </label>
       <ul className="swarmRecap">
         <li>
@@ -414,17 +549,22 @@ function Review({
         <li>
           <span>Roster</span>
           <strong>
-            {roster.length} agents — {counts.coordinator} coordinator · {counts.builder} builders ·{' '}
-            {counts.scout} scout · {counts.reviewer} reviewer
+            {roster.length} agents — {counts.coordinator} coordinator · {counts.builder}{' '}
+            builders · {counts.scout} scout · {counts.reviewer} reviewer
+            {autos > 0 ? ` · ${autos} auto` : ''}
           </strong>
         </li>
         <li>
           <span>Mode</span>
-          <strong>{mode === 'safe' ? 'Safe — agents ask before privileged actions' : 'Skip permissions'}</strong>
+          <strong>
+            {mode === 'safe'
+              ? 'Safe — agents ask before privileged actions'
+              : 'Skip permissions'}
+          </strong>
         </li>
         <li>
           <span>Skills</span>
-          <strong>{skillIds.length === 0 ? 'None' : skillIds.join(', ')}</strong>
+          <strong>{skills.length === 0 ? 'None' : skills.join(', ')}</strong>
         </li>
       </ul>
     </div>

@@ -6,14 +6,18 @@ const mocks = vi.hoisted(() => ({
   showMessageBox: vi.fn(),
 }));
 
-vi.mock('electron', () => ({
-  dialog: { showOpenDialog: vi.fn(), showMessageBox: mocks.showMessageBox },
-  ipcMain: {
-    handle: (channel: string, handler: (_event: unknown, input: unknown) => unknown) =>
-      mocks.handlers.set(channel, handler),
-    removeHandler: (channel: string) => mocks.handlers.delete(channel),
-  },
-}));
+vi.mock('electron', async () => {
+  const { electronSession } = await import('./electron-mock.js');
+  return {
+    dialog: { showOpenDialog: vi.fn(), showMessageBox: mocks.showMessageBox },
+    ipcMain: {
+      handle: (channel: string, handler: (_event: unknown, input: unknown) => unknown) =>
+        mocks.handlers.set(channel, handler),
+      removeHandler: (channel: string) => mocks.handlers.delete(channel),
+    },
+    session: electronSession,
+  };
+});
 
 import type { CoreRuntime } from '@zero/core';
 import { ipcChannels } from '@zero/protocol/ipc';

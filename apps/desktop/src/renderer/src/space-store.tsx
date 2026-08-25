@@ -46,7 +46,9 @@ function loadMeta(): Record<string, SpaceMeta> {
     const raw = localStorage.getItem(META_KEY);
     if (raw === null) return {};
     const parsed: unknown = JSON.parse(raw);
-    return parsed !== null && typeof parsed === 'object' ? (parsed as Record<string, SpaceMeta>) : {};
+    return parsed !== null && typeof parsed === 'object'
+      ? (parsed as Record<string, SpaceMeta>)
+      : {};
   } catch {
     return {};
   }
@@ -58,7 +60,11 @@ function saveMeta(meta: Record<string, SpaceMeta>): void {
 
 const SpaceContext = createContext<SpaceStore | null>(null);
 
-export function SpaceProvider({ children }: { readonly children: ReactNode }): React.JSX.Element {
+export function SpaceProvider({
+  children,
+}: {
+  readonly children: ReactNode;
+}): React.JSX.Element {
   const [spaces, setSpaces] = useState<BoardSessionSummary[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState(true);
@@ -66,11 +72,17 @@ export function SpaceProvider({ children }: { readonly children: ReactNode }): R
   const [wantSetup, setWantSetup] = useState(false);
   const [metaByPath, setMetaByPath] = useState<Record<string, SpaceMeta>>(loadMeta);
 
-  function writeMeta(path: string, patch: Partial<SpaceMeta>, fallbackLabel: string): void {
+  function writeMeta(
+    path: string,
+    patch: Partial<SpaceMeta>,
+    fallbackLabel: string,
+  ): void {
     setMetaByPath((current) => {
       const previous = current[path] ?? {
         label: fallbackLabel,
-        color: SPACE_COLORS[Object.keys(current).length % SPACE_COLORS.length] ?? SPACE_COLORS[0],
+        color:
+          SPACE_COLORS[Object.keys(current).length % SPACE_COLORS.length] ??
+          SPACE_COLORS[0],
       };
       const next = { ...current, [path]: { ...previous, ...patch } };
       saveMeta(next);

@@ -33,4 +33,12 @@ export default tseslint.config(
       'no-console': 'off',
     },
   },
+  {
+    files: ['**/*.mjs'],
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+      },
+    },
+  },
 );

@@ -10,23 +10,25 @@ describe('startup acks', () => {
     seen.add(trust!.id);
     expect(nextStartupAck('Yes, I trust this folder', seen)).toBeNull();
 
-    const update = nextStartupAck('\u001b[33mUpdate available!\u001b[0m 0.149.0 -> 0.149.1', seen);
+    const update = nextStartupAck(
+      '\u001b[33mUpdate available!\u001b[0m 0.149.0 -> 0.149.1',
+      seen,
+    );
     expect(update).toEqual({ id: 'codex-update', reply: '3\r' });
     seen.add(update!.id);
     expect(nextStartupAck('Update available!', seen)).toBeNull();
   });
 
   it('strips ANSI so wrapped prompts still match', () => {
-    expect(visibleText('\u001b[1mI trust this folder\u001b[0m')).toBe('I trust this folder');
+    expect(visibleText('\u001b[1mI trust this folder\u001b[0m')).toBe(
+      'I trust this folder',
+    );
   });
 });
 
 describe('startup failures', () => {
   it('flags Claude session limit and ignores MCP warnings', () => {
-    expect(
-      startupFailure("You've hit your session limit · resets 5:50am"),
-    ).toBe('quota');
+    expect(startupFailure("You've hit your session limit · resets 5:50am")).toBe('quota');
     expect(startupFailure('2 MCP servers need authentication · run /mcp')).toBeNull();
   });
 });
-

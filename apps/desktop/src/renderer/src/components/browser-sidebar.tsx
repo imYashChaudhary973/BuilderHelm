@@ -43,16 +43,17 @@ function remember(url: string): RecentHit[] {
   let label = url;
   try {
     const parsed = new URL(url);
-    label = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1'
-      ? `localhost${parsed.port.length > 0 ? `:${parsed.port}` : ''}`
-      : parsed.hostname;
+    label =
+      parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1'
+        ? `localhost${parsed.port.length > 0 ? `:${parsed.port}` : ''}`
+        : parsed.hostname;
   } catch {
     // keep raw url
   }
-  const next = [{ url, label }, ...readRecents().filter((item) => item.url !== url)].slice(
-    0,
-    10,
-  );
+  const next = [
+    { url, label },
+    ...readRecents().filter((item) => item.url !== url),
+  ].slice(0, 10);
   localStorage.setItem(RECENTS_KEY, JSON.stringify(next));
   return next;
 }
@@ -168,7 +169,11 @@ export function BrowserSidebar({
         <button type="button" disabled={!canGoBack} onClick={() => void run('back')}>
           ←
         </button>
-        <button type="button" disabled={!canGoForward} onClick={() => void run('forward')}>
+        <button
+          type="button"
+          disabled={!canGoForward}
+          onClick={() => void run('forward')}
+        >
           →
         </button>
         <button type="button" disabled={page === null} onClick={() => void run('reload')}>
@@ -201,16 +206,22 @@ export function BrowserSidebar({
             </div>
             <h2>Preview</h2>
             <p>
-              Open <button type="button" className="browserChip" onClick={() => void openUrl('localhost:3000')}>localhost</button>
+              Open{' '}
+              <button
+                type="button"
+                className="browserChip"
+                onClick={() => void openUrl('localhost:3000')}
+              >
+                localhost
+              </button>
               , docs, or any URL without leaving BuilderHelm.
             </p>
             <button
               type="button"
               className="browserNewTab"
               onClick={() => {
-                const field = document.querySelector<HTMLInputElement>(
-                  '.browserBar input',
-                );
+                const field =
+                  document.querySelector<HTMLInputElement>('.browserBar input');
                 field?.focus();
               }}
             >

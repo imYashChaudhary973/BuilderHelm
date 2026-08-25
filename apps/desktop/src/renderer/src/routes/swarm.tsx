@@ -14,6 +14,7 @@ import {
   SWARM_STUCK_MS,
   assignSwarmPanes,
   availableSwarmAgents,
+  swarmAddSeat,
   swarmBrief,
   swarmPaneCommand,
   swarmPresetRoles,
@@ -30,6 +31,7 @@ import type { CorrelationId } from '@zero/shared';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { TerminalPane } from '../components/terminal-pane.js';
 import { useSpaces } from '../space-store.js';
+import { SwarmLive } from '../swarm-live.js';
 import { SwarmSetup } from '../swarm-setup.js';
 import { readLastJob, writeLastJob } from '../swarm-persist.js';
 
@@ -85,7 +87,7 @@ export function SwarmPage(): React.JSX.Element {
   const [folderPath, setFolderPath] = useState('');
   const [homeDir, setHomeDir] = useState('');
   const [step, setStep] = useState<WizardStep>('mission');
-  const [preset, setPreset] = useState<SwarmPresetId>('crew');
+  const [preset, setPreset] = useState<SwarmPresetId>('frigate');
   const [mode, setMode] = useState<SwarmLaunchMode>('safe');
   const [skillIds, setSkillIds] = useState<string[]>([]);
   const [swarmName, setSwarmName] = useState('');
@@ -125,7 +127,6 @@ export function SwarmPage(): React.JSX.Element {
     setRoster(assignSwarmPanes([fill], swarmPresetRoles(preset)));
   }, [detected[0], preset]);
 
-
   useEffect(() => {
     if (run === null) return;
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -148,7 +149,9 @@ export function SwarmPage(): React.JSX.Element {
   const launch = useMutation({
     mutationFn: async () => {
       if (roster.length === 0) {
-        throw new Error('Install an agent CLI (Claude, Codex, Grok…) or open a Space instead.');
+        throw new Error(
+          'Install an agent CLI (Claude, Codex, Grok…) or open a Space instead.',
+        );
       }
       const folder = folderPath.trim();
       if (folder.length === 0) throw new Error('Pick a folder first.');
@@ -163,7 +166,7 @@ export function SwarmPage(): React.JSX.Element {
           command: swarmPaneCommand(
             item.agentId,
             extras.length > 0 ? `${brief}\n${task}\n${extras}` : `${brief}\n${task}`,
-            mode,
+            item.auto || mode === 'skip' ? 'skip' : 'safe',
           ),
         };
       });
@@ -194,7 +197,10 @@ export function SwarmPage(): React.JSX.Element {
       writeLastJob(job);
       writeRecents(summary.folderPath);
       spaces.upsert(summary);
-      spaces.rename(summary, swarmName.trim() || `Swarm · ${folderName(summary.folderPath)}`);
+      spaces.rename(
+        summary,
+        swarmName.trim() || `Swarm · ${folderName(summary.folderPath)}`,
+      );
       const startedAt = Date.now();
       stuckActed.current = {};
       setNudgedAt({});
@@ -342,7 +348,6 @@ export function SwarmPage(): React.JSX.Element {
     }
   }, [members, now, nudgedAt, run]);
 
-
   async function browse(): Promise<void> {
     setError(null);
     const picked = await window.zero.board.selectFolder();
@@ -352,46 +357,7 @@ export function SwarmPage(): React.JSX.Element {
   if (run !== null) {
     const remain = SWARM_BUDGET_MS - (now - run.startedAt);
     return (
-      <section className="swarmPage" aria-labelledby="swarm-title" data-core-status="ready">
-        <header className="memoryHeader">
-          <div className="memoryIdentity">
-            <span className="swarmMark">
-              <SwarmGlyph />
-            </span>
-            <div>
-              <h1 id="swarm-title">BuilderHelm Swarm</h1>
-              <p>
-                {folderName(run.session.folderPath)} ·{' '}
-                {run.isolation === 'worktree' ? 'worktrees' : 'shared folder'} · {status} ·{' '}
-                {formatRemain(remain)} left
-              </p>
-            </div>
-          </div>
-          <button
-            className="secondaryButton"
-            type="button"
-            onClick={() => void stopRun(run)}
-            disabled={run.stopped}
-          >
-            Stop swarm
-          </button>
-        </header>
-        <p className="swarmJobLine">{job.trim()}</p>
-        <ul className="swarmRoles">
-          {members.map((item) => {
-            const label =
-              item.status === 'stuck' && nudgedAt[item.pane.paneId] !== undefined
-                ? 'nudged'
-                : item.status;
-            return (
-              <li key={item.pane.paneId}>
-                <strong>{item.assignment?.role ?? item.pane.title}</strong>
-                <span>{item.assignment?.agentId ?? item.pane.agentId}</span>
-                <em data-status={item.status}>{label}</em>
-              </li>
-            );
-          })}
-        </ul>
+      <>
         {error !== null && (
           <p className="errorBanner" role="alert">
             {error}
@@ -402,44 +368,80 @@ export function SwarmPage(): React.JSX.Element {
             {landNotice}
           </p>
         )}
-        <div
-          className="boardGrid"
-          style={{
-            gridTemplateColumns: `repeat(${boardGridLayouts[run.session.paneCount].cols}, 1fr)`,
-            gridTemplateRows: `repeat(${boardGridLayouts[run.session.paneCount].rows}, 1fr)`,
+        <SwarmLive
+          name={swarmName.trim() || `Swarm · ${folderName(run.session.folderPath)}`}
+          job={job}
+          folder={folderName(run.session.folderPath)}
+          isolation={run.isolation}
+          status={status ?? 'running'}
+          remainLabel={`${formatRemain(remain)} left`}
+          members={members}
+          stopped={run.stopped}
+          onStopAll={() => void stopRun(run)}
+          onStopSeat={(paneId) => {
+            void window.zero.board
+              .closePane({
+                correlationId: crypto.randomUUID() as CorrelationId,
+                sessionId: run.session.sessionId,
+                paneId,
+              })
+              .catch(() => undefined);
+            setPaneStatus((current) => ({ ...current, [paneId]: 'exited' }));
+          }}
+          onDirect={(paneIds, text) => {
+            for (const paneId of paneIds) {
+              void window.zero.board
+                .write({
+                  correlationId: crypto.randomUUID() as CorrelationId,
+                  sessionId: run.session.sessionId,
+                  paneId,
+                  data: `${text}\r`,
+                })
+                .catch(() => undefined);
+            }
           }}
         >
-          {run.session.panes.map((pane) => {
-            const canLand = run.isolation === 'worktree' && pane.branch !== null;
-            return (
-              <TerminalPane
-                key={pane.paneId}
-                sessionId={run.session.sessionId}
-                pane={pane}
-                maximized={false}
-                landing={canLand && (land.isPending || previewLand.isPending)}
-                confirmLand={
-                  canLand && landPreview?.branch === pane.branch && landPreview.ahead > 0
-                }
-                onToggleMaximize={() => undefined}
-                onClose={() => undefined}
-                onLand={
-                  canLand
-                    ? () => {
-                        const branch = pane.branch as string;
-                        if (landPreview?.branch === branch && landPreview.ahead > 0) {
-                          land.mutate(branch);
-                          return;
+          <div
+            className="boardGrid"
+            style={{
+              gridTemplateColumns: `repeat(${boardGridLayouts[run.session.paneCount].cols}, 1fr)`,
+              gridTemplateRows: `repeat(${boardGridLayouts[run.session.paneCount].rows}, 1fr)`,
+            }}
+          >
+            {run.session.panes.map((pane) => {
+              const canLand = run.isolation === 'worktree' && pane.branch !== null;
+              return (
+                <TerminalPane
+                  key={pane.paneId}
+                  sessionId={run.session.sessionId}
+                  pane={pane}
+                  maximized={false}
+                  landing={canLand && (land.isPending || previewLand.isPending)}
+                  confirmLand={
+                    canLand &&
+                    landPreview?.branch === pane.branch &&
+                    landPreview.ahead > 0
+                  }
+                  onToggleMaximize={() => undefined}
+                  onClose={() => undefined}
+                  onLand={
+                    canLand
+                      ? () => {
+                          const branch = pane.branch as string;
+                          if (landPreview?.branch === branch && landPreview.ahead > 0) {
+                            land.mutate(branch);
+                            return;
+                          }
+                          previewLand.mutate(branch);
                         }
-                        previewLand.mutate(branch);
-                      }
-                    : undefined
-                }
-              />
-            );
-          })}
-        </div>
-      </section>
+                      : undefined
+                  }
+                />
+              );
+            })}
+          </div>
+        </SwarmLive>
+      </>
     );
   }
 
@@ -474,11 +476,29 @@ export function SwarmPage(): React.JSX.Element {
       onName={setSwarmName}
       onSeatAgent={(index, agentId) =>
         setRoster((current) =>
-          current.map((seat, seatIndex) => (seatIndex === index ? { ...seat, agentId } : seat)),
+          current.map((seat, seatIndex) =>
+            seatIndex === index ? { ...seat, agentId } : seat,
+          ),
         )
       }
       onFillAll={(agentId) =>
         setRoster((current) => current.map((seat) => ({ ...seat, agentId })))
+      }
+      onAddSeat={(role) =>
+        setRoster((current) => {
+          const fill = current[0]?.agentId ?? detected[0];
+          return fill === undefined ? current : swarmAddSeat(current, role, fill);
+        })
+      }
+      onRemoveSeat={(index) =>
+        setRoster((current) => current.filter((_, seatIndex) => seatIndex !== index))
+      }
+      onToggleAuto={(index) =>
+        setRoster((current) =>
+          current.map((seat, seatIndex) =>
+            seatIndex === index ? { ...seat, auto: !seat.auto } : seat,
+          ),
+        )
       }
       onCancel={() => {
         if (step === 'roster') {
@@ -493,22 +513,5 @@ export function SwarmPage(): React.JSX.Element {
       }}
       onLaunch={() => launch.mutate()}
     />
-  );
-
-}
-
-function SwarmGlyph(): React.JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-      <circle cx="12" cy="6.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-      <circle cx="6.5" cy="16.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-      <circle cx="17.5" cy="16.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-      <path
-        d="M10.6 8.1 7.8 14.4M13.4 8.1l2.8 6.3M8.5 16.5h7"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-    </svg>
   );
 }

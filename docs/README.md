@@ -4,7 +4,7 @@
 
 1. [Status](STATUS.md) — what the code does now
 2. [Product](PRODUCT.md) — four modes, principles, naming
-3. [UX](UX.md) — home, Space wizard, chrome
+3. [UX](UX.md) — home, Space wizard, Swarm, chrome
 4. [Stack](STACK.md) — TypeScript, Electron, phone pairing
 5. [Settings](SETTINGS.md) — settings information architecture
 6. [Roadmap](ROADMAP.md) — build order

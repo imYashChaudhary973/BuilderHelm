@@ -20,6 +20,7 @@ export type SwarmRunStatus = 'running' | 'stuck' | 'budget' | 'stopped' | 'done'
 export interface SwarmAssignment {
   readonly role: SwarmRole;
   readonly agentId: BoardAgentId;
+  readonly auto: boolean;
 }
 
 const DUTY: Record<SwarmRole, string> = {
@@ -27,32 +28,167 @@ const DUTY: Record<SwarmRole, string> = {
     'Split the job, track the other roles, and stop when the job is done. Do not implement the whole job yourself.',
   builder: 'Implement the job in this folder. Keep the diff small and ship working code.',
   scout: 'Explore the repo and report what matters. Do not implement unless asked.',
-  reviewer: 'Review the Builder work. Name bugs and missing tests. Do not rewrite everything.',
+  reviewer:
+    'Review the Builder work. Name bugs and missing tests. Do not rewrite everything.',
 };
 
 export const SWARM_OPENCODE_MODEL = 'openrouter/stealth/ox-alpha';
 
 export const SWARM_PRESETS = [
-  { id: 'recon', size: 3 as const, label: 'Recon', seats: { coordinator: 1, builder: 1, scout: 1, reviewer: 0 } },
-  { id: 'squad', size: 5 as const, label: 'Squad', seats: { coordinator: 1, builder: 2, scout: 1, reviewer: 1 } },
-  { id: 'crew', size: 8 as const, label: 'Crew', seats: { coordinator: 1, builder: 5, scout: 1, reviewer: 1 } },
-  { id: 'full', size: 12 as const, label: 'Full swarm', seats: { coordinator: 1, builder: 9, scout: 1, reviewer: 1 } },
+  {
+    id: 'skiff',
+    size: 3 as const,
+    label: 'Skiff',
+    seats: { coordinator: 1, builder: 1, scout: 1, reviewer: 0 },
+  },
+  {
+    id: 'cutter',
+    size: 5 as const,
+    label: 'Cutter',
+    seats: { coordinator: 1, builder: 2, scout: 1, reviewer: 1 },
+  },
+  {
+    id: 'frigate',
+    size: 8 as const,
+    label: 'Frigate',
+    seats: { coordinator: 1, builder: 5, scout: 1, reviewer: 1 },
+  },
+  {
+    id: 'flagship',
+    size: 12 as const,
+    label: 'Flagship',
+    seats: { coordinator: 1, builder: 7, scout: 2, reviewer: 2 },
+  },
 ] as const;
 export type SwarmPresetId = (typeof SWARM_PRESETS)[number]['id'];
 
 export const SWARM_SKILLS = [
-  { id: 'commits', group: 'workflow', title: 'Incremental Commits', detail: 'Commit small, atomic changes.' },
-  { id: 'refactor', group: 'workflow', title: 'Refactor Only', detail: 'Restructure without changing behavior.' },
-  { id: 'monorepo', group: 'workflow', title: 'Monorepo Aware', detail: 'Respect package boundaries.' },
-  { id: 'tdd', group: 'quality', title: 'Test-Driven', detail: 'Write tests first, then implement.' },
-  { id: 'review', group: 'quality', title: 'Code Review', detail: 'Review all changes before merge.' },
-  { id: 'docs', group: 'quality', title: 'Documentation', detail: 'Document all public APIs.' },
-  { id: 'security', group: 'quality', title: 'Security Audit', detail: 'Check for vulnerabilities.' },
-  { id: 'dry', group: 'quality', title: 'DRY Principle', detail: 'Eliminate code duplication.' },
-  { id: 'a11y', group: 'quality', title: 'Accessibility', detail: 'Ensure UI meets WCAG.' },
-  { id: 'ci', group: 'ops', title: 'Keep CI Green', detail: 'Ensure all checks pass.' },
-  { id: 'migrations', group: 'ops', title: 'Migration Safe', detail: 'Ensure DB changes are safe.' },
-  { id: 'perf', group: 'analysis', title: 'Performance', detail: 'Optimize for speed and cost.' },
+  {
+    id: 'commits',
+    group: 'workflow',
+    title: 'Incremental Commits',
+    detail: 'Commit small, atomic changes.',
+    directive: 'Commit in small atomic steps after each working change.',
+  },
+  {
+    id: 'refactor',
+    group: 'workflow',
+    title: 'Refactor Only',
+    detail: 'Restructure without changing behavior.',
+    directive: 'Refactor structure only. Do not change behavior.',
+  },
+  {
+    id: 'monorepo',
+    group: 'workflow',
+    title: 'Monorepo Aware',
+    detail: 'Respect package boundaries.',
+    directive: 'Stay inside the touched package. Do not break workspace boundaries.',
+  },
+  {
+    id: 'tdd',
+    group: 'quality',
+    title: 'Test-Driven',
+    detail: 'Write tests first, then implement.',
+    directive: 'Write a failing test first, then the smallest code that passes.',
+  },
+  {
+    id: 'review',
+    group: 'quality',
+    title: 'Code Review',
+    detail: 'Review all changes before merge.',
+    directive: 'Review every change before considering the job done.',
+  },
+  {
+    id: 'docs',
+    group: 'quality',
+    title: 'Documentation',
+    detail: 'Document public APIs.',
+    directive: 'Document public APIs and update existing docs you touch.',
+  },
+  {
+    id: 'security',
+    group: 'quality',
+    title: 'Security Audit',
+    detail: 'Check for vulnerabilities.',
+    directive: 'Watch for injection, secret leaks, and unsafe defaults.',
+  },
+  {
+    id: 'dry',
+    group: 'quality',
+    title: 'DRY Principle',
+    detail: 'Eliminate duplication.',
+    directive: 'Remove duplication instead of copying logic.',
+  },
+  {
+    id: 'a11y',
+    group: 'quality',
+    title: 'Accessibility',
+    detail: 'Meet WCAG basics.',
+    directive: 'Keep UI keyboardable, labeled, and contrast-safe (WCAG 2.1 AA).',
+  },
+  {
+    id: 'types',
+    group: 'quality',
+    title: 'Type Strict',
+    detail: 'No implicit any.',
+    directive: 'Keep types strict. Do not add implicit any or unsafe casts.',
+  },
+  {
+    id: 'lint',
+    group: 'quality',
+    title: 'Lint Clean',
+    detail: 'Leave the tree lint-clean.',
+    directive: 'Leave lint and format clean in files you touch.',
+  },
+  {
+    id: 'ci',
+    group: 'ops',
+    title: 'Keep CI Green',
+    detail: 'All checks pass.',
+    directive: 'Do not leave the tree failing typecheck or tests you can run.',
+  },
+  {
+    id: 'migrations',
+    group: 'ops',
+    title: 'Migration Safe',
+    detail: 'Safe schema changes.',
+    directive: 'Schema changes must be additive and reversible.',
+  },
+  {
+    id: 'changelog',
+    group: 'ops',
+    title: 'Changelog',
+    detail: 'Note user-facing changes.',
+    directive: 'Record user-facing changes in the project changelog style.',
+  },
+  {
+    id: 'errors',
+    group: 'ops',
+    title: 'Error Handling',
+    detail: 'Fail closed, say why.',
+    directive: 'Fail closed on errors. Surface a clear reason. Do not swallow.',
+  },
+  {
+    id: 'perf',
+    group: 'analysis',
+    title: 'Performance',
+    detail: 'Watch hot paths.',
+    directive: 'Avoid extra allocations and work on hot paths.',
+  },
+  {
+    id: 'privacy',
+    group: 'analysis',
+    title: 'Privacy First',
+    detail: 'No secrets in logs.',
+    directive: 'Never log secrets, tokens, or personal data.',
+  },
+  {
+    id: 'logging',
+    group: 'analysis',
+    title: 'Observability',
+    detail: 'Useful logs, no noise.',
+    directive: 'Log useful state changes. Do not add noisy debug spam.',
+  },
 ] as const;
 export type SwarmSkillId = (typeof SWARM_SKILLS)[number]['id'];
 export type SwarmLaunchMode = 'safe' | 'skip';
@@ -68,8 +204,29 @@ export function swarmPresetRoles(id: SwarmPresetId): SwarmRole[] {
 
 export function swarmSkillLines(ids: readonly string[]): string {
   return SWARM_SKILLS.filter((skill) => ids.includes(skill.id))
-    .map((skill) => `${skill.title}: ${skill.detail}`)
+    .map((skill) => `${skill.title}: ${skill.directive}`)
     .join('\n');
+}
+
+export function swarmAddSeat(
+  roster: readonly SwarmAssignment[],
+  role: SwarmRole,
+  agentId: BoardAgentId,
+): SwarmAssignment[] {
+  if (roster.length >= 12) return [...roster];
+  return [...roster, { role, agentId, auto: false }];
+}
+
+export function swarmRemoveSeat(
+  roster: readonly SwarmAssignment[],
+  role: SwarmRole,
+): SwarmAssignment[] {
+  const index = roster.reduce(
+    (found, seat, seatIndex) => (seat.role === role ? seatIndex : found),
+    -1,
+  );
+  if (index < 0) return [...roster];
+  return roster.filter((_, seatIndex) => seatIndex !== index);
 }
 
 export function availableSwarmAgents(
@@ -88,6 +245,7 @@ export function assignSwarmPanes(
   return roles.map((role, index) => ({
     role,
     agentId: agentIds[index % agentIds.length]!,
+    auto: false,
   }));
 }
 
@@ -127,10 +285,8 @@ export function swarmPaneCommand(
   return `${prefix}'${body}'`;
 }
 
-
 export const SWARM_NUDGE =
   'You have been silent. Report status in one line, then continue or say you are blocked.';
-
 
 export function swarmStuckAction(input: {
   readonly status: SwarmMemberStatus;
@@ -143,7 +299,6 @@ export function swarmStuckAction(input: {
   if (input.now - input.nudgedAt >= input.stuckAfterMs) return 'stop';
   return 'none';
 }
-
 
 export function swarmMemberStatus(input: {
   readonly paneStatus: BoardPaneStatus;
@@ -168,7 +323,57 @@ export function swarmRunStatus(input: {
   if (input.stopped) return 'stopped';
   if (input.elapsedMs >= input.budgetMs) return 'budget';
   if (input.members.length === 0) return 'running';
-  if (input.members.every((item) => item === 'exited' || item === 'failed')) return 'done';
+  if (input.members.every((item) => item === 'exited' || item === 'failed'))
+    return 'done';
   if (input.members.some((item) => item === 'stuck')) return 'stuck';
   return 'running';
+}
+
+export function swarmSeatLabel(roles: readonly SwarmRole[], index: number): string {
+  const role = roles[index];
+  if (role === undefined) return `Seat ${index + 1}`;
+  const n = roles.slice(0, index + 1).filter((item) => item === role).length;
+  return `${role[0]!.toUpperCase()}${role.slice(1)} ${n}`;
+}
+
+export function swarmGraphPoints(
+  roles: readonly SwarmRole[],
+): readonly { readonly x: number; readonly y: number }[] {
+  const buckets: Record<SwarmRole, number[]> = {
+    coordinator: [],
+    builder: [],
+    scout: [],
+    reviewer: [],
+  };
+  roles.forEach((role, index) => buckets[role].push(index));
+  const points = roles.map(() => ({ x: 50, y: 50 }));
+  const place = (
+    indices: readonly number[],
+    cx: number,
+    cy: number,
+    spreadX: number,
+    spreadY: number,
+  ): void => {
+    const n = indices.length;
+    indices.forEach((index, k) => {
+      const t = n === 1 ? 0.5 : k / (n - 1);
+      points[index] = { x: cx + (t - 0.5) * spreadX, y: cy + (t - 0.5) * spreadY };
+    });
+  };
+  place(buckets.coordinator, 50, 72, 16, 0);
+  if (buckets.builder.length > 6) {
+    const mid = Math.ceil(buckets.builder.length / 2);
+    place(buckets.builder.slice(0, mid), 50, 22, 70, 0);
+    place(buckets.builder.slice(mid), 50, 36, 58, 0);
+  } else {
+    place(buckets.builder, 50, 28, 70, 0);
+  }
+  place(buckets.scout, 14, 54, 0, 24);
+  place(buckets.reviewer, 86, 54, 0, 24);
+  return points;
+}
+
+export function swarmGraphHub(roles: readonly SwarmRole[]): number {
+  const hub = roles.findIndex((role) => role === 'coordinator');
+  return hub >= 0 ? hub : 0;
 }

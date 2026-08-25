@@ -204,9 +204,9 @@ describe('board pane specs', () => {
     expect(boardPaneSpecSchema.parse({ slot: 0, agentId: 'shell' }).agentId).toBe(
       'shell',
     );
-    expect(
-      boardPaneSpecSchema.safeParse({ slot: 0, agentId: 'custom' }).success,
-    ).toBe(false);
+    expect(boardPaneSpecSchema.safeParse({ slot: 0, agentId: 'custom' }).success).toBe(
+      false,
+    );
   });
 });
 

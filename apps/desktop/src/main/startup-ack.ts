@@ -15,8 +15,7 @@ const STARTUP_FAILS: readonly { id: string; match: RegExp }[] = [
   { id: 'auth', match: /not logged in|please (log|sign) in|invalid api key/i },
 ];
 
-
-const ansi = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
+const ansi = new RegExp(`${String.fromCharCode(27)}\\[[0-9;?]*[ -/]*[@-~]`, 'g');
 
 export function visibleText(output: string): string {
   return output.replace(ansi, '');
@@ -41,4 +40,3 @@ export function startupFailure(output: string): string | null {
   }
   return null;
 }
-

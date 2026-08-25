@@ -37,7 +37,7 @@ async function completeSmokeWhenRendererIsReady(window: BrowserWindow): Promise<
         event: 'desktop.smoke_ready',
         correlationId: createCorrelationId(),
       });
-      app.quit();
+      app.exit(0);
       return;
     }
     await new Promise((resolve) => setTimeout(resolve, 50));

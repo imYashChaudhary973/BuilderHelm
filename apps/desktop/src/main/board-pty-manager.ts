@@ -168,7 +168,8 @@ export class BoardPtyManager {
       panes: new Map(),
     };
     this.sessions.set(sessionId, session);
-    const panes: Array<{ paneId: string } & Omit<PaneMeta, 'output' | 'pty' | 'acked'>> = [];
+    const panes: Array<{ paneId: string } & Omit<PaneMeta, 'output' | 'pty' | 'acked'>> =
+      [];
     try {
       for (const spec of [...input.panes].sort((a, b) => a.slot - b.slot)) {
         const command = resolveCommand(spec.agentId, spec.command);
@@ -193,7 +194,8 @@ export class BoardPtyManager {
         };
         session.panes.set(paneId, meta);
         pty.onData((chunk) => {
-          const text = typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8');
+          const text =
+            typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8');
           const next = meta.output + text;
           meta.output =
             next.length <= maxBufferedChars ? next : next.slice(-maxBufferedChars);

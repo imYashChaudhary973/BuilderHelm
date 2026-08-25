@@ -14,7 +14,11 @@ export interface PreviewStore {
 
 const PreviewContext = createContext<PreviewStore | null>(null);
 
-export function PreviewProvider({ children }: { readonly children: ReactNode }): React.JSX.Element {
+export function PreviewProvider({
+  children,
+}: {
+  readonly children: ReactNode;
+}): React.JSX.Element {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<SideTab>('browser');
   const [url, setUrl] = useState<string | null>(null);

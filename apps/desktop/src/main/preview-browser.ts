@@ -60,7 +60,11 @@ export class PreviewBrowser {
     }
   }
 
-  private async open(win: BrowserWindow, raw: string, bounds: PreviewBounds): Promise<void> {
+  private async open(
+    win: BrowserWindow,
+    raw: string,
+    bounds: PreviewBounds,
+  ): Promise<void> {
     const url = parsePreviewUrl(raw);
     if (url === null) {
       throw new ZeroError('VALIDATION_FAILED', 'Only http and https URLs are allowed');

@@ -19,7 +19,12 @@ function TerminalGlyph(): React.JSX.Element {
         stroke="currentColor"
         strokeWidth="1.75"
       />
-      <path d="M8 9.5 11 12 8 14.5M13 15.5h3.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
+      <path
+        d="M8 9.5 11 12 8 14.5M13 15.5h3.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+      />
     </svg>
   );
 }
@@ -27,9 +32,36 @@ function TerminalGlyph(): React.JSX.Element {
 function BoardGlyph(): React.JSX.Element {
   return (
     <svg className="railTerm" viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="4.5" y="5.5" width="4" height="13" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-      <rect x="10" y="5.5" width="4" height="8.5" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-      <rect x="15.5" y="5.5" width="4" height="11" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <rect
+        x="4.5"
+        y="5.5"
+        width="4"
+        height="13"
+        rx="1.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <rect
+        x="10"
+        y="5.5"
+        width="4"
+        height="8.5"
+        rx="1.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <rect
+        x="15.5"
+        y="5.5"
+        width="4"
+        height="11"
+        rx="1.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
     </svg>
   );
 }
@@ -38,9 +70,28 @@ function MemoryGlyph(): React.JSX.Element {
   return (
     <svg className="railTerm" viewBox="0 0 24 24" aria-hidden="true">
       <circle cx="7" cy="12" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-      <circle cx="17" cy="7.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-      <circle cx="17" cy="16.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-      <path d="M9 12h6M15.2 8.8 9 11.3M15.2 15.2 9 12.7" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <circle
+        cx="17"
+        cy="7.5"
+        r="2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <circle
+        cx="17"
+        cy="16.5"
+        r="2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M9 12h6M15.2 8.8 9 11.3M15.2 15.2 9 12.7"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
     </svg>
   );
 }
@@ -48,18 +99,49 @@ function MemoryGlyph(): React.JSX.Element {
 function SwarmGlyph(): React.JSX.Element {
   return (
     <svg className="railTerm" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="6.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-      <circle cx="6.5" cy="16.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-      <circle cx="17.5" cy="16.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-      <path d="M10.6 8.1 7.8 14.4M13.4 8.1l2.8 6.3M8.5 16.5h7" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <circle
+        cx="12"
+        cy="6.5"
+        r="2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <circle
+        cx="6.5"
+        cy="16.5"
+        r="2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <circle
+        cx="17.5"
+        cy="16.5"
+        r="2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M10.6 8.1 7.8 14.4M13.4 8.1l2.8 6.3M8.5 16.5h7"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
     </svg>
   );
 }
 
-export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React.JSX.Element {
+export function SpaceRail({
+  collapsed,
+}: {
+  readonly collapsed: boolean;
+}): React.JSX.Element {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const featureOpen = pathname === '/board' || pathname === '/memory' || pathname === '/swarm';
+  const featureOpen =
+    pathname === '/board' || pathname === '/memory' || pathname === '/swarm';
   const boards = useBoards();
   const boardProjects = useQuery({
     queryKey: ['kanban-projects'],
@@ -84,7 +166,10 @@ export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React
     void navigate({ to: '/space' });
   }
   return (
-    <aside className={collapsed ? 'rail railCollapsed' : 'rail'} aria-label="BuilderHelm navigation">
+    <aside
+      className={collapsed ? 'rail railCollapsed' : 'rail'}
+      aria-label="BuilderHelm navigation"
+    >
       <div
         className={
           pathname === '/board' && boards.activeId === null
@@ -196,7 +281,8 @@ export function SpaceRail({ collapsed }: { readonly collapsed: boolean }): React
                   <span className="railCopy">
                     <strong>{project.name}</strong>
                     <small>
-                      Board · {project.taskCount} {project.taskCount === 1 ? 'task' : 'tasks'}
+                      Board · {project.taskCount}{' '}
+                      {project.taskCount === 1 ? 'task' : 'tasks'}
                     </small>
                   </span>
                 )}

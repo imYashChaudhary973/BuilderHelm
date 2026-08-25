@@ -8,15 +8,22 @@ const handlers = new Map<
   (event: { sender: ReturnType<typeof sender> }, input: unknown) => unknown
 >();
 
-vi.mock('electron', () => ({
-  ipcMain: {
-    handle: (
-      channel: string,
-      handler: (event: { sender: ReturnType<typeof sender> }, input: unknown) => unknown,
-    ) => handlers.set(channel, handler),
-    removeHandler: (channel: string) => handlers.delete(channel),
-  },
-}));
+vi.mock('electron', async () => {
+  const { electronSession } = await import('./electron-mock.js');
+  return {
+    ipcMain: {
+      handle: (
+        channel: string,
+        handler: (
+          event: { sender: ReturnType<typeof sender> },
+          input: unknown,
+        ) => unknown,
+      ) => handlers.set(channel, handler),
+      removeHandler: (channel: string) => handlers.delete(channel),
+    },
+    session: electronSession,
+  };
+});
 
 import { registerIpcHandlers } from '../src/main/ipc.js';
 

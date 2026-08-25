@@ -489,7 +489,6 @@ html.is-fullscreen .shell {
   background: var(--line);
 }
 
-
 .railList {
   display: flex;
   flex: 1;
@@ -733,6 +732,7 @@ html.is-fullscreen .shell {
 .content:has(.kanbanPage),
 .content:has(.memoryPage),
 .content:has(.swarmPage),
+.content:has(.swarmLive),
 .content:has(.swarmWizard),
 .content:has(.spaceHome),
 .content:has(.spaceWizard),
@@ -2323,6 +2323,194 @@ fieldset legend {
   background: #070807;
 }
 
+.swarmLive {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 16px 18px 14px;
+  overflow: hidden;
+  background: #070807;
+}
+
+.swarmLiveHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.swarmLiveHead h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.swarmLiveHead p {
+  margin: 4px 0 0;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.swarmLiveActions {
+  display: flex;
+  gap: 8px;
+}
+
+.swarmViewOn {
+  border-color: color-mix(in srgb, #b6d475 50%, transparent);
+  color: #b6d475;
+}
+
+.swarmLiveStage {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 12px;
+  min-height: 0;
+  flex: 1;
+}
+
+.swarmGraph {
+  position: relative;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background:
+    radial-gradient(
+      ellipse at 50% 60%,
+      color-mix(in srgb, #b6d475 10%, transparent),
+      transparent 55%
+    ),
+    #080908;
+  overflow: hidden;
+}
+
+.swarmGraph svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.swarmGraph line {
+  stroke: color-mix(in srgb, #b6d475 35%, transparent);
+  stroke-width: 0.4;
+}
+
+.swarmNode {
+  position: absolute;
+  width: 148px;
+  transform: translate(-50%, -50%);
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #0c0d0c;
+  color: var(--text);
+  text-align: left;
+}
+
+.swarmNodeOn,
+.swarmNode:hover {
+  border-color: color-mix(in srgb, #b6d475 55%, transparent);
+}
+
+.swarmNode i {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #8a8d86;
+}
+
+.swarmNode[data-status='running'] i,
+.swarmRosterRail em[data-status='running'] {
+  background: #b6d475;
+  color: #b6d475;
+}
+
+.swarmNode[data-status='stuck'] i,
+.swarmRosterRail em[data-status='stuck'],
+.swarmRosterRail em[data-status='failed'] {
+  background: #ff8f73;
+  color: #ff8f73;
+}
+
+.swarmNode strong,
+.swarmRosterRail strong {
+  font-size: 12px;
+}
+
+.swarmNode span,
+.swarmNode em,
+.swarmRosterRail p {
+  color: var(--text-3);
+  font-size: 11px;
+  font-style: normal;
+  text-transform: capitalize;
+}
+
+.swarmRosterRail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #0c0d0c;
+}
+
+.swarmRosterRail header {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.swarmRosterRail ul {
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+  overflow: auto;
+}
+
+.swarmRosterRail li {
+  margin-bottom: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.swarmRosterRail li > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.swarmRosterRail button {
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px 8px;
+  background: transparent;
+  color: #d27b6a;
+  font-size: 11px;
+}
+
+.swarmDirect {
+  display: grid;
+  grid-template-columns: 160px 1fr auto;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.content:has(.swarmLive) {
+  padding: 0;
+  overflow: hidden;
+}
+
 .swarmMark {
   display: grid;
   width: 36px;
@@ -2587,7 +2775,7 @@ fieldset legend {
 
 .swarmSeatList li {
   display: grid;
-  grid-template-columns: 28px 1fr 160px;
+  grid-template-columns: 28px 1fr 150px auto auto;
   gap: 10px;
   align-items: center;
   margin-bottom: 8px;
@@ -2598,6 +2786,150 @@ fieldset legend {
 
 .swarmSeatList strong {
   text-transform: capitalize;
+}
+
+.swarmRoleChips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 12px;
+}
+
+.swarmRoleChips button,
+.swarmAddSeat {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #0c0d0c;
+  color: var(--text);
+  font-size: 11px;
+  text-transform: capitalize;
+}
+
+.swarmRoleChips em {
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.swarmAddSeat {
+  width: 100%;
+  margin: 4px 0 8px;
+  border-radius: 12px;
+}
+
+.swarmAuto,
+.swarmSeatDrop {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.swarmAutoOn {
+  border-color: color-mix(in srgb, #b6d475 55%, transparent);
+  color: #b6d475;
+}
+
+.swarmSkill {
+  position: relative;
+}
+
+.swarmSkillHead {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 10px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.swarmSkillHead strong {
+  grid-column: 1;
+}
+
+.swarmSkillHead span {
+  grid-column: 1;
+}
+
+.swarmSwitch {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  width: 28px;
+  height: 16px;
+  border-radius: 999px;
+  background: #2a2c2a;
+  position: relative;
+}
+
+.swarmSwitch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #8a8d86;
+}
+
+.swarmSwitchOn {
+  background: color-mix(in srgb, #b6d475 70%, #1a1c16);
+}
+
+.swarmSwitchOn::after {
+  left: 14px;
+  background: #0b0c0b;
+}
+
+.swarmSkillGroup {
+  margin-top: 14px;
+}
+
+.swarmSkillGroup > span {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-3);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.swarmSkillMore,
+.swarmSkillDrop {
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.swarmSkillDrop {
+  color: #d27b6a;
+}
+
+.swarmSkillDirective {
+  margin: 8px 0 0;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.swarmSkillDirective span {
+  display: block;
+  margin-bottom: 4px;
+  color: #b6d475;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .swarmRecap {
@@ -2641,7 +2973,6 @@ fieldset legend {
   padding: 0;
   overflow: auto;
 }
-
 
 /* ---------- ACTIONS ---------- */
 
@@ -4945,7 +5276,6 @@ html.is-fullscreen .spaceHome {
   background: color-mix(in srgb, var(--accent-dim) 25%, transparent);
 }
 
-
 .kanbanCol[data-column='idea'] {
   border-top-color: #8b9288;
 }
@@ -5038,7 +5368,6 @@ html.is-fullscreen .spaceHome {
   opacity: 0.35;
   transform: scale(0.98);
 }
-
 
 .kanbanCol li p {
   min-width: 0;

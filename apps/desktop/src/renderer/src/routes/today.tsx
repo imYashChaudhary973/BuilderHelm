@@ -29,22 +29,18 @@ function StatCard({
       className={`statCard spotlight glare ${accent ? 'starBorder' : ''}`}
     >
       <span>{label}</span>
-      <strong><CountUp value={value} /></strong>
+      <strong>
+        <CountUp value={value} />
+      </strong>
     </div>
   );
 }
 
-function ProjectRow({
-  item,
-}: {
-  readonly item: ProjectDashboard;
-}): React.JSX.Element {
+function ProjectRow({ item }: { readonly item: ProjectDashboard }): React.JSX.Element {
   const nextTask =
     item.tasks.find((task) => task.status === 'in_progress') ??
     item.tasks.find((task) => task.status === 'todo');
-  const projectBlocked = item.tasks.filter(
-    (task) => task.status === 'blocked',
-  ).length;
+  const projectBlocked = item.tasks.filter((task) => task.status === 'blocked').length;
   const spotlight = useSpotlight<HTMLElement>();
   return (
     <article
@@ -121,10 +117,17 @@ export function TodayPage(): React.JSX.Element {
         </div>
       </header>
       <section className="todaySummary" aria-label="Today summary">
-        <StatCard label="Active projects" value={projects.filter((item) => item.project.status === 'active').length} accent />
+        <StatCard
+          label="Active projects"
+          value={projects.filter((item) => item.project.status === 'active').length}
+          accent
+        />
         <StatCard label="In progress" value={inProgress.length} />
         <StatCard label="Blocked" value={blocked.length} />
-        <StatCard label="Repositories" value={projects.filter((item) => item.repository !== null).length} />
+        <StatCard
+          label="Repositories"
+          value={projects.filter((item) => item.repository !== null).length}
+        />
       </section>
       {projects.length === 0 && !dashboard.isLoading ? (
         <section className="todayEmpty">

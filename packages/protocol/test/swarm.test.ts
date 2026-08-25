@@ -4,10 +4,15 @@ import type { BoardAgentDetection } from '../src/board.js';
 import {
   assignSwarmPanes,
   availableSwarmAgents,
+  swarmAddSeat,
   swarmBrief,
+  swarmGraphHub,
+  swarmGraphPoints,
   swarmPaneCommand,
   swarmPresetRoles,
+  swarmRemoveSeat,
   swarmRoleTasks,
+  swarmSeatLabel,
   swarmMemberStatus,
   swarmRunStatus,
   swarmStuckAction,
@@ -21,7 +26,7 @@ function detection(
 }
 
 describe('swarm assignment', () => {
-  it('uses every installed CLI and can fill a crew preset', () => {
+  it('uses every installed CLI and can fill a skiff preset', () => {
     const agents = availableSwarmAgents([
       detection('shell', true),
       detection('claude', true),
@@ -29,10 +34,10 @@ describe('swarm assignment', () => {
       detection('grok', true),
     ]);
     expect(agents).toEqual(['claude', 'grok']);
-    expect(assignSwarmPanes(agents, swarmPresetRoles('recon'))).toEqual([
-      { role: 'coordinator', agentId: 'claude' },
-      { role: 'builder', agentId: 'grok' },
-      { role: 'scout', agentId: 'claude' },
+    expect(assignSwarmPanes(agents, swarmPresetRoles('skiff'))).toEqual([
+      { role: 'coordinator', agentId: 'claude', auto: false },
+      { role: 'builder', agentId: 'grok', auto: false },
+      { role: 'scout', agentId: 'claude', auto: false },
     ]);
   });
 
@@ -40,6 +45,31 @@ describe('swarm assignment', () => {
     expect(assignSwarmPanes(availableSwarmAgents([detection('shell', true)]))).toEqual(
       [],
     );
+  });
+
+  it('adds and removes seats without going past 12', () => {
+    const start = assignSwarmPanes(['grok'], swarmPresetRoles('flagship'));
+    expect(start).toHaveLength(12);
+    expect(swarmAddSeat(start, 'builder', 'grok')).toHaveLength(12);
+    const minus = swarmRemoveSeat(start, 'reviewer');
+    expect(minus.filter((seat) => seat.role === 'reviewer')).toHaveLength(1);
+    expect(swarmAddSeat(minus, 'builder', 'claude').at(-1)).toEqual({
+      role: 'builder',
+      agentId: 'claude',
+      auto: false,
+    });
+  });
+});
+
+describe('swarm graph', () => {
+  it('labels seats by role order and hubs on the coordinator', () => {
+    const roles = swarmPresetRoles('cutter');
+    expect(swarmSeatLabel(roles, 0)).toBe('Coordinator 1');
+    expect(swarmSeatLabel(roles, 2)).toBe('Builder 2');
+    expect(swarmGraphHub(roles)).toBe(0);
+    const points = swarmGraphPoints(roles);
+    expect(points).toHaveLength(5);
+    expect(points[0]!.y).toBeGreaterThan(points[1]!.y);
   });
 });
 
@@ -178,6 +208,8 @@ describe('swarmPaneCommand', () => {
     expect(swarmPaneCommand('opencode', 'review the diff')).toBe(
       "opencode --model openrouter/stealth/ox-alpha --prompt 'review the diff'",
     );
-    expect(swarmPaneCommand('codex', 'x'.repeat(8_000)).length).toBeLessThanOrEqual(4_000);
+    expect(swarmPaneCommand('codex', 'x'.repeat(8_000)).length).toBeLessThanOrEqual(
+      4_000,
+    );
   });
 });

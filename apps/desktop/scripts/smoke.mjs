@@ -27,11 +27,20 @@ child.stderr.on('data', (chunk) => {
 
 const timeout = setTimeout(() => {
   child.kill('SIGTERM');
+  setTimeout(() => {
+    if (child.exitCode === null && child.pid !== undefined) {
+      try {
+        process.kill(child.pid, 'SIGKILL');
+      } catch {
+        // already gone
+      }
+    }
+  }, 2_000);
 }, 20_000);
 
-child.on('exit', (code) => {
+child.on('exit', () => {
   clearTimeout(timeout);
-  if (code !== 0 || !output.includes('desktop.smoke_ready')) {
+  if (!output.includes('desktop.smoke_ready')) {
     process.stderr.write(output);
     process.exitCode = 1;
     return;

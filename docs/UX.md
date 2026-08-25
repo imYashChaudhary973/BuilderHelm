@@ -73,17 +73,38 @@ Stacked workspaces. Opening another Space piles it here. Click to switch.
 
 ### Right sidebar (not built)
 
-| Panel | Job |
-| ----- | --- |
+| Panel   | Job                                                       |
+| ------- | --------------------------------------------------------- |
 | Browser | Preview localhost, docs, or any URL without leaving Exeum |
-| Editor | Drag-and-drop a file or pick one from the tree |
-| Git | Staged changes, history |
-| Skills | Built-in and user skills |
+| Editor  | Drag-and-drop a file or pick one from the tree            |
+| Git     | Staged changes, history                                   |
+| Skills  | Built-in and user skills                                  |
 
-## 6. Other modes (not Space)
+## 6. Swarm
 
-**Swarm**, **Board** (Kanban), and **Memory** are not built. Today's
-Obsidian retrieval is a seed for Memory, not that surface.
+Not a clone of another swarm product. Same jobs, BuilderHelm chrome.
+
+### Setup
+
+Three steps: **Mission → Roster → Launch**. Footer is Back / step / Next.
+
+Roster presets are helm sizes, not military nicknames:
+
+- **3 Skiff**
+- **5 Cutter**
+- **8 Frigate**
+- **12 Flagship**
+
+Launch mode is Safe (ask) or Skip permissions (trusted local folders only).
+Role chips add a seat. Each seat has a CLI, Auto, and remove. Skills are
+grouped (workflow, quality, ops, analysis) and inject a directive into the
+pane brief.
+
+### Live
+
+After launch: graph of seats, roster rail (status, role, CLI, stop one),
+command bar (`@all` or `@seat`), and a Terminals toggle for the existing
+grid. Stop swarm ends every pane.
 
 ## 7. Shortcuts
 

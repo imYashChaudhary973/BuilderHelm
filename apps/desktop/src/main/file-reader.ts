@@ -31,7 +31,10 @@ function insideWorkspace(root: string, target: string): boolean {
   return target === root || target.startsWith(`${root}${sep}`);
 }
 
-function resolveWorkspace(root: string, path = root): { readonly root: string; readonly path: string } {
+function resolveWorkspace(
+  root: string,
+  path = root,
+): { readonly root: string; readonly path: string } {
   let resolvedRoot: string;
   let resolved: string;
   try {
@@ -46,7 +49,10 @@ function resolveWorkspace(root: string, path = root): { readonly root: string; r
     resolvedRoot === '/System' ||
     resolvedRoot === homedir()
   ) {
-    throw new ZeroError('PERMISSION_DENIED', 'Pick a project folder, not your home directory');
+    throw new ZeroError(
+      'PERMISSION_DENIED',
+      'Pick a project folder, not your home directory',
+    );
   }
   if (!insideWorkspace(resolvedRoot, resolved)) {
     throw new ZeroError('PERMISSION_DENIED', 'Path is outside the workspace');
@@ -97,11 +103,7 @@ export function writeEditorFile(root: string, path: string, text: string): Edito
   };
 }
 
-export function listEditorDir(
-  root: string,
-  path = root,
-  hidden = false,
-): EditorEntry[] {
+export function listEditorDir(root: string, path = root, hidden = false): EditorEntry[] {
   const resolved = resolveWorkspace(root, path);
   let stats: Stats;
   try {
@@ -172,9 +174,11 @@ export function searchEditorFiles(
   return matches;
 }
 
-export function listGitChanges(
-  root: string,
-): ReadonlyArray<{ readonly path: string; readonly code: string; readonly staged: boolean }> {
+export function listGitChanges(root: string): ReadonlyArray<{
+  readonly path: string;
+  readonly code: string;
+  readonly staged: boolean;
+}> {
   try {
     const status = execFileSync('git', ['status', '--porcelain=v1'], {
       cwd: root,
@@ -223,7 +227,11 @@ function runGit(root: string, args: readonly string[]): void {
   }
 }
 
-export function stageGitPath(root: string, path: string | undefined, staged: boolean): void {
+export function stageGitPath(
+  root: string,
+  path: string | undefined,
+  staged: boolean,
+): void {
   const workspace = resolveWorkspace(root);
   if (path === undefined) {
     if (staged) runGit(workspace.root, ['add', '-A']);

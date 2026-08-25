@@ -10,7 +10,9 @@ export const secureWebPreferences = {
   webviewTag: false,
 } satisfies WebPreferences;
 
-export function buildContentSecurityPolicy({ dev = false }: { dev?: boolean } = {}): string {
+export function buildContentSecurityPolicy({
+  dev = false,
+}: { dev?: boolean } = {}): string {
   return [
     "default-src 'none'",
     "script-src 'self'",

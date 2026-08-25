@@ -9,29 +9,29 @@ What the repository implements now. Product intent lives in
 
 ## Shipped
 
-| Surface | Capability |
-| --- | --- |
-| Foundation | pnpm workspace, secure Electron boundary, SQLite migrations, typed IPC, observability |
-| Providers | Keychain-backed settings, discovery, audit events |
-| Model gateway | Provider-independent adapters, streaming chat, canonical history |
-| Memory | Left-rail BuilderHelm Memory, local Obsidian indexing, cited answers and source previews |
-| Actions | Schema-backed tools, permissions, approvals, receipts |
-| Projects | Dashboard, Git status and history, Today summary |
-| Space | BuilderHelm Space home, wizard, per-pane agents, live xterm grid |
-| Brand | BuilderHelm name, tagline, helm mark |
-| Chrome | Left feature rail, icon tools panel, 18–60% resize |
-| Browser | Localhost preview, recents, last tab, stage-clipped BrowserView |
-| Editor | Workspace-scoped tree, tabs, save / save-all / autosave, word wrap |
-| Git | Branch, staged vs worktree, history, stage, unstage, commit |
-| Board | Project chooser, independent persisted boards, left-rail project tabs, drag-and-drop stages |
-| Swarm | Four-role run, worktree-or-shared launch, 20-minute budget, nudge-then-stop stuck policy (`feat/swarm`) |
+| Surface       | Capability                                                                                                                                                        |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Foundation    | pnpm workspace, secure Electron boundary, SQLite migrations, typed IPC, observability                                                                             |
+| Providers     | Keychain-backed settings, discovery, audit events                                                                                                                 |
+| Model gateway | Provider-independent adapters, streaming chat, canonical history                                                                                                  |
+| Memory        | Left-rail BuilderHelm Memory, local Obsidian indexing, cited answers and source previews                                                                          |
+| Actions       | Schema-backed tools, permissions, approvals, receipts                                                                                                             |
+| Projects      | Dashboard, Git status and history, Today summary                                                                                                                  |
+| Space         | BuilderHelm Space home, wizard, per-pane agents, live xterm grid                                                                                                  |
+| Brand         | BuilderHelm name, tagline, helm mark                                                                                                                              |
+| Chrome        | Left feature rail, icon tools panel, 18–60% resize                                                                                                                |
+| Browser       | Localhost preview, recents, last tab, stage-clipped BrowserView                                                                                                   |
+| Editor        | Workspace-scoped tree, tabs, save / save-all / autosave, word wrap                                                                                                |
+| Git           | Branch, staged vs worktree, history, stage, unstage, commit                                                                                                       |
+| Board         | Project chooser, independent persisted boards, left-rail project tabs, drag-and-drop stages                                                                       |
+| Swarm         | Mission / roster / launch wizard, Skiff 3 · Cutter 5 · Frigate 8 · Flagship 12, per-seat CLI and Auto, 18 skills, live graph + roster + `@all` bar (`feat/swarm`) |
 
 ## Current application surfaces
 
 - BuilderHelm Space (home, workspace setup, agent pick, live terminals)
 - BuilderHelm Board (multi-project Kanban with isolated tasks and drag and drop)
 - BuilderHelm Memory (private Obsidian recall with inspectable citations)
-- BuilderHelm Swarm (job setup and four-role run; first loop)
+- BuilderHelm Swarm (wizard, helm-size presets, live graph and terminals)
 - App chrome (top bar + left feature rail + tools panel)
 - Browser, editor, and Git tools tabs
 - Provider and model settings
@@ -69,4 +69,4 @@ pnpm smoke:desktop
   executes them.
 - Ready work lands on `main`. Permission or security changes still use a PR.
 - Windows and Linux desktops are not verified yet.
-- Swarm first loop is on `feat/swarm`. Skills, Bridge, and phone pairing are not built yet.
+- Swarm is on `feat/swarm`. Context-file drop, mid-flight roster edits, and Bridge are not built yet.

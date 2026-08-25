@@ -32,12 +32,12 @@ What runs today: [status](docs/STATUS.md). What it is for: [product](docs/PRODUC
 
 ## Modes
 
-| Mode | Status | Job |
-| --- | --- | --- |
-| **Space** | Live | Folder + layout + optional agents → a grid of real terminals |
-| **Swarm** | In progress | One job, four roles, budget and stuck policy |
-| **Board** | Live | Kanban. Not the terminal grid |
-| **Memory** | Live | Private Obsidian recall with citations |
+| Mode       | Status      | Job                                                          |
+| ---------- | ----------- | ------------------------------------------------------------ |
+| **Space**  | Live        | Folder + layout + optional agents → a grid of real terminals |
+| **Swarm**  | In progress | One job, four roles, budget and stuck policy                 |
+| **Board**  | Live        | Kanban. Not the terminal grid                                |
+| **Memory** | Live        | Private Obsidian recall with citations                       |
 
 Chrome that already ships: top bar (Space / Swarm / Board / Memory / Skills / Settings) and a left rail of stacked Spaces.
 
@@ -59,16 +59,16 @@ Provider credentials go in the Keychain, not the repo or SQLite.
 
 ## Commands
 
-| Command | Purpose |
-| --- | --- |
-| `pnpm dev` | Electron development app |
-| `pnpm build` | Production desktop build |
-| `pnpm --filter @zero/desktop dist` | Unsigned `Zero.app` |
-| `pnpm test` | Vitest |
-| `pnpm typecheck` | TypeScript project build |
-| `pnpm lint` | ESLint |
-| `pnpm verify` | Format, lint, types, tests, build |
-| `pnpm smoke:desktop` | Boot-test the built app |
+| Command                            | Purpose                           |
+| ---------------------------------- | --------------------------------- |
+| `pnpm dev`                         | Electron development app          |
+| `pnpm build`                       | Production desktop build          |
+| `pnpm --filter @zero/desktop dist` | Unsigned `Zero.app`               |
+| `pnpm test`                        | Vitest                            |
+| `pnpm typecheck`                   | TypeScript project build          |
+| `pnpm lint`                        | ESLint                            |
+| `pnpm verify`                      | Format, lint, types, tests, build |
+| `pnpm smoke:desktop`               | Boot-test the built app           |
 
 ---
 
@@ -96,16 +96,16 @@ docs/                   Product, status, ADRs
 
 ## Documentation
 
-| Document | What it covers |
-| --- | --- |
-| [Status](docs/STATUS.md) | What the code does now |
-| [Product](docs/PRODUCT.md) | Modes, principles, naming |
-| [UX](docs/UX.md) | Home, Space wizard, chrome |
-| [Stack](docs/STACK.md) | TypeScript + Electron. Not a Rust rewrite |
-| [Roadmap](docs/ROADMAP.md) | Build order |
-| [Settings](docs/SETTINGS.md) | Intended settings IA |
-| [Agent rules](AGENTS.md) | Worktrees, commit, land |
-| [ADRs](docs/adr/README.md) | Accepted engineering decisions |
+| Document                     | What it covers                            |
+| ---------------------------- | ----------------------------------------- |
+| [Status](docs/STATUS.md)     | What the code does now                    |
+| [Product](docs/PRODUCT.md)   | Modes, principles, naming                 |
+| [UX](docs/UX.md)             | Home, Space wizard, chrome                |
+| [Stack](docs/STACK.md)       | TypeScript + Electron. Not a Rust rewrite |
+| [Roadmap](docs/ROADMAP.md)   | Build order                               |
+| [Settings](docs/SETTINGS.md) | Intended settings IA                      |
+| [Agent rules](AGENTS.md)     | Worktrees, commit, land                   |
+| [ADRs](docs/adr/README.md)   | Accepted engineering decisions            |
 
 ---
 

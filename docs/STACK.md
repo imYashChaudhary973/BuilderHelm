@@ -24,11 +24,11 @@ nothing like that test surface to catch "looks compiled, terminals still dead."
 
 ## Platforms
 
-| Surface | Now | Later |
-| --- | --- | --- |
-| macOS desktop | Electron + TypeScript. Supported. | Same. |
+| Surface                 | Now                                                           | Later                                                                 |
+| ----------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------- |
+| macOS desktop           | Electron + TypeScript. Supported.                             | Same.                                                                 |
 | Windows / Linux desktop | Same repo. node-pty uses ConPTY on Windows. Not verified yet. | Same Electron binary. Fix PTY/env/rebuild per OS. Do not fork the UI. |
-| iOS / Android | Not built. | Pairing companion only. Not a second Exeum. |
+| iOS / Android           | Not built.                                                    | Pairing companion only. Not a second Exeum.                           |
 
 The phone is a remote: start/stop a Space, see status, maybe a read-only
 terminal stream. PTY, Git, Keychain, and model keys stay on the desktop.
@@ -56,11 +56,11 @@ app until Electron cannot ship Windows/Linux.
 
 ## Alternatives rejected
 
-| Option | Why not |
-| --- | --- |
-| Full Rust + Tauri rewrite | Rebuilds Space, xterm, IPC, Keychain. Months. |
-| Flutter / Swift / Kotlin as the desktop | Second UI. No gain for a web-shaped harness. |
-| One Tauri binary for desktop + phone | Phone does not need the desktop engine. |
+| Option                                  | Why not                                       |
+| --------------------------------------- | --------------------------------------------- |
+| Full Rust + Tauri rewrite               | Rebuilds Space, xterm, IPC, Keychain. Months. |
+| Flutter / Swift / Kotlin as the desktop | Second UI. No gain for a web-shaped harness.  |
+| One Tauri binary for desktop + phone    | Phone does not need the desktop engine.       |
 
 ## Rule
 

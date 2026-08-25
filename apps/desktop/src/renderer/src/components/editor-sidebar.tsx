@@ -13,7 +13,9 @@ const WRAP_KEY = 'exeum.editor.wrap';
 
 function workspaceFolder(spaces: ReturnType<typeof useSpaces>): string | null {
   if (spaces.draft || spaces.activeId === null) return null;
-  return spaces.spaces.find((item) => item.sessionId === spaces.activeId)?.folderPath ?? null;
+  return (
+    spaces.spaces.find((item) => item.sessionId === spaces.activeId)?.folderPath ?? null
+  );
 }
 
 function folderName(path: string): string {
@@ -35,8 +37,18 @@ function IconPlus(): React.JSX.Element {
 function IconFolderPlus(): React.JSX.Element {
   return (
     <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
-      <path d="M2.5 5.5h4l1 1.5h6v6h-11z" fill="none" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M8 8.2v3.2M6.4 9.8h3.2" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path
+        d="M2.5 5.5h4l1 1.5h6v6h-11z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+      />
+      <path
+        d="M8 8.2v3.2M6.4 9.8h3.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.3"
+      />
     </svg>
   );
 }
@@ -44,7 +56,12 @@ function IconFolderPlus(): React.JSX.Element {
 function IconReset(): React.JSX.Element {
   return (
     <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
-      <path d="M3.5 8a4.5 4.5 0 1 0 1.2-3" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path
+        d="M3.5 8a4.5 4.5 0 1 0 1.2-3"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+      />
       <path d="M3 3.5v3h3" fill="none" stroke="currentColor" strokeWidth="1.4" />
     </svg>
   );
@@ -63,7 +80,12 @@ function IconInfoOff(): React.JSX.Element {
   return (
     <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
       <circle cx="8" cy="8" r="5.4" fill="none" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M8 7.2v4M8 5.2v.6M4 12.5 12.5 4" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M8 7.2v4M8 5.2v.6M4 12.5 12.5 4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
     </svg>
   );
 }
@@ -71,7 +93,16 @@ function IconInfoOff(): React.JSX.Element {
 function IconSidebar(): React.JSX.Element {
   return (
     <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
-      <rect x="2.5" y="3.5" width="11" height="9" rx="1.4" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <rect
+        x="2.5"
+        y="3.5"
+        width="11"
+        height="9"
+        rx="1.4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+      />
       <path d="M6.5 3.5v9" fill="none" stroke="currentColor" strokeWidth="1.4" />
     </svg>
   );
@@ -118,7 +149,9 @@ function DirList({
           <li key={entry.path}>
             <button
               type="button"
-              className={entry.path === activePath ? 'editorNode editorNodeOn' : 'editorNode'}
+              className={
+                entry.path === activePath ? 'editorNode editorNodeOn' : 'editorNode'
+              }
               onClick={() => {
                 if (entry.kind === 'dir') {
                   setOpen((current) => {
@@ -164,7 +197,9 @@ export function EditorSidebar(): React.JSX.Element {
   const [hits, setHits] = useState<EditorEntry[]>([]);
   const [creating, setCreating] = useState<'file' | 'dir' | null>(null);
   const [newName, setNewName] = useState('');
-  const [autosave, setAutosave] = useState(() => localStorage.getItem(AUTOSAVE_KEY) === '1');
+  const [autosave, setAutosave] = useState(
+    () => localStorage.getItem(AUTOSAVE_KEY) === '1',
+  );
   const [wrap, setWrap] = useState(() => localStorage.getItem(WRAP_KEY) === '1');
   const [treeOpen, setTreeOpen] = useState(true);
   const active = docs.find((doc) => doc.file.path === activePath) ?? null;
@@ -308,7 +343,10 @@ export function EditorSidebar(): React.JSX.Element {
     );
   }
   return (
-    <aside className={treeOpen ? 'editorSide' : 'editorSide editorSideTreeOff'} aria-label="Editor">
+    <aside
+      className={treeOpen ? 'editorSide' : 'editorSide editorSideTreeOff'}
+      aria-label="Editor"
+    >
       <div className="editorTreeRail">
         <button
           type="button"
@@ -425,10 +463,18 @@ export function EditorSidebar(): React.JSX.Element {
           )}
         </div>
         <div className="editorToolbar">
-          <button type="button" disabled={active === null} onClick={() => void saveActive()}>
+          <button
+            type="button"
+            disabled={active === null}
+            onClick={() => void saveActive()}
+          >
             Save
           </button>
-          <button type="button" disabled={dirtyCount === 0} onClick={() => void saveAll()}>
+          <button
+            type="button"
+            disabled={dirtyCount === 0}
+            onClick={() => void saveAll()}
+          >
             Save all
           </button>
           <label className="editorAuto">

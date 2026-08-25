@@ -156,15 +156,12 @@ function ipcError(error: unknown): {
     };
   }
   const normalized = normalizeError(error);
-  const detail = error instanceof Error ? error.message : '';
   return {
     code: normalized.code,
     message:
       error instanceof ZeroError
         ? normalized.message
-        : detail.length > 0
-          ? detail
-          : 'The request could not be completed',
+        : 'The request could not be completed',
     retryable: normalized.retryable,
   };
 }

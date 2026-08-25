@@ -5,7 +5,9 @@ import { useSpaces } from '../space-store.js';
 
 function workspaceFolder(spaces: ReturnType<typeof useSpaces>): string | null {
   if (spaces.draft || spaces.activeId === null) return null;
-  return spaces.spaces.find((item) => item.sessionId === spaces.activeId)?.folderPath ?? null;
+  return (
+    spaces.spaces.find((item) => item.sessionId === spaces.activeId)?.folderPath ?? null
+  );
 }
 
 function fileName(path: string): string {
@@ -227,7 +229,10 @@ export function GitSidebar(): React.JSX.Element {
           disabled={busy || staged.length === 0}
           onChange={(event) => setMessage(event.target.value)}
         />
-        <button type="submit" disabled={busy || staged.length === 0 || message.trim().length === 0}>
+        <button
+          type="submit"
+          disabled={busy || staged.length === 0 || message.trim().length === 0}
+        >
           Commit
         </button>
       </form>

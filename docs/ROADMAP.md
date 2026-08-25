@@ -19,9 +19,13 @@ Git snapshots, PTY grid, app chrome.
 
 ## Next — Swarm
 
-On `feat/swarm`: one job, four roles, worktree per role when the folder is a
-git repo (shared folder otherwise), 20-minute budget, 90s silence → nudge →
-stop that pane. Richer coordinator policy comes after this works in the app.
+On `feat/swarm`: Mission / Roster / Launch, then a live graph of the seats.
+Presets are **Skiff 3**, **Cutter 5**, **Frigate 8**, **Flagship 12**.
+Worktree per seat when the folder is a git repo (shared folder otherwise).
+20-minute budget, 90s silence → nudge → stop that pane.
+
+Still open after the live graph: context files, editable skill directives,
+mid-flight add/remove, Plan / Activity tabs.
 
 ## Future directions — delegate and build
 

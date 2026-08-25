@@ -77,7 +77,9 @@ function SpaceStepper({ step }: { readonly step: 1 | 2 | 3 }): React.JSX.Element
       {items.map((item) => (
         <li
           key={item.n}
-          className={item.n < step ? 'spaceStepperDone' : item.n === step ? 'spaceStepperOn' : ''}
+          className={
+            item.n < step ? 'spaceStepperDone' : item.n === step ? 'spaceStepperOn' : ''
+          }
         >
           <i>{item.n < step ? '✓' : item.n}</i>
           {item.label}
@@ -87,7 +89,11 @@ function SpaceStepper({ step }: { readonly step: 1 | 2 | 3 }): React.JSX.Element
   );
 }
 
-function ModeGlyph({ id }: { readonly id: (typeof MODES)[number]['id'] }): React.JSX.Element {
+function ModeGlyph({
+  id,
+}: {
+  readonly id: (typeof MODES)[number]['id'];
+}): React.JSX.Element {
   if (id === 'space') {
     return (
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -105,9 +111,30 @@ function ModeGlyph({ id }: { readonly id: (typeof MODES)[number]['id'] }): React
   if (id === 'swarm') {
     return (
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-        <circle cx="12" cy="6.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-        <circle cx="6.8" cy="16.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-        <circle cx="17.2" cy="16.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+        <circle
+          cx="12"
+          cy="6.5"
+          r="2"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        />
+        <circle
+          cx="6.8"
+          cy="16.5"
+          r="2"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        />
+        <circle
+          cx="17.2"
+          cy="16.5"
+          r="2"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        />
         <path
           d="M10.4 8.1 8.2 14.4M13.6 8.1l2.2 6.3M8.8 16.5h6.4"
           fill="none"
@@ -120,18 +147,64 @@ function ModeGlyph({ id }: { readonly id: (typeof MODES)[number]['id'] }): React
   if (id === 'board') {
     return (
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-        <rect x="4.5" y="5.5" width="4" height="13" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-        <rect x="10" y="5.5" width="4" height="8.5" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-        <rect x="15.5" y="5.5" width="4" height="11" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+        <rect
+          x="4.5"
+          y="5.5"
+          width="4"
+          height="13"
+          rx="1.2"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        />
+        <rect
+          x="10"
+          y="5.5"
+          width="4"
+          height="8.5"
+          rx="1.2"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        />
+        <rect
+          x="15.5"
+          y="5.5"
+          width="4"
+          height="11"
+          rx="1.2"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        />
       </svg>
     );
   }
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
       <circle cx="7" cy="12" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-      <circle cx="17" cy="7.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-      <circle cx="17" cy="16.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-      <path d="M9 12h6M15.2 8.8 9 11.3M15.2 15.2 9 12.7" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <circle
+        cx="17"
+        cy="7.5"
+        r="2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <circle
+        cx="17"
+        cy="16.5"
+        r="2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M9 12h6M15.2 8.8 9 11.3M15.2 15.2 9 12.7"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
     </svg>
   );
 }
@@ -139,8 +212,22 @@ function ModeGlyph({ id }: { readonly id: (typeof MODES)[number]['id'] }): React
 function LockGlyph(): React.JSX.Element {
   return (
     <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
-      <rect x="6.5" y="11" width="11" height="8.5" rx="1.6" fill="none" stroke="currentColor" strokeWidth="1.7" />
-      <path d="M9 11V8.4a3 3 0 0 1 6 0V11" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <rect
+        x="6.5"
+        y="11"
+        width="11"
+        height="8.5"
+        rx="1.6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M9 11V8.4a3 3 0 0 1 6 0V11"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
     </svg>
   );
 }
@@ -170,10 +257,10 @@ function readRecents(): string[] {
 }
 
 function writeRecents(folderPath: string): string[] {
-  const next = [
-    folderPath,
-    ...readRecents().filter((item) => item !== folderPath),
-  ].slice(0, 8);
+  const next = [folderPath, ...readRecents().filter((item) => item !== folderPath)].slice(
+    0,
+    8,
+  );
   localStorage.setItem(RECENTS_KEY, JSON.stringify(next));
   return next;
 }
@@ -253,9 +340,7 @@ export function BoardPage(): React.JSX.Element {
   const [maximizedBySession, setMaximizedBySession] = useState<
     Record<string, number | null>
   >({});
-  const [exitedBySession, setExitedBySession] = useState<Record<string, string[]>>(
-    {},
-  );
+  const [exitedBySession, setExitedBySession] = useState<Record<string, string[]>>({});
   const [agentCounts, setAgentCounts] = useState<Partial<Record<BoardAgentId, number>>>(
     {},
   );
@@ -327,7 +412,6 @@ export function BoardPage(): React.JSX.Element {
 
   const folderReady = folderPath.trim().length > 0 || cdInput.trim().length > 0;
 
-
   const launch = useMutation({
     mutationFn: (input: BoardCreateInput) => window.zero.board.createSession(input),
     onMutate: () => setError(null),
@@ -341,7 +425,10 @@ export function BoardPage(): React.JSX.Element {
     onError: (cause: Error) => setError(cause.message),
   });
 
-  function launchSpace(nextSlots: Record<number, SlotConfig>, nextIsolation: BoardIsolation): void {
+  function launchSpace(
+    nextSlots: Record<number, SlotConfig>,
+    nextIsolation: BoardIsolation,
+  ): void {
     setSlots(nextSlots);
     const panes: BoardPaneSpec[] = [];
     for (let slot = 0; slot < paneCount; slot += 1) {
@@ -407,7 +494,6 @@ export function BoardPage(): React.JSX.Element {
     },
     onError: (cause: Error) => setLandNotice(cause.message),
   });
-
 
   async function browse(): Promise<void> {
     setError(null);
@@ -518,10 +604,15 @@ export function BoardPage(): React.JSX.Element {
       .filter((pane) => !maximized || pane.slot === maximizedSlot);
 
     return (
-      <section className="boardPage" aria-labelledby="board-title" data-core-status="ready">
+      <section
+        className="boardPage"
+        aria-labelledby="board-title"
+        data-core-status="ready"
+      >
         <div className="boardToolbar">
           <h1 id="board-title">
-            BuilderHelm Space · {folderName(session.folderPath)} · {session.paneCount} terminals
+            BuilderHelm Space · {folderName(session.folderPath)} · {session.paneCount}{' '}
+            terminals
           </h1>
           <button
             className="secondaryButton"
@@ -596,7 +687,11 @@ export function BoardPage(): React.JSX.Element {
 
   if (phase === 'home') {
     return (
-      <section className="spaceStage" aria-labelledby="space-home-title" data-core-status="ready">
+      <section
+        className="spaceStage"
+        aria-labelledby="space-home-title"
+        data-core-status="ready"
+      >
         <SignalField />
         <div className="spaceHome">
           <div className="spaceHomeBrand">
@@ -678,9 +773,7 @@ export function BoardPage(): React.JSX.Element {
   if (phase === 'agents') {
     const visibleAgents = AI_AGENTS.filter(
       (entry) =>
-        entry.id === 'custom' ||
-        showMoreAgents ||
-        FEATURED_AGENT_IDS.includes(entry.id),
+        entry.id === 'custom' || showMoreAgents || FEATURED_AGENT_IDS.includes(entry.id),
     );
     const hiddenCount = AI_AGENTS.filter(
       (entry) => entry.id !== 'custom' && !FEATURED_AGENT_IDS.includes(entry.id),
@@ -689,150 +782,329 @@ export function BoardPage(): React.JSX.Element {
     const canOpen =
       taken > 0 && (customAssigned === 0 || customCommand.trim().length > 0);
     return (
-      <section className="spaceStage" aria-labelledby="space-agents-title" data-core-status="ready">
+      <section
+        className="spaceStage"
+        aria-labelledby="space-agents-title"
+        data-core-status="ready"
+      >
         <SignalField />
         <div className="boardPage spaceWizard spaceAgents">
-        <SpaceStepper step={3} />
-        <h1 id="space-agents-title">Add AI coding agents</h1>
-        <p className="lede">
-          Pick which agents launch in your {paneCount} terminal
-          {paneCount === 1 ? '' : 's'} — or skip this step entirely.
-        </p>
-        <div className="wizardSection">
-          <span className="wizardLabel">
-            Agents <span>Pick who launches in your {paneCount} terminals</span>
-          </span>
-          <div className="agentProgress">
-            <strong>
-              {taken} / {paneCount}
-            </strong>
-            <span className="agentProgressTrack" aria-hidden="true">
-              <span
-                className="agentProgressFill"
-                style={{ width: `${(taken / paneCount) * 100}%` }}
-              />
+          <SpaceStepper step={3} />
+          <h1 id="space-agents-title">Add AI coding agents</h1>
+          <p className="lede">
+            Pick which agents launch in your {paneCount} terminal
+            {paneCount === 1 ? '' : 's'} — or skip this step entirely.
+          </p>
+          <div className="wizardSection">
+            <span className="wizardLabel">
+              Agents <span>Pick who launches in your {paneCount} terminals</span>
             </span>
-            <em>{taken === 0 ? 'No agents yet' : `${remaining} left`}</em>
-          </div>
-          <div className="agentQuick">
-            <span>Quick fill</span>
-            <button type="button" className="chip" onClick={() => fillAgents('all')}>
-              Enable all
-            </button>
-            <button type="button" className="chip" onClick={() => fillAgents('one')}>
-              One of each
-            </button>
-            <button type="button" className="chip" onClick={() => fillAgents('split')}>
-              Split evenly
-            </button>
-          </div>
-        <div className="agentGrid">
-          {visibleAgents
-            .filter((entry) => entry.id !== 'custom')
-            .map((entry) => {
-              const count = agentCounts[entry.id] ?? 0;
-              return (
-                <div
-                  className={`agentRow${count > 0 ? ' agentRowOn' : ''}`}
-                  key={entry.id}
+            <div className="agentProgress">
+              <strong>
+                {taken} / {paneCount}
+              </strong>
+              <span className="agentProgressTrack" aria-hidden="true">
+                <span
+                  className="agentProgressFill"
+                  style={{ width: `${(taken / paneCount) * 100}%` }}
+                />
+              </span>
+              <em>{taken === 0 ? 'No agents yet' : `${remaining} left`}</em>
+            </div>
+            <div className="agentQuick">
+              <span>Quick fill</span>
+              <button type="button" className="chip" onClick={() => fillAgents('all')}>
+                Enable all
+              </button>
+              <button type="button" className="chip" onClick={() => fillAgents('one')}>
+                One of each
+              </button>
+              <button type="button" className="chip" onClick={() => fillAgents('split')}>
+                Split evenly
+              </button>
+            </div>
+            <div className="agentGrid">
+              {visibleAgents
+                .filter((entry) => entry.id !== 'custom')
+                .map((entry) => {
+                  const count = agentCounts[entry.id] ?? 0;
+                  return (
+                    <div
+                      className={`agentRow${count > 0 ? ' agentRowOn' : ''}`}
+                      key={entry.id}
+                    >
+                      <AgentMark
+                        id={entry.id}
+                        on={count > 0}
+                        onClick={() => setAgentCount(entry.id, count > 0 ? 0 : 1)}
+                      />
+                      <span className="agentName">{entry.label}</span>
+                      <button
+                        type="button"
+                        className="agentAll"
+                        onClick={() => setAgentCounts({ [entry.id]: paneCount })}
+                      >
+                        All
+                      </button>
+                      <div className="agentStepper">
+                        <button
+                          type="button"
+                          disabled={count === 0}
+                          onClick={() => setAgentCount(entry.id, count - 1)}
+                        >
+                          −
+                        </button>
+                        <strong>{count}</strong>
+                        <button
+                          type="button"
+                          disabled={remaining === 0}
+                          onClick={() => setAgentCount(entry.id, count + 1)}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+            {!showMoreAgents && hiddenCount > 0 && (
+              <button
+                type="button"
+                className="agentMore"
+                onClick={() => setShowMoreAgents(true)}
+              >
+                Show {hiddenCount} more agents
+              </button>
+            )}
+            <div className={`agentCustom${customAssigned > 0 ? ' agentRowOn' : ''}`}>
+              <div className="agentRow">
+                <AgentMark
+                  id="custom"
+                  on={customAssigned > 0}
+                  onClick={() => setAgentCount('custom', customAssigned > 0 ? 0 : 1)}
+                />
+                <span className="agentName">
+                  Custom command
+                  <small>Any CLI agent or shell command</small>
+                </span>
+                <button
+                  type="button"
+                  className="agentAll"
+                  onClick={() => setAgentCounts({ custom: paneCount })}
                 >
-                  <AgentMark
-                    id={entry.id}
-                    on={count > 0}
-                    onClick={() => setAgentCount(entry.id, count > 0 ? 0 : 1)}
-                  />
-                  <span className="agentName">{entry.label}</span>
+                  All
+                </button>
+                <div className="agentStepper">
                   <button
                     type="button"
-                    className="agentAll"
-                    onClick={() => setAgentCounts({ [entry.id]: paneCount })}
+                    disabled={customAssigned === 0}
+                    onClick={() => setAgentCount('custom', customAssigned - 1)}
                   >
-                    All
+                    −
                   </button>
-                  <div className="agentStepper">
-                    <button
-                      type="button"
-                      disabled={count === 0}
-                      onClick={() => setAgentCount(entry.id, count - 1)}
-                    >
-                      −
-                    </button>
-                    <strong>{count}</strong>
-                    <button
-                      type="button"
-                      disabled={remaining === 0}
-                      onClick={() => setAgentCount(entry.id, count + 1)}
-                    >
-                      +
-                    </button>
-                  </div>
+                  <strong>{customAssigned}</strong>
+                  <button
+                    type="button"
+                    disabled={remaining === 0}
+                    onClick={() => setAgentCount('custom', customAssigned + 1)}
+                  >
+                    +
+                  </button>
                 </div>
-              );
-            })}
-        </div>
-        {!showMoreAgents && hiddenCount > 0 && (
-          <button
-            type="button"
-            className="agentMore"
-            onClick={() => setShowMoreAgents(true)}
-          >
-            Show {hiddenCount} more agents
-          </button>
-        )}
-        <div className={`agentCustom${customAssigned > 0 ? ' agentRowOn' : ''}`}>
-          <div className="agentRow">
-            <AgentMark
-              id="custom"
-              on={customAssigned > 0}
-              onClick={() => setAgentCount('custom', customAssigned > 0 ? 0 : 1)}
-            />
-            <span className="agentName">
-              Custom command
-              <small>Any CLI agent or shell command</small>
-            </span>
+              </div>
+              <input
+                type="text"
+                placeholder="e.g. aider --yes-always"
+                value={customCommand}
+                onChange={(event) => setCustomCommand(event.target.value)}
+              />
+            </div>
+          </div>
+          {error !== null && (
+            <p className="wizardError" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="spaceWizardFooter">
             <button
+              className="secondaryButton"
               type="button"
-              className="agentAll"
-              onClick={() => setAgentCounts({ custom: paneCount })}
+              onClick={() => setPhase('workspace')}
             >
-              All
+              Back
             </button>
-            <div className="agentStepper">
+            <div className="spaceWizardActions">
               <button
+                className="secondaryButton"
                 type="button"
-                disabled={customAssigned === 0}
-                onClick={() => setAgentCount('custom', customAssigned - 1)}
+                disabled={!folderReady || launch.isPending}
+                onClick={() => launchSpace(shellSlots(paneCount), 'shared')}
               >
-                −
+                Skip — no agents
               </button>
-              <strong>{customAssigned}</strong>
               <button
+                className="primaryButton"
                 type="button"
-                disabled={remaining === 0}
-                onClick={() => setAgentCount('custom', customAssigned + 1)}
+                disabled={!folderReady || !canOpen || launch.isPending}
+                onClick={() => launchSpace(slotsFromCounts(), 'shared')}
               >
-                +
+                {canOpen ? 'Open Space' : 'Pick at least one agent'}
               </button>
             </div>
           </div>
-          <input
-            type="text"
-            placeholder="e.g. aider --yes-always"
-            value={customCommand}
-            onChange={(event) => setCustomCommand(event.target.value)}
-          />
         </div>
+      </section>
+    );
+  }
+
+  return (
+    <section
+      className="spaceStage"
+      aria-labelledby="space-setup-title"
+      data-core-status="ready"
+    >
+      <SignalField />
+      <div className="boardPage spaceWizard">
+        <SpaceStepper step={2} />
+        <h1 id="space-setup-title">Set up your workspace</h1>
+        <p className="lede">
+          Pick a folder to work in and choose how many terminals you want.
+        </p>
+
+        <div className="wizardSection">
+          <label className="wizardLabel" htmlFor="board-folder">
+            Working folder <span>Where your terminals will start</span>
+          </label>
+          <div className="folderRow">
+            <input
+              id="board-folder"
+              type="text"
+              value={folderPath}
+              placeholder="Browse to a project folder"
+              onChange={(event) => setFolderPath(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' || !looksLikeCd(folderPath)) return;
+                event.preventDefault();
+                setFolderPath(resolveFolder(homeDir, folderPath, homeDir));
+              }}
+            />
+            <button
+              className="secondaryButton"
+              type="button"
+              onClick={() => void browse()}
+            >
+              Browse…
+            </button>
+          </div>
+          <div className="folderRow">
+            <input
+              type="text"
+              value={cdInput}
+              placeholder="cd Developer"
+              onChange={(event) => setCdInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && cdInput.trim().length > 0) {
+                  setFolderPath(resolveFolder(folderPath, cdInput, homeDir));
+                  setCdInput('');
+                }
+              }}
+            />
+          </div>
         </div>
+
+        <div className="wizardSection">
+          <div className="wizardLabelRow">
+            <span className="wizardLabel">
+              How many terminals? <span>Tap a tile to choose a layout</span>
+            </span>
+            <small>
+              {paneCount} terminal{paneCount === 1 ? '' : 's'} ·{' '}
+              {boardGridLayouts[paneCount].cols}×{boardGridLayouts[paneCount].rows} grid
+            </small>
+          </div>
+          <div className="layoutTiles">
+            {PANE_COUNTS.map((count) => {
+              const layout = boardGridLayouts[count];
+              return (
+                <button
+                  key={count}
+                  type="button"
+                  className={`layoutTile${count === paneCount ? ' layoutTileActive' : ''}`}
+                  onClick={() => changePaneCount(count)}
+                >
+                  <span
+                    className="layoutPreview"
+                    style={{
+                      gridTemplateColumns: `repeat(${layout.cols}, 1fr)`,
+                      gridTemplateRows: `repeat(${layout.rows}, 1fr)`,
+                    }}
+                  >
+                    {Array.from({ length: count }, (_, index) => (
+                      <i key={index} />
+                    ))}
+                  </span>
+                  {count}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {(recents.length > 0 || projectRecents.length > 0) && (
+          <div className="wizardSection">
+            <span className="wizardLabel">
+              Recent <span>Last opened workspaces</span>
+            </span>
+            <div className="recentCards">
+              {recents.map((path) => (
+                <button
+                  key={path}
+                  type="button"
+                  className={`recentCard${folderPath === path ? ' recentCardActive' : ''}`}
+                  onClick={() => setFolderPath(path)}
+                >
+                  <span>
+                    <strong>{folderName(path)}</strong>
+                    <small>{path}</small>
+                  </span>
+                </button>
+              ))}
+              {projectRecents.map((item) => {
+                const repo = item.repository;
+                if (repo === null) return null;
+                return (
+                  <button
+                    key={item.project.id}
+                    type="button"
+                    className={`recentCard${folderPath === repo.rootPath ? ' recentCardActive' : ''}`}
+                    onClick={() => setFolderPath(repo.rootPath)}
+                  >
+                    <span>
+                      <strong>{repo.directoryName}</strong>
+                      <small>{repo.rootPath}</small>
+                    </span>
+                    <em>{item.tasks.length}</em>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {error !== null && (
           <p className="wizardError" role="alert">
             {error}
           </p>
         )}
+
         <div className="spaceWizardFooter">
           <button
             className="secondaryButton"
             type="button"
-            onClick={() => setPhase('workspace')}
+            onClick={() => {
+              spaceStore.hideSetup();
+              setPhase('home');
+            }}
           >
             Back
           </button>
@@ -843,183 +1115,18 @@ export function BoardPage(): React.JSX.Element {
               disabled={!folderReady || launch.isPending}
               onClick={() => launchSpace(shellSlots(paneCount), 'shared')}
             >
-              Skip — no agents
+              Open without AI
             </button>
             <button
               className="primaryButton"
               type="button"
-              disabled={!folderReady || !canOpen || launch.isPending}
-              onClick={() => launchSpace(slotsFromCounts(), 'shared')}
+              disabled={!folderReady}
+              onClick={() => setPhase('agents')}
             >
-              {canOpen ? 'Open Space' : 'Pick at least one agent'}
+              Next: Add AI agents
             </button>
           </div>
         </div>
-        </div>
-      </section>
-    );
-  }
-
-  return (
-    <section className="spaceStage" aria-labelledby="space-setup-title" data-core-status="ready">
-      <SignalField />
-      <div className="boardPage spaceWizard">
-      <SpaceStepper step={2} />
-      <h1 id="space-setup-title">Set up your workspace</h1>
-      <p className="lede">Pick a folder to work in and choose how many terminals you want.</p>
-
-      <div className="wizardSection">
-        <label className="wizardLabel" htmlFor="board-folder">
-          Working folder <span>Where your terminals will start</span>
-        </label>
-        <div className="folderRow">
-          <input
-            id="board-folder"
-            type="text"
-            value={folderPath}
-            placeholder="Browse to a project folder"
-            onChange={(event) => setFolderPath(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== 'Enter' || !looksLikeCd(folderPath)) return;
-              event.preventDefault();
-              setFolderPath(resolveFolder(homeDir, folderPath, homeDir));
-            }}
-          />
-          <button className="secondaryButton" type="button" onClick={() => void browse()}>
-            Browse…
-          </button>
-        </div>
-        <div className="folderRow">
-          <input
-            type="text"
-            value={cdInput}
-            placeholder="cd Developer"
-            onChange={(event) => setCdInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && cdInput.trim().length > 0) {
-                setFolderPath(resolveFolder(folderPath, cdInput, homeDir));
-                setCdInput('');
-              }
-            }}
-          />
-        </div>
-      </div>
-
-      <div className="wizardSection">
-        <div className="wizardLabelRow">
-          <span className="wizardLabel">
-            How many terminals? <span>Tap a tile to choose a layout</span>
-          </span>
-          <small>
-            {paneCount} terminal{paneCount === 1 ? '' : 's'} · {boardGridLayouts[paneCount].cols}×
-            {boardGridLayouts[paneCount].rows} grid
-          </small>
-        </div>
-        <div className="layoutTiles">
-          {PANE_COUNTS.map((count) => {
-            const layout = boardGridLayouts[count];
-            return (
-              <button
-                key={count}
-                type="button"
-                className={`layoutTile${count === paneCount ? ' layoutTileActive' : ''}`}
-                onClick={() => changePaneCount(count)}
-              >
-                <span
-                  className="layoutPreview"
-                  style={{
-                    gridTemplateColumns: `repeat(${layout.cols}, 1fr)`,
-                    gridTemplateRows: `repeat(${layout.rows}, 1fr)`,
-                  }}
-                >
-                  {Array.from({ length: count }, (_, index) => (
-                    <i key={index} />
-                  ))}
-                </span>
-                {count}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {(recents.length > 0 || projectRecents.length > 0) && (
-        <div className="wizardSection">
-          <span className="wizardLabel">
-            Recent <span>Last opened workspaces</span>
-          </span>
-          <div className="recentCards">
-            {recents.map((path) => (
-              <button
-                key={path}
-                type="button"
-                className={`recentCard${folderPath === path ? ' recentCardActive' : ''}`}
-                onClick={() => setFolderPath(path)}
-              >
-                <span>
-                  <strong>{folderName(path)}</strong>
-                  <small>{path}</small>
-                </span>
-              </button>
-            ))}
-            {projectRecents.map((item) => {
-              const repo = item.repository;
-              if (repo === null) return null;
-              return (
-                <button
-                  key={item.project.id}
-                  type="button"
-                  className={`recentCard${folderPath === repo.rootPath ? ' recentCardActive' : ''}`}
-                  onClick={() => setFolderPath(repo.rootPath)}
-                >
-                  <span>
-                    <strong>{repo.directoryName}</strong>
-                    <small>{repo.rootPath}</small>
-                  </span>
-                  <em>{item.tasks.length}</em>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {error !== null && (
-        <p className="wizardError" role="alert">
-          {error}
-        </p>
-      )}
-
-      <div className="spaceWizardFooter">
-        <button
-          className="secondaryButton"
-          type="button"
-          onClick={() => {
-            spaceStore.hideSetup();
-            setPhase('home');
-          }}
-        >
-          Back
-        </button>
-        <div className="spaceWizardActions">
-          <button
-            className="secondaryButton"
-            type="button"
-            disabled={!folderReady || launch.isPending}
-            onClick={() => launchSpace(shellSlots(paneCount), 'shared')}
-          >
-            Open without AI
-          </button>
-          <button
-            className="primaryButton"
-            type="button"
-            disabled={!folderReady}
-            onClick={() => setPhase('agents')}
-          >
-            Next: Add AI agents
-          </button>
-        </div>
-      </div>
       </div>
     </section>
   );

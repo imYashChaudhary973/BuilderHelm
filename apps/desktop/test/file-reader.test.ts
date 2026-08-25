@@ -1,6 +1,6 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
 
@@ -16,11 +16,10 @@ describe('readEditorFile', () => {
     try {
       const small = join(dir, 'note.txt');
       writeFileSync(small, 'hello');
-      expect(readEditorFile(small)).toEqual({
-        path: resolve(small),
-        name: 'note.txt',
-        text: 'hello',
-      });
+      const file = readEditorFile(dir, small);
+      expect(file.name).toBe('note.txt');
+      expect(file.text).toBe('hello');
+      expect(file.path.endsWith('note.txt')).toBe(true);
 
       const big = join(dir, 'big.txt');
       writeFileSync(big, Buffer.alloc(1_000_001));
