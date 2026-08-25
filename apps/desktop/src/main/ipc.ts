@@ -49,6 +49,8 @@ import {
   swarmStateRequestSchema,
   swarmStopIpcResponseSchema,
   swarmStopRequestSchema,
+  swarmStopSeatIpcResponseSchema,
+  swarmStopSeatRequestSchema,
 } from '@zero/protocol/swarm';
 import {
   kanbanCreateIpcResponseSchema,
@@ -692,6 +694,15 @@ export function registerIpcHandlers(
     try {
       const request = swarmCreateRequestSchema.parse(input);
       const runner = requireSwarmRunner();
+      // Seats need worktrees, so the folder must be a git repository we can
+      // write beside. Failing here beats accepting a doomed run.
+      const branch = await core.board.readBranch(request.input.folderPath);
+      if (branch === null) {
+        throw new ZeroError(
+          'VALIDATION_FAILED',
+          'Pick a git repository: swarm seats need worktrees, and this folder is not one.',
+        );
+      }
       const run = core.swarm.createRun(request.input, request.correlationId);
       const sessionId = runner.openSession(
         run.id,
@@ -750,6 +761,19 @@ export function registerIpcHandlers(
       return swarmStopIpcResponseSchema.parse({ ok: true, value: { stopped: true } });
     } catch (error) {
       return swarmStopIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.swarmStopSeat, (_event, input: unknown) => {
+    try {
+      const request = swarmStopSeatRequestSchema.parse(input);
+      core.swarm.stopSeat(request.runId, request.seatId, request.correlationId);
+      return swarmStopSeatIpcResponseSchema.parse({
+        ok: true,
+        value: { stopped: true },
+      });
+    } catch (error) {
+      return swarmStopSeatIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
     }
   });
 
@@ -1288,6 +1312,7 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.swarmState);
     ipcMain.removeHandler(ipcChannels.swarmDirect);
     ipcMain.removeHandler(ipcChannels.swarmStop);
+    ipcMain.removeHandler(ipcChannels.swarmStopSeat);
     ipcMain.removeHandler(ipcChannels.boardCreate);
     ipcMain.removeHandler(ipcChannels.boardWrite);
     ipcMain.removeHandler(ipcChannels.boardResize);

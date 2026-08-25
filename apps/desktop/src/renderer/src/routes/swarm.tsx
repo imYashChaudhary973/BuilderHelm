@@ -80,10 +80,7 @@ export function SwarmPage(): React.JSX.Element {
   useEffect(() => {
     void window.zero.board
       .homeDir()
-      .then((home) => {
-        setHomeDir(home);
-        setFolderPath((current) => (current.trim().length > 0 ? current : home));
-      })
+      .then((home) => setHomeDir(home))
       .catch(() => undefined);
   }, []);
 
@@ -171,6 +168,16 @@ export function SwarmPage(): React.JSX.Element {
     onError: (cause: Error) => setError(cause.message),
   });
 
+  const stopSeat = useMutation({
+    mutationFn: (seatId: string) =>
+      window.zero.swarm.stopSeat({
+        correlationId: crypto.randomUUID() as CorrelationId,
+        runId: run!.id,
+        seatId,
+      }),
+    onError: (cause: Error) => setError(cause.message),
+  });
+
   const direct = useMutation({
     mutationFn: (input: { readonly seatIds: readonly string[]; readonly body: string }) =>
       window.zero.swarm.direct({
@@ -238,12 +245,7 @@ export function SwarmPage(): React.JSX.Element {
           previews={previews}
           stopped={stopped}
           onStopAll={() => stop.mutate(run.id)}
-          onStopSeat={(seatId) =>
-            direct.mutate({
-              seatIds: [seatId],
-              body: 'Wrap up and stop after this task.',
-            })
-          }
+          onStopSeat={(seatId) => stopSeat.mutate(seatId)}
           onDirect={(seatIds, text) => direct.mutate({ seatIds, body: text })}
         >
           <div

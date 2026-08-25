@@ -218,6 +218,25 @@ export class SwarmService {
     });
   }
 
+  /** Retires one seat: it finishes nothing further and takes no new tasks. */
+  stopSeat(runId: string, seatId: string, correlationId: CorrelationId): void {
+    this.requireRun(runId);
+    const seat = this.repository.getSeat(seatId);
+    if (seat === undefined || seat.runId !== runId) {
+      throw new ZeroError('VALIDATION_FAILED', 'Unknown swarm seat');
+    }
+    this.repository.updateSeat({
+      ...swarmSeatSchema.parse(seat),
+      status: 'exited',
+    });
+    this.appendMessage(runId, seatId, 'system', 'Seat retired by the operator');
+    this.logger.info({
+      event: 'swarm.seat_stopped',
+      correlationId,
+      data: { runId, seatId },
+    });
+  }
+
   stop(runId: string): void {
     const run = this.requireRun(runId);
     if (run.status !== 'running') return;
@@ -262,6 +281,7 @@ export class SwarmService {
   async pump(runId: string): Promise<void> {
     if (this.pumping.has(runId)) return;
     this.pumping.add(runId);
+    let idleRounds = 0;
     try {
       for (;;) {
         const run = this.repository.getRun(runId);
@@ -317,9 +337,28 @@ export class SwarmService {
         if (free.length === 0) return;
 
         const batch = ready.slice(0, free.length);
+        const before = this.repository
+          .listTasks(runId)
+          .map((row) => `${row.id}:${row.status}:${row.attempts}`)
+          .join('|');
         await Promise.all(
           batch.map((task, index) => this.executeOnSeat(typedRun, free[index]!, task)),
         );
+        const after = this.repository
+          .listTasks(runId)
+          .map((row) => `${row.id}:${row.status}:${row.attempts}`)
+          .join('|');
+        idleRounds = before === after ? idleRounds + 1 : 0;
+        if (idleRounds >= 2) {
+          this.repository.updateRun(runId, 'failed', utcNow());
+          this.appendMessage(
+            runId,
+            null,
+            'system',
+            'Swarm stopped: the queue stopped making progress',
+          );
+          return;
+        }
       }
     } finally {
       this.pumping.delete(runId);
@@ -331,7 +370,16 @@ export class SwarmService {
     seat: SwarmSeatRecord,
     task: SwarmTaskRecord,
   ): Promise<void> {
-    let active = task;
+    // The attempt is counted before any step can fail: a worktree that cannot
+    // be created must burn an attempt, never retry forever.
+    const active: SwarmTaskRecord = {
+      ...task,
+      seatId: seat.id,
+      status: 'in_progress',
+      attempts: task.attempts + 1,
+      updatedAt: utcNow(),
+    };
+    this.repository.updateTask(active);
     let current = seat;
     try {
       current = await this.ensureWorktree(run, seat);
@@ -342,14 +390,6 @@ export class SwarmService {
       }
       current = { ...current, status: 'working' };
       this.repository.updateSeat(current);
-      active = {
-        ...task,
-        seatId: current.id,
-        status: 'in_progress',
-        attempts: task.attempts + 1,
-        updatedAt: utcNow(),
-      };
-      this.repository.updateTask(active);
 
       const directives = this.pendingDirectives(run.id, current.id);
       const outcome = await this.runner.execute({

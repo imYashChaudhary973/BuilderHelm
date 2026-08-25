@@ -293,6 +293,74 @@ describe('SwarmService dispatch', () => {
   });
 });
 
+describe('SwarmService failure containment', () => {
+  it('fails a task whose worktree cannot be created instead of retrying forever', async () => {
+    // A folder that is not a git repository: worktree creation throws before
+    // the task ever runs, which used to loop because attempts never counted.
+    const root = mkdtempSync(join(tmpdir(), 'zero-swarm-plain-'));
+    temporaryDirectories.push(root, `${root}-worktrees`);
+    const database = openDatabase(':memory:');
+    databases.push(database);
+    runMigrations(database, migrations);
+    const board = new BoardService(database, logger);
+    let executions = 0;
+    const service = new SwarmService(
+      database,
+      logger,
+      board,
+      {
+        async execute() {
+          executions += 1;
+          return {
+            status: 'landed',
+            summary: 'never reached',
+            tokensUsed: 0,
+            costUsd: 0,
+          };
+        },
+      },
+      passingVerifier,
+    );
+    const run = service.createRun(createInput(root, 1), createCorrelationId());
+    service.addTask(
+      run.id,
+      { title: 'Doomed', files: ['src/a.ts'] },
+      createCorrelationId(),
+    );
+
+    await service.pump(run.id);
+
+    const state = service.state(run.id);
+    expect(state.tasks[0]!.status).toBe('failed');
+    expect(state.tasks[0]!.attempts).toBe(2);
+    expect(executions).toBe(0);
+    expect(state.run.status).toBe('failed');
+  });
+
+  it('retires a seat so the dispatcher stops assigning to it', async () => {
+    const log: string[] = [];
+    const { service, repo } = setup(committingRunner(log));
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    const seat = service.state(run.id).seats.find((item) => item.role === 'builder')!;
+
+    service.stopSeat(run.id, seat.id, createCorrelationId());
+    service.addTask(
+      run.id,
+      { title: 'Unassigned', files: ['src/x.ts'] },
+      createCorrelationId(),
+    );
+    await service.pump(run.id);
+
+    const state = service.state(run.id);
+    expect(state.seats.find((item) => item.id === seat.id)!.status).toBe('exited');
+    expect(log).toEqual([]);
+    expect(state.tasks[0]!.status).toBe('pending');
+    expect(() => service.stopSeat(run.id, 'not-a-seat', createCorrelationId())).toThrow(
+      /Unknown swarm seat/,
+    );
+  });
+});
+
 describe('SwarmService review gate and planning', () => {
   it('sends a task back when the reviewer asks for a fix', async () => {
     const log: string[] = [];

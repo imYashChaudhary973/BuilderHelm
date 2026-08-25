@@ -719,6 +719,13 @@ export const swarmStopRequestSchema = z
     runId: uuidSchema,
   })
   .strict();
+export const swarmStopSeatRequestSchema = z
+  .object({
+    correlationId: swarmCorrelationSchema,
+    runId: uuidSchema,
+    seatId: uuidSchema,
+  })
+  .strict();
 
 export const swarmCreateIpcResponseSchema = swarmIpcResult(swarmRunSchema);
 export const swarmStateIpcResponseSchema = swarmIpcResult(swarmStateSchema);
@@ -729,6 +736,7 @@ export const swarmTaskUpdateIpcResponseSchema = swarmIpcResult(swarmTaskSchema);
 export const swarmStopIpcResponseSchema = swarmIpcResult(
   z.object({ stopped: z.literal(true) }).strict(),
 );
+export const swarmStopSeatIpcResponseSchema = swarmStopIpcResponseSchema;
 
 /* Planning and review contracts ------------------------------------------- */
 

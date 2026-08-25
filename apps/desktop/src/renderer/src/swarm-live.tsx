@@ -78,6 +78,7 @@ export function SwarmLive({
   const hub = swarmGraphHub(roles);
   const tasks = state?.tasks ?? [];
   const landed = tasks.filter((task) => task.status === 'landed').length;
+  const builderCount = seats.filter((seat) => seat.role === 'builder').length;
   const selected = seats.find((seat) => seat.seatId === target);
 
   function send(): void {
@@ -241,6 +242,18 @@ export function SwarmLive({
           {tab === 'plan' ? (
             <ol className="swarmPlanList">
               {tasks.length === 0 ? <li>No tasks planned yet.</li> : null}
+              {tasks.length > 0 && tasks.length < builderCount ? (
+                <li>
+                  <strong>
+                    {tasks.length} task{tasks.length === 1 ? '' : 's'} for {builderCount}{' '}
+                    builders
+                  </strong>
+                  <span>
+                    This mission does not split further, so the spare seats stay idle
+                    instead of duplicating work.
+                  </span>
+                </li>
+              ) : null}
               {tasks.map((task) => (
                 <li key={task.id} data-status={task.status}>
                   <strong>{task.title}</strong>
