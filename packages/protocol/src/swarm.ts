@@ -708,3 +708,62 @@ export const swarmTaskUpdateIpcResponseSchema = swarmIpcResult(swarmTaskSchema);
 export const swarmStopIpcResponseSchema = swarmIpcResult(
   z.object({ stopped: z.literal(true) }).strict(),
 );
+
+/* Planning and review contracts ------------------------------------------- */
+
+export const swarmPlanTaskSchema = z
+  .object({
+    title: z.string().trim().min(1).max(500),
+    detail: z.string().max(10_000).optional(),
+    files: z.array(z.string().trim().min(1).max(4096)).max(200),
+    dependsOn: z.array(z.number().int().min(0)).max(50).optional(),
+  })
+  .strict();
+
+export const swarmPlanSchema = z
+  .object({ tasks: z.array(swarmPlanTaskSchema).min(1).max(32) })
+  .strict();
+export type SwarmPlanPayload = z.infer<typeof swarmPlanSchema>;
+
+export const swarmReviewSchema = z
+  .object({
+    verdict: z.enum(['approve', 'fix']),
+    issues: z.array(z.string().trim().min(1).max(2_000)).max(50).optional(),
+  })
+  .strict();
+export type SwarmReviewVerdict = z.infer<typeof swarmReviewSchema>;
+
+/** JSON Schema handed to CLIs that constrain output. */
+export const SWARM_PLAN_JSON_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['tasks'],
+  properties: {
+    tasks: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 32,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['title', 'files'],
+        properties: {
+          title: { type: 'string' },
+          detail: { type: 'string' },
+          files: { type: 'array', items: { type: 'string' } },
+          dependsOn: { type: 'array', items: { type: 'integer', minimum: 0 } },
+        },
+      },
+    },
+  },
+} as const;
+
+export const SWARM_REVIEW_JSON_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['verdict'],
+  properties: {
+    verdict: { type: 'string', enum: ['approve', 'fix'] },
+    issues: { type: 'array', items: { type: 'string' } },
+  },
+} as const;

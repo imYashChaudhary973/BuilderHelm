@@ -13,3 +13,8 @@ export * from './projects/project-service.js';
 export * from './secrets/secret-store.js';
 export * from './swarm/swarm-service.js';
 export * from './swarm/pnpm-verifier.js';
+export * from './swarm/swarm-planning.js';
+export * from './swarm/swarm-prompt.js';
+export * from './swarm/swarm-reviewer.js';
+export * from './swarm/agent-usage.js';
+export * from './swarm/cli-structured.js';

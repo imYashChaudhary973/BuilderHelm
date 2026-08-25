@@ -26,6 +26,12 @@ import {
 } from '@zero/shared';
 
 import type { BoardService } from '../board/board-service.js';
+import {
+  buildRepoSnapshot,
+  swarmPlanBudget,
+  type SwarmPlanner,
+} from './swarm-planning.js';
+import type { SwarmReviewer } from './swarm-reviewer.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -43,6 +49,8 @@ export interface SwarmExecuteInput {
   readonly task: SwarmTaskRecord;
   readonly worktreePath: string;
   readonly branch: string;
+  /** Operator directives queued since this seat's last invocation. */
+  readonly directives: readonly string[];
 }
 
 /** Adapters run one task on one seat. Implementations must always resolve. */
@@ -69,7 +77,7 @@ export interface SwarmTaskVerifier {
 
 export interface SwarmTaskSpec {
   readonly title: string;
-  readonly detail?: string;
+  readonly detail?: string | null;
   readonly files: readonly string[];
   readonly dependsOn?: readonly string[];
 }
@@ -77,10 +85,13 @@ export interface SwarmTaskSpec {
 export interface SwarmServiceOptions {
   /** Wall clock a run may consume before it wraps up. */
   readonly budgetMs?: number;
+  /** Optional second pair of eyes between the verify gate and the land queue. */
+  readonly reviewer?: SwarmReviewer;
 }
 
 /** One execution plus one retry. */
 const MAX_ATTEMPTS = 2;
+const DIRECTIVES_CONSUMED = 'directives consumed:';
 
 /**
  * Deterministic swarm orchestrator. Owns the ledger, dependency gating, work
@@ -92,6 +103,7 @@ export class SwarmService {
   private readonly repository: SwarmRepository;
   private readonly pumping = new Set<string>();
   private readonly budgetMs: number;
+  private readonly reviewer: SwarmReviewer | undefined;
 
   constructor(
     database: ZeroDatabase,
@@ -103,6 +115,7 @@ export class SwarmService {
   ) {
     this.repository = new SwarmRepository(database);
     this.budgetMs = options.budgetMs ?? SWARM_BUDGET_MS;
+    this.reviewer = options.reviewer;
   }
 
   createRun(input: SwarmCreateInput, correlationId: CorrelationId): SwarmRunRecord {
@@ -336,13 +349,23 @@ export class SwarmService {
       };
       this.repository.updateTask(active);
 
+      const directives = this.pendingDirectives(run.id, current.id);
       const outcome = await this.runner.execute({
         run,
         seat: current,
         task: active,
         worktreePath,
         branch,
+        directives,
       });
+      if (directives.length > 0) {
+        this.appendMessage(
+          run.id,
+          current.id,
+          'system',
+          `${DIRECTIVES_CONSUMED} ${directives.length}`,
+        );
+      }
       const credited = this.repository.getSeat(current.id);
       if (credited !== undefined) {
         this.repository.updateSeat({
@@ -367,6 +390,19 @@ export class SwarmService {
       if (!verification.ok) {
         this.recordFailure(active, `verify gate: ${verification.detail}`);
         return;
+      }
+
+      if (this.reviewer !== undefined) {
+        const verdict = await this.reviewer.review({
+          taskTitle: active.title,
+          files: active.files,
+          diff: await this.diffAgainstBase(run.folderPath, branch),
+        });
+        if (verdict.verdict === 'fix') {
+          const issues = verdict.issues ?? ['changes requested'];
+          this.recordFailure(active, `review: ${issues.join('; ')}`);
+          return;
+        }
       }
 
       const landed = await this.board.landBranch(
@@ -474,6 +510,84 @@ export class SwarmService {
       worktreePath: worktree.path,
       branch: worktree.branch,
     });
+  }
+
+  /** Directives queued for this seat (or broadcast) since its last invocation. */
+  private pendingDirectives(runId: string, seatId: string): string[] {
+    const messages = this.repository.listMessages(runId, 500);
+    let cutoff = '';
+    for (const message of messages) {
+      if (
+        message.seatId === seatId &&
+        message.kind === 'system' &&
+        message.body.startsWith(DIRECTIVES_CONSUMED) &&
+        message.createdAt > cutoff
+      ) {
+        cutoff = message.createdAt;
+      }
+    }
+    return messages
+      .filter(
+        (message) =>
+          message.kind === 'directive' &&
+          (message.seatId === seatId || message.seatId === null) &&
+          message.createdAt > cutoff,
+      )
+      .map((message) => message.body);
+  }
+
+  private async diffAgainstBase(repoPath: string, branch: string): Promise<string> {
+    const base = await this.board.readBranch(repoPath);
+    if (base === null) return '';
+    const { stdout } = await execFileAsync('git', ['diff', `${base}...${branch}`], {
+      cwd: repoPath,
+      timeout: 30_000,
+      maxBuffer: 16 * 1024 * 1024,
+    });
+    return stdout;
+  }
+
+  /**
+   * Decomposes the mission into a task DAG with exclusive file ownership. One
+   * structured model call, capped by the preset's task budget.
+   */
+  async planTasks(
+    runId: string,
+    planner: SwarmPlanner,
+    correlationId: CorrelationId,
+  ): Promise<SwarmTaskRecord[]> {
+    const run = this.requireRun(runId);
+    const snapshot = await buildRepoSnapshot(run.folderPath);
+    const planned = await planner.plan({
+      mission: run.mission,
+      snapshot,
+      maxTasks: swarmPlanBudget(run.presetId),
+    });
+    const created: SwarmTaskRecord[] = [];
+    for (const task of planned) {
+      const dependsOn = task.dependsOn
+        .map((index) => created[index]?.id)
+        .filter((id): id is string => id !== undefined);
+      created.push(
+        this.addTask(
+          runId,
+          {
+            title: task.title,
+            detail: task.detail,
+            files: task.files,
+            dependsOn,
+          },
+          correlationId,
+        ),
+      );
+    }
+    this.appendMessage(
+      runId,
+      null,
+      'coordinator_note',
+      `planned ${created.length} task(s) from the mission`,
+    );
+    return created;
   }
 
   private appendMessage(

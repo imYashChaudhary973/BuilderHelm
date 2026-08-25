@@ -56,7 +56,7 @@ function committingRunner(log: string[]): SwarmSeatRunner {
       worktreePath,
     }: SwarmExecuteInput): Promise<SwarmRunnerOutcome> {
       const file = `${task.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.md`;
-      writeFileSync(join(worktreePath, file), `${task.title}\n`);
+      writeFileSync(join(worktreePath, file), `${task.title} attempt ${task.attempts}\n`);
       execFileSync('git', ['add', '-A'], { cwd: worktreePath });
       execFileSync('git', ['commit', '-m', task.title], { cwd: worktreePath });
       log.push(task.title);
@@ -79,7 +79,7 @@ const passingVerifier: SwarmTaskVerifier = {
 function setup(
   runner: SwarmSeatRunner,
   verifier: SwarmTaskVerifier = passingVerifier,
-  options: { budgetMs?: number } = {},
+  options: ConstructorParameters<typeof SwarmService>[5] = {},
 ): { service: SwarmService; repo: string } {
   const repo = createRepository();
   const database = openDatabase(':memory:');
@@ -289,6 +289,129 @@ describe('SwarmService dispatch', () => {
     expect(() =>
       service.direct(run.id, ['not-a-seat'], 'hello', createCorrelationId()),
     ).toThrow(/Unknown swarm seat/);
+  });
+});
+
+describe('SwarmService review gate and planning', () => {
+  it('sends a task back when the reviewer asks for a fix', async () => {
+    const log: string[] = [];
+    const reviews: string[] = [];
+    const { service, repo } = setup(committingRunner(log), passingVerifier, {
+      reviewer: {
+        async review({ taskTitle, diff }) {
+          reviews.push(taskTitle);
+          expect(diff).toContain('reviewed-work');
+          return { verdict: 'fix', issues: ['missing a test'] };
+        },
+      },
+    });
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    service.addTask(
+      run.id,
+      { title: 'reviewed work', files: ['packages/db/src/r.ts'] },
+      createCorrelationId(),
+    );
+
+    await service.pump(run.id);
+
+    const state = service.state(run.id);
+    expect(reviews).toEqual(['reviewed work', 'reviewed work']);
+    expect(state.tasks[0]!.status).toBe('failed');
+    expect(state.tasks[0]!.landedCommit).toBeNull();
+    expect(
+      state.messages.some((message) => message.body.includes('missing a test')),
+    ).toBe(true);
+  });
+
+  it('lands when the reviewer approves', async () => {
+    const { service, repo } = setup(committingRunner([]), passingVerifier, {
+      reviewer: {
+        async review() {
+          return { verdict: 'approve' };
+        },
+      },
+    });
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    service.addTask(
+      run.id,
+      { title: 'approved work', files: ['packages/db/src/ok.ts'] },
+      createCorrelationId(),
+    );
+
+    await service.pump(run.id);
+
+    expect(service.state(run.id).tasks[0]!.status).toBe('landed');
+  });
+
+  it('hands queued directives to the next invocation exactly once', async () => {
+    const seen: string[][] = [];
+    const runner: SwarmSeatRunner = {
+      async execute({ task, worktreePath, directives }) {
+        seen.push([...directives]);
+        writeFileSync(join(worktreePath, `${seen.length}.md`), task.title);
+        execFileSync('git', ['add', '-A'], { cwd: worktreePath });
+        execFileSync('git', ['commit', '-m', task.title], { cwd: worktreePath });
+        return { status: 'landed', summary: 'ok', tokensUsed: 1, costUsd: 0 };
+      },
+    };
+    const { service, repo } = setup(runner);
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    const seat = service.state(run.id).seats.find((item) => item.role === 'builder')!;
+    service.addTask(
+      run.id,
+      { title: 'first', files: ['packages/db/src/1.ts'] },
+      createCorrelationId(),
+    );
+    service.direct(run.id, [seat.id], 'prefer small commits', createCorrelationId());
+    service.addTask(
+      run.id,
+      { title: 'second', files: ['packages/db/src/2.ts'] },
+      createCorrelationId(),
+    );
+
+    // One seat runs both tasks in order: the first consumes the directive,
+    // the second must not see it again.
+    await service.pump(run.id);
+
+    expect(seen).toEqual([['prefer small commits'], []]);
+  });
+
+  it('creates tasks from a plan with dependencies resolved to ids', async () => {
+    const { service, repo } = setup(committingRunner([]));
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+
+    const created = await service.planTasks(
+      run.id,
+      {
+        async plan({ mission, maxTasks }) {
+          expect(mission).toBe('ship the fixtures');
+          expect(maxTasks).toBe(3);
+          return [
+            {
+              title: 'Base',
+              detail: null,
+              files: ['packages/db/src/base.ts'],
+              dependsOn: [],
+            },
+            {
+              title: 'Follow up',
+              detail: 'after base',
+              files: ['packages/db/src/follow.ts'],
+              dependsOn: [0],
+            },
+          ];
+        },
+      },
+      createCorrelationId(),
+    );
+
+    expect(created).toHaveLength(2);
+    expect(created[1]!.dependsOn).toEqual([created[0]!.id]);
+    const state = service.state(run.id);
+    expect(state.tasks).toHaveLength(2);
+    expect(state.messages.some((message) => message.kind === 'coordinator_note')).toBe(
+      true,
+    );
   });
 });
 
