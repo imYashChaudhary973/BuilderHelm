@@ -293,6 +293,52 @@ describe('SwarmService dispatch', () => {
   });
 });
 
+describe('SwarmService launch events and warm start', () => {
+  it('warms builder worktrees before any task runs', async () => {
+    const { service, repo } = setup(committingRunner([]));
+    const run = service.createRun(createInput(repo, 2), createCorrelationId());
+
+    await service.warmSeats(run.id);
+
+    const warmed = service
+      .state(run.id)
+      .seats.filter((seat) => seat.role === 'builder' && seat.worktreePath !== null);
+    expect(warmed).toHaveLength(2);
+    const worktrees = execFileSync('git', ['worktree', 'list'], {
+      cwd: repo,
+      encoding: 'utf8',
+    });
+    expect(worktrees).toContain('-worktrees/');
+  });
+
+  it('emits run events on ledger changes and fails a run with a reason', () => {
+    const { service, repo } = setup(committingRunner([]));
+    const seen: string[] = [];
+    const unsubscribe = service.onRunEvent((runId) => seen.push(runId));
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    service.addTask(
+      run.id,
+      { title: 'Noted', files: ['src/n.ts'] },
+      createCorrelationId(),
+    );
+    service.failRun(run.id, 'planner could not read the repository');
+    unsubscribe();
+    service.stop(run.id);
+
+    expect(seen.length).toBeGreaterThanOrEqual(3);
+    expect(seen.every((runId) => runId === run.id)).toBe(true);
+    const state = service.state(run.id);
+    expect(state.run.status).toBe('failed');
+    expect(
+      state.messages.some((message) => message.body.includes('planner could not read')),
+    ).toBe(true);
+    // No events after unsubscribe.
+    const before = seen.length;
+    service.direct(run.id, [state.seats[0]!.id], 'late', createCorrelationId());
+    expect(seen.length).toBe(before);
+  });
+});
+
 describe('SwarmService restart recovery', () => {
   it('reconciles a run the app left running and resumes it', async () => {
     const log: string[] = [];

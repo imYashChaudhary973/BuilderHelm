@@ -148,6 +148,7 @@ export const ipcChannels = {
   swarmStop: 'zero:swarm:stop',
   swarmStopSeat: 'zero:swarm:stop-seat',
   swarmLatest: 'zero:swarm:latest',
+  swarmEvent: 'zero:swarm:event',
   kanbanProjectList: 'zero:kanban:project-list',
   kanbanProjectCreate: 'zero:kanban:project-create',
   kanbanList: 'zero:kanban:list',
@@ -263,6 +264,8 @@ export interface ZeroDesktopApi {
     latest(input: {
       readonly correlationId: CorrelationId;
     }): Promise<SwarmRunRecord | null>;
+    /** Push: a run's ledger changed; refetch its state. */
+    onEvent(listener: (runId: string) => void): () => void;
   };
   readonly board: {
     homeDir(): Promise<string>;

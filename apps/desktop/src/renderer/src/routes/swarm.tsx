@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { gridForCount, type BoardPaneSummary } from '@zero/protocol/board';
 import {
@@ -58,6 +58,7 @@ function formatRemain(ms: number): string {
 
 export function SwarmPage(): React.JSX.Element {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [job, setJob] = useState(readLastJob());
   const [folderPath, setFolderPath] = useState('');
   const [homeDir, setHomeDir] = useState('');
@@ -111,17 +112,24 @@ export function SwarmPage(): React.JSX.Element {
     return () => window.clearInterval(timer);
   }, [run]);
 
-  // The ledger is the source of truth for tasks, seats, and messages.
+  // The ledger is the source of truth. Swarm events push invalidations, and
+  // a slow fallback poll covers anything the push cannot.
   const state = useQuery({
     queryKey: ['swarm-state', run?.id],
     enabled: run !== null,
-    refetchInterval: 1_200,
+    refetchInterval: 5_000,
     queryFn: (): Promise<SwarmState> =>
       window.zero.swarm.state({
         correlationId: crypto.randomUUID() as CorrelationId,
         runId: run!.id,
       }),
   });
+
+  useEffect(() => {
+    return window.zero.swarm.onEvent(() => {
+      void queryClient.invalidateQueries({ queryKey: ['swarm-state'] });
+    });
+  }, [queryClient]);
 
   // Mini terminal previews come from the pane stream the grid already uses.
   useEffect(() => {
@@ -224,6 +232,7 @@ export function SwarmPage(): React.JSX.Element {
     const startedMs = Date.parse(ledger?.run.startedAt ?? run.startedAt);
     const remain = (ledger?.run.budgetMs ?? run.budgetMs) - (now - startedMs);
     const stopped = status !== 'running';
+    const coordinating = status === 'running' && (state.data?.tasks.length ?? 0) === 0;
     const panes: BoardPaneSummary[] = seats
       .filter((seat) => seat.paneId !== null)
       .map((seat, index) => ({
@@ -249,8 +258,10 @@ export function SwarmPage(): React.JSX.Element {
           job={run.mission}
           folder={folderName(run.folderPath)}
           isolation="worktree"
-          status={status}
-          remainLabel={`${formatRemain(remain)} left`}
+          status={coordinating ? 'coordinating' : status}
+          remainLabel={
+            coordinating ? 'splitting the mission…' : `${formatRemain(remain)} left`
+          }
           seats={seats}
           state={ledger}
           previews={previews}

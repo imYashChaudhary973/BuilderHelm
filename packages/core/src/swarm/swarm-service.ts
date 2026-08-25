@@ -90,6 +90,9 @@ export interface SwarmServiceOptions {
   readonly reviewer?: SwarmReviewer;
 }
 
+/** Announces that a run's ledger changed, so hosts can push to the UI. */
+export type SwarmRunEventListener = (runId: string) => void;
+
 /** One execution plus one retry. */
 const MAX_ATTEMPTS = 2;
 const DIRECTIVES_CONSUMED = 'directives consumed:';
@@ -105,6 +108,7 @@ export class SwarmService {
   private readonly pumping = new Set<string>();
   private readonly budgetMs: number;
   private readonly reviewer: SwarmReviewer | undefined;
+  private readonly listeners = new Set<SwarmRunEventListener>();
 
   constructor(
     database: ZeroDatabase,
@@ -157,6 +161,46 @@ export class SwarmService {
       data: { runId, seats: seats.length, presetId: input.presetId },
     });
     return run;
+  }
+
+  /** Subscribes to ledger changes; returns an unsubscribe function. */
+  onRunEvent(listener: SwarmRunEventListener): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  private emit(runId: string): void {
+    for (const listener of this.listeners) listener(runId);
+  }
+
+  /**
+   * Creates builder worktrees up front so the first tasks start warm instead
+   * of paying worktree creation after the planner finishes.
+   */
+  async warmSeats(runId: string): Promise<void> {
+    const run = this.requireRun(runId);
+    const seats = this.repository
+      .listSeats(runId)
+      .map((row) => swarmSeatSchema.parse(row))
+      .filter((seat) => seat.role === 'builder' && seat.worktreePath === null);
+    await Promise.all(
+      seats.map(async (seat) => {
+        try {
+          this.repository.updateSeat(await this.ensureWorktree(run, seat));
+          this.emit(runId);
+        } catch {
+          // The dispatcher surfaces real failures when the task runs.
+        }
+      }),
+    );
+  }
+
+  /** Ends a run that cannot proceed, with the reason in the ledger. */
+  failRun(runId: string, reason: string): void {
+    this.requireRun(runId);
+    this.repository.updateRun(runId, 'failed', utcNow());
+    this.appendMessage(runId, null, 'system', `Swarm failed: ${reason}`.slice(0, 4_000));
+    this.emit(runId);
   }
 
   /**
@@ -223,6 +267,7 @@ export class SwarmService {
       updatedAt: now,
     });
     this.repository.insertTask(task);
+    this.emit(runId);
     this.logger.info({
       event: 'swarm.task_added',
       correlationId,
@@ -463,6 +508,7 @@ export class SwarmService {
           tokensUsed: credited.tokensUsed + outcome.tokensUsed,
           costUsd: credited.costUsd + outcome.costUsd,
         });
+        this.emit(run.id);
       }
 
       if (outcome.status === 'failed') {
@@ -505,6 +551,7 @@ export class SwarmService {
         landedCommit: landed.head,
         updatedAt: utcNow(),
       });
+      this.emit(run.id);
       this.appendMessage(
         run.id,
         current.id,
@@ -739,6 +786,7 @@ export class SwarmService {
       body: body.slice(0, 4_000),
       createdAt: utcNow(),
     });
+    this.emit(runId);
   }
 
   private requireRun(runId: string): SwarmRunRecord {

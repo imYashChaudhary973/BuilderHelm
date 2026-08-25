@@ -408,6 +408,22 @@ const api: ZeroDesktopApi = {
       );
       return unwrap(swarmStopIpcResponseSchema.parse(response));
     },
+    onEvent(listener) {
+      const subscription = (
+        _event: Electron.IpcRendererEvent,
+        payload: unknown,
+      ): void => {
+        if (
+          typeof payload === 'object' &&
+          payload !== null &&
+          typeof (payload as { runId?: unknown }).runId === 'string'
+        ) {
+          listener((payload as { runId: string }).runId);
+        }
+      };
+      ipcRenderer.on(ipcChannels.swarmEvent, subscription);
+      return () => ipcRenderer.removeListener(ipcChannels.swarmEvent, subscription);
+    },
     async latest(input) {
       const response: unknown = await ipcRenderer.invoke(
         ipcChannels.swarmLatest,

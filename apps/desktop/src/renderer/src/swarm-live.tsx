@@ -58,7 +58,7 @@ export function SwarmLive({
   readonly job: string;
   readonly folder: string;
   readonly isolation: 'worktree' | 'shared';
-  readonly status: SwarmRunRecordStatus;
+  readonly status: SwarmRunRecordStatus | 'coordinating';
   readonly remainLabel: string;
   readonly seats: readonly SwarmLiveSeat[];
   readonly state: SwarmState | null;
@@ -132,6 +132,15 @@ export function SwarmLive({
         </div>
       </header>
       <p className="swarmJobLine">{job.trim()}</p>
+      {status === 'coordinating' ? (
+        <div className="swarmCoordinating" role="status">
+          <span className="swarmCoordinatingBar" aria-hidden="true" />
+          <p>
+            The coordinator is reading the repository and splitting the mission into
+            tasks. Seats warm up in parallel — the swarm starts the moment the plan lands.
+          </p>
+        </div>
+      ) : null}
       <div className="swarmLiveStage">
         {view === 'graph' ? (
           <div className="swarmGraph" role="img" aria-label="Swarm roster graph">

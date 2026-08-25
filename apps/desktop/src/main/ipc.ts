@@ -652,6 +652,15 @@ export function registerIpcHandlers(
     }
   });
 
+  const swarmSenders = new Map<string, WebContents>();
+  // Test doubles pass partial cores; the real runtime always has swarm.
+  const unsubscribeSwarmEvents = core.swarm?.onRunEvent?.((runId: string) => {
+    const sender = swarmSenders.get(runId);
+    if (sender !== undefined && !sender.isDestroyed()) {
+      sender.send(ipcChannels.swarmEvent, { runId });
+    }
+  }) ?? (() => {});
+
   function requireSwarmRunner(): PtySwarmRunner {
     if (swarmRunner === undefined) {
       throw new ZeroError('VALIDATION_FAILED', 'Swarm host is not available');
@@ -713,15 +722,24 @@ export function registerIpcHandlers(
         event.sender,
       );
       core.swarm.attachBoardSession(run.id, sessionId);
-      const planner = await pickSwarmPlanner(request.input.folderPath);
-      await core.swarm.planTasks(run.id, planner, request.correlationId);
-      void core.swarm.pump(run.id).catch((error: unknown) => {
-        core.logger.error({
-          event: 'swarm.pump_failed',
-          correlationId: request.correlationId,
-          data: { runId: run.id, error: normalizeError(error).message },
-        });
-      });
+      swarmSenders.set(run.id, event.sender);
+      // Launch is instant: warm the seats and plan in the background while
+      // the live view already shows the coordinating phase.
+      void (async () => {
+        try {
+          await core.swarm.warmSeats(run.id);
+          const planner = await pickSwarmPlanner(request.input.folderPath);
+          await core.swarm.planTasks(run.id, planner, request.correlationId);
+          await core.swarm.pump(run.id);
+        } catch (error) {
+          core.logger.error({
+            event: 'swarm.launch_failed',
+            correlationId: request.correlationId,
+            data: { runId: run.id, error: normalizeError(error).message },
+          });
+          core.swarm.failRun(run.id, normalizeError(error).message);
+        }
+      })();
       return swarmCreateIpcResponseSchema.parse({ ok: true, value: run });
     } catch (error) {
       return swarmCreateIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
@@ -1328,6 +1346,7 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.swarmStop);
     ipcMain.removeHandler(ipcChannels.swarmStopSeat);
     ipcMain.removeHandler(ipcChannels.swarmLatest);
+    unsubscribeSwarmEvents();
     ipcMain.removeHandler(ipcChannels.boardCreate);
     ipcMain.removeHandler(ipcChannels.boardWrite);
     ipcMain.removeHandler(ipcChannels.boardResize);
