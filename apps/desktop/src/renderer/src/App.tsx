@@ -67,6 +67,9 @@ function Shell(): React.JSX.Element {
         <div className="brand">
           <img className="brandLogo" src={logo} width={22} height={22} alt="" />
           BuilderHelm
+          <span className="buildStamp" title="Branch and commit this build came from">
+            {__BUILD_STAMP__}
+          </span>
         </div>
         <div className="topbarEnd">
           <Link

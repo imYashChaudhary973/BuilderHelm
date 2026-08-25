@@ -1,0 +1,34 @@
+#!/bin/sh
+# Every worktree at a glance: uncommitted work, drift from main, staleness.
+# Run this before you start work and before you launch the app.
+# usage: scripts/worktree-status
+set -eu
+
+git fetch origin --quiet 2>/dev/null || true
+
+printf '%-14s %-26s %6s %6s %7s  %s\n' \
+  WORKTREE BRANCH DIRTY AHEAD BEHIND 'LAST COMMIT'
+
+warn=0
+git worktree list --porcelain | awk '/^worktree /{print substr($0, 10)}' | while read -r dir; do
+  name=$(basename "$dir")
+  branch=$(git -C "$dir" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')
+  dirty=$(git -C "$dir" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+  ahead=$(git -C "$dir" rev-list --count origin/main..HEAD 2>/dev/null || echo '?')
+  behind=$(git -C "$dir" rev-list --count HEAD..origin/main 2>/dev/null || echo '?')
+  last=$(git -C "$dir" log -1 --format=%cr 2>/dev/null || echo '?')
+
+  flag=''
+  [ "$dirty" != "0" ] && flag='  <- uncommitted'
+  case "$behind" in '?') ;; *) [ "$behind" -gt 20 ] && flag="$flag  <- stale base" ;; esac
+
+  printf '%-14s %-26s %6s %6s %7s  %s%s\n' \
+    "$name" "$branch" "$dirty" "$ahead" "$behind" "$last" "$flag"
+done
+
+cat <<'EOF'
+
+DIRTY  > 0 outside the worktree you are in: your changes are somewhere else.
+BEHIND > 20: merge origin/main in now, or the next merge will hurt.
+EOF
+exit $warn
