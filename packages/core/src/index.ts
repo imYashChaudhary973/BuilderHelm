@@ -11,3 +11,5 @@ export * from './providers/provider-service.js';
 export * from './projects/git-inspector.js';
 export * from './projects/project-service.js';
 export * from './secrets/secret-store.js';
+export * from './swarm/swarm-service.js';
+export * from './swarm/pnpm-verifier.js';

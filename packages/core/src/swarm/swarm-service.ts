@@ -1,0 +1,502 @@
+import { execFile } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import { promisify } from 'node:util';
+
+import { SwarmRepository, type ZeroDatabase } from '@zero/db';
+import type { Logger } from '@zero/observability';
+import {
+  SWARM_BUDGET_MS,
+  swarmRunSchema,
+  swarmSeatSchema,
+  swarmStateSchema,
+  swarmTaskSchema,
+  type SwarmCreateInput,
+  type SwarmMessageKind,
+  type SwarmRunRecord,
+  type SwarmSeatRecord,
+  type SwarmState,
+  type SwarmTaskRecord,
+} from '@zero/protocol';
+import {
+  createCorrelationId,
+  normalizeError,
+  utcNow,
+  ZeroError,
+  type CorrelationId,
+} from '@zero/shared';
+
+import type { BoardService } from '../board/board-service.js';
+
+const execFileAsync = promisify(execFile);
+
+/** One task execution: work either landed on the seat branch, or it failed. */
+export interface SwarmRunnerOutcome {
+  readonly status: 'landed' | 'failed';
+  readonly summary: string;
+  readonly tokensUsed: number;
+  readonly costUsd: number;
+}
+
+export interface SwarmExecuteInput {
+  readonly run: SwarmRunRecord;
+  readonly seat: SwarmSeatRecord;
+  readonly task: SwarmTaskRecord;
+  readonly worktreePath: string;
+  readonly branch: string;
+}
+
+/** Adapters run one task on one seat. Implementations must always resolve. */
+export interface SwarmSeatRunner {
+  execute(input: SwarmExecuteInput): Promise<SwarmRunnerOutcome>;
+}
+
+export interface SwarmVerifyInput {
+  readonly run: SwarmRunRecord;
+  readonly task: SwarmTaskRecord;
+  readonly worktreePath: string;
+  readonly branch: string;
+}
+
+export interface SwarmVerifyResult {
+  readonly ok: boolean;
+  readonly detail: string;
+}
+
+/** Deterministic gate. No agent grades its own work. */
+export interface SwarmTaskVerifier {
+  verify(input: SwarmVerifyInput): Promise<SwarmVerifyResult>;
+}
+
+export interface SwarmTaskSpec {
+  readonly title: string;
+  readonly detail?: string;
+  readonly files: readonly string[];
+  readonly dependsOn?: readonly string[];
+}
+
+export interface SwarmServiceOptions {
+  /** Wall clock a run may consume before it wraps up. */
+  readonly budgetMs?: number;
+}
+
+/** One execution plus one retry. */
+const MAX_ATTEMPTS = 2;
+
+/**
+ * Deterministic swarm orchestrator. Owns the ledger, dependency gating, work
+ * stealing across free builder seats, retry, the verify gate, the sequential
+ * land queue, and the budget clock. Running agents and verifying builds are
+ * injected adapters, so the loop is testable without a single real CLI.
+ */
+export class SwarmService {
+  private readonly repository: SwarmRepository;
+  private readonly pumping = new Set<string>();
+  private readonly budgetMs: number;
+
+  constructor(
+    database: ZeroDatabase,
+    private readonly logger: Logger,
+    private readonly board: BoardService,
+    private readonly runner: SwarmSeatRunner,
+    private readonly verifier: SwarmTaskVerifier,
+    options: SwarmServiceOptions = {},
+  ) {
+    this.repository = new SwarmRepository(database);
+    this.budgetMs = options.budgetMs ?? SWARM_BUDGET_MS;
+  }
+
+  createRun(input: SwarmCreateInput, correlationId: CorrelationId): SwarmRunRecord {
+    const runId = randomUUID();
+    const run = swarmRunSchema.parse({
+      id: runId,
+      name: input.name,
+      folderPath: input.folderPath,
+      mission: input.mission,
+      launchMode: input.launchMode,
+      presetId: input.presetId,
+      boardSessionId: null,
+      status: 'running',
+      startedAt: utcNow(),
+      endedAt: null,
+      budgetMs: this.budgetMs,
+    });
+    const seats = input.seats.map((seat) =>
+      swarmSeatSchema.parse({
+        id: randomUUID(),
+        runId,
+        role: seat.role,
+        agentId: seat.agentId,
+        mode: input.launchMode,
+        paneId: null,
+        worktreePath: null,
+        branch: null,
+        status: 'queued',
+        tokensUsed: 0,
+        costUsd: 0,
+      }),
+    );
+    this.repository.createRun(run, seats);
+    this.logger.info({
+      event: 'swarm.run_created',
+      correlationId,
+      data: { runId, seats: seats.length, presetId: input.presetId },
+    });
+    return run;
+  }
+
+  attachBoardSession(runId: string, boardSessionId: string): void {
+    this.requireRun(runId);
+    this.repository.setBoardSession(runId, boardSessionId);
+  }
+
+  addTask(
+    runId: string,
+    spec: SwarmTaskSpec,
+    correlationId: CorrelationId,
+  ): SwarmTaskRecord {
+    this.requireRun(runId);
+    const now = utcNow();
+    const task = swarmTaskSchema.parse({
+      id: randomUUID(),
+      runId,
+      seatId: null,
+      title: spec.title,
+      detail: spec.detail ?? null,
+      files: [...spec.files],
+      status: 'pending',
+      dependsOn: [...(spec.dependsOn ?? [])],
+      attempts: 0,
+      landedCommit: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    this.repository.insertTask(task);
+    this.logger.info({
+      event: 'swarm.task_added',
+      correlationId,
+      data: { runId, taskId: task.id },
+    });
+    return task;
+  }
+
+  /** Queues a directive. Seats consume it on their next invocation. */
+  direct(
+    runId: string,
+    seatIds: readonly string[],
+    body: string,
+    correlationId: CorrelationId,
+  ): void {
+    this.requireRun(runId);
+    const known = new Set(this.repository.listSeats(runId).map((seat) => seat.id));
+    for (const seatId of seatIds) {
+      if (!known.has(seatId)) {
+        throw new ZeroError('VALIDATION_FAILED', 'Unknown swarm seat');
+      }
+    }
+    for (const seatId of seatIds) {
+      this.appendMessage(runId, seatId, 'directive', body);
+    }
+    this.logger.info({
+      event: 'swarm.directive_queued',
+      correlationId,
+      data: { runId, seats: seatIds.length },
+    });
+  }
+
+  stop(runId: string): void {
+    const run = this.requireRun(runId);
+    if (run.status !== 'running') return;
+    this.repository.updateRun(runId, 'stopped', utcNow());
+    this.appendMessage(runId, null, 'system', 'Swarm stopped by user');
+  }
+
+  async resume(runId: string, correlationId: CorrelationId): Promise<void> {
+    const run = this.requireRun(runId);
+    if (run.status !== 'stopped' && run.status !== 'budget') {
+      throw new ZeroError(
+        'VALIDATION_FAILED',
+        'Only a stopped or budget-cut swarm can resume',
+      );
+    }
+    this.repository.updateRun(runId, 'running', null);
+    for (const row of this.repository.listTasks(runId)) {
+      const task = swarmTaskSchema.parse(row);
+      if (task.status === 'in_progress') {
+        this.repository.updateTask({ ...task, status: 'pending', updatedAt: utcNow() });
+      }
+    }
+    this.appendMessage(runId, null, 'system', 'Swarm resumed');
+    this.logger.info({ event: 'swarm.resumed', correlationId, data: { runId } });
+    await this.pump(runId);
+  }
+
+  state(runId: string): SwarmState {
+    const run = this.requireRun(runId);
+    return swarmStateSchema.parse({
+      run,
+      seats: this.repository.listSeats(runId),
+      tasks: this.repository.listTasks(runId),
+      messages: this.repository.listMessages(runId, 500),
+    });
+  }
+
+  /**
+   * The dispatcher. Runs until the queue drains, the budget expires, or the
+   * run stops. Any free builder seat takes the next unblocked task.
+   */
+  async pump(runId: string): Promise<void> {
+    if (this.pumping.has(runId)) return;
+    this.pumping.add(runId);
+    try {
+      for (;;) {
+        const run = this.repository.getRun(runId);
+        if (run === undefined || run.status !== 'running') return;
+        const typedRun = swarmRunSchema.parse(run);
+        const startedMs = Date.parse(typedRun.startedAt);
+        if (Date.now() - startedMs > typedRun.budgetMs) {
+          this.repository.updateRun(runId, 'budget', utcNow());
+          this.appendMessage(runId, null, 'system', 'Budget spent; swarm wrapped up');
+          return;
+        }
+
+        this.skipTasksBehindDeadDeps(runId);
+        const tasks = this.repository
+          .listTasks(runId)
+          .map((row) => swarmTaskSchema.parse(row));
+        if (tasks.some((task) => task.status === 'in_progress')) return;
+
+        const pending = tasks.filter((task) => task.status === 'pending');
+        if (pending.length === 0) {
+          const landed = tasks.some((task) => task.status === 'landed');
+          const failed = tasks.some((task) => task.status === 'failed');
+          this.repository.updateRun(runId, landed ? 'done' : 'failed', utcNow());
+          this.appendMessage(
+            runId,
+            null,
+            'system',
+            landed && !failed
+              ? 'Swarm finished; every task landed'
+              : landed
+                ? 'Swarm finished with failed tasks'
+                : 'Swarm finished; nothing landed',
+          );
+          return;
+        }
+
+        const landedIds = new Set(
+          tasks.filter((task) => task.status === 'landed').map((task) => task.id),
+        );
+        const ready = pending.filter((task) =>
+          task.dependsOn.every((dep) => landedIds.has(dep)),
+        );
+        if (ready.length === 0) return;
+
+        const free = this.repository
+          .listSeats(runId)
+          .map((row) => swarmSeatSchema.parse(row))
+          .filter(
+            (seat) =>
+              seat.role === 'builder' &&
+              (seat.status === 'idle' || seat.status === 'queued'),
+          );
+        if (free.length === 0) return;
+
+        const batch = ready.slice(0, free.length);
+        await Promise.all(
+          batch.map((task, index) => this.executeOnSeat(typedRun, free[index]!, task)),
+        );
+      }
+    } finally {
+      this.pumping.delete(runId);
+    }
+  }
+
+  private async executeOnSeat(
+    run: SwarmRunRecord,
+    seat: SwarmSeatRecord,
+    task: SwarmTaskRecord,
+  ): Promise<void> {
+    let active = task;
+    let current = seat;
+    try {
+      current = await this.ensureWorktree(run, seat);
+      const worktreePath = current.worktreePath;
+      const branch = current.branch;
+      if (worktreePath === null || branch === null) {
+        throw new ZeroError('VALIDATION_FAILED', 'Seat has no worktree');
+      }
+      current = { ...current, status: 'working' };
+      this.repository.updateSeat(current);
+      active = {
+        ...task,
+        seatId: current.id,
+        status: 'in_progress',
+        attempts: task.attempts + 1,
+        updatedAt: utcNow(),
+      };
+      this.repository.updateTask(active);
+
+      const outcome = await this.runner.execute({
+        run,
+        seat: current,
+        task: active,
+        worktreePath,
+        branch,
+      });
+      const credited = this.repository.getSeat(current.id);
+      if (credited !== undefined) {
+        this.repository.updateSeat({
+          ...swarmSeatSchema.parse(credited),
+          status: 'idle',
+          tokensUsed: credited.tokensUsed + outcome.tokensUsed,
+          costUsd: credited.costUsd + outcome.costUsd,
+        });
+      }
+
+      if (outcome.status === 'failed') {
+        this.recordFailure(active, outcome.summary);
+        return;
+      }
+
+      const verification = await this.verifier.verify({
+        run,
+        task: active,
+        worktreePath,
+        branch,
+      });
+      if (!verification.ok) {
+        this.recordFailure(active, `verify gate: ${verification.detail}`);
+        return;
+      }
+
+      const landed = await this.board.landBranch(
+        run.folderPath,
+        branch,
+        createCorrelationId(),
+      );
+      this.repository.updateTask({
+        ...active,
+        status: 'landed',
+        landedCommit: landed.head,
+        updatedAt: utcNow(),
+      });
+      this.appendMessage(
+        run.id,
+        current.id,
+        'task_event',
+        `landed "${active.title}" at ${landed.head.slice(0, 7)}`,
+      );
+    } catch (error) {
+      this.recordFailure(active, normalizeError(error).message);
+    } finally {
+      const latest = this.repository.getSeat(current.id);
+      if (latest !== undefined && latest.status === 'working') {
+        this.repository.updateSeat({ ...swarmSeatSchema.parse(latest), status: 'idle' });
+      }
+    }
+  }
+
+  /** Retry once, then give up on the task without stalling the swarm. */
+  private recordFailure(task: SwarmTaskRecord, reason: string): void {
+    const retry = task.attempts < MAX_ATTEMPTS;
+    this.repository.updateTask({
+      ...task,
+      status: retry ? 'pending' : 'failed',
+      updatedAt: utcNow(),
+    });
+    this.appendMessage(
+      task.runId,
+      task.seatId,
+      'task_event',
+      `${retry ? 'retrying' : 'failed'} "${task.title}": ${reason}`,
+    );
+  }
+
+  private skipTasksBehindDeadDeps(runId: string): void {
+    for (;;) {
+      const tasks = this.repository
+        .listTasks(runId)
+        .map((row) => swarmTaskSchema.parse(row));
+      const dead = new Set(
+        tasks
+          .filter((task) => task.status === 'failed' || task.status === 'skipped')
+          .map((task) => task.id),
+      );
+      const doomed = tasks.filter(
+        (task) =>
+          task.status === 'pending' && task.dependsOn.some((dep) => dead.has(dep)),
+      );
+      if (doomed.length === 0) return;
+      for (const task of doomed) {
+        this.repository.updateTask({ ...task, status: 'skipped', updatedAt: utcNow() });
+        this.appendMessage(
+          runId,
+          null,
+          'task_event',
+          `skipped "${task.title}": a dependency never landed`,
+        );
+      }
+    }
+  }
+
+  private async ensureWorktree(
+    run: SwarmRunRecord,
+    seat: SwarmSeatRecord,
+  ): Promise<SwarmSeatRecord> {
+    if (seat.worktreePath !== null && seat.branch !== null) {
+      const base = await this.board.readBranch(run.folderPath);
+      if (base !== null) {
+        try {
+          await execFileAsync('git', ['merge', '--no-edit', base], {
+            cwd: seat.worktreePath,
+            timeout: 30_000,
+          });
+        } catch (error) {
+          await execFileAsync('git', ['merge', '--abort'], {
+            cwd: seat.worktreePath,
+          }).catch(() => undefined);
+          throw new ZeroError(
+            'TOOL_EXECUTION_FAILED',
+            'Seat worktree conflicts with landed work',
+            { cause: error },
+          );
+        }
+      }
+      return seat;
+    }
+    const worktree = await this.board.createWorktree(
+      run.folderPath,
+      `swarm-${run.id.slice(0, 8)}-${seat.id.slice(0, 4)}`,
+      createCorrelationId(),
+    );
+    return swarmSeatSchema.parse({
+      ...seat,
+      worktreePath: worktree.path,
+      branch: worktree.branch,
+    });
+  }
+
+  private appendMessage(
+    runId: string,
+    seatId: string | null,
+    kind: SwarmMessageKind,
+    body: string,
+  ): void {
+    this.repository.appendMessage({
+      id: randomUUID(),
+      runId,
+      seatId,
+      kind,
+      body: body.slice(0, 4_000),
+      createdAt: utcNow(),
+    });
+  }
+
+  private requireRun(runId: string): SwarmRunRecord {
+    const run = this.repository.getRun(runId);
+    if (run === undefined) {
+      throw new ZeroError('VALIDATION_FAILED', 'Unknown swarm run');
+    }
+    return swarmRunSchema.parse(run);
+  }
+}
