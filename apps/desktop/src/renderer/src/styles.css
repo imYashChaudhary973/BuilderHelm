@@ -6365,3 +6365,81 @@ html.is-fullscreen .spaceHome {
     background: color-mix(in srgb, #b6d475 40%, transparent);
   }
 }
+
+.swarmSummary {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+  padding: 12px 16px;
+  border: 1px solid color-mix(in srgb, #b6d475 28%, transparent);
+  border-radius: 14px;
+  background: #0c0d0c;
+}
+
+.swarmSummary[data-status='failed'] {
+  border-color: color-mix(in srgb, #ff8f73 40%, transparent);
+}
+
+.swarmSummary strong,
+.swarmSummary p {
+  margin: 0;
+}
+
+.swarmSummary p {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--text) 70%, transparent);
+}
+
+.swarmGraph line.swarmEdgeLive {
+  stroke: #b6d475;
+  stroke-dasharray: 1.6 1.1;
+  animation: swarmDash 0.9s linear infinite;
+}
+
+.swarmNode[data-status='queued'] {
+  opacity: 0.55;
+}
+
+.swarmNode[data-status='idle'] {
+  opacity: 0.82;
+}
+
+.swarmNode[data-status='exited'] {
+  opacity: 0.5;
+}
+
+.swarmNode[data-status='working'] i,
+.swarmNode[data-status='booting'] i,
+.swarmGraph[data-phase='coordinating'] .swarmNode i {
+  animation: swarmPulse 1.2s ease-in-out infinite;
+}
+
+.swarmNodeNow {
+  color: #b6d475;
+  font-size: 10px;
+  line-height: 1.3;
+  text-transform: none;
+}
+
+@keyframes swarmDash {
+  to {
+    stroke-dashoffset: -2.7;
+  }
+}
+
+@keyframes swarmPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, #b6d475 55%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swarmGraph line.swarmEdgeLive,
+  .swarmNode i {
+    animation: none;
+  }
+}

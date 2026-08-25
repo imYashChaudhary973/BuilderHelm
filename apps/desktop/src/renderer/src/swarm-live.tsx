@@ -7,7 +7,7 @@ import {
   type SwarmSeatStatus,
   type SwarmState,
 } from '@zero/protocol/swarm';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
 export interface SwarmLiveSeat {
   readonly seatId: string;
@@ -36,6 +36,25 @@ function money(value: number): string {
 
 function clockOf(iso: string): string {
   return iso.slice(11, 19);
+}
+
+function elapsedLabel(iso: string, now: number): string {
+  const start = Date.parse(iso);
+  if (!Number.isFinite(start)) return '';
+  const seconds = Math.max(0, Math.floor((now - start) / 1000));
+  const minutes = Math.floor(seconds / 60);
+  return minutes > 0 ? `${minutes}m ${seconds % 60}s` : `${seconds}s`;
+}
+
+function activeTaskFor(
+  tasks: SwarmState['tasks'],
+  seatId: string,
+): SwarmState['tasks'][number] | undefined {
+  return tasks.find(
+    (task) =>
+      task.seatId === seatId &&
+      (task.status === 'in_progress' || task.status === 'review'),
+  );
 }
 
 export function SwarmLive({
@@ -73,6 +92,7 @@ export function SwarmLive({
   const [tab, setTab] = useState<InspectorTab>('roster');
   const [target, setTarget] = useState('all');
   const [draft, setDraft] = useState('');
+  const [now, setNow] = useState(() => Date.now());
   const roles = seats.map((seat) => seat.role);
   const points = useMemo(() => swarmGraphPoints(roles), [roles]);
   const hub = swarmGraphHub(roles);
@@ -80,6 +100,15 @@ export function SwarmLive({
   const landed = tasks.filter((task) => task.status === 'landed').length;
   const builderCount = seats.filter((seat) => seat.role === 'builder').length;
   const selected = seats.find((seat) => seat.seatId === target);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const spend = seats.reduce((total, seat) => total + seat.costUsd, 0);
+  const tokens = seats.reduce((total, seat) => total + seat.tokensUsed, 0);
+  const failedTasks = tasks.filter((task) => task.status === 'failed').length;
 
   function send(): void {
     const text = draft.trim();
@@ -141,14 +170,39 @@ export function SwarmLive({
           </p>
         </div>
       ) : null}
+      {status === 'done' || status === 'failed' ? (
+        <div className="swarmSummary" data-status={status} role="status">
+          <strong>
+            {status === 'done' ? 'Swarm finished' : 'Swarm stopped with failures'}
+          </strong>
+          <p>
+            {landed} landed
+            {failedTasks > 0 ? ` · ${failedTasks} failed` : ''}
+            {tasks.length > 0 ? ` of ${tasks.length}` : ''}
+            {tokens > 0 ? ` · ${tokens} tok · ${money(spend)}` : ''}
+          </p>
+        </div>
+      ) : null}
       <div className="swarmLiveStage">
         {view === 'graph' ? (
-          <div className="swarmGraph" role="img" aria-label="Swarm roster graph">
+          <div
+            className="swarmGraph"
+            role="img"
+            aria-label="Swarm roster graph"
+            data-phase={status}
+          >
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
               {points.map((point, index) =>
                 index === hub ? null : (
                   <line
                     key={seats[index]?.seatId ?? index}
+                    className={
+                      status === 'coordinating' ||
+                      seats[index]?.status === 'working' ||
+                      seats[index]?.status === 'booting'
+                        ? 'swarmEdgeLive'
+                        : undefined
+                    }
                     x1={points[hub]?.x ?? 50}
                     y1={points[hub]?.y ?? 72}
                     x2={point.x}
@@ -161,6 +215,9 @@ export function SwarmLive({
               const point = points[index] ?? { x: 50, y: 50 };
               const on = target === seat.seatId;
               const preview = seat.paneId === null ? '' : (previews[seat.paneId] ?? '');
+              const active = activeTaskFor(tasks, seat.seatId);
+              const elapsed =
+                active === undefined ? '' : elapsedLabel(active.updatedAt, now);
               return (
                 <button
                   key={seat.seatId}
@@ -175,6 +232,12 @@ export function SwarmLive({
                   <strong>{swarmSeatLabel(roles, index)}</strong>
                   <span>{seat.agentId}</span>
                   <em>{seat.status}</em>
+                  {active !== undefined ? (
+                    <span className="swarmNodeNow">
+                      {active.title}
+                      {elapsed.length > 0 ? ` · ${elapsed}` : ''}
+                    </span>
+                  ) : null}
                   {preview.length > 0 ? (
                     <span className="swarmNodePreview">{preview.slice(-160)}</span>
                   ) : null}
