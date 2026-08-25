@@ -147,6 +147,7 @@ export const ipcChannels = {
   swarmTaskUpdate: 'zero:swarm:task-update',
   swarmStop: 'zero:swarm:stop',
   swarmStopSeat: 'zero:swarm:stop-seat',
+  swarmLatest: 'zero:swarm:latest',
   kanbanProjectList: 'zero:kanban:project-list',
   kanbanProjectCreate: 'zero:kanban:project-create',
   kanbanList: 'zero:kanban:list',
@@ -259,6 +260,9 @@ export interface ZeroDesktopApi {
       readonly runId: string;
       readonly seatId: string;
     }): Promise<{ stopped: true }>;
+    latest(input: {
+      readonly correlationId: CorrelationId;
+    }): Promise<SwarmRunRecord | null>;
   };
   readonly board: {
     homeDir(): Promise<string>;

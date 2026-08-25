@@ -737,6 +737,10 @@ export const swarmStopIpcResponseSchema = swarmIpcResult(
   z.object({ stopped: z.literal(true) }).strict(),
 );
 export const swarmStopSeatIpcResponseSchema = swarmStopIpcResponseSchema;
+export const swarmLatestRequestSchema = z
+  .object({ correlationId: swarmCorrelationSchema })
+  .strict();
+export const swarmLatestIpcResponseSchema = swarmIpcResult(swarmRunSchema.nullable());
 
 /* Planning and review contracts ------------------------------------------- */
 

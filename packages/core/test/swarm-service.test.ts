@@ -293,6 +293,73 @@ describe('SwarmService dispatch', () => {
   });
 });
 
+describe('SwarmService restart recovery', () => {
+  it('reconciles a run the app left running and resumes it', async () => {
+    const log: string[] = [];
+    const repo = createRepository();
+    const database = openDatabase(':memory:');
+    databases.push(database);
+    runMigrations(database, migrations);
+    const board = new BoardService(database, logger);
+    const build = () =>
+      new SwarmService(database, logger, board, committingRunner(log), passingVerifier);
+
+    // First "process": create the run and leave a task mid-flight.
+    const first = build();
+    const run = first.createRun(createInput(repo, 1), createCorrelationId());
+    const task = first.addTask(
+      run.id,
+      { title: 'Interrupted', files: ['packages/db/src/i.ts'] },
+      createCorrelationId(),
+    );
+    database.run('UPDATE swarm_tasks SET status = ? WHERE id = ?', [
+      'in_progress',
+      task.id,
+    ]);
+
+    // Second "process": the dispatcher is gone, so the run must reconcile.
+    const second = build();
+    expect(second.reconcileInterruptedRuns()).toBe(1);
+    const reconciled = second.state(run.id);
+    expect(reconciled.run.status).toBe('stopped');
+    expect(reconciled.tasks[0]!.status).toBe('pending');
+
+    await second.resume(run.id, createCorrelationId());
+    const finished = second.state(run.id);
+    expect(finished.tasks[0]!.status).toBe('landed');
+    expect(finished.run.status).toBe('done');
+    expect(second.latestRun()!.id).toBe(run.id);
+  });
+
+  it('retires seat worktrees when the run ends', async () => {
+    const log: string[] = [];
+    const { service, repo } = setup(committingRunner(log));
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    service.addTask(
+      run.id,
+      { title: 'Tidy', files: ['packages/db/src/t.ts'] },
+      createCorrelationId(),
+    );
+
+    await service.pump(run.id);
+
+    expect(service.state(run.id).run.status).toBe('done');
+    const worktrees = execFileSync('git', ['worktree', 'list'], {
+      cwd: repo,
+      encoding: 'utf8',
+    });
+    // The fixture repo itself is named zero-swarm-git-*, so assert on the
+    // sibling worktrees directory rather than the substring "swarm-".
+    expect(worktrees).not.toContain('-worktrees/');
+    expect(
+      execFileSync('git', ['branch', '--list', 'exeum/*'], {
+        cwd: repo,
+        encoding: 'utf8',
+      }).trim(),
+    ).toBe('');
+  });
+});
+
 describe('SwarmService failure containment', () => {
   it('fails a task whose worktree cannot be created instead of retrying forever', async () => {
     // A folder that is not a git repository: worktree creation throws before

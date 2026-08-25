@@ -47,6 +47,8 @@ import {
   swarmStopRequestSchema,
   swarmStopSeatIpcResponseSchema,
   swarmStopSeatRequestSchema,
+  swarmLatestIpcResponseSchema,
+  swarmLatestRequestSchema,
 } from '@zero/protocol/swarm';
 import {
   kanbanCreateInputSchema,
@@ -405,6 +407,13 @@ const api: ZeroDesktopApi = {
         swarmStopRequestSchema.parse(input),
       );
       return unwrap(swarmStopIpcResponseSchema.parse(response));
+    },
+    async latest(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.swarmLatest,
+        swarmLatestRequestSchema.parse(input),
+      );
+      return unwrap(swarmLatestIpcResponseSchema.parse(response));
     },
     async stopSeat(input) {
       const response: unknown = await ipcRenderer.invoke(

@@ -116,7 +116,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
       };
     },
   };
-  const swarm = new SwarmService(
+  const swarm: SwarmService = new SwarmService(
     database,
     logger,
     board,
@@ -124,6 +124,15 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     options.swarmVerifier ?? new PnpmTaskVerifier(),
     options.swarmReviewer === undefined ? {} : { reviewer: options.swarmReviewer },
   );
+  const reconciledSwarms = swarm.reconcileInterruptedRuns();
+  if (reconciledSwarms > 0) {
+    logger.info({
+      event: 'swarm.runs_reconciled',
+      correlationId: startupCorrelationId,
+      data: { count: reconciledSwarms },
+    });
+  }
+
   return {
     logger,
     chats,

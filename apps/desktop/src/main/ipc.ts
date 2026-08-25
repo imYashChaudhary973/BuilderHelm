@@ -51,6 +51,8 @@ import {
   swarmStopRequestSchema,
   swarmStopSeatIpcResponseSchema,
   swarmStopSeatRequestSchema,
+  swarmLatestIpcResponseSchema,
+  swarmLatestRequestSchema,
 } from '@zero/protocol/swarm';
 import {
   kanbanCreateIpcResponseSchema,
@@ -764,6 +766,18 @@ export function registerIpcHandlers(
     }
   });
 
+  ipcMain.handle(ipcChannels.swarmLatest, (_event, input: unknown) => {
+    try {
+      swarmLatestRequestSchema.parse(input);
+      return swarmLatestIpcResponseSchema.parse({
+        ok: true,
+        value: core.swarm.latestRun(),
+      });
+    } catch (error) {
+      return swarmLatestIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
   ipcMain.handle(ipcChannels.swarmStopSeat, (_event, input: unknown) => {
     try {
       const request = swarmStopSeatRequestSchema.parse(input);
@@ -1313,6 +1327,7 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.swarmDirect);
     ipcMain.removeHandler(ipcChannels.swarmStop);
     ipcMain.removeHandler(ipcChannels.swarmStopSeat);
+    ipcMain.removeHandler(ipcChannels.swarmLatest);
     ipcMain.removeHandler(ipcChannels.boardCreate);
     ipcMain.removeHandler(ipcChannels.boardWrite);
     ipcMain.removeHandler(ipcChannels.boardResize);

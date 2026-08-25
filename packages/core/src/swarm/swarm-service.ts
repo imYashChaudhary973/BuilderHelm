@@ -159,6 +159,43 @@ export class SwarmService {
     return run;
   }
 
+  /**
+   * No dispatcher survives a process restart, so any run still marked running
+   * at startup is stopped and its in-flight tasks return to pending. That
+   * makes the run resumable instead of stuck forever.
+   */
+  reconcileInterruptedRuns(): number {
+    let reconciled = 0;
+    for (const row of this.repository.listRuns(200)) {
+      if (row.status !== 'running') continue;
+      this.repository.updateRun(row.id, 'stopped', utcNow());
+      for (const taskRow of this.repository.listTasks(row.id)) {
+        const task = swarmTaskSchema.parse(taskRow);
+        if (task.status !== 'in_progress') continue;
+        this.repository.updateTask({ ...task, status: 'pending', updatedAt: utcNow() });
+      }
+      for (const seatRow of this.repository.listSeats(row.id)) {
+        const seat = swarmSeatSchema.parse(seatRow);
+        if (seat.status !== 'working') continue;
+        this.repository.updateSeat({ ...seat, status: 'idle' });
+      }
+      this.appendMessage(
+        row.id,
+        null,
+        'system',
+        'App restarted while this swarm was running; it is stopped and resumable',
+      );
+      reconciled += 1;
+    }
+    return reconciled;
+  }
+
+  /** The newest run, so a reopened window can adopt a swarm in flight. */
+  latestRun(): SwarmRunRecord | null {
+    const row = this.repository.listRuns(1).at(0);
+    return row === undefined ? null : swarmRunSchema.parse(row);
+  }
+
   attachBoardSession(runId: string, boardSessionId: string): void {
     this.requireRun(runId);
     this.repository.setBoardSession(runId, boardSessionId);
@@ -305,6 +342,7 @@ export class SwarmService {
           const landed = tasks.some((task) => task.status === 'landed');
           const failed = tasks.some((task) => task.status === 'failed');
           this.repository.updateRun(runId, landed ? 'done' : 'failed', utcNow());
+          await this.retireWorktrees(typedRun);
           this.appendMessage(
             runId,
             null,
@@ -639,6 +677,52 @@ export class SwarmService {
       `planned ${created.length} task(s) from the mission`,
     );
     return created;
+  }
+
+  /**
+   * Removes seat worktrees once a run is over. A branch that still holds
+   * unlanded commits is left alone and reported, so no work is thrown away.
+   */
+  private async retireWorktrees(run: SwarmRunRecord): Promise<void> {
+    const base = await this.board.readBranch(run.folderPath);
+    for (const row of this.repository.listSeats(run.id)) {
+      const seat = swarmSeatSchema.parse(row);
+      if (seat.worktreePath === null || seat.branch === null) continue;
+      try {
+        if (base !== null) {
+          const { stdout } = await execFileAsync(
+            'git',
+            ['rev-list', '--count', `${base}..${seat.branch}`],
+            { cwd: run.folderPath, timeout: 15_000 },
+          );
+          if (Number(stdout.trim()) > 0) {
+            this.appendMessage(
+              run.id,
+              seat.id,
+              'system',
+              `kept ${seat.branch}: it still holds unlanded commits`,
+            );
+            continue;
+          }
+        }
+        await execFileAsync('git', ['worktree', 'remove', '--force', seat.worktreePath], {
+          cwd: run.folderPath,
+          timeout: 30_000,
+        });
+        await execFileAsync('git', ['branch', '-D', seat.branch], {
+          cwd: run.folderPath,
+          timeout: 15_000,
+        });
+        this.repository.updateSeat({ ...seat, worktreePath: null, branch: null });
+      } catch (error) {
+        this.appendMessage(
+          run.id,
+          seat.id,
+          'system',
+          `could not retire ${seat.branch}: ${normalizeError(error).message}`,
+        );
+      }
+    }
   }
 
   private appendMessage(

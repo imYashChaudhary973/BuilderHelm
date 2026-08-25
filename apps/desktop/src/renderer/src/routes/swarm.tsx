@@ -84,6 +84,17 @@ export function SwarmPage(): React.JSX.Element {
       .catch(() => undefined);
   }, []);
 
+  // A swarm outlives this view: adopt one that is still in flight so leaving
+  // and returning never orphans a running run behind the wizard.
+  useEffect(() => {
+    void window.zero.swarm
+      .latest({ correlationId: crypto.randomUUID() as CorrelationId })
+      .then((latest) => {
+        if (latest !== null && latest.status === 'running') setRun(latest);
+      })
+      .catch(() => undefined);
+  }, []);
+
   const detected = availableSwarmAgents(agents.data ?? []);
   useEffect(() => {
     const fill = detected[0];
