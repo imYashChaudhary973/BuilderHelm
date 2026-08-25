@@ -9,7 +9,11 @@ import type {
   BoardPaneCount,
   BoardPaneSpec,
 } from '@zero/protocol/board';
-import { BOARD_AGENT_CATALOG, boardGridLayouts } from '@zero/protocol/board';
+import {
+  BOARD_AGENT_CATALOG,
+  boardGridLayouts,
+  gridForCount,
+} from '@zero/protocol/board';
 import type { CorrelationId } from '@zero/shared';
 import { useEffect, useState } from 'react';
 import { TerminalPane } from '../components/terminal-pane.js';
@@ -26,6 +30,7 @@ const FEATURED_AGENT_IDS: readonly BoardAgentId[] = [
   'codex',
   'grok',
   'kimi',
+  'kiro',
   'antigravity',
   'opencode',
   'pi',
@@ -340,19 +345,17 @@ export function BoardPage(): React.JSX.Element {
   const [maximizedBySession, setMaximizedBySession] = useState<
     Record<string, number | null>
   >({});
-  const [exitedBySession, setExitedBySession] = useState<Record<string, string[]>>({});
+
   const [agentCounts, setAgentCounts] = useState<Partial<Record<BoardAgentId, number>>>(
     {},
   );
   const [customCommand, setCustomCommand] = useState('');
   const [showMoreAgents, setShowMoreAgents] = useState(false);
   const [cdInput, setCdInput] = useState('');
+  const [draggedPaneId, setDraggedPaneId] = useState<string | null>(null);
 
   const maximizedSlot =
     session === null ? null : (maximizedBySession[session.sessionId] ?? null);
-  const exitedPaneIds = new Set(
-    session === null ? [] : (exitedBySession[session.sessionId] ?? []),
-  );
 
   const projects = useQuery({
     queryKey: ['projects-dashboard'],
@@ -418,7 +421,6 @@ export function BoardPage(): React.JSX.Element {
     onSuccess: (summary) => {
       setRecents(writeRecents(summary.folderPath));
       spaceStore.upsert(summary);
-      setExitedBySession((current) => ({ ...current, [summary.sessionId]: [] }));
       setMaximizedBySession((current) => ({ ...current, [summary.sessionId]: null }));
       setPhase('live');
     },
@@ -434,10 +436,15 @@ export function BoardPage(): React.JSX.Element {
     for (let slot = 0; slot < paneCount; slot += 1) {
       const config = nextSlots[slot];
       if (config === undefined) continue;
+      const catalog = BOARD_AGENT_CATALOG.find((entry) => entry.id === config.agentId);
       panes.push({
         slot,
         agentId: config.agentId,
-        ...(config.agentId === 'custom' ? { command: config.command?.trim() ?? '' } : {}),
+        ...(config.agentId === 'custom'
+          ? { command: config.command?.trim() ?? '' }
+          : catalog !== undefined && catalog.command.length > 0
+            ? { command: catalog.command }
+            : {}),
       });
     }
     const working = looksLikeCd(folderPath)
@@ -512,32 +519,63 @@ export function BoardPage(): React.JSX.Element {
       });
     } catch {
       setError('The pane could not be closed.');
+      return;
     }
-    setExitedBySession((current) => ({
-      ...current,
-      [sessionId]: [...(current[sessionId] ?? []), paneId],
-    }));
+    const remaining = session.panes
+      .filter((pane) => pane.paneId !== paneId)
+      .sort((left, right) => left.slot - right.slot)
+      .map((pane, index) => ({ ...pane, slot: index }));
+    if (remaining.length === 0) {
+      spaceStore.drop(sessionId);
+      setPhase('home');
+      return;
+    }
+    spaceStore.upsert({
+      ...session,
+      panes: remaining,
+      paneCount: remaining.length,
+    });
+    setMaximizedBySession((current) => ({ ...current, [sessionId]: null }));
   }
 
-  const exitBoard = useMutation({
-    mutationFn: async () => {
-      if (session === null) return;
-      for (const pane of session.panes) {
-        await window.zero.board.closePane({
-          correlationId: crypto.randomUUID() as CorrelationId,
-          sessionId: session.sessionId,
-          paneId: pane.paneId,
-        });
-      }
-      return session.sessionId;
-    },
-    onMutate: () => setError(null),
-    onSuccess: (sessionId) => {
-      if (sessionId !== undefined) spaceStore.drop(sessionId);
-      setPhase('home');
-    },
-    onError: () => setError('Space could not be closed.'),
-  });
+  async function addTerminal(afterPaneId: string): Promise<void> {
+    if (session === null || session.panes.length >= 12) return;
+    try {
+      const pane = await window.zero.board.addPane({
+        correlationId: crypto.randomUUID() as CorrelationId,
+        sessionId: session.sessionId,
+        agentId: 'shell',
+      });
+      const ordered = session.panes.slice().sort((left, right) => left.slot - right.slot);
+      const index = ordered.findIndex((item) => item.paneId === afterPaneId);
+      const insertAt = index < 0 ? ordered.length : index + 1;
+      const next = ordered.slice();
+      next.splice(insertAt, 0, pane);
+      spaceStore.upsert({
+        ...session,
+        panes: next.map((item, slot) => ({ ...item, slot })),
+        paneCount: next.length,
+      });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not add a terminal');
+    }
+  }
+
+  function reorderPanes(fromId: string, toId: string): void {
+    if (session === null || fromId === toId) return;
+    const ordered = session.panes.slice().sort((left, right) => left.slot - right.slot);
+    const from = ordered.findIndex((pane) => pane.paneId === fromId);
+    const to = ordered.findIndex((pane) => pane.paneId === toId);
+    if (from < 0 || to < 0) return;
+    const next = ordered.slice();
+    const [moved] = next.splice(from, 1);
+    if (moved === undefined) return;
+    next.splice(to, 0, moved);
+    spaceStore.upsert({
+      ...session,
+      panes: next.map((pane, index) => ({ ...pane, slot: index })),
+    });
+  }
 
   const projectRecents = (projects.data?.projects ?? [])
     .filter((item) => item.repository !== null)
@@ -596,7 +634,7 @@ export function BoardPage(): React.JSX.Element {
   }
 
   if (!spaceStore.draft && session !== null) {
-    const layout = boardGridLayouts[session.paneCount];
+    const layout = gridForCount(session.panes.length);
     const maximized = maximizedSlot !== null;
     const visiblePanes = session.panes
       .slice()
@@ -606,23 +644,9 @@ export function BoardPage(): React.JSX.Element {
     return (
       <section
         className="boardPage"
-        aria-labelledby="board-title"
+        aria-label={`BuilderHelm Space · ${folderName(session.folderPath)}`}
         data-core-status="ready"
       >
-        <div className="boardToolbar">
-          <h1 id="board-title">
-            BuilderHelm Space · {folderName(session.folderPath)} · {session.paneCount}{' '}
-            terminals
-          </h1>
-          <button
-            className="secondaryButton"
-            type="button"
-            onClick={() => exitBoard.mutate()}
-            disabled={exitBoard.isPending}
-          >
-            Close Space
-          </button>
-        </div>
         {landNotice !== null && (
           <p className="wizardError" role="status">
             {landNotice}
@@ -636,50 +660,50 @@ export function BoardPage(): React.JSX.Element {
         <div
           className={`boardGrid${maximized ? ' boardGridMaximized' : ''}`}
           style={{
-            gridTemplateColumns: `repeat(${maximized ? 1 : layout.cols}, 1fr)`,
-            gridTemplateRows: `repeat(${maximized ? 1 : layout.rows}, 1fr)`,
+            gridTemplateColumns: `repeat(${maximized ? 1 : layout.cols}, minmax(0, 1fr))`,
+            gridTemplateRows: `repeat(${maximized ? 1 : layout.rows}, minmax(0, 1fr))`,
           }}
         >
-          {visiblePanes.map((pane) =>
-            exitedPaneIds.has(pane.paneId) ? (
-              <div key={pane.paneId} className="terminalPane">
-                <header className="paneHeader">
-                  <span className="paneDot dot-exited" />
-                  <span className="paneTitle">{pane.title}</span>
-                  <span className="paneExitedLabel">exited</span>
-                </header>
-              </div>
-            ) : (
-              <TerminalPane
-                key={pane.paneId}
-                sessionId={session.sessionId}
-                pane={pane}
-                maximized={maximized}
-                landing={land.isPending || previewLand.isPending}
-                confirmLand={landPreview?.branch === pane.branch && landPreview.ahead > 0}
-                onToggleMaximize={() => {
-                  const sessionId = session.sessionId;
-                  setMaximizedBySession((current) => ({
-                    ...current,
-                    [sessionId]: current[sessionId] === pane.slot ? null : pane.slot,
-                  }));
-                }}
-                onClose={() => void closeOnePane(pane.paneId)}
-                onLand={
-                  pane.branch === null
-                    ? undefined
-                    : () => {
-                        const branch = pane.branch as string;
-                        if (landPreview?.branch === branch && landPreview.ahead > 0) {
-                          land.mutate(branch);
-                          return;
-                        }
-                        previewLand.mutate(branch);
+          {visiblePanes.map((pane) => (
+            <TerminalPane
+              key={pane.paneId}
+              sessionId={session.sessionId}
+              pane={pane}
+              maximized={maximized}
+              landing={land.isPending || previewLand.isPending}
+              confirmLand={landPreview?.branch === pane.branch && landPreview.ahead > 0}
+              onToggleMaximize={() => {
+                const sessionId = session.sessionId;
+                setMaximizedBySession((current) => ({
+                  ...current,
+                  [sessionId]: current[sessionId] === pane.slot ? null : pane.slot,
+                }));
+              }}
+              onClose={() => void closeOnePane(pane.paneId)}
+              onAdd={
+                session.panes.length >= 12
+                  ? undefined
+                  : () => void addTerminal(pane.paneId)
+              }
+              onDragStart={() => setDraggedPaneId(pane.paneId)}
+              onDrop={() => {
+                if (draggedPaneId !== null) reorderPanes(draggedPaneId, pane.paneId);
+                setDraggedPaneId(null);
+              }}
+              onLand={
+                pane.branch === null
+                  ? undefined
+                  : () => {
+                      const branch = pane.branch as string;
+                      if (landPreview?.branch === branch && landPreview.ahead > 0) {
+                        land.mutate(branch);
+                        return;
                       }
-                }
-              />
-            ),
-          )}
+                      previewLand.mutate(branch);
+                    }
+              }
+            />
+          ))}
         </div>
       </section>
     );

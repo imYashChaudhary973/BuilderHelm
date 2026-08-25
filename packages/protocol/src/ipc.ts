@@ -2,6 +2,7 @@ import type { CorrelationId } from '@zero/shared';
 import { z } from 'zod';
 
 import type {
+  BoardAddPaneInput,
   BoardAgentDetection,
   BoardCreateInput,
   BoardLandInput,
@@ -12,6 +13,7 @@ import type {
   BoardPaneDrainResult,
   BoardPaneEventEnvelope,
   BoardPaneResizeInput,
+  BoardPaneSummary,
   BoardPaneWriteInput,
   BoardPresetDeleteInput,
   BoardPresetRecord,
@@ -21,11 +23,13 @@ import type {
 import type {
   KanbanCard,
   KanbanCreateInput,
+  KanbanDeleteInput,
   KanbanListInput,
   KanbanMoveInput,
   KanbanProject,
   KanbanProjectCreateInput,
   KanbanProjectListInput,
+  KanbanUpdateInput,
 } from './kanban.js';
 
 import type { BrowserCommandInput, BrowserState } from './browser.js';
@@ -121,6 +125,7 @@ export const ipcChannels = {
   boardWrite: 'zero:board:write',
   boardResize: 'zero:board:resize',
   boardPaneClose: 'zero:board:pane-close',
+  boardPaneAdd: 'zero:board:pane-add',
   boardPaneDrain: 'zero:board:pane-drain',
   boardHomeDir: 'zero:board:home-dir',
   boardSelectFolder: 'zero:board:select-folder',
@@ -135,6 +140,8 @@ export const ipcChannels = {
   kanbanList: 'zero:kanban:list',
   kanbanCreate: 'zero:kanban:create',
   kanbanMove: 'zero:kanban:move',
+  kanbanUpdate: 'zero:kanban:update',
+  kanbanDelete: 'zero:kanban:delete',
   browserCommand: 'zero:browser:command',
   editorPick: 'zero:editor:pick',
   editorRead: 'zero:editor:read',
@@ -224,6 +231,7 @@ export interface ZeroDesktopApi {
     write(input: BoardPaneWriteInput): Promise<{ readonly written: true }>;
     resize(input: BoardPaneResizeInput): Promise<{ readonly resized: true }>;
     closePane(input: BoardPaneCloseInput): Promise<{ readonly closed: true }>;
+    addPane(input: BoardAddPaneInput): Promise<BoardPaneSummary>;
     drainPane(input: BoardPaneDrainInput): Promise<BoardPaneDrainResult>;
     selectFolder(): Promise<string | null>;
     detectAgents(): Promise<BoardAgentDetection[]>;
@@ -237,6 +245,8 @@ export interface ZeroDesktopApi {
     listCards(input: KanbanListInput): Promise<KanbanCard[]>;
     createCard(input: KanbanCreateInput): Promise<KanbanCard>;
     moveCard(input: KanbanMoveInput): Promise<KanbanCard>;
+    updateCard(input: KanbanUpdateInput): Promise<KanbanCard>;
+    deleteCard(input: KanbanDeleteInput): Promise<{ readonly deleted: true }>;
     onPaneEvent(
       sessionId: string,
       listener: (event: BoardPaneEventEnvelope) => void,

@@ -148,8 +148,11 @@ describe('BoardService kanban', () => {
     expect(service.listCards(zenVoice.id).map((card) => card.title)).toEqual([
       'Refine voice capture',
     ]);
-    expect(service.moveCard(builderTask.id, 'shipped', correlationId).column).toBe(
-      'shipped',
+    expect(service.moveCard(builderTask.id, 'review', correlationId).column).toBe(
+      'review',
+    );
+    expect(service.moveCard(builderTask.id, 'cancelled', correlationId).column).toBe(
+      'cancelled',
     );
     expect(service.listCards(zenVoice.id)[0]?.column).toBe('idea');
     expect(
@@ -161,6 +164,23 @@ describe('BoardService kanban', () => {
       { name: 'BuilderHelm', taskCount: 1 },
       { name: 'ZenVoice', taskCount: 1 },
     ]);
+    const reviewCard = service.createCard(
+      builderHelm.id,
+      'Review this',
+      correlationId,
+      'review',
+    );
+    expect(reviewCard.column).toBe('review');
+    expect(service.updateCard(reviewCard.id, 'Reviewed this', correlationId).title).toBe(
+      'Reviewed this',
+    );
+    expect(service.deleteCard(reviewCard.id, correlationId)).toEqual({ deleted: true });
+    expect(service.listCards(builderHelm.id).map((card) => card.title)).toEqual([
+      'Ship multi-project boards',
+    ]);
+    expect(() => service.updateCard(reviewCard.id, 'Gone', correlationId)).toThrow(
+      'gone',
+    );
     expect(() => service.createProject('zenvoice', correlationId)).toThrow(
       'already exists',
     );

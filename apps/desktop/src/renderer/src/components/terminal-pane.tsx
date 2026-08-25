@@ -6,8 +6,8 @@ import type { BoardPaneStatus, BoardPaneSummary } from '@zero/protocol/board';
 import type { CorrelationId } from '@zero/shared';
 import { useEffect, useRef, useState } from 'react';
 
-const MIN_COLS = 80;
-const MIN_ROWS = 24;
+const MIN_COLS = 2;
+const MIN_ROWS = 2;
 interface TerminalPaneProps {
   readonly sessionId: string;
   readonly pane: BoardPaneSummary;
@@ -16,7 +16,10 @@ interface TerminalPaneProps {
   readonly confirmLand: boolean;
   readonly onToggleMaximize: () => void;
   readonly onClose: () => void;
+  readonly onAdd: (() => void) | undefined;
   readonly onLand: (() => void) | undefined;
+  readonly onDragStart: () => void;
+  readonly onDrop: () => void;
 }
 
 export function TerminalPane({
@@ -27,13 +30,19 @@ export function TerminalPane({
   confirmLand,
   onToggleMaximize,
   onClose,
+  onAdd,
   onLand,
+  onDragStart,
+  onDrop,
 }: TerminalPaneProps): React.JSX.Element {
   const serializeRef = useRef<SerializeAddon | null>(null);
   const termRef = useRef<Terminal | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const paneRef = useRef<HTMLDivElement | null>(null);
+  const ghostRef = useRef<HTMLElement | null>(null);
   const [status, setStatus] = useState<BoardPaneStatus>(pane.status);
   const [focused, setFocused] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -60,16 +69,17 @@ export function TerminalPane({
     term.open(host);
 
     const applySize = (): void => {
-      fit.fit();
-      const cols = Math.max(MIN_COLS, term.cols);
-      const rows = Math.max(MIN_ROWS, term.rows);
-      if (term.cols !== cols || term.rows !== rows) term.resize(cols, rows);
+      try {
+        fit.fit();
+      } catch {
+        return;
+      }
       void window.zero.board.resize({
         correlationId: crypto.randomUUID() as CorrelationId,
         sessionId,
         paneId: pane.paneId,
-        cols,
-        rows,
+        cols: Math.max(MIN_COLS, term.cols),
+        rows: Math.max(MIN_ROWS, term.rows),
       });
     };
     applySize();
@@ -136,11 +146,76 @@ export function TerminalPane({
 
   return (
     <div
+      ref={paneRef}
       className={`terminalPane${focused ? ' terminalPaneFocused' : ''}${
         maximized ? ' terminalPaneMaximized' : ''
-      }`}
+      }${dragging ? ' terminalPaneDragging' : ''}`}
+      onDragOver={(event) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        onDrop();
+      }}
+      onDragEnd={() => {
+        ghostRef.current?.remove();
+        ghostRef.current = null;
+        setDragging(false);
+      }}
     >
-      <header className="paneHeader">
+      <header
+        className="paneHeader"
+        draggable
+        onDragStart={(event) => {
+          if ((event.target as HTMLElement).closest('button') !== null) {
+            event.preventDefault();
+            return;
+          }
+          const paneEl = paneRef.current;
+          const hostEl = hostRef.current;
+          if (paneEl !== null) {
+            const rect = paneEl.getBoundingClientRect();
+            const ghost = paneEl.cloneNode(true) as HTMLElement;
+            ghost.classList.add('terminalPaneGhost');
+            ghost.style.width = `${rect.width}px`;
+            ghost.style.height = `${rect.height}px`;
+            // The clone leaves the grid, so flex stops sizing the terminal
+            // body and only the header would rasterize into the drag image.
+            const ghostHost = ghost.querySelector('.paneTerminalHost');
+            if (ghostHost instanceof HTMLElement && hostEl !== null) {
+              ghostHost.style.flex = '0 0 auto';
+              ghostHost.style.height = `${hostEl.getBoundingClientRect().height}px`;
+            }
+            document.body.appendChild(ghost);
+            const sources = paneEl.querySelectorAll('canvas');
+            const copies = ghost.querySelectorAll('canvas');
+            sources.forEach((source, index) => {
+              const copy = copies[index];
+              if (
+                !(source instanceof HTMLCanvasElement) ||
+                !(copy instanceof HTMLCanvasElement)
+              ) {
+                return;
+              }
+              copy.width = source.width;
+              copy.height = source.height;
+              copy.getContext('2d')?.drawImage(source, 0, 0);
+            });
+            ghostRef.current?.remove();
+            ghostRef.current = ghost;
+            event.dataTransfer.setDragImage(
+              ghost,
+              event.clientX - rect.left,
+              event.clientY - rect.top,
+            );
+          }
+          event.dataTransfer.effectAllowed = 'move';
+          event.dataTransfer.setData('text/plain', pane.paneId);
+          setDragging(true);
+          onDragStart();
+        }}
+      >
         <span className={`paneDot dot-${status}`} aria-label={`status: ${status}`} />
         <span className="paneTitle">{pane.title}</span>
         {pane.branch !== null && (
@@ -167,9 +242,31 @@ export function TerminalPane({
           className="iconButton"
           type="button"
           onClick={onToggleMaximize}
-          title="Maximize"
+          title={maximized ? 'Exit full screen' : 'Full screen'}
         >
-          {maximized ? '❐' : '□'}
+          {maximized ? (
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+              <path
+                d="M10 4v6H4M4 4l6 6M14 20v-6h6M20 20l-6-6"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+              <path
+                d="M14 4h6v6M20 4l-6 6M10 20H4v-6M4 20l6-6"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          )}
         </button>
         <button
           className="iconButton"
@@ -179,6 +276,16 @@ export function TerminalPane({
         >
           ⧉
         </button>
+        {onAdd !== undefined ? (
+          <button
+            className="iconButton"
+            type="button"
+            onClick={onAdd}
+            title="New terminal to the right"
+          >
+            +
+          </button>
+        ) : null}
         <button className="iconButton" type="button" onClick={onClose} title="Close pane">
           ×
         </button>

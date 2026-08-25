@@ -16,6 +16,7 @@ export const boardAgentIds = [
   'omp',
   'pi',
   'kimi',
+  'kiro',
   'custom',
 ] as const;
 
@@ -42,6 +43,7 @@ export const BOARD_AGENT_CATALOG: readonly BoardAgentCatalogEntry[] = [
   { id: 'omp', label: 'Oh My Pi', command: 'omp' },
   { id: 'pi', label: 'Pi', command: 'pi' },
   { id: 'kimi', label: 'Kimi', command: 'kimi' },
+  { id: 'kiro', label: 'Kiro', command: 'kiro-cli' },
   { id: 'custom', label: 'Custom command', command: '' },
 ];
 
@@ -61,7 +63,7 @@ export type BoardPaneCount = z.infer<typeof boardPaneCountSchema>;
 /** Fixed grid per pane count: cols x rows. */
 export const boardGridLayouts = {
   1: { cols: 1, rows: 1 },
-  2: { cols: 1, rows: 2 },
+  2: { cols: 2, rows: 1 },
   3: { cols: 3, rows: 1 },
   4: { cols: 2, rows: 2 },
   5: { cols: 3, rows: 2 },
@@ -70,6 +72,13 @@ export const boardGridLayouts = {
   10: { cols: 5, rows: 2 },
   12: { cols: 4, rows: 3 },
 } as const satisfies Record<BoardPaneCount, { cols: number; rows: number }>;
+
+export function gridForCount(count: number): { cols: number; rows: number } {
+  const n = Math.max(1, count);
+  if (n <= 3) return { cols: n, rows: 1 };
+  const rows = n <= 8 ? 2 : 3;
+  return { cols: Math.ceil(n / rows), rows };
+}
 
 export const boardIsolationSchema = z.enum(['shared', 'worktree']);
 export type BoardIsolation = z.infer<typeof boardIsolationSchema>;
@@ -142,7 +151,7 @@ export const boardSessionSummarySchema = z
   .object({
     sessionId: z.string().uuid(),
     folderPath: z.string().min(1).max(4096),
-    paneCount: boardPaneCountSchema,
+    paneCount: z.number().int().min(1).max(12),
     isolation: boardIsolationSchema,
     panes: z.array(boardPaneSummarySchema).min(1).max(12),
   })
@@ -205,6 +214,15 @@ export const boardPaneCloseInputSchema = z
   })
   .strict();
 export type BoardPaneCloseInput = z.infer<typeof boardPaneCloseInputSchema>;
+export const boardAddPaneInputSchema = z
+  .object({
+    correlationId: boardCorrelationSchema,
+    sessionId: z.string().uuid(),
+    agentId: boardAgentIdSchema,
+    command: z.string().trim().min(1).max(500).optional(),
+  })
+  .strict();
+export type BoardAddPaneInput = z.infer<typeof boardAddPaneInputSchema>;
 
 export const boardPaneDrainInputSchema = boardPaneCloseInputSchema;
 export type BoardPaneDrainInput = z.infer<typeof boardPaneDrainInputSchema>;
@@ -312,6 +330,7 @@ export const boardResizeIpcResponseSchema = boardIpcResponse(
 export const boardPaneCloseIpcResponseSchema = boardIpcResponse(
   z.object({ closed: z.literal(true) }).strict(),
 );
+export const boardAddPaneIpcResponseSchema = boardIpcResponse(boardPaneSummarySchema);
 export const boardPaneDrainIpcResponseSchema = boardIpcResponse(
   boardPaneDrainResultSchema,
 );

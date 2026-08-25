@@ -7,8 +7,14 @@ import { useBoards } from '../board-store.js';
 const COLUMNS: readonly { id: KanbanColumn; label: string }[] = [
   { id: 'idea', label: 'To Do' },
   { id: 'doing', label: 'In Progress' },
+  { id: 'review', label: 'In Review' },
   { id: 'shipped', label: 'Complete' },
+  { id: 'cancelled', label: 'Cancelled' },
 ];
+
+function neighbor(id: KanbanColumn, delta: -1 | 1): KanbanColumn | undefined {
+  return COLUMNS[COLUMNS.findIndex((column) => column.id === id) + delta]?.id;
+}
 
 function BoardGlyph({ size = 18 }: { readonly size?: number }): React.JSX.Element {
   return (
@@ -173,6 +179,10 @@ export function KanbanBoard(): React.JSX.Element {
   const [busy, setBusy] = useState(false);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropColumn, setDropColumn] = useState<KanbanColumn | null>(null);
+  const [compose, setCompose] = useState<KanbanColumn | null>(null);
+  const [composeTitle, setComposeTitle] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
 
   useEffect(() => {
     if (projects.isSuccess && boards.activeId !== null && selectedProject === undefined) {
@@ -221,21 +231,58 @@ export function KanbanBoard(): React.JSX.Element {
     await queryClient.invalidateQueries({ queryKey: ['kanban-projects'] });
   }
 
-  async function addCard(): Promise<void> {
-    const nextTitle = title.trim();
-    if (nextTitle.length === 0 || selectedProject === undefined) return;
+  async function addCard(
+    nextTitle: string,
+    column: KanbanColumn = 'idea',
+  ): Promise<void> {
+    const trimmed = nextTitle.trim();
+    if (trimmed.length === 0 || selectedProject === undefined) return;
     setBusy(true);
     setError(null);
     try {
       const card = await window.zero.board.createCard({
         workspace: selectedProject.id,
-        title: nextTitle,
+        title: trimmed,
+        column,
       });
       setCards((current) => [...current, card]);
       setTitle('');
+      setComposeTitle('');
+      setCompose(null);
       await refreshProjects();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not add the card');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function rename(card: KanbanCard, nextTitle: string): Promise<void> {
+    const trimmed = nextTitle.trim();
+    setEditingId(null);
+    if (trimmed.length === 0 || trimmed === card.title) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await window.zero.board.updateCard({ id: card.id, title: trimmed });
+      setCards((current) => current.map((item) => (item.id === next.id ? next : item)));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not rename the card');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(card: KanbanCard): Promise<void> {
+    setBusy(true);
+    setError(null);
+    try {
+      await window.zero.board.deleteCard({ id: card.id });
+      setCards((current) => current.filter((item) => item.id !== card.id));
+      if (editingId === card.id) setEditingId(null);
+      await refreshProjects();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not delete the card');
     } finally {
       setBusy(false);
     }
@@ -309,7 +356,7 @@ export function KanbanBoard(): React.JSX.Element {
             className="kanbanAdd"
             onSubmit={(event) => {
               event.preventDefault();
-              void addCard();
+              void addCard(title);
             }}
           >
             <input
@@ -362,19 +409,38 @@ export function KanbanBoard(): React.JSX.Element {
             >
               <header>
                 <span>{column.label}</span>
-                <strong>{items.length}</strong>
+                <span className="kanbanColMeta">
+                  <strong>{items.length}</strong>
+                  <button
+                    type="button"
+                    aria-label={`Add task to ${column.label}`}
+                    disabled={busy}
+                    onClick={() => {
+                      setCompose(column.id);
+                      setComposeTitle('');
+                    }}
+                  >
+                    +
+                  </button>
+                </span>
               </header>
               <ul>
-                {items.length === 0 ? <li className="kanbanEmpty">No tasks</li> : null}
+                {items.length === 0 && compose !== column.id ? (
+                  <li className="kanbanEmpty">No tasks</li>
+                ) : null}
                 {items.map((card) => (
                   <li
                     key={card.id}
                     className={
                       draggedId === card.id ? 'kanbanCard kanbanDragging' : 'kanbanCard'
                     }
-                    draggable={!busy}
+                    draggable={!busy && editingId !== card.id}
                     aria-grabbed={draggedId === card.id}
                     onDragStart={(event) => {
+                      if (editingId === card.id) {
+                        event.preventDefault();
+                        return;
+                      }
                       event.dataTransfer.effectAllowed = 'move';
                       event.dataTransfer.setData('text/plain', card.id);
                       setDraggedId(card.id);
@@ -384,35 +450,98 @@ export function KanbanBoard(): React.JSX.Element {
                       setDropColumn(null);
                     }}
                   >
-                    <p>{card.title}</p>
+                    {editingId === card.id ? (
+                      <input
+                        className="kanbanCardEdit"
+                        aria-label={`Rename ${card.title}`}
+                        value={editTitle}
+                        autoFocus
+                        disabled={busy}
+                        onChange={(event) => setEditTitle(event.target.value)}
+                        onBlur={() => void rename(card, editTitle)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            void rename(card, editTitle);
+                          }
+                          if (event.key === 'Escape') setEditingId(null);
+                        }}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        className="kanbanCardTitle"
+                        onClick={() => {
+                          setEditingId(card.id);
+                          setEditTitle(card.title);
+                        }}
+                      >
+                        {card.title}
+                      </button>
+                    )}
                     <div>
-                      {column.id !== 'idea' ? (
+                      {neighbor(column.id, -1) !== undefined ? (
                         <button
                           type="button"
                           aria-label={`Move ${card.title} back`}
                           disabled={busy}
-                          onClick={() =>
-                            void move(card, column.id === 'doing' ? 'idea' : 'doing')
-                          }
+                          onClick={() => {
+                            const previous = neighbor(column.id, -1);
+                            if (previous !== undefined) void move(card, previous);
+                          }}
                         >
                           ←
                         </button>
                       ) : null}
-                      {column.id !== 'shipped' ? (
+                      {neighbor(column.id, 1) !== undefined ? (
                         <button
                           type="button"
                           aria-label={`Move ${card.title} forward`}
                           disabled={busy}
-                          onClick={() =>
-                            void move(card, column.id === 'idea' ? 'doing' : 'shipped')
-                          }
+                          onClick={() => {
+                            const next = neighbor(column.id, 1);
+                            if (next !== undefined) void move(card, next);
+                          }}
                         >
                           →
                         </button>
                       ) : null}
+                      <button
+                        type="button"
+                        aria-label={`Delete ${card.title}`}
+                        disabled={busy}
+                        onClick={() => void remove(card)}
+                      >
+                        ×
+                      </button>
                     </div>
                   </li>
                 ))}
+                {compose === column.id ? (
+                  <li className="kanbanCompose">
+                    <form
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void addCard(composeTitle, column.id);
+                      }}
+                    >
+                      <input
+                        aria-label={`New ${column.label} task`}
+                        value={composeTitle}
+                        placeholder="Task title"
+                        autoFocus
+                        disabled={busy}
+                        onChange={(event) => setComposeTitle(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Escape') setCompose(null);
+                        }}
+                        onBlur={() => {
+                          if (composeTitle.trim().length === 0) setCompose(null);
+                        }}
+                      />
+                    </form>
+                  </li>
+                ) : null}
               </ul>
             </section>
           );

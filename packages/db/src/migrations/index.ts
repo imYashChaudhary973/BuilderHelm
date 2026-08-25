@@ -8,6 +8,7 @@ import { projectContinuityMigration } from './0007-project-continuity.js';
 import { boardPresetsMigration } from './0008-board-presets.js';
 import { kanbanCardsMigration } from './0009-kanban-cards.js';
 import { kanbanProjectsMigration } from './0010-kanban-projects.js';
+import { kanbanReviewCancelledMigration } from './0011-kanban-review-cancelled.js';
 
 export const migrations = [
   phaseZeroMigration,
@@ -20,6 +21,7 @@ export const migrations = [
   boardPresetsMigration,
   kanbanCardsMigration,
   kanbanProjectsMigration,
+  kanbanReviewCancelledMigration,
 ] as const;
 
 export {
@@ -33,4 +35,5 @@ export {
   boardPresetsMigration,
   kanbanCardsMigration,
   kanbanProjectsMigration,
+  kanbanReviewCancelledMigration,
 };

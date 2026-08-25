@@ -10,6 +10,8 @@ import {
   permissionPolicyUpdateIpcResponseSchema,
 } from '@zero/protocol/actions';
 import {
+  boardAddPaneInputSchema,
+  boardAddPaneIpcResponseSchema,
   boardCreateInputSchema,
   boardCreateIpcResponseSchema,
   boardDetectAgentsIpcResponseSchema,
@@ -37,6 +39,8 @@ import {
 import {
   kanbanCreateInputSchema,
   kanbanCreateIpcResponseSchema,
+  kanbanDeleteInputSchema,
+  kanbanDeleteIpcResponseSchema,
   kanbanListInputSchema,
   kanbanListIpcResponseSchema,
   kanbanMoveInputSchema,
@@ -45,6 +49,8 @@ import {
   kanbanProjectCreateIpcResponseSchema,
   kanbanProjectListInputSchema,
   kanbanProjectListIpcResponseSchema,
+  kanbanUpdateInputSchema,
+  kanbanUpdateIpcResponseSchema,
 } from '@zero/protocol/kanban';
 import {
   ipcChannels,
@@ -392,6 +398,13 @@ const api: ZeroDesktopApi = {
       );
       return unwrap(boardPaneCloseIpcResponseSchema.parse(response));
     },
+    async addPane(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.boardPaneAdd,
+        boardAddPaneInputSchema.parse(input),
+      );
+      return unwrap(boardAddPaneIpcResponseSchema.parse(response));
+    },
     async drainPane(input) {
       const response: unknown = await ipcRenderer.invoke(
         ipcChannels.boardPaneDrain,
@@ -482,6 +495,20 @@ const api: ZeroDesktopApi = {
         input: kanbanMoveInputSchema.parse(input),
       });
       return unwrap(kanbanMoveIpcResponseSchema.parse(response));
+    },
+    async updateCard(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.kanbanUpdate, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: kanbanUpdateInputSchema.parse(input),
+      });
+      return unwrap(kanbanUpdateIpcResponseSchema.parse(response));
+    },
+    async deleteCard(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.kanbanDelete, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: kanbanDeleteInputSchema.parse(input),
+      });
+      return unwrap(kanbanDeleteIpcResponseSchema.parse(response));
     },
     onPaneEvent(sessionId, listener) {
       let listeners = boardListeners.get(sessionId);

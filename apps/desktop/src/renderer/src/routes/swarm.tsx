@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import {
-  boardGridLayouts,
+  gridForCount,
   type BoardIsolation,
   type BoardLandPreview,
   type BoardPaneCount,
@@ -404,8 +404,8 @@ export function SwarmPage(): React.JSX.Element {
           <div
             className="boardGrid"
             style={{
-              gridTemplateColumns: `repeat(${boardGridLayouts[run.session.paneCount].cols}, 1fr)`,
-              gridTemplateRows: `repeat(${boardGridLayouts[run.session.paneCount].rows}, 1fr)`,
+              gridTemplateColumns: `repeat(${gridForCount(run.session.paneCount).cols}, 1fr)`,
+              gridTemplateRows: `repeat(${gridForCount(run.session.paneCount).rows}, 1fr)`,
             }}
           >
             {run.session.panes.map((pane) => {
@@ -424,6 +424,9 @@ export function SwarmPage(): React.JSX.Element {
                   }
                   onToggleMaximize={() => undefined}
                   onClose={() => undefined}
+                  onAdd={undefined}
+                  onDragStart={() => undefined}
+                  onDrop={() => undefined}
                   onLand={
                     canLand
                       ? () => {
