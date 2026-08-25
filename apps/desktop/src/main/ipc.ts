@@ -654,12 +654,13 @@ export function registerIpcHandlers(
 
   const swarmSenders = new Map<string, WebContents>();
   // Test doubles pass partial cores; the real runtime always has swarm.
-  const unsubscribeSwarmEvents = core.swarm?.onRunEvent?.((runId: string) => {
-    const sender = swarmSenders.get(runId);
-    if (sender !== undefined && !sender.isDestroyed()) {
-      sender.send(ipcChannels.swarmEvent, { runId });
-    }
-  }) ?? (() => {});
+  const unsubscribeSwarmEvents =
+    core.swarm?.onRunEvent?.((runId: string) => {
+      const sender = swarmSenders.get(runId);
+      if (sender !== undefined && !sender.isDestroyed()) {
+        sender.send(ipcChannels.swarmEvent, { runId });
+      }
+    }) ?? (() => {});
 
   function requireSwarmRunner(): PtySwarmRunner {
     if (swarmRunner === undefined) {
