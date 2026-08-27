@@ -22,3 +22,4 @@ export * from './model-repository.js';
 export * from './provider-repository.js';
 export * from './project-repository.js';
 export * from './swarm-repository.js';
+export * from './helm-repository.js';

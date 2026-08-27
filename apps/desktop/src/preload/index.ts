@@ -37,6 +37,8 @@ import {
   type BoardPaneEventEnvelope,
 } from '@zero/protocol/board';
 import {
+  swarmAddSeatIpcResponseSchema,
+  swarmAddSeatRequestSchema,
   swarmCreateIpcResponseSchema,
   swarmCreateRequestSchema,
   swarmDirectIpcResponseSchema,
@@ -438,6 +440,13 @@ const api: ZeroDesktopApi = {
       );
       return unwrap(swarmStopSeatIpcResponseSchema.parse(response));
     },
+    async addSeat(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.swarmAddSeat,
+        swarmAddSeatRequestSchema.parse(input),
+      );
+      return unwrap(swarmAddSeatIpcResponseSchema.parse(response));
+    },
   },
   board: {
     async homeDir() {
@@ -697,6 +706,99 @@ const api: ZeroDesktopApi = {
         input: editorGitCommitInputSchema.parse(input),
       });
       return unwrap(editorGitCommitIpcResponseSchema.parse(response));
+    },
+  },
+  helm: {
+    async listAgents() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.helm, {
+        action: 'listAgents',
+      });
+      const parsed = response as {
+        ok: boolean;
+        value?: unknown;
+        error?: { message: string };
+      };
+      if (!parsed.ok) throw new Error(parsed.error?.message ?? 'helm failed');
+      return parsed.value as ZeroDesktopApi['helm'] extends {
+        listAgents: () => Promise<infer T>;
+      }
+        ? T
+        : never;
+    },
+    async createAgent(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.helm, {
+        action: 'createAgent',
+        payload: input,
+      });
+      const parsed = response as {
+        ok: boolean;
+        value?: unknown;
+        error?: { message: string };
+      };
+      if (!parsed.ok) throw new Error(parsed.error?.message ?? 'helm failed');
+      return parsed.value as Awaited<ReturnType<ZeroDesktopApi['helm']['createAgent']>>;
+    },
+    async listRoutines() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.helm, {
+        action: 'listRoutines',
+      });
+      const parsed = response as {
+        ok: boolean;
+        value?: unknown;
+        error?: { message: string };
+      };
+      if (!parsed.ok) throw new Error(parsed.error?.message ?? 'helm failed');
+      return parsed.value as Awaited<ReturnType<ZeroDesktopApi['helm']['listRoutines']>>;
+    },
+    async createRoutine(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.helm, {
+        action: 'createRoutine',
+        payload: input,
+      });
+      const parsed = response as {
+        ok: boolean;
+        value?: unknown;
+        error?: { message: string };
+      };
+      if (!parsed.ok) throw new Error(parsed.error?.message ?? 'helm failed');
+      return parsed.value as Awaited<ReturnType<ZeroDesktopApi['helm']['createRoutine']>>;
+    },
+    async listPlugins() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.helm, {
+        action: 'listPlugins',
+      });
+      const parsed = response as {
+        ok: boolean;
+        value?: unknown;
+        error?: { message: string };
+      };
+      if (!parsed.ok) throw new Error(parsed.error?.message ?? 'helm failed');
+      return parsed.value as Awaited<ReturnType<ZeroDesktopApi['helm']['listPlugins']>>;
+    },
+    async connectPlugin(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.helm, {
+        action: 'connectPlugin',
+        payload: input,
+      });
+      const parsed = response as {
+        ok: boolean;
+        value?: unknown;
+        error?: { message: string };
+      };
+      if (!parsed.ok) throw new Error(parsed.error?.message ?? 'helm failed');
+      return parsed.value as Awaited<ReturnType<ZeroDesktopApi['helm']['connectPlugin']>>;
+    },
+    async listTasks() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.helm, {
+        action: 'listTasks',
+      });
+      const parsed = response as {
+        ok: boolean;
+        value?: unknown;
+        error?: { message: string };
+      };
+      if (!parsed.ok) throw new Error(parsed.error?.message ?? 'helm failed');
+      return parsed.value as Awaited<ReturnType<ZeroDesktopApi['helm']['listTasks']>>;
     },
   },
 };

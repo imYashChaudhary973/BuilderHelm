@@ -224,3 +224,15 @@ describe('BoardService kanban', () => {
     database.close();
   });
 });
+
+describe('BoardService detectAgents', () => {
+  it('reuses one probe so launch does not pay the timeout twice', async () => {
+    const database = openDatabase(':memory:');
+    runMigrations(database, migrations);
+    const board = new BoardService(database, logger);
+    const first = board.detectAgents();
+    const second = board.detectAgents();
+    expect(await first).toBe(await second);
+    database.close();
+  });
+});

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseAgentUsage } from '../src/swarm/agent-usage.js';
+import { parseAgentUsage, parseCliFailure } from '../src/swarm/agent-usage.js';
 import {
   buildPlanPrompt,
+  firstSuccessfulPlan,
   normalizeSwarmPlan,
+  pinFoundation,
   swarmPlanBudget,
 } from '../src/swarm/swarm-planning.js';
 import { buildSeatPrompt, SWARM_PROMPT_TASK_MARKER } from '../src/swarm/swarm-prompt.js';
@@ -90,6 +92,54 @@ describe('normalizeSwarmPlan', () => {
   });
 });
 
+it('tells the planner to pin later tasks on a foundation for empty repos', () => {
+  const prompt = buildPlanPrompt({
+    mission: 'build a todo app',
+    snapshot: { files: ['README.md'], truncated: false },
+    maxTasks: 7,
+    roster: 'coordinator/claude, builder/grok',
+  });
+
+  expect(prompt).toContain('Task 0 MUST be the foundation (shell, package, entry)');
+  expect(prompt).toContain('Every later task MUST set dependsOn: [0]');
+});
+
+describe('pinFoundation', () => {
+  const three = () =>
+    normalizeSwarmPlan(
+      {
+        tasks: [
+          { title: 'Scaffold', files: ['package.json'] },
+          { title: 'App', files: ['src/app.ts'] },
+          { title: 'UI', files: ['src/ui.ts'] },
+        ],
+      },
+      10,
+    );
+
+  it('pins later tasks onto 0 for an empty snapshot', () => {
+    const plan = pinFoundation(three(), { files: [], truncated: false });
+    expect(plan[1]!.dependsOn).toContain(0);
+    expect(plan[2]!.dependsOn).toContain(0);
+  });
+
+  it('pins later tasks onto 0 for docs-only snapshots', () => {
+    const plan = pinFoundation(three(), {
+      files: ['README.md', 'docs/guide.md'],
+      truncated: false,
+    });
+    expect(plan[1]!.dependsOn).toContain(0);
+    expect(plan[2]!.dependsOn).toContain(0);
+  });
+  it('leaves a plan alone when the snapshot already has source', () => {
+    const tasks = three();
+    const plan = pinFoundation(tasks, { files: ['src/main.ts'], truncated: false });
+    expect(plan).toEqual(tasks);
+    expect(plan[1]!.dependsOn).toEqual([]);
+    expect(plan[2]!.dependsOn).toEqual([]);
+  });
+});
+
 describe('buildSeatPrompt', () => {
   const base = {
     role: 'builder' as const,
@@ -129,7 +179,7 @@ describe('buildSeatPrompt', () => {
     expect(tail).toContain('skip the docs for now');
   });
 
-  it('puts the swarm digest in the prefix, not the task tail', () => {
+  it('puts the swarm digest after the task marker so the prefix can cache', () => {
     const prompt = buildSeatPrompt({
       ...base,
       swarmDigest:
@@ -140,10 +190,28 @@ describe('buildSeatPrompt', () => {
     const prefix = prompt.slice(0, marker);
     const tail = prompt.slice(marker);
 
-    expect(prefix).toContain('Swarm roster: builder/grok.');
-    expect(prefix).toContain('Alpha');
-    expect(tail).not.toContain('Swarm roster');
+    expect(prefix).not.toContain('Swarm roster');
+    expect(prefix).not.toContain('Alpha');
+    expect(tail).toContain('Swarm roster: builder/grok.');
+    expect(tail).toContain('Alpha');
     expect(tail).toContain('Beta');
+  });
+
+  it('keeps the prefix stable when the digest changes after a land', () => {
+    const first = buildSeatPrompt({
+      ...base,
+      swarmDigest: 'Swarm roster: builder/grok.',
+      task: { title: 'Alpha', detail: null, files: ['src/a.ts'] },
+    });
+    const second = buildSeatPrompt({
+      ...base,
+      swarmDigest:
+        'Swarm roster: builder/grok.\nWork already landed by other seats (do not redo or contradict it):\n- Alpha: landed',
+      task: { title: 'Beta', detail: null, files: ['src/b.ts'] },
+    });
+    const prefixOf = (prompt: string) =>
+      prompt.slice(0, prompt.indexOf(SWARM_PROMPT_TASK_MARKER));
+    expect(prefixOf(first)).toBe(prefixOf(second));
   });
 });
 
@@ -179,5 +247,86 @@ describe('parseAgentUsage', () => {
       tokensUsed: 0,
       costUsd: 0,
     });
+  });
+});
+
+describe('parseCliFailure', () => {
+  it('names a grok 402 usage error', () => {
+    expect(
+      parseCliFailure(
+        '{"type":"error","message":"API error (status 402 Payment Required): Grok Build usage balance exhausted"}',
+      ),
+    ).toBe('Grok usage balance exhausted (402)');
+  });
+
+  it('returns the last non-empty lines otherwise', () => {
+    expect(parseCliFailure('hello\n\ncommand not found')).toBe('hello command not found');
+  });
+});
+
+describe('firstSuccessfulPlan', () => {
+  const request = {
+    mission: 'Create a Minecraft Game.',
+    snapshot: { files: [], truncated: false },
+    maxTasks: 8,
+    roster: 'coordinator/grok',
+  };
+
+  it('returns the first planner that yields tasks', async () => {
+    const planned = await firstSuccessfulPlan(
+      [
+        {
+          async plan() {
+            throw new Error('agent returned no JSON object');
+          },
+        },
+        {
+          async plan() {
+            return [
+              { title: 'from claude', detail: null, files: ['a.ts'], dependsOn: [] },
+            ];
+          },
+        },
+      ],
+      request,
+    );
+    expect(planned[0]!.title).toBe('from claude');
+  });
+
+  it('pins later tasks onto 0 when a planner omits dependsOn on an empty repo', async () => {
+    const planned = await firstSuccessfulPlan(
+      [
+        {
+          async plan() {
+            return [
+              { title: 'Scaffold', detail: null, files: ['package.json'], dependsOn: [] },
+              { title: 'App', detail: null, files: ['src/app.ts'], dependsOn: [] },
+              { title: 'UI', detail: null, files: ['src/ui.ts'], dependsOn: [] },
+            ];
+          },
+        },
+      ],
+      request,
+    );
+    expect(planned[1]!.dependsOn).toContain(0);
+    expect(planned[2]!.dependsOn).toContain(0);
+  });
+
+  it('falls back to one foundation task when every planner throws', async () => {
+    const errors: string[] = [];
+    const planned = await firstSuccessfulPlan(
+      [
+        {
+          async plan() {
+            throw new Error('agent returned no JSON object');
+          },
+        },
+      ],
+      request,
+      (message) => errors.push(message),
+    );
+    expect(planned).toHaveLength(1);
+    expect(planned[0]!.title).toContain('Minecraft');
+    expect(errors).toEqual(['agent returned no JSON object']);
   });
 });

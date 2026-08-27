@@ -19,6 +19,7 @@ import { useEffect, useState } from 'react';
 import { TerminalPane } from '../components/terminal-pane.js';
 import { SignalField } from '../components/signal-field.js';
 import { AgentMark } from '../components/agent-mark.js';
+import { SpaceStepper } from '../components/space-stepper.js';
 import { useBoards } from '../board-store.js';
 import { useSpaces } from '../space-store.js';
 import logo from '../assets/logo.png';
@@ -71,28 +72,11 @@ const MODES = [
   },
 ] as const;
 
-function SpaceStepper({ step }: { readonly step: 1 | 2 | 3 }): React.JSX.Element {
-  const items = [
-    { n: 1, label: 'Start' },
-    { n: 2, label: 'Layout' },
-    { n: 3, label: 'Agents' },
-  ] as const;
-  return (
-    <ol className="spaceStepper">
-      {items.map((item) => (
-        <li
-          key={item.n}
-          className={
-            item.n < step ? 'spaceStepperDone' : item.n === step ? 'spaceStepperOn' : ''
-          }
-        >
-          <i>{item.n < step ? '✓' : item.n}</i>
-          {item.label}
-        </li>
-      ))}
-    </ol>
-  );
-}
+const SPACE_STEPS = [
+  { n: 1, label: 'Start' },
+  { n: 2, label: 'Layout' },
+  { n: 3, label: 'Agents' },
+] as const;
 
 function ModeGlyph({
   id,
@@ -813,7 +797,7 @@ export function BoardPage(): React.JSX.Element {
       >
         <SignalField />
         <div className="boardPage spaceWizard spaceAgents">
-          <SpaceStepper step={3} />
+          <SpaceStepper step={3} items={SPACE_STEPS} />
           <h1 id="space-agents-title">Add AI coding agents</h1>
           <p className="lede">
             Pick which agents launch in your {paneCount} terminal
@@ -989,7 +973,7 @@ export function BoardPage(): React.JSX.Element {
     >
       <SignalField />
       <div className="boardPage spaceWizard">
-        <SpaceStepper step={2} />
+        <SpaceStepper step={2} items={SPACE_STEPS} />
         <h1 id="space-setup-title">Set up your workspace</h1>
         <p className="lede">
           Pick a folder to work in and choose how many terminals you want.

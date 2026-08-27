@@ -65,8 +65,10 @@ export function SignalField(): React.JSX.Element {
     };
 
     resize();
+    // Observe the canvas itself: the bitmap has to track the box it is painted
+    // into, and setting width/height does not feed back into layout here.
     const observer = new ResizeObserver(resize);
-    if (surface.parentElement !== null) observer.observe(surface.parentElement);
+    observer.observe(surface);
     frame();
 
     return () => {

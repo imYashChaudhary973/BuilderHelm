@@ -1,9 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import type { BoardSessionSummary } from '@zero/protocol/board';
 
-import { useBoards } from '../board-store.js';
 import { SPACE_COLORS, useSpaces } from '../space-store.js';
 
 function TerminalGlyph(): React.JSX.Element {
@@ -29,105 +27,29 @@ function TerminalGlyph(): React.JSX.Element {
   );
 }
 
-function BoardGlyph(): React.JSX.Element {
+function PlusGlyph(): React.JSX.Element {
   return (
     <svg className="railTerm" viewBox="0 0 24 24" aria-hidden="true">
-      <rect
-        x="4.5"
-        y="5.5"
-        width="4"
-        height="13"
-        rx="1.2"
+      <path
+        d="M12 6.5v11M6.5 12h11"
         fill="none"
         stroke="currentColor"
-        strokeWidth="1.7"
-      />
-      <rect
-        x="10"
-        y="5.5"
-        width="4"
-        height="8.5"
-        rx="1.2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.7"
-      />
-      <rect
-        x="15.5"
-        y="5.5"
-        width="4"
-        height="11"
-        rx="1.2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.7"
+        strokeWidth="1.8"
+        strokeLinecap="round"
       />
     </svg>
   );
 }
 
-function MemoryGlyph(): React.JSX.Element {
+function CloseGlyph(): React.JSX.Element {
   return (
-    <svg className="railTerm" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="7" cy="12" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-      <circle
-        cx="17"
-        cy="7.5"
-        r="2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.7"
-      />
-      <circle
-        cx="17"
-        cy="16.5"
-        r="2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.7"
-      />
+    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
       <path
-        d="M9 12h6M15.2 8.8 9 11.3M15.2 15.2 9 12.7"
+        d="M7 7l10 10M17 7 7 17"
         fill="none"
         stroke="currentColor"
-        strokeWidth="1.5"
-      />
-    </svg>
-  );
-}
-
-function SwarmGlyph(): React.JSX.Element {
-  return (
-    <svg className="railTerm" viewBox="0 0 24 24" aria-hidden="true">
-      <circle
-        cx="12"
-        cy="6.5"
-        r="2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.7"
-      />
-      <circle
-        cx="6.5"
-        cy="16.5"
-        r="2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.7"
-      />
-      <circle
-        cx="17.5"
-        cy="16.5"
-        r="2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.7"
-      />
-      <path
-        d="M10.6 8.1 7.8 14.4M13.4 8.1l2.8 6.3M8.5 16.5h7"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
+        strokeWidth="1.8"
+        strokeLinecap="round"
       />
     </svg>
   );
@@ -140,13 +62,6 @@ export function SpaceRail({
 }): React.JSX.Element {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const featureOpen =
-    pathname === '/board' || pathname === '/memory' || pathname === '/swarm';
-  const boards = useBoards();
-  const boardProjects = useQuery({
-    queryKey: ['kanban-projects'],
-    queryFn: () => window.zero.board.listProjects({}),
-  });
   const spaces = useSpaces();
   const [menuId, setMenuId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -164,134 +79,38 @@ export function SpaceRail({
   function openSpace(session: BoardSessionSummary): void {
     spaces.activate(session.sessionId);
     void navigate({ to: '/space' });
+    setMenuId(null);
   }
+
   return (
-    <aside
-      className={collapsed ? 'rail railCollapsed' : 'rail'}
-      aria-label="BuilderHelm navigation"
-    >
-      <div
-        className={
-          pathname === '/board' && boards.activeId === null
-            ? 'railRow railItemOn'
-            : 'railRow'
-        }
-        style={{ '--tile': '#b6d475' } as React.CSSProperties}
-      >
+    <aside className={collapsed ? 'rail railCollapsed' : 'rail'} aria-label="Spaces">
+      <div className="railHead" onClick={(event) => event.stopPropagation()}>
+        {collapsed ? null : (
+          <p className="railGroup">
+            Workspaces <span>{spaces.spaces.length}</span>
+          </p>
+        )}
         <button
           type="button"
-          className={collapsed ? 'railTile' : 'railItem'}
-          title="BuilderHelm Board"
-          aria-current={
-            pathname === '/board' && boards.activeId === null ? 'page' : undefined
-          }
+          className="railAdd"
+          title="New Space"
+          aria-label="New Space"
           onClick={() => {
-            boards.choose();
-            void navigate({ to: '/board' });
+            spaces.startDraft();
+            void navigate({ to: '/' });
+            setMenuId(null);
+            setRenamingId(null);
           }}
         >
-          <BoardGlyph />
-          {collapsed ? null : (
-            <span className="railCopy">
-              <strong>BuilderHelm Board</strong>
-              <small>Choose project</small>
-            </span>
-          )}
+          <PlusGlyph />
         </button>
       </div>
-      <div
-        className={pathname === '/memory' ? 'railRow railItemOn' : 'railRow'}
-        style={{ '--tile': '#c9a0ff' } as React.CSSProperties}
-      >
-        <button
-          type="button"
-          className={collapsed ? 'railTile' : 'railItem'}
-          title="BuilderHelm Memory"
-          aria-current={pathname === '/memory' ? 'page' : undefined}
-          onClick={() => void navigate({ to: '/memory' })}
-        >
-          <MemoryGlyph />
-          {collapsed ? null : (
-            <span className="railCopy">
-              <strong>BuilderHelm Memory</strong>
-              <small>Private recall</small>
-            </span>
-          )}
-        </button>
-      </div>
-      <div
-        className={pathname === '/swarm' ? 'railRow railItemOn' : 'railRow'}
-        style={{ '--tile': '#7ec8e3' } as React.CSSProperties}
-      >
-        <button
-          type="button"
-          className={collapsed ? 'railTile' : 'railItem'}
-          title="BuilderHelm Swarm"
-          aria-current={pathname === '/swarm' ? 'page' : undefined}
-          onClick={() => void navigate({ to: '/swarm' })}
-        >
-          <SwarmGlyph />
-          {collapsed ? null : (
-            <span className="railCopy">
-              <strong>BuilderHelm Swarm</strong>
-              <small>Many agents, one job</small>
-            </span>
-          )}
-        </button>
-      </div>
-      <div className="railModeDivider" />
-      <button
-        type="button"
-        className={spaces.draft && !featureOpen ? 'railNew railItemOn' : 'railNew'}
-        title="New Space"
-        onClick={() => {
-          spaces.startDraft();
-          void navigate({ to: '/space' });
-          setMenuId(null);
-        }}
-      >
-        {collapsed ? '+' : '+ New Space'}
-      </button>
       <div className="railList">
-        {(boardProjects.data ?? []).map((project) => {
-          const on = pathname === '/board' && boards.activeId === project.id;
-          return (
-            <div
-              key={project.id}
-              className={on ? 'railRow railItemOn' : 'railRow'}
-              style={{ '--tile': '#b6d475' } as React.CSSProperties}
-            >
-              <button
-                type="button"
-                className={collapsed ? 'railTile' : 'railItem'}
-                title={project.name}
-                aria-label={`${project.name} Board, ${project.taskCount} ${
-                  project.taskCount === 1 ? 'task' : 'tasks'
-                }`}
-                aria-current={on ? 'page' : undefined}
-                onClick={() => {
-                  boards.open(project.id);
-                  void navigate({ to: '/board' });
-                }}
-              >
-                <BoardGlyph />
-                {collapsed ? (
-                  <span className="railBadge">{project.taskCount}</span>
-                ) : (
-                  <span className="railCopy">
-                    <strong>{project.name}</strong>
-                    <small>
-                      Board · {project.taskCount}{' '}
-                      {project.taskCount === 1 ? 'task' : 'tasks'}
-                    </small>
-                  </span>
-                )}
-              </button>
-            </div>
-          );
-        })}
         {spaces.spaces.map((space) => {
-          const on = !featureOpen && !spaces.draft && spaces.activeId === space.sessionId;
+          const on =
+            (pathname === '/' || pathname === '/space') &&
+            !spaces.draft &&
+            spaces.activeId === space.sessionId;
           const meta = spaces.meta(space);
           const menuOpen = menuId === space.sessionId;
           const renaming = renamingId === space.sessionId;
@@ -304,6 +123,7 @@ export function SpaceRail({
                 event.preventDefault();
                 event.stopPropagation();
                 setMenuId(space.sessionId);
+                setRenamingId(null);
               }}
               onClick={(event) => event.stopPropagation()}
             >
@@ -311,21 +131,39 @@ export function SpaceRail({
                 type="button"
                 className={collapsed ? 'railTile' : 'railItem'}
                 title={meta.label}
+                aria-label={`${meta.label}, ${space.paneCount} terminal${
+                  space.paneCount === 1 ? '' : 's'
+                }`}
+                aria-current={on ? 'page' : undefined}
                 onClick={() => openSpace(space)}
               >
-                <TerminalGlyph />
                 {collapsed ? (
-                  <span className="railBadge">{space.paneCount}</span>
+                  <>
+                    <TerminalGlyph />
+                    <span className="railBadge">{space.paneCount}</span>
+                  </>
                 ) : (
-                  <span className="railCopy">
-                    <strong>{meta.label}</strong>
-                    <small>
-                      {space.paneCount} terminal{space.paneCount === 1 ? '' : 's'}
-                    </small>
-                  </span>
+                  <>
+                    <span className="railGlyph">
+                      <TerminalGlyph />
+                    </span>
+                    <span className="railName">{meta.label}</span>
+                    <span className="railCount">{space.paneCount}</span>
+                  </>
                 )}
               </button>
-              {menuOpen && (
+              {collapsed || !on ? null : (
+                <button
+                  type="button"
+                  className="railClose"
+                  title="Close workspace"
+                  aria-label={`Close ${meta.label}`}
+                  onClick={() => void spaces.close(space.sessionId)}
+                >
+                  <CloseGlyph />
+                </button>
+              )}
+              {menuOpen ? (
                 <div className="railMenu" role="menu">
                   {renaming ? (
                     <input
@@ -370,7 +208,7 @@ export function SpaceRail({
                     Close workspace
                   </button>
                 </div>
-              )}
+              ) : null}
             </div>
           );
         })}

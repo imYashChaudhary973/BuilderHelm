@@ -35,8 +35,8 @@ describe('migration runner', () => {
     const result = runMigrations(database, migrations);
 
     expect(result).toEqual({
-      applied: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-      currentVersion: 12,
+      applied: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+      currentVersion: 13,
     });
     expect(
       database.queryOne<{ count: number }>(
@@ -61,8 +61,8 @@ describe('migration runner', () => {
     );
 
     expect(runMigrations(database, migrations)).toEqual({
-      applied: [10, 11, 12],
-      currentVersion: 12,
+      applied: [10, 11, 12, 13],
+      currentVersion: 13,
     });
     expect(
       database.queryOne<{ id: string; name: string }>(
@@ -101,7 +101,7 @@ describe('migration runner', () => {
 
     expect(runMigrations(database, migrations)).toEqual({
       applied: [],
-      currentVersion: 12,
+      currentVersion: 13,
     });
   });
 
@@ -117,7 +117,7 @@ describe('migration runner', () => {
     openDatabases.push(reopened);
     expect(runMigrations(reopened, migrations)).toEqual({
       applied: [],
-      currentVersion: 12,
+      currentVersion: 13,
     });
   });
 

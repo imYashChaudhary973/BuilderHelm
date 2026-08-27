@@ -1,7 +1,7 @@
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { bootstrapCore, type CoreRuntime } from '@zero/core';
+import { bootstrapCore, CliSwarmReviewer, type CoreRuntime } from '@zero/core';
 import { createCorrelationId } from '@zero/shared';
 import { app, BrowserWindow, session } from 'electron';
 
@@ -167,11 +167,28 @@ app.whenReady().then(() => {
       : (process.env.ZERO_DATABASE_PATH ?? join(app.getPath('userData'), 'zero.sqlite'));
   smokeDatabasePath = process.env.ZERO_SMOKE_TEST === '1' ? databasePath : undefined;
   boardPty = new BoardPtyManager();
-  swarmRunner = new PtySwarmRunner(boardPty);
+  swarmRunner = new PtySwarmRunner(boardPty, async (agentId) => {
+    const detections = (await core?.board.detectAgents()) ?? [];
+    return detections.find((item) => item.id === agentId)?.path ?? agentId;
+  });
   core = bootstrapCore({
     databasePath,
     secretStore: new KeyringSecretStore(),
     swarmRunner,
+    swarmReviewer: {
+      async review(request) {
+        const detections = await core!.board.detectAgents();
+        const claude = detections.find((item) => item.available && item.id === 'claude');
+        if (claude === undefined) {
+          return { verdict: 'approve' as const };
+        }
+        return new CliSwarmReviewer({
+          agentId: 'claude',
+          cwd: request.cwd,
+          binary: claude.path ?? 'claude',
+        }).review(request);
+      },
+    },
   });
   if (process.env.ZERO_PTY_PROBE !== undefined && process.env.ZERO_PTY_PROBE.length > 0) {
     core.logger.info({
@@ -181,6 +198,20 @@ app.whenReady().then(() => {
     });
   }
   unregisterIpc = registerIpcHandlers(core, boardPty, swarmRunner);
+  setInterval(() => {
+    if (core === undefined) return;
+    for (const routine of core.helm.dueRoutines(Date.now())) {
+      try {
+        core.chats.create({ title: `Routine · ${routine.name}` }, createCorrelationId());
+        core.helm.markRoutineRun(routine.id, null);
+      } catch (error) {
+        core.helm.markRoutineRun(
+          routine.id,
+          error instanceof Error ? error.message : 'routine failed',
+        );
+      }
+    }
+  }, 30_000);
   createWindow();
 
   app.on('activate', () => {

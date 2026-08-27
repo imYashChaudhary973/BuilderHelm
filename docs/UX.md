@@ -69,42 +69,39 @@ Navigation: Space · Swarm · Board · Memory · Skills · Settings.
 
 ### Left rail
 
-Stacked workspaces. Opening another Space piles it here. Click to switch.
+Square plus opens home (logo, tagline, workspace tools). Opened Spaces
+stack as icons. Expanded rail shows workspace name and terminal count,
+never a folder path. Right-click: rename, color, close. Space / Swarm /
+Board / Memory / Agent / Code / Chat stay in the top bar, not this rail.
 
-### Right sidebar (not built)
+### Right sidebar
 
-| Panel   | Job                                                       |
-| ------- | --------------------------------------------------------- |
-| Browser | Preview localhost, docs, or any URL without leaving Exeum |
-| Editor  | Drag-and-drop a file or pick one from the tree            |
-| Git     | Staged changes, history                                   |
-| Skills  | Built-in and user skills                                  |
+| Panel   | Job                                                 |
+| ------- | --------------------------------------------------- |
+| Browser | Preview localhost, docs, or any URL without leaving |
+| Editor  | Tree, tabs, save                                    |
+| Git     | Staged vs worktree, history, stage, commit          |
+| Skills  | Built-in and user skills                            |
 
 ## 6. Swarm
 
-Not a clone of another swarm product. Same jobs, BuilderHelm chrome.
+Same jobs as BridgeMind's Swarm preset, BuilderHelm chrome. Mix plan:
+[ADE](ADE.md).
 
 ### Setup
 
-Three steps: **Mission → Roster → Launch**. Footer is Back / step / Next.
-
-Roster presets are helm sizes, not military nicknames:
-
-- **3 Skiff**
-- **5 Cutter**
-- **8 Frigate**
-- **12 Flagship**
-
-Launch mode is Safe (ask) or Skip permissions (trusted local folders only).
-Role chips add a seat. Each seat has a CLI, Auto, and remove. Skills are
-grouped (workflow, quality, ops, analysis) and inject a directive into the
-pane brief.
+**Mission → Roster → Launch**. Helm sizes: 3 Skiff, 5 Cutter, 8 Frigate,
+12 Flagship. Safe / auto / full. Per-seat CLI + optional model. Skills
+inject directives.
 
 ### Live
 
-After launch: graph of seats, roster rail (status, role, CLI, stop one),
-command bar (`@all` or `@seat`), and a Terminals toggle for the existing
-grid. Stop swarm ends every pane.
+Queen hub graph. Roster rail (stop one). Inspector: Agent, Plan, Chat,
+Activity, Roster. Terminals toggle for the xterm grid. Stop swarm ends
+every pane. Agent tab must show the active task and a PTY tail — not only
+spend. Thread transcripts are P1 ([ADE](ADE.md)).
+
+Grok seats are the Grok Build CLI, not Super Grok chat.
 
 ## 7. Shortcuts
 

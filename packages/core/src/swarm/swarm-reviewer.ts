@@ -4,6 +4,7 @@ export interface SwarmReviewRequest {
   readonly taskTitle: string;
   readonly files: readonly string[];
   readonly diff: string;
+  readonly cwd: string;
 }
 
 /** A second pair of eyes after the deterministic gate, before the land queue. */

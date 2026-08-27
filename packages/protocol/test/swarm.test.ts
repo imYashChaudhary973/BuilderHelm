@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import type { BoardAgentDetection } from '../src/board.js';
 import {
+  SWARM_SINGLE_TASK_NOTE,
   swarmCreateRequestSchema,
+  swarmAddSeatRequestSchema,
   swarmDirectRequestSchema,
   swarmRunSchema,
   swarmSeatSchema,
@@ -25,6 +27,7 @@ import {
   swarmMemberStatus,
   swarmRunStatus,
   swarmStuckAction,
+  taggedMissionPaths,
 } from '../src/swarm.js';
 
 function detection(
@@ -78,7 +81,56 @@ describe('swarm graph', () => {
     expect(swarmGraphHub(roles)).toBe(0);
     const points = swarmGraphPoints(roles);
     expect(points).toHaveLength(5);
+    expect(points[0]).toEqual({ x: 50, y: 58 });
     expect(points[0]!.y).toBeGreaterThan(points[1]!.y);
+  });
+
+  it('spreads extra coordinators and side columns so cards do not stack', () => {
+    const roles = [
+      'coordinator',
+      'coordinator',
+      'coordinator',
+      'builder',
+      'builder',
+      'builder',
+      'builder',
+      'builder',
+      'scout',
+      'scout',
+      'reviewer',
+      'reviewer',
+      'reviewer',
+    ] as const;
+    const points = swarmGraphPoints(roles);
+    expect(swarmGraphHub(roles)).toBe(0);
+    expect(points[0]).toEqual({ x: 50, y: 58 });
+    expect(points[1]!.y).toBe(78);
+    expect(points[2]!.y).toBe(78);
+    expect(Math.abs(points[1]!.x - points[2]!.x)).toBeGreaterThanOrEqual(18);
+
+    const builderRows: Record<string, number[]> = {};
+    for (const index of [3, 4, 5, 6, 7]) {
+      const point = points[index]!;
+      const key = String(point.y);
+      builderRows[key] = [...(builderRows[key] ?? []), point.x];
+    }
+    for (const xs of Object.values(builderRows)) {
+      const sorted = [...xs].sort((a, b) => a - b);
+      for (let i = 1; i < sorted.length; i += 1) {
+        expect(sorted[i]! - sorted[i - 1]!).toBeGreaterThanOrEqual(16);
+      }
+    }
+
+    expect(points[8]!.x).toBe(14);
+    expect(points[9]!.x).toBe(14);
+    expect(Math.abs(points[8]!.y - points[9]!.y)).toBeGreaterThanOrEqual(16);
+
+    expect(points[10]!.x).toBe(86);
+    expect(points[11]!.x).toBe(86);
+    expect(points[12]!.x).toBe(86);
+    const reviewerY = [points[10]!.y, points[11]!.y, points[12]!.y].sort((a, b) => a - b);
+    expect(reviewerY[1]! - reviewerY[0]!).toBeGreaterThanOrEqual(16);
+    expect(reviewerY[2]! - reviewerY[1]!).toBeGreaterThanOrEqual(16);
   });
 });
 
@@ -245,7 +297,24 @@ describe('swarmSeatArgv', () => {
     const prompt = `${'x'.repeat(8_000)} 'quoted' "double" $HOME \\n`;
     const { binary, args } = swarmSeatArgv('grok', prompt, 'auto');
     expect(binary).toBe('grok');
-    expect(args).toEqual(['-p', prompt.trim(), '--permission-mode', 'acceptEdits']);
+    expect(args).toEqual(['--permission-mode', 'acceptEdits', prompt.trim()]);
+    expect(args.includes('-p')).toBe(false);
+  });
+
+  it('pins an optional model onto grok, claude, and codex', () => {
+    expect(swarmSeatArgv('grok', 'ship', 'auto', 'grok-4.6').args.slice(0, 2)).toEqual([
+      '-m',
+      'grok-4.6',
+    ]);
+    expect(swarmSeatArgv('claude', 'ship', 'auto', 'sonnet').args.slice(0, 2)).toEqual([
+      '--model',
+      'sonnet',
+    ]);
+    expect(swarmSeatArgv('codex', 'ship', 'auto', 'gpt-5.4').args.slice(0, 3)).toEqual([
+      'exec',
+      '-m',
+      'gpt-5.4',
+    ]);
   });
 
   it('fails closed for CLIs without a verified headless command or mode', () => {
@@ -269,6 +338,7 @@ describe('swarm persistence schemas', () => {
     launchMode: 'auto',
     presetId: 'skiff',
     skillIds: ['tdd'],
+    skillDirectives: {},
     boardSessionId: null,
     status: 'running',
     startedAt: '2026-08-25T10:00:00.000Z',
@@ -340,7 +410,7 @@ describe('swarm persistence schemas', () => {
     ).toThrow();
   });
 
-  it('validates create, direct, task-update, and stop requests', () => {
+  it('validates create, direct, task-update, stop, and add-seat requests', () => {
     const correlationId = '00000000-0000-4000-8000-000000000005';
     expect(
       swarmCreateRequestSchema.parse({
@@ -379,5 +449,35 @@ describe('swarm persistence schemas', () => {
     expect(() =>
       swarmStopRequestSchema.parse({ correlationId, runId: 'nope' }),
     ).toThrow();
+    expect(
+      swarmAddSeatRequestSchema.parse({
+        correlationId,
+        runId: baseRun.id,
+        role: 'builder',
+        agentId: 'claude',
+      }),
+    ).toBeTypeOf('object');
+    expect(() =>
+      swarmAddSeatRequestSchema.parse({
+        correlationId,
+        runId: baseRun.id,
+        role: 'wizard',
+        agentId: 'claude',
+      }),
+    ).toThrow();
+  });
+
+  it('names the single-task fallback so spare builders stay idle on purpose', () => {
+    expect(SWARM_SINGLE_TASK_NOTE).toMatch(/one task/i);
+    expect(SWARM_SINGLE_TASK_NOTE).toMatch(/idle on purpose/i);
+  });
+});
+
+describe('taggedMissionPaths', () => {
+  it('pulls @path tokens from a brief', () => {
+    expect(taggedMissionPaths('use @src/a.ts and @/tmp/b.md please')).toEqual([
+      'src/a.ts',
+      '/tmp/b.md',
+    ]);
   });
 });

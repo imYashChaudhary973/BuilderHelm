@@ -8,6 +8,7 @@ export interface SwarmRunWrite {
   readonly launchMode: string;
   readonly presetId: string;
   readonly skillIds: readonly string[];
+  readonly skillDirectives: Readonly<Record<string, string>>;
   readonly boardSessionId: string | null;
   readonly status: string;
   readonly startedAt: string;
@@ -105,8 +106,39 @@ interface StoredSwarmMessage extends Record<string, unknown> {
   body: string;
   created_at: string;
 }
+function parseSkillsJson(raw: string): {
+  readonly ids: string[];
+  readonly directives: Record<string, string>;
+} {
+  const value: unknown = JSON.parse(raw);
+  if (Array.isArray(value)) {
+    return {
+      ids: value.filter((item): item is string => typeof item === 'string'),
+      directives: {},
+    };
+  }
+  if (value !== null && typeof value === 'object') {
+    const record = value as { ids?: unknown; directives?: unknown };
+    const ids = Array.isArray(record.ids)
+      ? record.ids.filter((item): item is string => typeof item === 'string')
+      : [];
+    const directives =
+      record.directives !== null &&
+      typeof record.directives === 'object' &&
+      !Array.isArray(record.directives)
+        ? Object.fromEntries(
+            Object.entries(record.directives as Record<string, unknown>).filter(
+              (entry): entry is [string, string] => typeof entry[1] === 'string',
+            ),
+          )
+        : {};
+    return { ids, directives };
+  }
+  return { ids: [], directives: {} };
+}
 
 function toRunWrite(row: StoredSwarmRun): SwarmRunWrite {
+  const skills = parseSkillsJson(row.skills_json);
   return {
     id: row.id,
     name: row.name,
@@ -114,7 +146,8 @@ function toRunWrite(row: StoredSwarmRun): SwarmRunWrite {
     mission: row.mission,
     launchMode: row.launch_mode,
     presetId: row.preset_id,
-    skillIds: JSON.parse(row.skills_json) as string[],
+    skillIds: skills.ids,
+    skillDirectives: skills.directives,
     boardSessionId: row.board_session_id,
     status: row.status,
     startedAt: row.started_at,
@@ -183,7 +216,7 @@ export class SwarmRepository {
           run.mission,
           run.launchMode,
           run.presetId,
-          JSON.stringify(run.skillIds),
+          JSON.stringify({ ids: run.skillIds, directives: run.skillDirectives }),
           run.boardSessionId,
           run.status,
           run.startedAt,
@@ -247,6 +280,10 @@ export class SwarmRepository {
         seat.costUsd,
       ],
     );
+  }
+
+  addSeat(seat: SwarmSeatWrite): void {
+    this.insertSeat(seat);
   }
 
   updateSeat(seat: SwarmSeatWrite): void {

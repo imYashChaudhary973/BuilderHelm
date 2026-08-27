@@ -82,6 +82,22 @@ export function normalizeSwarmPlan(plan: unknown, maxTasks: number): PlannedTask
   return kept;
 }
 
+const REAL_SOURCE = /\.(?:ts|js|tsx|jsx|json)$/i;
+
+/** Empty or docs-only snapshots serialize later work through task 0. */
+export function pinFoundation(
+  tasks: PlannedTask[],
+  snapshot: RepoSnapshot,
+): PlannedTask[] {
+  if (tasks.length < 2 || snapshot.files.some((file) => REAL_SOURCE.test(file)))
+    return tasks;
+  return tasks.map((task, index) =>
+    index === 0 || task.dependsOn.includes(0)
+      ? task
+      : { ...task, dependsOn: [0, ...task.dependsOn] },
+  );
+}
+
 export interface SwarmPlanRequest {
   readonly mission: string;
   readonly snapshot: RepoSnapshot;
@@ -95,6 +111,12 @@ export interface SwarmPlanner {
 
 export function buildPlanPrompt(request: SwarmPlanRequest): string {
   const files = request.snapshot.files.join('\n');
+  const foundation = request.snapshot.files.some((file) => REAL_SOURCE.test(file))
+    ? []
+    : [
+        '- The repository is empty or docs-only. Task 0 MUST be the foundation (shell, package, entry).',
+        '- Every later task MUST set dependsOn: [0].',
+      ];
   return [
     'You are the coordinator of a BuilderHelm swarm. Split the mission into',
     `at most ${request.maxTasks} independent tasks for parallel builders.`,
@@ -105,6 +127,7 @@ export function buildPlanPrompt(request: SwarmPlanRequest): string {
     'Rules:',
     '- Every task names the exact files it owns. No two tasks may share a file.',
     '- Use dependsOn only when a task truly needs an earlier task landed first.',
+    ...foundation,
     '- Prefer fewer, larger tasks over many trivial ones.',
     '- Each title is an imperative one-liner; detail carries acceptance criteria.',
     '',
@@ -113,4 +136,33 @@ export function buildPlanPrompt(request: SwarmPlanRequest): string {
     `Repository files${request.snapshot.truncated ? ' (truncated)' : ''}:`,
     files.length > 0 ? files : '(no tracked files)',
   ].join('\n');
+}
+
+export function singleTaskPlan(request: SwarmPlanRequest): PlannedTask[] {
+  return [
+    {
+      title: request.mission.split('\n')[0]?.slice(0, 200) ?? 'Swarm mission',
+      detail: request.mission,
+      files: [],
+      dependsOn: [],
+    },
+  ];
+}
+
+/** Try each planner; never throw. Last resort is one foundation task. */
+export async function firstSuccessfulPlan(
+  planners: readonly SwarmPlanner[],
+  request: SwarmPlanRequest,
+  onError?: (message: string) => void,
+): Promise<PlannedTask[]> {
+  for (const planner of planners) {
+    try {
+      const planned = await planner.plan(request);
+      if (planned.length > 0) return pinFoundation(planned, request.snapshot);
+      onError?.('planner returned no tasks');
+    } catch (error) {
+      onError?.(error instanceof Error ? error.message : String(error));
+    }
+  }
+  return singleTaskPlan(request);
 }

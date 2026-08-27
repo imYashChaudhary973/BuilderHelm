@@ -1,5 +1,7 @@
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { isAbsolute, relative, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
 import { SwarmRepository, type ZeroDatabase } from '@zero/db';
@@ -7,6 +9,7 @@ import type { Logger } from '@zero/observability';
 import {
   SWARM_BUDGET_MS,
   SWARM_SKILLS,
+  taggedMissionPaths,
   swarmPlanBudget,
   swarmRunSchema,
   swarmSeatSchema,
@@ -34,12 +37,13 @@ import { buildSeatPrompt } from './swarm-prompt.js';
 
 const execFileAsync = promisify(execFile);
 
-/** One task execution: work either landed on the seat branch, or it failed. */
 export interface SwarmRunnerOutcome {
   readonly status: 'landed' | 'failed';
   readonly summary: string;
   readonly tokensUsed: number;
   readonly costUsd: number;
+  /** Raw CLI text. Scout reports use this as the context pack. */
+  readonly output?: string;
 }
 
 export interface SwarmExecuteInput {
@@ -48,10 +52,10 @@ export interface SwarmExecuteInput {
   readonly task: SwarmTaskRecord;
   readonly worktreePath: string;
   readonly branch: string;
-  /** Operator directives queued since this seat's last invocation. */
   readonly directives: readonly string[];
-  /** Cache-stable prompt composed by the service, ready for the CLI. */
   readonly prompt: string;
+  readonly model?: string;
+  readonly onPane?: (paneId: string) => void;
 }
 
 /** Adapters run one task on one seat. Implementations must always resolve. */
@@ -108,9 +112,19 @@ function roleSkills(run: SwarmRunRecord, role: string) {
   const allowed = new Set(ROLE_SKILLS[role] ?? []);
   return SWARM_SKILLS.filter(
     (skill) => run.skillIds.includes(skill.id) && allowed.has(skill.id),
-  ).map((skill) => ({ title: skill.title, directive: skill.directive }));
+  ).map((skill) => ({
+    title: skill.title,
+    directive: run.skillDirectives[skill.id] ?? skill.directive,
+  }));
 }
 const DIRECTIVES_CONSUMED = 'directives consumed:';
+
+function resolveUnder(folderPath: string, tagged: string): string | null {
+  const abs = resolve(folderPath, tagged);
+  const rel = relative(folderPath, abs);
+  if (rel.startsWith('..') || isAbsolute(rel)) return null;
+  return abs;
+}
 
 /**
  * Deterministic swarm orchestrator. Owns the ledger, dependency gating, work
@@ -121,9 +135,11 @@ const DIRECTIVES_CONSUMED = 'directives consumed:';
 export class SwarmService {
   private readonly repository: SwarmRepository;
   private readonly pumping = new Set<string>();
+  private landQueue: Promise<void> = Promise.resolve();
   private readonly budgetMs: number;
   private readonly reviewer: SwarmReviewer | undefined;
   private readonly listeners = new Set<SwarmRunEventListener>();
+  private readonly seatModels = new Map<string, string>();
 
   constructor(
     database: ZeroDatabase,
@@ -148,6 +164,7 @@ export class SwarmService {
       launchMode: input.launchMode,
       presetId: input.presetId,
       skillIds: [...input.skillIds],
+      skillDirectives: { ...(input.skillDirectives ?? {}) },
       boardSessionId: null,
       status: 'running',
       startedAt: utcNow(),
@@ -169,6 +186,13 @@ export class SwarmService {
         costUsd: 0,
       }),
     );
+    for (const [index, assignment] of input.seats.entries()) {
+      const model = assignment.model?.trim();
+      const seat = seats[index];
+      if (model !== undefined && model.length > 0 && seat !== undefined) {
+        this.seatModels.set(seat.id, model);
+      }
+    }
     this.repository.createRun(run, seats);
     this.logger.info({
       event: 'swarm.run_created',
@@ -212,7 +236,8 @@ export class SwarmService {
 
   /** Ends a run that cannot proceed, with the reason in the ledger. */
   failRun(runId: string, reason: string): void {
-    this.requireRun(runId);
+    const run = this.requireRun(runId);
+    if (run.status !== 'running') return;
     this.repository.updateRun(runId, 'failed', utcNow());
     this.appendMessage(runId, null, 'system', `Swarm failed: ${reason}`.slice(0, 4_000));
     this.emit(runId);
@@ -338,6 +363,54 @@ export class SwarmService {
       correlationId,
       data: { runId, seatId },
     });
+    this.emit(runId);
+  }
+
+  async addSeat(
+    runId: string,
+    input: {
+      readonly role: SwarmSeatRecord['role'];
+      readonly agentId: SwarmSeatRecord['agentId'];
+    },
+    correlationId: CorrelationId,
+  ): Promise<SwarmSeatRecord> {
+    const run = this.requireRun(runId);
+    if (run.status !== 'running') {
+      throw new ZeroError('VALIDATION_FAILED', 'Swarm is not running');
+    }
+    if (this.repository.listSeats(runId).length >= 12) {
+      throw new ZeroError('VALIDATION_FAILED', 'Swarm already has 12 seats');
+    }
+    let seat = swarmSeatSchema.parse({
+      id: randomUUID(),
+      runId,
+      role: input.role,
+      agentId: input.agentId,
+      mode: run.launchMode,
+      paneId: null,
+      worktreePath: null,
+      branch: null,
+      status: 'queued',
+      tokensUsed: 0,
+      costUsd: 0,
+    });
+    this.repository.addSeat(seat);
+    if (seat.role === 'builder') {
+      try {
+        seat = await this.ensureWorktree(run, seat);
+        this.repository.updateSeat(seat);
+      } catch {
+        // The dispatcher surfaces real failures when the task runs.
+      }
+    }
+    this.appendMessage(runId, seat.id, 'system', `Added ${seat.role} seat`);
+    this.logger.info({
+      event: 'swarm.seat_added',
+      correlationId,
+      data: { runId, seatId: seat.id, role: seat.role },
+    });
+    this.emit(runId);
+    return seat;
   }
 
   stop(runId: string): void {
@@ -345,6 +418,7 @@ export class SwarmService {
     if (run.status !== 'running') return;
     this.repository.updateRun(runId, 'stopped', utcNow());
     this.appendMessage(runId, null, 'system', 'Swarm stopped by user');
+    this.emit(runId);
   }
 
   async resume(runId: string, correlationId: CorrelationId): Promise<void> {
@@ -386,6 +460,7 @@ export class SwarmService {
     this.pumping.add(runId);
     let idleRounds = 0;
     try {
+      await this.runScout(runId);
       for (;;) {
         const run = this.repository.getRun(runId);
         if (run === undefined || run.status !== 'running') return;
@@ -401,10 +476,9 @@ export class SwarmService {
         const tasks = this.repository
           .listTasks(runId)
           .map((row) => swarmTaskSchema.parse(row));
-        if (tasks.some((task) => task.status === 'in_progress')) return;
-
         const pending = tasks.filter((task) => task.status === 'pending');
         if (pending.length === 0) {
+          if (tasks.some((task) => task.status === 'in_progress')) return;
           const landed = tasks.some((task) => task.status === 'landed');
           const failed = tasks.some((task) => task.status === 'failed');
           this.repository.updateRun(runId, landed ? 'done' : 'failed', utcNow());
@@ -494,8 +568,9 @@ export class SwarmService {
       }
       current = { ...current, status: 'working' };
       this.repository.updateSeat(current);
-
       const directives = this.pendingDirectives(run.id, current.id);
+      const pack = this.contextPack(run.id);
+      const model = this.seatModels.get(current.id);
       const outcome = await this.runner.execute({
         run,
         seat: current,
@@ -508,9 +583,17 @@ export class SwarmService {
           mission: run.mission,
           skills: roleSkills(run, current.role),
           swarmDigest: this.swarmDigest(run.id),
+          ...(pack === undefined ? {} : { contextPack: pack }),
           task: { title: active.title, detail: active.detail, files: active.files },
           directives,
         }),
+        ...(model === undefined ? {} : { model }),
+        onPane: (paneId) => {
+          const latest = this.repository.getSeat(current.id);
+          if (latest === undefined) return;
+          this.repository.updateSeat({ ...swarmSeatSchema.parse(latest), paneId });
+          this.emit(run.id);
+        },
       });
       if (directives.length > 0) {
         this.appendMessage(
@@ -522,18 +605,35 @@ export class SwarmService {
       }
       const credited = this.repository.getSeat(current.id);
       if (credited !== undefined) {
+        const latest = swarmSeatSchema.parse(credited);
         this.repository.updateSeat({
-          ...swarmSeatSchema.parse(credited),
-          status: 'idle',
-          tokensUsed: credited.tokensUsed + outcome.tokensUsed,
-          costUsd: credited.costUsd + outcome.costUsd,
+          ...latest,
+          status: latest.status === 'exited' ? 'exited' : 'idle',
+          tokensUsed: latest.tokensUsed + outcome.tokensUsed,
+          costUsd: latest.costUsd + outcome.costUsd,
         });
         this.emit(run.id);
       }
 
-      if (outcome.status === 'failed') {
+      if (this.shouldAbort(run.id, current.id)) {
+        this.abandonInFlight(active);
+        return;
+      }
+      const ahead =
+        outcome.status === 'failed'
+          ? await this.branchHasCommits(run.folderPath, worktreePath)
+          : false;
+      if (outcome.status === 'failed' && !ahead) {
         this.recordFailure(active, outcome.summary);
         return;
+      }
+      if (ahead) {
+        this.appendMessage(
+          run.id,
+          current.id,
+          'system',
+          `${current.agentId} exited non-zero but left commits; continuing to verify`,
+        );
       }
 
       const verification = await this.verifier.verify({
@@ -548,23 +648,55 @@ export class SwarmService {
       }
 
       if (this.reviewer !== undefined) {
-        const verdict = await this.reviewer.review({
-          taskTitle: active.title,
-          files: active.files,
-          diff: await this.diffAgainstBase(run.folderPath, branch),
-        });
-        if (verdict.verdict === 'fix') {
-          const issues = verdict.issues ?? ['changes requested'];
-          this.recordFailure(active, `review: ${issues.join('; ')}`);
-          return;
+        const reviewerSeat = this.repository
+          .listSeats(run.id)
+          .map((row) => swarmSeatSchema.parse(row))
+          .find((seat) => seat.role === 'reviewer' && seat.status !== 'exited');
+        if (reviewerSeat !== undefined) {
+          this.repository.updateSeat({ ...reviewerSeat, status: 'working' });
+          this.emit(run.id);
+        }
+        try {
+          const verdict = await this.reviewer.review({
+            taskTitle: active.title,
+            files: active.files,
+            diff: await this.diffAgainstBase(run.folderPath, branch),
+            cwd: run.folderPath,
+          });
+          this.appendMessage(
+            run.id,
+            reviewerSeat?.id ?? null,
+            'task_event',
+            verdict.verdict === 'approve'
+              ? `review approved "${active.title}"`
+              : `review: ${(verdict.issues ?? ['changes requested']).join('; ')}`,
+          );
+          if (verdict.verdict === 'fix') {
+            this.recordFailure(
+              active,
+              `review: ${(verdict.issues ?? ['changes requested']).join('; ')}`,
+            );
+            return;
+          }
+        } finally {
+          if (reviewerSeat !== undefined) {
+            const latest = this.repository.getSeat(reviewerSeat.id);
+            if (latest !== undefined && latest.status !== 'exited') {
+              this.repository.updateSeat({
+                ...swarmSeatSchema.parse(latest),
+                status: 'idle',
+              });
+              this.emit(run.id);
+            }
+          }
         }
       }
 
-      const landed = await this.board.landBranch(
-        run.folderPath,
-        branch,
-        createCorrelationId(),
-      );
+      if (this.shouldAbort(run.id, current.id)) {
+        this.abandonInFlight(active);
+        return;
+      }
+      const landed = await this.landExclusive(run.folderPath, branch);
       this.repository.updateTask({
         ...active,
         status: 'landed',
@@ -601,6 +733,28 @@ export class SwarmService {
       task.seatId,
       'task_event',
       `${retry ? 'retrying' : 'failed'} "${task.title}": ${reason}`,
+    );
+  }
+
+  /** Stop or a retired seat must not verify or land. */
+  private shouldAbort(runId: string, seatId: string): boolean {
+    const run = this.repository.getRun(runId);
+    if (run === undefined || run.status !== 'running') return true;
+    const seat = this.repository.getSeat(seatId);
+    return seat === undefined || seat.status === 'exited';
+  }
+
+  private abandonInFlight(task: SwarmTaskRecord): void {
+    this.repository.updateTask({
+      ...task,
+      status: 'pending',
+      updatedAt: utcNow(),
+    });
+    this.appendMessage(
+      task.runId,
+      task.seatId,
+      'task_event',
+      `stopped "${task.title}" before land`,
     );
   }
 
@@ -643,18 +797,20 @@ export class SwarmService {
             cwd: seat.worktreePath,
             timeout: 30_000,
           });
-        } catch (error) {
+          return seat;
+        } catch {
           await execFileAsync('git', ['merge', '--abort'], {
             cwd: seat.worktreePath,
           }).catch(() => undefined);
-          throw new ZeroError(
-            'TOOL_EXECUTION_FAILED',
-            'Seat worktree conflicts with landed work',
-            { cause: error },
-          );
+          await execFileAsync(
+            'git',
+            ['worktree', 'remove', '--force', seat.worktreePath],
+            { cwd: run.folderPath, timeout: 15_000 },
+          ).catch(() => undefined);
         }
+      } else {
+        return seat;
       }
-      return seat;
     }
     const worktree = await this.board.createWorktree(
       run.folderPath,
@@ -666,6 +822,24 @@ export class SwarmService {
       worktreePath: worktree.path,
       branch: worktree.branch,
     });
+  }
+
+  private async branchHasCommits(
+    folderPath: string,
+    worktreePath: string,
+  ): Promise<boolean> {
+    const base = await this.board.readBranch(folderPath);
+    if (base === null) return false;
+    try {
+      const { stdout } = await execFileAsync(
+        'git',
+        ['rev-list', '--count', `${base}..HEAD`],
+        { cwd: worktreePath, timeout: 15_000 },
+      );
+      return Number(stdout.trim()) > 0;
+    } catch {
+      return false;
+    }
   }
 
   /** Directives queued for this seat (or broadcast) since its last invocation. */
@@ -713,41 +887,64 @@ export class SwarmService {
     correlationId: CorrelationId,
   ): Promise<SwarmTaskRecord[]> {
     const run = this.requireRun(runId);
-    const snapshot = await buildRepoSnapshot(run.folderPath);
-    const planned = await planner.plan({
-      mission: run.mission,
-      snapshot,
-      maxTasks: swarmPlanBudget(run.presetId),
-      roster: this.repository
-        .listSeats(runId)
-        .map((seat) => `${seat.role}/${seat.agentId}`)
-        .join(', '),
-    });
-    const created: SwarmTaskRecord[] = [];
-    for (const task of planned) {
-      const dependsOn = task.dependsOn
-        .map((index) => created[index]?.id)
-        .filter((id): id is string => id !== undefined);
-      created.push(
-        this.addTask(
-          runId,
-          {
-            title: task.title,
-            detail: task.detail,
-            files: task.files,
-            dependsOn,
-          },
-          correlationId,
-        ),
-      );
+    if (run.status !== 'running') return [];
+    const queen = this.repository
+      .listSeats(runId)
+      .map((row) => swarmSeatSchema.parse(row))
+      .find((seat) => seat.role === 'coordinator' && seat.status !== 'exited');
+    if (queen !== undefined) {
+      this.repository.updateSeat({ ...queen, status: 'working' });
+      this.emit(runId);
     }
-    this.appendMessage(
-      runId,
-      null,
-      'coordinator_note',
-      `planned ${created.length} task(s) from the mission`,
-    );
-    return created;
+    try {
+      const snapshot = await buildRepoSnapshot(run.folderPath);
+      const planned = await planner.plan({
+        mission: run.mission,
+        snapshot,
+        maxTasks: swarmPlanBudget(run.presetId),
+        roster: this.repository
+          .listSeats(runId)
+          .map((seat) => `${seat.role}/${seat.agentId}`)
+          .join(', '),
+      });
+      if (this.requireRun(runId).status !== 'running') return [];
+      const created: SwarmTaskRecord[] = [];
+      for (const task of planned) {
+        const dependsOn = task.dependsOn
+          .map((index) => created[index]?.id)
+          .filter((id): id is string => id !== undefined);
+        created.push(
+          this.addTask(
+            runId,
+            {
+              title: task.title,
+              detail: task.detail,
+              files: task.files,
+              dependsOn,
+            },
+            correlationId,
+          ),
+        );
+      }
+      this.appendMessage(
+        runId,
+        queen?.id ?? null,
+        'coordinator_note',
+        `planned ${created.length} task(s) from the mission`,
+      );
+      return created;
+    } finally {
+      if (queen !== undefined) {
+        const latest = this.repository.getSeat(queen.id);
+        if (latest !== undefined && latest.status !== 'exited') {
+          this.repository.updateSeat({
+            ...swarmSeatSchema.parse(latest),
+            status: 'idle',
+          });
+          this.emit(runId);
+        }
+      }
+    }
   }
 
   /**
@@ -773,6 +970,139 @@ export class SwarmService {
       'Work already landed by other seats (do not redo or contradict it):',
       ...landed.slice(-12),
     ].join('\n');
+  }
+
+  private contextPack(runId: string): string | undefined {
+    const run = this.repository.getRun(runId);
+    const files =
+      run === undefined ? undefined : this.fileContext(swarmRunSchema.parse(run));
+    const reports = this.repository
+      .listMessages(runId, 500)
+      .filter((message) => message.kind === 'seat_report');
+    const last = reports.at(-1);
+    const scout = last === undefined || last.body.length === 0 ? undefined : last.body;
+    const parts = [files, scout].filter((item): item is string => item !== undefined);
+    return parts.length === 0 ? undefined : parts.join('\n\n');
+  }
+
+  private fileContext(run: SwarmRunRecord): string | undefined {
+    const chunks: string[] = [];
+    for (const tagged of taggedMissionPaths(run.mission).slice(0, 8)) {
+      const abs = resolveUnder(run.folderPath, tagged);
+      if (abs === null) continue;
+      try {
+        chunks.push(`@${tagged}\n${readFileSync(abs, 'utf8').slice(0, 8_000)}`);
+      } catch {
+        // Missing or unreadable tags stay out of the pack.
+      }
+    }
+    return chunks.length === 0 ? undefined : chunks.join('\n\n');
+  }
+
+  private async landExclusive(
+    folderPath: string,
+    branch: string,
+  ): Promise<{ readonly landed: true; readonly head: string }> {
+    const previous = this.landQueue;
+    let release = (): void => undefined;
+    this.landQueue = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      return await this.board.landBranch(folderPath, branch, createCorrelationId());
+    } finally {
+      release();
+    }
+  }
+
+  private async runScout(runId: string): Promise<void> {
+    const row = this.repository.getRun(runId);
+    if (row === undefined || row.status !== 'running') return;
+    const run = swarmRunSchema.parse(row);
+    const scout = this.repository
+      .listSeats(runId)
+      .map((seat) => swarmSeatSchema.parse(seat))
+      .find(
+        (seat) =>
+          seat.role === 'scout' && (seat.status === 'queued' || seat.status === 'idle'),
+      );
+    if (scout === undefined) return;
+    this.repository.updateSeat({ ...scout, status: 'working' });
+    this.emit(runId);
+    try {
+      const branch = (await this.board.readBranch(run.folderPath)) ?? 'HEAD';
+      const scoutModel = this.seatModels.get(scout.id);
+      const outcome = await this.runner.execute({
+        run,
+        seat: { ...scout, status: 'working' },
+        task: {
+          id: randomUUID(),
+          runId,
+          seatId: scout.id,
+          title: 'Scout the repository',
+          detail: 'Read-only map for the builders. Do not edit files.',
+          files: [],
+          status: 'in_progress',
+          attempts: 1,
+          dependsOn: [],
+          landedCommit: null,
+          createdAt: utcNow(),
+          updatedAt: utcNow(),
+        },
+        worktreePath: run.folderPath,
+        branch,
+        directives: [],
+        prompt: buildSeatPrompt({
+          role: 'scout',
+          mission: run.mission,
+          skills: roleSkills(run, 'scout'),
+          task: {
+            title: 'Scout the repository',
+            detail: 'Read-only map for the builders. Do not edit files.',
+            files: [],
+          },
+          directives: [],
+        }),
+        ...(scoutModel === undefined ? {} : { model: scoutModel }),
+        onPane: (paneId) => {
+          const latest = this.repository.getSeat(scout.id);
+          if (latest === undefined) return;
+          this.repository.updateSeat({ ...swarmSeatSchema.parse(latest), paneId });
+          this.emit(runId);
+        },
+      });
+      const credited = this.repository.getSeat(scout.id);
+      if (credited !== undefined) {
+        const latest = swarmSeatSchema.parse(credited);
+        this.repository.updateSeat({
+          ...latest,
+          status: latest.status === 'exited' ? 'exited' : 'idle',
+          tokensUsed: latest.tokensUsed + outcome.tokensUsed,
+          costUsd: latest.costUsd + outcome.costUsd,
+        });
+      }
+      const body = (outcome.output ?? outcome.summary).trim();
+      this.appendMessage(
+        runId,
+        scout.id,
+        'seat_report',
+        body.length > 0 ? body.slice(0, 4_000) : 'Scout finished with an empty report',
+      );
+    } catch (error) {
+      this.appendMessage(
+        runId,
+        scout.id,
+        'system',
+        `Scout failed: ${normalizeError(error).message}`,
+      );
+    } finally {
+      const latest = this.repository.getSeat(scout.id);
+      if (latest !== undefined && latest.status === 'working') {
+        this.repository.updateSeat({ ...swarmSeatSchema.parse(latest), status: 'idle' });
+      }
+      this.emit(runId);
+    }
   }
 
   private async retireWorktrees(run: SwarmRunRecord): Promise<void> {

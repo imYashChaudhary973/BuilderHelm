@@ -1,13 +1,19 @@
 import {
   parseAgentUsage,
+  parseCliFailure,
   type SwarmExecuteInput,
   type SwarmRunnerOutcome,
   type SwarmSeatRunner,
 } from '@zero/core';
-import { swarmSeatArgv, type BoardIsolation } from '@zero/protocol';
+import {
+  SWARM_NUDGE,
+  SWARM_STUCK_MS,
+  swarmSeatArgv,
+  swarmStuckAction,
+  type BoardIsolation,
+} from '@zero/protocol';
 import { createCorrelationId, normalizeError } from '@zero/shared';
 import type { WebContents } from 'electron';
-
 import type { BoardPtyManager } from './board-pty-manager.js';
 
 /**
@@ -18,9 +24,13 @@ import type { BoardPtyManager } from './board-pty-manager.js';
 export class PtySwarmRunner implements SwarmSeatRunner {
   private readonly sessionByRun = new Map<string, string>();
   private readonly paneBySeat = new Map<string, string>();
+  private readonly runBySeat = new Map<string, string>();
 
-  constructor(private readonly manager: BoardPtyManager) {}
-
+  constructor(
+    private readonly manager: BoardPtyManager,
+    private readonly resolveBinary: (agentId: string) => Promise<string> = async (id) =>
+      id,
+  ) {}
   /** Opens the board session that hosts a run's seat panes. */
   openSession(
     runId: string,
@@ -50,7 +60,13 @@ export class PtySwarmRunner implements SwarmSeatRunner {
 
     let argv;
     try {
-      argv = swarmSeatArgv(input.seat.agentId, input.prompt, input.seat.mode);
+      const resolved = swarmSeatArgv(
+        input.seat.agentId,
+        input.prompt,
+        input.seat.mode,
+        input.model,
+      );
+      argv = { ...resolved, binary: await this.resolveBinary(input.seat.agentId) };
     } catch (error) {
       return {
         status: 'failed',
@@ -60,17 +76,8 @@ export class PtySwarmRunner implements SwarmSeatRunner {
       };
     }
 
-    const previous = this.paneBySeat.get(input.seat.id);
-    if (previous !== undefined) {
-      await this.manager
-        .closePane({
-          correlationId: createCorrelationId(),
-          sessionId,
-          paneId: previous,
-        })
-        .catch(() => undefined);
-      this.paneBySeat.delete(input.seat.id);
-    }
+    this.runBySeat.set(input.seat.id, input.run.id);
+    await this.closeSeatPane(input.seat.id);
 
     try {
       const pane = await this.manager.addPane(
@@ -81,17 +88,45 @@ export class PtySwarmRunner implements SwarmSeatRunner {
         async () => ({ cwd: input.worktreePath, branch: input.branch }),
       );
       this.paneBySeat.set(input.seat.id, pane.paneId);
-      const exit = await this.manager.waitForPaneExit(sessionId, pane.paneId);
-      const usage = parseAgentUsage(exit.output);
-      return {
-        status: exit.exitCode === 0 ? 'landed' : 'failed',
-        summary:
-          exit.exitCode === 0
+      input.onPane?.(pane.paneId);
+      if (
+        this.sessionByRun.get(input.run.id) === undefined ||
+        this.runBySeat.get(input.seat.id) !== input.run.id
+      ) {
+        await this.closeSeatPane(input.seat.id);
+        return {
+          status: 'failed',
+          summary: 'swarm stopped',
+          tokensUsed: 0,
+          costUsd: 0,
+        };
+      }
+      const stopWatch = this.watchSilence(sessionId, pane.paneId, input.seat.id);
+      try {
+        const interactive = input.seat.agentId === 'grok';
+        const exit = interactive
+          ? await this.manager.waitForPaneDone(sessionId, pane.paneId, /SWARM_TASK_DONE/)
+          : await this.manager.waitForPaneExit(sessionId, pane.paneId);
+        const output = exit.output;
+        const usage = parseAgentUsage(output);
+        const detail = parseCliFailure(output);
+        const landed = interactive
+          ? 'done' in exit && exit.done
+          : 'exitCode' in exit && exit.exitCode === 0;
+        return {
+          status: landed ? 'landed' : 'failed',
+          summary: landed
             ? `${input.seat.agentId} finished the task`
-            : `${input.seat.agentId} exited with code ${exit.exitCode}`,
-        tokensUsed: usage.tokensUsed,
-        costUsd: usage.costUsd,
-      };
+            : detail.length > 0
+              ? `${input.seat.agentId}: ${detail}`
+              : `${input.seat.agentId} did not finish`,
+          tokensUsed: usage.tokensUsed,
+          costUsd: usage.costUsd,
+          output: output.slice(-8_000),
+        };
+      } finally {
+        stopWatch();
+      }
     } catch (error) {
       return {
         status: 'failed',
@@ -102,7 +137,68 @@ export class PtySwarmRunner implements SwarmSeatRunner {
     }
   }
 
-  release(runId: string): void {
+  /** Kills every seat CLI for this run. closePane → pty.kill. */
+  async release(runId: string): Promise<void> {
+    const seats = [...this.runBySeat.entries()]
+      .filter(([, seatRun]) => seatRun === runId)
+      .map(([seatId]) => seatId);
+    await Promise.all(seats.map((seatId) => this.stopSeat(seatId)));
     this.sessionByRun.delete(runId);
+  }
+
+  /** Kills the CLI for one seat. closePane → pty.kill. */
+  async stopSeat(seatId: string): Promise<void> {
+    await this.closeSeatPane(seatId);
+    this.runBySeat.delete(seatId);
+  }
+
+  private watchSilence(sessionId: string, paneId: string, seatId: string): () => void {
+    let nudgedAt: number | null = null;
+    const timer = setInterval(() => {
+      let last: number;
+      try {
+        last = this.manager.lastDataAt(sessionId, paneId);
+      } catch {
+        return;
+      }
+      const silent = Date.now() - last >= SWARM_STUCK_MS;
+      const action = swarmStuckAction({
+        status: silent ? 'stuck' : 'running',
+        nudgedAt,
+        now: Date.now(),
+        stuckAfterMs: SWARM_STUCK_MS,
+      });
+      if (action === 'nudge') {
+        nudgedAt = Date.now();
+        void this.manager.write({
+          correlationId: createCorrelationId(),
+          sessionId,
+          paneId,
+          data: `${SWARM_NUDGE}\n`,
+        });
+        return;
+      }
+      if (action === 'stop') {
+        void this.closeSeatPane(seatId);
+        return;
+      }
+      if (!silent) nudgedAt = null;
+    }, 1_000);
+    return () => clearInterval(timer);
+  }
+
+  private async closeSeatPane(seatId: string): Promise<void> {
+    const paneId = this.paneBySeat.get(seatId);
+    const runId = this.runBySeat.get(seatId);
+    const sessionId = runId === undefined ? undefined : this.sessionByRun.get(runId);
+    this.paneBySeat.delete(seatId);
+    if (paneId === undefined || sessionId === undefined) return;
+    await this.manager
+      .closePane({
+        correlationId: createCorrelationId(),
+        sessionId,
+        paneId,
+      })
+      .catch(() => undefined);
   }
 }

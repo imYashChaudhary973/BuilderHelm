@@ -51,3 +51,36 @@ export function parseAgentUsage(stdout: string): AgentUsage {
   }
   return { tokensUsed: Math.round(tokens), costUsd: cost };
 }
+
+/** Last useful error line from a CLI (402, type:error JSON, or tail). */
+export function parseCliFailure(output: string): string {
+  const esc = String.fromCharCode(27);
+  const text = output.replace(new RegExp(`${esc}\\[[0-9;?]*[ -/]*[@-~]`, 'g'), '');
+  if (/402|Payment Required|usage balance exhausted/i.test(text)) {
+    return 'Grok usage balance exhausted (402)';
+  }
+  const start = text.lastIndexOf('{');
+  if (start >= 0) {
+    try {
+      const parsed: unknown = JSON.parse(text.slice(start));
+      if (typeof parsed === 'object' && parsed !== null) {
+        const row = parsed as Record<string, unknown>;
+        if (row.type === 'error' || row.http_status === 402) {
+          const message = row.message;
+          if (typeof message === 'string' && message.length > 0) {
+            return message.slice(0, 240);
+          }
+        }
+      }
+    } catch {
+      // fall through to tail
+    }
+  }
+  const tail = text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .slice(-3)
+    .join(' ');
+  return tail.slice(0, 240);
+}

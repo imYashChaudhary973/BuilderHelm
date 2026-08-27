@@ -13,9 +13,13 @@ import { App } from './App.js';
 import { KanbanBoard } from './components/kanban-board.js';
 import { ActionsPage } from './routes/actions.js';
 import { BoardPage } from './routes/board.js';
+import { AgentPage } from './routes/agent.js';
 import { ChatPage } from './routes/chat.js';
+import { CodePage } from './routes/code.js';
 import { MemoryPage } from './routes/memory.js';
+import { PluginsPage } from './routes/plugins.js';
 import { ProvidersPage } from './routes/settings/providers.js';
+import { RoutinesPage } from './routes/routines.js';
 import { SwarmPage } from './routes/swarm.js';
 import { TodayPage } from './routes/today.js';
 import { ProjectsPage } from './routes/projects.js';
@@ -72,6 +76,26 @@ const swarmRoute = createRoute({
   path: '/swarm',
   component: SwarmPage,
 });
+const agentRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/agent',
+  component: AgentPage,
+});
+const codeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/code',
+  component: CodePage,
+});
+const pluginsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/plugins',
+  component: PluginsPage,
+});
+const routinesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/routines',
+  component: RoutinesPage,
+});
 const routeTree = rootRoute.addChildren([
   indexRoute,
   todayRoute,
@@ -82,6 +106,10 @@ const routeTree = rootRoute.addChildren([
   spaceRoute,
   boardRoute,
   swarmRoute,
+  agentRoute,
+  codeRoute,
+  pluginsRoute,
+  routinesRoute,
   providersRoute,
 ]);
 const router = createRouter({

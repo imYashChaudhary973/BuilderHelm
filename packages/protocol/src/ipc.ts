@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import type {
   BoardAddPaneInput,
+  BoardAgentId,
   BoardAgentDetection,
   BoardCreateInput,
   BoardLandInput,
@@ -23,9 +24,12 @@ import type {
 import type {
   SwarmCreateInput,
   SwarmDirectInput,
+  SwarmRole,
   SwarmRunRecord,
+  SwarmSeatRecord,
   SwarmState,
 } from './swarm.js';
+import type { HelmAgent, HelmPlugin, HelmRoutine } from './helm.js';
 import type {
   KanbanCard,
   KanbanCreateInput,
@@ -147,6 +151,7 @@ export const ipcChannels = {
   swarmTaskUpdate: 'zero:swarm:task-update',
   swarmStop: 'zero:swarm:stop',
   swarmStopSeat: 'zero:swarm:stop-seat',
+  swarmAddSeat: 'zero:swarm:add-seat',
   swarmLatest: 'zero:swarm:latest',
   swarmEvent: 'zero:swarm:event',
   kanbanProjectList: 'zero:kanban:project-list',
@@ -166,6 +171,7 @@ export const ipcChannels = {
   editorSearch: 'zero:editor:search',
   editorGitStage: 'zero:editor:git-stage',
   editorGitCommit: 'zero:editor:git-commit',
+  helm: 'zero:helm',
 } as const;
 
 export const systemHealthRequestSchema = z
@@ -261,6 +267,12 @@ export interface ZeroDesktopApi {
       readonly runId: string;
       readonly seatId: string;
     }): Promise<{ stopped: true }>;
+    addSeat(input: {
+      readonly correlationId: CorrelationId;
+      readonly runId: string;
+      readonly role: SwarmRole;
+      readonly agentId: BoardAgentId;
+    }): Promise<SwarmSeatRecord>;
     latest(input: {
       readonly correlationId: CorrelationId;
     }): Promise<SwarmRunRecord | null>;
@@ -314,5 +326,30 @@ export interface ZeroDesktopApi {
     search(input: EditorSearchInput): Promise<EditorEntry[]>;
     gitStage(input: EditorGitStageInput): Promise<EditorGit>;
     gitCommit(input: EditorGitCommitInput): Promise<EditorGit>;
+  };
+  readonly helm: {
+    listAgents(): Promise<HelmAgent[]>;
+    createAgent(input: {
+      readonly name: string;
+      readonly brief: string;
+      readonly engine: HelmAgent['engine'];
+      readonly places: readonly string[];
+      readonly skillIds: readonly string[];
+    }): Promise<HelmAgent>;
+    listRoutines(): Promise<HelmRoutine[]>;
+    createRoutine(input: {
+      readonly agentId: string;
+      readonly name: string;
+      readonly instruction: string;
+      readonly everyMinutes: number;
+    }): Promise<HelmRoutine>;
+    listPlugins(): Promise<HelmPlugin[]>;
+    connectPlugin(input: {
+      readonly id: 'github';
+      readonly token: string;
+    }): Promise<HelmPlugin>;
+    listTasks(): Promise<
+      readonly { readonly id: string; readonly title: string; readonly status: string }[]
+    >;
   };
 }

@@ -39,6 +39,7 @@ interface PaneMeta {
   branch: string | null;
   cwd: string;
   output: string;
+  lastDataAt: number;
   acked: Set<string>;
   pty: IPty | null;
 }
@@ -179,6 +180,10 @@ export class BoardPtyManager {
     string,
     ((value: { exitCode: number; output: string }) => void)[]
   >();
+  private readonly doneWaiters = new Map<
+    string,
+    ((value: { exitCode: number | null; output: string; done: boolean }) => void)[]
+  >();
 
   /** Session with no panes yet: swarm seats attach panes per task. */
   createEmptySession(
@@ -214,6 +219,43 @@ export class BoardPtyManager {
     });
   }
 
+  /** Resolves when output matches or the process exits. */
+  waitForPaneDone(
+    sessionId: string,
+    paneId: string,
+    done: RegExp,
+  ): Promise<{ exitCode: number | null; output: string; done: boolean }> {
+    const pane = this.requirePane(sessionId, paneId);
+    if (done.test(pane.output)) {
+      return Promise.resolve({ exitCode: null, output: pane.output, done: true });
+    }
+    if (pane.pty === null) {
+      return Promise.resolve({
+        exitCode: 0,
+        output: pane.output,
+        done: done.test(pane.output),
+      });
+    }
+    return new Promise((resolve) => {
+      const waiters = this.doneWaiters.get(paneId) ?? [];
+      waiters.push(resolve);
+      this.doneWaiters.set(paneId, waiters);
+    });
+  }
+
+  private resolveDone(
+    paneId: string,
+    output: string,
+    exitCode: number | null,
+    matched: boolean,
+  ): void {
+    if (!matched && exitCode === null) return;
+    for (const resolve of this.doneWaiters.get(paneId) ?? []) {
+      resolve({ exitCode, output, done: matched });
+    }
+    this.doneWaiters.delete(paneId);
+  }
+
   async createSession(
     input: BoardCreateInput,
     locate: (slot: number) => Promise<{ cwd: string; branch: string | null }>,
@@ -231,18 +273,32 @@ export class BoardPtyManager {
     this.sessions.set(sessionId, session);
     const panes: BoardPaneSummary[] = [];
     try {
-      for (const spec of [...input.panes].sort((a, b) => a.slot - b.slot)) {
-        panes.push(
-          await this.attachPane(
+      const specs = [...input.panes].sort((a, b) => a.slot - b.slot);
+      const located: Array<{
+        spec: (typeof specs)[number];
+        location: { cwd: string; branch: string | null };
+      }> = [];
+      for (const spec of specs) {
+        located.push({ spec, location: await locate(spec.slot) });
+      }
+      const settled = await Promise.allSettled(
+        located.map(({ spec, location }) =>
+          this.attachPane(
             sessionId,
             session,
             spec.slot,
             spec.agentId,
             spec.command,
             spec.argv,
-            locate,
+            location,
           ),
-        );
+        ),
+      );
+      for (const result of settled) {
+        if (result.status === 'rejected') {
+          throw result.reason;
+        }
+        panes.push(result.value);
       }
     } catch (error) {
       for (const pane of session.panes.values()) pane.pty?.kill();
@@ -295,7 +351,7 @@ export class BoardPtyManager {
       agentId,
       command,
       argv,
-      locate,
+      await locate(session.panes.size),
     );
   }
   private async attachPane(
@@ -305,11 +361,10 @@ export class BoardPtyManager {
     agentId: BoardAgentId,
     commandOverride: string | undefined,
     argv: BoardPaneArgv | undefined,
-    locate: (slot: number) => Promise<{ cwd: string; branch: string | null }>,
+    location: { cwd: string; branch: string | null },
   ): Promise<BoardPaneSummary> {
     const command = resolveCommand(agentId, commandOverride);
     const paneId = randomUUID();
-    const location = await locate(slot);
     const label = agentLabelById[agentId] ?? agentId;
     const title =
       location.branch === null
@@ -327,6 +382,7 @@ export class BoardPtyManager {
       branch: location.branch,
       cwd: location.cwd,
       output: '',
+      lastDataAt: Date.now(),
       acked: new Set(),
       pty,
     };
@@ -337,6 +393,7 @@ export class BoardPtyManager {
       const next = meta.output + text;
       meta.output =
         next.length <= maxBufferedChars ? next : next.slice(-maxBufferedChars);
+      meta.lastDataAt = Date.now();
       const ack = nextStartupAck(meta.output, meta.acked);
       if (ack !== null) {
         meta.acked.add(ack.id);
@@ -354,6 +411,7 @@ export class BoardPtyManager {
         type: 'data',
         data: Buffer.from(text, 'utf8').toString('base64'),
       });
+      this.resolveDone(paneId, meta.output, null, /SWARM_TASK_DONE/.test(meta.output));
     });
     pty.onExit(({ exitCode }) => {
       meta.pty = null;
@@ -361,6 +419,12 @@ export class BoardPtyManager {
         resolve({ exitCode, output: meta.output });
       }
       this.exitWaiters.delete(paneId);
+      this.resolveDone(
+        paneId,
+        meta.output,
+        exitCode,
+        /SWARM_TASK_DONE/.test(meta.output),
+      );
       this.forward(sessionId, paneId, {
         type: 'status',
         status: exitCode >= 0 ? 'exited' : 'failed',
@@ -383,6 +447,10 @@ export class BoardPtyManager {
     pane.pty?.write(input.data);
   }
 
+  lastDataAt(sessionId: string, paneId: string): number {
+    return this.requirePane(sessionId, paneId).lastDataAt;
+  }
+
   async resize(input: BoardPaneResizeInput): Promise<void> {
     const pane = this.requirePane(input.sessionId, input.paneId);
     pane.pty?.resize(input.cols, input.rows);
@@ -392,23 +460,31 @@ export class BoardPtyManager {
     const session = this.sessions.get(input.sessionId);
     const pane = session?.panes.get(input.paneId);
     if (session === undefined || pane === undefined) {
-      throw new ZeroError('VALIDATION_FAILED', 'Unknown pane session or pane');
+      return;
     }
     this.closing.add(input.paneId);
     pane.pty?.kill();
-    pane.pty = null;
-    if (session.isolation === 'worktree' && pane.cwd !== session.folderPath) {
-      await execFileAsync('git', ['worktree', 'remove', '--force', pane.cwd], {
-        cwd: session.folderPath,
-        timeout: 15_000,
-      }).catch(() => undefined);
+    for (const resolve of this.exitWaiters.get(input.paneId) ?? []) {
+      resolve({ exitCode: 1, output: pane.output });
     }
+    this.exitWaiters.delete(input.paneId);
+    this.resolveDone(input.paneId, pane.output, 1, false);
+    const cwd = pane.cwd;
+    const folderPath = session.folderPath;
+    const isolation = session.isolation;
+    pane.pty = null;
     session.panes.delete(input.paneId);
     [...session.panes.values()]
       .sort((left, right) => left.slot - right.slot)
       .forEach((item, index) => {
         item.slot = index;
       });
+    if (isolation === 'worktree' && cwd !== folderPath) {
+      void execFileAsync('git', ['worktree', 'remove', '--force', cwd], {
+        cwd: folderPath,
+        timeout: 15_000,
+      }).catch(() => undefined);
+    }
   }
 
   drainPane(input: BoardPaneDrainInput): { data: string } {

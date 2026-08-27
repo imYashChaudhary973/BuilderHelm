@@ -12,6 +12,7 @@ import {
 import {
   buildPlanPrompt,
   normalizeSwarmPlan,
+  pinFoundation,
   type PlannedTask,
   type SwarmPlanner,
   type SwarmPlanRequest,
@@ -24,7 +25,7 @@ import {
 
 const execFileAsync = promisify(execFile);
 
-/** CLIs verified to constrain output to a JSON Schema. */
+/** CLIs verified to constrain output to a JSON Schema. Grok -p is Grok Build. */
 const STRUCTURED_CLIS: Record<string, (prompt: string, schema: string) => string[]> = {
   claude: (prompt, schema) => [
     '-p',
@@ -36,20 +37,13 @@ const STRUCTURED_CLIS: Record<string, (prompt: string, schema: string) => string
     '--permission-mode',
     'dontAsk',
   ],
-  grok: (prompt, schema) => [
-    '-p',
-    prompt,
-    '--json-schema',
-    schema,
-    '--permission-mode',
-    'dontAsk',
-  ],
 };
 
 export interface StructuredCallOptions {
   readonly agentId: BoardAgentId;
   readonly cwd: string;
   readonly timeoutMs?: number;
+  readonly binary?: string;
 }
 
 /**
@@ -67,7 +61,7 @@ export async function callStructuredAgent(
     throw new Error(`${options.agentId} cannot produce schema-constrained output`);
   }
   const { stdout } = await execFileAsync(
-    options.agentId,
+    options.binary ?? options.agentId,
     build(prompt, JSON.stringify(schema)),
     {
       cwd: options.cwd,
@@ -81,7 +75,13 @@ export async function callStructuredAgent(
   const parsed: unknown = JSON.parse(trimmed.slice(start));
   if (typeof parsed !== 'object' || parsed === null) return parsed;
   const envelope = parsed as Record<string, unknown>;
-  // claude reports `structured_output`; grok reports `structuredOutput`.
+  if (envelope.type === 'error') {
+    const message =
+      typeof envelope.message === 'string' && envelope.message.length > 0
+        ? envelope.message
+        : 'structured agent error';
+    throw new Error(message);
+  }
   const structured = envelope.structured_output ?? envelope.structuredOutput;
   if (structured !== undefined && structured !== null) {
     return typeof structured === 'string' ? JSON.parse(structured) : structured;
@@ -103,7 +103,7 @@ export class CliSwarmPlanner implements SwarmPlanner {
       buildPlanPrompt(request),
       SWARM_PLAN_JSON_SCHEMA,
     );
-    return normalizeSwarmPlan(raw, request.maxTasks);
+    return pinFoundation(normalizeSwarmPlan(raw, request.maxTasks), request.snapshot);
   }
 }
 

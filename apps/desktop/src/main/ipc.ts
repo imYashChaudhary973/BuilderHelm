@@ -41,6 +41,9 @@ import {
   boardWriteIpcResponseSchema,
 } from '@zero/protocol/board';
 import {
+  SWARM_SINGLE_TASK_NOTE,
+  swarmAddSeatIpcResponseSchema,
+  swarmAddSeatRequestSchema,
   swarmCreateIpcResponseSchema,
   swarmCreateRequestSchema,
   swarmDirectIpcResponseSchema,
@@ -146,7 +149,12 @@ import {
   projectRepositorySelectRequestSchema,
 } from '@zero/protocol/projects';
 import { createCorrelationId, normalizeError, ZeroError } from '@zero/shared';
-import { CliSwarmPlanner, LocalGitInspector, type SwarmPlanner } from '@zero/core';
+import {
+  CliSwarmPlanner,
+  LocalGitInspector,
+  firstSuccessfulPlan,
+  type SwarmPlanner,
+} from '@zero/core';
 import type { BoardPtyManager } from './board-pty-manager.js';
 import type { PtySwarmRunner } from './swarm-runner.js';
 import { PreviewBrowser } from './preview-browser.js';
@@ -670,29 +678,34 @@ export function registerIpcHandlers(
   }
 
   /**
-   * Decomposition needs a CLI that can constrain output to a JSON Schema.
-   * Without one the swarm still runs, as a single task for one builder.
+   * Decomposition needs Claude --json-schema. Grok -p is Grok Build, not Super Grok.
    */
-  async function pickSwarmPlanner(folderPath: string): Promise<SwarmPlanner> {
+  async function pickSwarmPlanner(
+    folderPath: string,
+    runId: string,
+  ): Promise<SwarmPlanner> {
     const detections = await core.board.detectAgents();
-    const structured = detections.find(
-      (item) => item.available && (item.id === 'claude' || item.id === 'grok'),
-    );
-    if (structured === undefined) {
-      return {
-        async plan(request) {
-          return [
-            {
-              title: request.mission.split('\n')[0]?.slice(0, 200) ?? 'Swarm mission',
-              detail: request.mission,
-              files: [],
-              dependsOn: [],
-            },
+    const claude = detections.find((item) => item.available && item.id === 'claude');
+    const planners =
+      claude === undefined
+        ? []
+        : [
+            new CliSwarmPlanner({
+              agentId: 'claude',
+              cwd: folderPath,
+              binary: claude.path ?? 'claude',
+            }),
           ];
-        },
-      };
+    if (planners.length === 0) {
+      core.swarm.note(runId, SWARM_SINGLE_TASK_NOTE);
     }
-    return new CliSwarmPlanner({ agentId: structured.id, cwd: folderPath });
+    return {
+      async plan(request) {
+        return firstSuccessfulPlan(planners, request, (message) => {
+          core.swarm.note(runId, `Planner failed: ${message}`);
+        });
+      },
+    };
   }
 
   function requireBoard(): BoardPtyManager {
@@ -724,13 +737,15 @@ export function registerIpcHandlers(
         );
       }
       swarmSenders.set(run.id, event.sender);
-      // Launch is instant: warm the seats and plan in the background while
-      // the live view already shows the coordinating phase.
       void (async () => {
         try {
-          await core.swarm.warmSeats(run.id);
-          const planner = await pickSwarmPlanner(request.input.folderPath);
-          await core.swarm.planTasks(run.id, planner, request.correlationId);
+          const planner = pickSwarmPlanner(request.input.folderPath, run.id);
+          await Promise.all([
+            core.swarm.warmSeats(run.id),
+            planner.then((chosen) =>
+              core.swarm.planTasks(run.id, chosen, request.correlationId),
+            ),
+          ]);
           await core.swarm.pump(run.id);
         } catch (error) {
           core.logger.error({
@@ -741,7 +756,10 @@ export function registerIpcHandlers(
           core.swarm.failRun(run.id, normalizeError(error).message);
         }
       })();
-      return swarmCreateIpcResponseSchema.parse({ ok: true, value: run });
+      return swarmCreateIpcResponseSchema.parse({
+        ok: true,
+        value: core.swarm.state(run.id).run,
+      });
     } catch (error) {
       return swarmCreateIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
     }
@@ -778,7 +796,7 @@ export function registerIpcHandlers(
     try {
       const request = swarmStopRequestSchema.parse(input);
       core.swarm.stop(request.runId);
-      swarmRunner?.release(request.runId);
+      void swarmRunner?.release(request.runId);
       return swarmStopIpcResponseSchema.parse({ ok: true, value: { stopped: true } });
     } catch (error) {
       return swarmStopIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
@@ -797,16 +815,32 @@ export function registerIpcHandlers(
     }
   });
 
-  ipcMain.handle(ipcChannels.swarmStopSeat, (_event, input: unknown) => {
+  ipcMain.handle(ipcChannels.swarmStopSeat, async (_event, input: unknown) => {
     try {
       const request = swarmStopSeatRequestSchema.parse(input);
       core.swarm.stopSeat(request.runId, request.seatId, request.correlationId);
+      await swarmRunner?.stopSeat(request.seatId);
       return swarmStopSeatIpcResponseSchema.parse({
         ok: true,
         value: { stopped: true },
       });
     } catch (error) {
       return swarmStopSeatIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.swarmAddSeat, async (_event, input: unknown) => {
+    try {
+      const request = swarmAddSeatRequestSchema.parse(input);
+      const seat = await core.swarm.addSeat(
+        request.runId,
+        { role: request.role, agentId: request.agentId },
+        request.correlationId,
+      );
+      void core.swarm.pump(request.runId);
+      return swarmAddSeatIpcResponseSchema.parse({ ok: true, value: seat });
+    } catch (error) {
+      return swarmAddSeatIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
     }
   });
 
@@ -1309,6 +1343,42 @@ export function registerIpcHandlers(
     }
   });
 
+  ipcMain.handle(ipcChannels.helm, async (_event, input: unknown) => {
+    try {
+      const request = input as { action?: string; payload?: unknown };
+      switch (request.action) {
+        case 'listAgents':
+          return { ok: true, value: core.helm.listAgents() };
+        case 'createAgent':
+          return { ok: true, value: core.helm.createAgent(request.payload) };
+        case 'listRoutines':
+          return { ok: true, value: core.helm.listRoutines() };
+        case 'createRoutine':
+          return { ok: true, value: core.helm.createRoutine(request.payload) };
+        case 'listPlugins':
+          return { ok: true, value: core.helm.listPlugins() };
+        case 'connectPlugin':
+          return { ok: true, value: await core.helm.connectPlugin(request.payload) };
+        case 'listTasks': {
+          const latest = core.swarm.latestRun();
+          const tasks =
+            latest === null
+              ? []
+              : core.swarm.state(latest.id).tasks.map((task) => ({
+                  id: task.id,
+                  title: task.title,
+                  status: task.status,
+                }));
+          return { ok: true, value: tasks };
+        }
+        default:
+          throw new Error('Unknown helm action');
+      }
+    } catch (error) {
+      return { ok: false, error: ipcError(error) };
+    }
+  });
+
   return () => {
     for (const active of activeStreams.values()) active.controller.abort();
     activeStreams.clear();
@@ -1346,6 +1416,7 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.swarmDirect);
     ipcMain.removeHandler(ipcChannels.swarmStop);
     ipcMain.removeHandler(ipcChannels.swarmStopSeat);
+    ipcMain.removeHandler(ipcChannels.swarmAddSeat);
     ipcMain.removeHandler(ipcChannels.swarmLatest);
     unsubscribeSwarmEvents();
     ipcMain.removeHandler(ipcChannels.boardCreate);
@@ -1379,5 +1450,6 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.editorSearch);
     ipcMain.removeHandler(ipcChannels.editorGitStage);
     ipcMain.removeHandler(ipcChannels.editorGitCommit);
+    ipcMain.removeHandler(ipcChannels.helm);
   };
 }

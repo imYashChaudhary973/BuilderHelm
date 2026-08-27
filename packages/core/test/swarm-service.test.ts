@@ -90,6 +90,37 @@ function setup(
   return { service, repo };
 }
 
+function deferred<T = void>(): {
+  readonly promise: Promise<T>;
+  readonly resolve: (value: T) => void;
+} {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
+function setupLandSpy(runner: SwarmSeatRunner): {
+  service: SwarmService;
+  repo: string;
+  lands: string[];
+} {
+  const repo = createRepository();
+  const database = openDatabase(':memory:');
+  databases.push(database);
+  runMigrations(database, migrations);
+  const board = new BoardService(database, logger);
+  const lands: string[] = [];
+  const original = board.landBranch.bind(board);
+  board.landBranch = async (repoPath, branch, correlationId) => {
+    lands.push(branch);
+    return original(repoPath, branch, correlationId);
+  };
+  const service = new SwarmService(database, logger, board, runner, passingVerifier);
+  return { service, repo, lands };
+}
+
 function createInput(repo: string, builders: number): SwarmCreateInput {
   return {
     name: 'Test Swarm',
@@ -400,6 +431,87 @@ describe('SwarmService launch events and warm start', () => {
     service.direct(run.id, [state.seats[0]!.id], 'late', createCorrelationId());
     expect(seen.length).toBe(before);
   });
+
+  it('emits when a seat becomes working and stores the pane id', async () => {
+    const started = deferred();
+    const gate = deferred();
+    const paneId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    const { service, repo } = setup({
+      async execute(input) {
+        input.onPane?.(paneId);
+        started.resolve();
+        await gate.promise;
+        return { status: 'landed', summary: 'ok', tokensUsed: 1, costUsd: 0 };
+      },
+    });
+    const seen: string[] = [];
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    service.onRunEvent((runId) => seen.push(runId));
+    service.addTask(
+      run.id,
+      { title: 'Live', files: ['packages/db/src/l.ts'] },
+      createCorrelationId(),
+    );
+
+    const pumping = service.pump(run.id);
+    await started.promise;
+    const live = service.state(run.id);
+    const builder = live.seats.find((seat) => seat.role === 'builder')!;
+    expect(builder.status).toBe('working');
+    expect(builder.paneId).toBe(paneId);
+    expect(seen.length).toBeGreaterThan(0);
+    gate.resolve();
+    await pumping;
+  });
+
+  it('starts a ready task while another is already in progress', async () => {
+    const started = deferred();
+    const gate = deferred();
+    let running = 0;
+    const repo = createRepository();
+    const database = openDatabase(':memory:');
+    databases.push(database);
+    runMigrations(database, migrations);
+    const board = new BoardService(database, logger);
+    const service = new SwarmService(
+      database,
+      logger,
+      board,
+      {
+        async execute() {
+          running += 1;
+          if (running === 1) started.resolve();
+          await gate.promise;
+          return { status: 'landed', summary: 'ok', tokensUsed: 1, costUsd: 0 };
+        },
+      },
+      passingVerifier,
+    );
+    const run = service.createRun(createInput(repo, 2), createCorrelationId());
+    const first = service.addTask(
+      run.id,
+      { title: 'First', files: ['packages/db/src/f.ts'] },
+      createCorrelationId(),
+    );
+    service.addTask(
+      run.id,
+      { title: 'Second', files: ['packages/db/src/s.ts'] },
+      createCorrelationId(),
+    );
+    database.run('UPDATE swarm_tasks SET status = ? WHERE id = ?', [
+      'in_progress',
+      first.id,
+    ]);
+
+    const pumping = service.pump(run.id);
+    await started.promise;
+    expect(running).toBe(1);
+    expect(
+      service.state(run.id).tasks.find((task) => task.title === 'Second')!.status,
+    ).toBe('in_progress');
+    gate.resolve();
+    await pumping;
+  });
 });
 
 describe('SwarmService restart recovery', () => {
@@ -535,6 +647,77 @@ describe('SwarmService failure containment', () => {
       /Unknown swarm seat/,
     );
   });
+
+  it('does not land a task when the run is stopped mid-execute', async () => {
+    const started = deferred();
+    const gate = deferred();
+    const { service, repo, lands } = setupLandSpy({
+      async execute() {
+        started.resolve();
+        await gate.promise;
+        return { status: 'landed', summary: 'would land', tokensUsed: 1, costUsd: 0 };
+      },
+    });
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    service.addTask(
+      run.id,
+      { title: 'In flight', files: ['packages/db/src/s.ts'] },
+      createCorrelationId(),
+    );
+
+    const pumping = service.pump(run.id);
+    await started.promise;
+    service.stop(run.id);
+    gate.resolve();
+    await pumping;
+
+    const state = service.state(run.id);
+    expect(lands).toEqual([]);
+    expect(state.run.status).toBe('stopped');
+    expect(state.tasks[0]!.status).toBe('pending');
+    expect(state.tasks[0]!.landedCommit).toBeNull();
+  });
+
+  it('emits after stop so listeners can refresh', () => {
+    const { service, repo } = setup(committingRunner([]));
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    const seen: string[] = [];
+    service.onRunEvent((runId) => seen.push(runId));
+    service.stop(run.id);
+    expect(seen).toContain(run.id);
+    expect(service.state(run.id).run.status).toBe('stopped');
+  });
+
+  it('does not land a task when the seat is stopped mid-execute', async () => {
+    const started = deferred();
+    const gate = deferred();
+    const { service, repo, lands } = setupLandSpy({
+      async execute() {
+        started.resolve();
+        await gate.promise;
+        return { status: 'landed', summary: 'would land', tokensUsed: 1, costUsd: 0 };
+      },
+    });
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    const seat = service.state(run.id).seats.find((item) => item.role === 'builder')!;
+    service.addTask(
+      run.id,
+      { title: 'In flight', files: ['packages/db/src/s.ts'] },
+      createCorrelationId(),
+    );
+
+    const pumping = service.pump(run.id);
+    await started.promise;
+    service.stopSeat(run.id, seat.id, createCorrelationId());
+    gate.resolve();
+    await pumping;
+
+    const state = service.state(run.id);
+    expect(lands).toEqual([]);
+    expect(state.seats.find((item) => item.id === seat.id)!.status).toBe('exited');
+    expect(state.tasks[0]!.status).toBe('pending');
+    expect(state.tasks[0]!.landedCommit).toBeNull();
+  });
 });
 
 describe('SwarmService review gate and planning', () => {
@@ -614,10 +797,12 @@ describe('SwarmService review gate and planning', () => {
       createCorrelationId(),
     );
 
-    // One seat runs both tasks in order: the first consumes the directive,
-    // the second must not see it again.
     await service.pump(run.id);
 
+    expect(service.state(run.id).tasks.map((task) => task.status)).toEqual([
+      'landed',
+      'landed',
+    ]);
     expect(seen).toEqual([['prefer small commits'], []]);
   });
 
@@ -660,6 +845,303 @@ describe('SwarmService review gate and planning', () => {
   });
 });
 
+describe('SwarmService roles', () => {
+  it('scouts before the first builder and feeds the report into builder prompts', async () => {
+    const roles: string[] = [];
+    const builderPrompts: string[] = [];
+    const inner = committingRunner([]);
+    const { service, repo } = setup({
+      async execute(input) {
+        roles.push(input.seat.role);
+        if (input.seat.role === 'scout') {
+          return {
+            status: 'landed',
+            summary: 'scouted',
+            output: 'API lives in src/api.ts',
+            tokensUsed: 3,
+            costUsd: 0,
+          };
+        }
+        builderPrompts.push(input.prompt);
+        return inner.execute(input);
+      },
+    });
+    const run = service.createRun(
+      {
+        ...createInput(repo, 1),
+        seats: [
+          { role: 'coordinator', agentId: 'claude' },
+          { role: 'scout', agentId: 'grok' },
+          { role: 'builder', agentId: 'grok' },
+        ],
+      },
+      createCorrelationId(),
+    );
+    service.addTask(
+      run.id,
+      { title: 'Build', files: ['src/api.ts'] },
+      createCorrelationId(),
+    );
+
+    await service.pump(run.id);
+
+    expect(roles[0]).toBe('scout');
+    expect(roles).toContain('builder');
+    const state = service.state(run.id);
+    expect(
+      state.messages.find((message) => message.kind === 'seat_report')?.body,
+    ).toContain('API lives in src/api.ts');
+    expect(
+      state.messages.findIndex((message) => message.kind === 'seat_report'),
+    ).toBeLessThan(
+      state.messages.findIndex((message) => message.body.includes('landed "Build"')),
+    );
+    expect(builderPrompts[0]).toContain('API lives in src/api.ts');
+  });
+
+  it('marks the coordinator working while it plans', async () => {
+    const { service, repo } = setup(committingRunner([]));
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    let seen = '';
+    await service.planTasks(
+      run.id,
+      {
+        async plan() {
+          seen = service
+            .state(run.id)
+            .seats.find((seat) => seat.role === 'coordinator')!.status;
+          return [{ title: 'Only', detail: null, files: ['src/o.ts'], dependsOn: [] }];
+        },
+      },
+      createCorrelationId(),
+    );
+    expect(seen).toBe('working');
+    expect(
+      service.state(run.id).seats.find((seat) => seat.role === 'coordinator')!.status,
+    ).toBe('idle');
+  });
+
+  it('records a review verdict before land', async () => {
+    const order: string[] = [];
+    const repo = createRepository();
+    const database = openDatabase(':memory:');
+    databases.push(database);
+    runMigrations(database, migrations);
+    const board = new BoardService(database, logger);
+    const original = board.landBranch.bind(board);
+    board.landBranch = async (repoPath, branch, correlationId) => {
+      order.push('land');
+      return original(repoPath, branch, correlationId);
+    };
+    const service = new SwarmService(
+      database,
+      logger,
+      board,
+      committingRunner([]),
+      passingVerifier,
+      {
+        reviewer: {
+          async review() {
+            order.push('review');
+            const reviewer = service
+              .state(run.id)
+              .seats.find((seat) => seat.role === 'reviewer');
+            expect(reviewer?.status).toBe('working');
+            return { verdict: 'approve' };
+          },
+        },
+      },
+    );
+    const run = service.createRun(
+      {
+        ...createInput(repo, 1),
+        seats: [
+          { role: 'coordinator', agentId: 'claude' },
+          { role: 'builder', agentId: 'grok' },
+          { role: 'reviewer', agentId: 'claude' },
+        ],
+      },
+      createCorrelationId(),
+    );
+    service.addTask(
+      run.id,
+      { title: 'Reviewed', files: ['packages/db/src/r.ts'] },
+      createCorrelationId(),
+    );
+
+    await service.pump(run.id);
+
+    expect(order).toEqual(['review', 'land']);
+    expect(
+      service
+        .state(run.id)
+        .messages.some((message) => message.body.includes('review approved')),
+    ).toBe(true);
+    expect(service.state(run.id).tasks[0]!.status).toBe('landed');
+  });
+
+  it('starts two file-disjoint tasks on two builders', async () => {
+    const started = deferred();
+    const gate = deferred();
+    let running = 0;
+    const { service, repo } = setup({
+      async execute() {
+        running += 1;
+        if (running === 2) started.resolve();
+        await gate.promise;
+        return { status: 'landed', summary: 'ok', tokensUsed: 1, costUsd: 0 };
+      },
+    });
+    const run = service.createRun(createInput(repo, 2), createCorrelationId());
+    service.addTask(
+      run.id,
+      { title: 'Alpha', files: ['packages/db/src/a.ts'] },
+      createCorrelationId(),
+    );
+    service.addTask(
+      run.id,
+      { title: 'Beta', files: ['packages/db/src/b.ts'] },
+      createCorrelationId(),
+    );
+
+    const pumping = service.pump(run.id);
+    await started.promise;
+    expect(running).toBe(2);
+    gate.resolve();
+    await pumping;
+  });
+
+  it('lands one branch at a time', async () => {
+    const firstInside = deferred();
+    const releaseFirst = deferred();
+    const repo = createRepository();
+    const database = openDatabase(':memory:');
+    databases.push(database);
+    runMigrations(database, migrations);
+    const board = new BoardService(database, logger);
+    let inside = 0;
+    let max = 0;
+    const original = board.landBranch.bind(board);
+    board.landBranch = async (repoPath, branch, correlationId) => {
+      inside += 1;
+      max = Math.max(max, inside);
+      if (max === 1 && inside === 1) {
+        firstInside.resolve();
+        await releaseFirst.promise;
+      }
+      inside -= 1;
+      return original(repoPath, branch, correlationId);
+    };
+    const service = new SwarmService(
+      database,
+      logger,
+      board,
+      committingRunner([]),
+      passingVerifier,
+    );
+    const run = service.createRun(createInput(repo, 2), createCorrelationId());
+    service.addTask(
+      run.id,
+      { title: 'Alpha', files: ['packages/db/src/a.ts'] },
+      createCorrelationId(),
+    );
+    service.addTask(
+      run.id,
+      { title: 'Beta', files: ['packages/db/src/b.ts'] },
+      createCorrelationId(),
+    );
+
+    const pumping = service.pump(run.id);
+    await firstInside.promise;
+    await Promise.resolve();
+    expect(max).toBe(1);
+    releaseFirst.resolve();
+    await pumping;
+
+    expect(max).toBe(1);
+    expect(service.state(run.id).tasks.every((task) => task.status === 'landed')).toBe(
+      true,
+    );
+  });
+});
+
+describe('SwarmService mid-flight seats', () => {
+  it('adds a seat on a running run', async () => {
+    const { service, repo } = setup(committingRunner([]));
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    const before = service.state(run.id).seats.length;
+    const seen: string[] = [];
+    service.onRunEvent((id) => seen.push(id));
+
+    const added = await service.addSeat(
+      run.id,
+      { role: 'builder', agentId: 'grok' },
+      createCorrelationId(),
+    );
+
+    const state = service.state(run.id);
+    expect(state.seats).toHaveLength(before + 1);
+    expect(added.role).toBe('builder');
+    expect(added.status === 'queued' || added.status === 'idle').toBe(true);
+    expect(
+      state.seats.some(
+        (seat) =>
+          seat.id === added.id &&
+          seat.role === 'builder' &&
+          (seat.status === 'queued' || seat.status === 'idle'),
+      ),
+    ).toBe(true);
+    expect(state.messages.some((message) => message.body === 'Added builder seat')).toBe(
+      true,
+    );
+    expect(seen).toContain(run.id);
+  });
+
+  it('refuses a thirteenth seat', async () => {
+    const { service, repo } = setup(committingRunner([]));
+    const run = service.createRun(createInput(repo, 11), createCorrelationId());
+    expect(service.state(run.id).seats).toHaveLength(12);
+    await expect(
+      service.addSeat(
+        run.id,
+        { role: 'builder', agentId: 'grok' },
+        createCorrelationId(),
+      ),
+    ).rejects.toThrow(/12 seats/);
+  });
+
+  it('refuses to add a seat when the run is not running', async () => {
+    const { service, repo } = setup(committingRunner([]));
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    service.stop(run.id);
+    await expect(
+      service.addSeat(
+        run.id,
+        { role: 'builder', agentId: 'grok' },
+        createCorrelationId(),
+      ),
+    ).rejects.toThrow(/not running/);
+  });
+
+  it('lets pump assign a pending task to an added builder', async () => {
+    const log: string[] = [];
+    const { service, repo } = setup(committingRunner(log));
+    const run = service.createRun(createInput(repo, 0), createCorrelationId());
+    service.addTask(
+      run.id,
+      { title: 'Late', files: ['packages/db/src/l.ts'] },
+      createCorrelationId(),
+    );
+    await service.addSeat(
+      run.id,
+      { role: 'builder', agentId: 'grok' },
+      createCorrelationId(),
+    );
+    await service.pump(run.id);
+    expect(log).toEqual(['Late']);
+  });
+});
+
 describe('workspaceTargetsForFiles', () => {
   it('maps owned files to workspace directories', () => {
     expect(
@@ -675,5 +1157,101 @@ describe('workspaceTargetsForFiles', () => {
 
   it('returns nothing when no workspace package is touched', () => {
     expect(workspaceTargetsForFiles(['README.md', 'scripts/worktree-add'])).toEqual([]);
+  });
+});
+
+describe('SwarmService leftover skips', () => {
+  it('puts tagged mission files and edited skill directives in the prompt', async () => {
+    const prompts: string[] = [];
+    const { service, repo } = setup({
+      async execute(input) {
+        prompts.push(input.prompt);
+        return { status: 'landed', summary: 'ok', tokensUsed: 0, costUsd: 0 };
+      },
+    });
+    writeFileSync(join(repo, 'note.md'), 'context from disk\n');
+    const run = service.createRun(
+      {
+        ...createInput(repo, 1),
+        mission: 'ship it using @note.md',
+        skillIds: ['tdd'],
+        skillDirectives: { tdd: 'Write the test last, not first.' },
+      },
+      createCorrelationId(),
+    );
+    service.addTask(
+      run.id,
+      { title: 'Do it', files: ['note.md'] },
+      createCorrelationId(),
+    );
+    await service.pump(run.id);
+    expect(prompts.some((prompt) => prompt.includes('context from disk'))).toBe(true);
+    expect(
+      prompts.some((prompt) => prompt.includes('Write the test last, not first.')),
+    ).toBe(true);
+  });
+
+  it('rejects tagged files outside the workspace', async () => {
+    const prompts: string[] = [];
+    const { service, repo } = setup({
+      async execute(input) {
+        prompts.push(input.prompt);
+        return { status: 'landed', summary: 'ok', tokensUsed: 0, costUsd: 0 };
+      },
+    });
+    const run = service.createRun(
+      {
+        ...createInput(repo, 1),
+        mission: 'do not leak @/etc/passwd',
+      },
+      createCorrelationId(),
+    );
+    service.addTask(
+      run.id,
+      { title: 'Safe', files: ['README.md'] },
+      createCorrelationId(),
+    );
+    await service.pump(run.id);
+    expect(prompts.join('\n')).not.toContain('root:');
+  });
+});
+
+describe('SwarmService planner collapse', () => {
+  it('failRun after a thrown plan leaves zero tasks and a failed run', async () => {
+    const { service, repo } = setup(committingRunner([]));
+    const run = service.createRun(createInput(repo, 2), createCorrelationId());
+    await expect(
+      service.planTasks(
+        run.id,
+        {
+          async plan() {
+            throw new Error('agent returned no JSON object');
+          },
+        },
+        createCorrelationId(),
+      ),
+    ).rejects.toThrow(/no JSON object/);
+    service.failRun(run.id, 'agent returned no JSON object');
+    const state = service.state(run.id);
+    expect(state.tasks).toHaveLength(0);
+    expect(state.run.status).toBe('failed');
+    expect(
+      state.seats.every((seat) => seat.status === 'queued' || seat.status === 'idle'),
+    ).toBe(true);
+    expect(
+      state.messages.some((message) => message.body.includes('no JSON object')),
+    ).toBe(true);
+  });
+
+  it('pump with no tasks marks the run failed immediately', async () => {
+    const { service, repo } = setup(committingRunner([]));
+    const run = service.createRun(createInput(repo, 2), createCorrelationId());
+    await service.pump(run.id);
+    const state = service.state(run.id);
+    expect(state.tasks).toHaveLength(0);
+    expect(state.run.status).toBe('failed');
+    expect(
+      state.messages.some((message) => message.body.includes('nothing landed')),
+    ).toBe(true);
   });
 });

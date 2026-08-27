@@ -15,6 +15,8 @@ export type SwarmRole = (typeof SWARM_ROLES)[number];
 export const SWARM_PANE_COUNT = 8;
 export const SWARM_BUDGET_MS = 20 * 60 * 1000;
 export const SWARM_STUCK_MS = 90 * 1000;
+export const SWARM_SINGLE_TASK_NOTE =
+  'No planner CLI (claude or grok). This mission is one task — spare builders stay idle on purpose.';
 
 export type SwarmMemberStatus = 'starting' | 'running' | 'stuck' | 'exited' | 'failed';
 export type SwarmStuckAction = 'none' | 'nudge' | 'stop';
@@ -25,6 +27,7 @@ export interface SwarmAssignment {
   readonly role: SwarmRole;
   readonly agentId: BoardAgentId;
   readonly auto: boolean;
+  readonly model?: string;
 }
 
 const DUTY: Record<SwarmRole, string> = {
@@ -344,10 +347,9 @@ const SWARM_CLI_LAUNCHERS: Readonly<Partial<Record<BoardAgentId, SwarmCliLaunche
     binary: 'grok',
     modes: SWARM_LAUNCH_MODES,
     args: (prompt, mode) => [
-      '-p',
-      prompt,
       '--permission-mode',
       mode === 'full' ? 'bypassPermissions' : mode === 'auto' ? 'acceptEdits' : 'dontAsk',
+      prompt,
     ],
   },
   opencode: {
@@ -393,6 +395,7 @@ export function swarmSeatArgv(
   agentId: BoardAgentId,
   prompt: string,
   mode: SwarmLaunchMode = 'auto',
+  model?: string,
 ): SwarmSeatArgv {
   const launcher = SWARM_CLI_LAUNCHERS[agentId];
   if (launcher === undefined) {
@@ -405,11 +408,34 @@ export function swarmSeatArgv(
   if (body.length === 0) {
     throw new Error('swarm prompt must not be empty');
   }
-  return { binary: launcher.binary, args: launcher.args(body, mode) };
+  return {
+    binary: launcher.binary,
+    args: withCliModel(agentId, launcher.args(body, mode), model),
+  };
+}
+
+function withCliModel(agentId: BoardAgentId, args: string[], model?: string): string[] {
+  const name = model?.trim();
+  if (name === undefined || name.length === 0 || agentId === 'opencode') return args;
+  if (agentId === 'claude') return ['--model', name, ...args];
+  if (agentId === 'codex') return [args[0] ?? 'exec', '-m', name, ...args.slice(1)];
+  return ['-m', name, ...args];
 }
 
 export const SWARM_NUDGE =
   'You have been silent. Report status in one line, then continue or say you are blocked.';
+
+/** `@path` tokens from a mission brief. Relative or absolute. */
+export function taggedMissionPaths(mission: string): string[] {
+  const found: string[] = [];
+  for (const match of mission.matchAll(/@(\S+)/g)) {
+    const token = match[1];
+    if (token !== undefined && token.length > 0 && token.length <= 4096) {
+      found.push(token);
+    }
+  }
+  return found;
+}
 
 export function swarmStuckAction(input: {
   readonly status: SwarmMemberStatus;
@@ -470,29 +496,44 @@ export function swarmGraphPoints(
   };
   roles.forEach((role, index) => buckets[role].push(index));
   const points = roles.map(() => ({ x: 50, y: 50 }));
-  const place = (
-    indices: readonly number[],
-    cx: number,
-    cy: number,
-    spreadX: number,
-    spreadY: number,
-  ): void => {
+  const row = (indices: readonly number[], y: number, gap: number, shift = 0): void => {
     const n = indices.length;
     indices.forEach((index, k) => {
-      const t = n === 1 ? 0.5 : k / (n - 1);
-      points[index] = { x: cx + (t - 0.5) * spreadX, y: cy + (t - 0.5) * spreadY };
+      points[index] = { x: 50 + shift + (k - (n - 1) / 2) * gap, y };
     });
   };
-  place(buckets.coordinator, 50, 72, 16, 0);
-  if (buckets.builder.length > 6) {
-    const mid = Math.ceil(buckets.builder.length / 2);
-    place(buckets.builder.slice(0, mid), 50, 22, 70, 0);
-    place(buckets.builder.slice(mid), 50, 36, 58, 0);
+
+  const [hubIndex, ...extra] = buckets.coordinator;
+  if (hubIndex !== undefined) points[hubIndex] = { x: 50, y: 58 };
+  row(extra, 78, 18);
+
+  const builders = buckets.builder;
+  if (builders.length <= 4) {
+    const n = builders.length;
+    const spread = n <= 1 ? 0 : Math.max(16 * (n - 1), 32);
+    builders.forEach((index, k) => {
+      const t = n === 1 ? 0.5 : k / (n - 1);
+      points[index] = {
+        x: 50 + (t - 0.5) * spread,
+        y: 24 + (1 - Math.sin(Math.PI * t)) * 8,
+      };
+    });
   } else {
-    place(buckets.builder, 50, 28, 70, 0);
+    const mid = Math.ceil(builders.length / 2);
+    const top = builders.slice(0, mid);
+    const bot = builders.slice(mid);
+    row(top, 18, 16);
+    row(bot, 34, 16, top.length === bot.length ? 8 : 0);
   }
-  place(buckets.scout, 14, 54, 0, 24);
-  place(buckets.reviewer, 86, 54, 0, 24);
+
+  const column = (indices: readonly number[], x: number): void => {
+    const n = indices.length;
+    indices.forEach((index, k) => {
+      points[index] = { x, y: 54 + (k - (n - 1) / 2) * 16 };
+    });
+  };
+  column(buckets.scout, 14);
+  column(buckets.reviewer, 86);
   return points;
 }
 
@@ -556,6 +597,9 @@ export const swarmRunSchema = z
     launchMode: z.enum(SWARM_LAUNCH_MODES),
     presetId: z.enum(['skiff', 'cutter', 'frigate', 'flagship']),
     skillIds: z.array(z.string().min(1).max(64)).max(32),
+    skillDirectives: z
+      .record(z.string().min(1).max(64), z.string().max(2_000))
+      .default({}),
     boardSessionId: uuidSchema.nullable(),
     status: swarmRunStatusSchema,
     startedAt: z.string().datetime(),
@@ -631,12 +675,16 @@ export const swarmCreateInputSchema = z
     launchMode: z.enum(SWARM_LAUNCH_MODES),
     presetId: z.enum(['skiff', 'cutter', 'frigate', 'flagship']),
     skillIds: z.array(z.string().min(1).max(64)).max(32),
+    skillDirectives: z
+      .record(z.string().min(1).max(64), z.string().max(2_000))
+      .optional(),
     seats: z
       .array(
         z
           .object({
             role: z.enum(SWARM_ROLES),
             agentId: boardAgentIdSchema,
+            model: z.string().trim().min(1).max(80).optional(),
           })
           .strict(),
       )
@@ -726,7 +774,14 @@ export const swarmStopSeatRequestSchema = z
     seatId: uuidSchema,
   })
   .strict();
-
+export const swarmAddSeatRequestSchema = z
+  .object({
+    correlationId: swarmCorrelationSchema,
+    runId: uuidSchema,
+    role: z.enum(SWARM_ROLES),
+    agentId: boardAgentIdSchema,
+  })
+  .strict();
 export const swarmCreateIpcResponseSchema = swarmIpcResult(swarmRunSchema);
 export const swarmStateIpcResponseSchema = swarmIpcResult(swarmStateSchema);
 export const swarmDirectIpcResponseSchema = swarmIpcResult(
@@ -737,6 +792,7 @@ export const swarmStopIpcResponseSchema = swarmIpcResult(
   z.object({ stopped: z.literal(true) }).strict(),
 );
 export const swarmStopSeatIpcResponseSchema = swarmStopIpcResponseSchema;
+export const swarmAddSeatIpcResponseSchema = swarmIpcResult(swarmSeatSchema);
 export const swarmLatestRequestSchema = z
   .object({ correlationId: swarmCorrelationSchema })
   .strict();

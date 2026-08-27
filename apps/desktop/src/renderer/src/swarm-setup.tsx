@@ -10,9 +10,24 @@ import {
   type SwarmRole,
 } from '@zero/protocol/swarm';
 
+import { AgentMark } from './components/agent-mark.js';
+import { SignalField } from './components/signal-field.js';
+import { SpaceStepper } from './components/space-stepper.js';
+
 type Step = 'mission' | 'roster' | 'launch';
 
 const SKILL_GROUPS = ['workflow', 'quality', 'ops', 'analysis'] as const;
+const SWARM_STEPS = [
+  { n: 1, label: 'Mission' },
+  { n: 2, label: 'Roster' },
+  { n: 3, label: 'Launch' },
+] as const;
+
+const SEAT_MODELS: Partial<Record<BoardAgentId, readonly string[]>> = {
+  grok: ['grok-4', 'grok-4.5', 'grok-4.6'],
+  claude: ['sonnet', 'opus', 'haiku'],
+  codex: ['gpt-5.4'],
+};
 
 /** Rough per-run band from seat count; the live meter is the real number. */
 function costBand(seats: number): string {
@@ -28,6 +43,7 @@ export function SwarmSetup({
   preset,
   mode,
   skillIds,
+  skillDirectives,
   swarmName,
   roster,
   detected,
@@ -40,8 +56,10 @@ export function SwarmSetup({
   onPreset,
   onMode,
   onToggleSkill,
+  onSkillDirective,
   onName,
   onSeatAgent,
+  onSeatModel,
   onFillAll,
   onAddSeat,
   onRemoveSeat,
@@ -57,6 +75,7 @@ export function SwarmSetup({
   readonly preset: SwarmPresetId;
   readonly mode: SwarmLaunchMode;
   readonly skillIds: readonly string[];
+  readonly skillDirectives: Readonly<Record<string, string>>;
   readonly swarmName: string;
   readonly roster: readonly SwarmAssignment[];
   readonly detected: readonly BoardAgentId[];
@@ -69,8 +88,10 @@ export function SwarmSetup({
   readonly onPreset: (id: SwarmPresetId) => void;
   readonly onMode: (mode: SwarmLaunchMode) => void;
   readonly onToggleSkill: (id: string) => void;
+  readonly onSkillDirective: (id: string, value: string) => void;
   readonly onName: (value: string) => void;
   readonly onSeatAgent: (index: number, agentId: BoardAgentId) => void;
+  readonly onSeatModel: (index: number, model: string) => void;
   readonly onFillAll: (agentId: BoardAgentId) => void;
   readonly onAddSeat: (role: SwarmRole) => void;
   readonly onRemoveSeat: (index: number) => void;
@@ -84,134 +105,88 @@ export function SwarmSetup({
   const stepNo = step === 'mission' ? 1 : step === 'roster' ? 2 : 3;
 
   return (
-    <section className="swarmWizard" aria-labelledby="swarm-setup-title">
-      <nav className="swarmSteps" aria-label="Swarm setup">
-        <StepChip
-          id="mission"
-          label="Mission"
-          current={step}
-          done={step !== 'mission'}
-          onClick={onStep}
-        />
-        <span className="swarmStepLine" />
-        <StepChip
-          id="roster"
-          label="Roster"
-          current={step}
-          done={step === 'launch'}
-          onClick={onStep}
-        />
-        <span className="swarmStepLine" />
-        <StepChip
-          id="launch"
-          label="Launch"
-          current={step}
-          done={false}
-          onClick={onStep}
-        />
-      </nav>
-
-      {step === 'mission' ? (
-        <Mission
-          job={job}
-          folderPath={folderPath}
-          homeDir={homeDir}
-          recents={recents}
-          onJob={onJob}
-          onFolder={onFolder}
-          onBrowse={onBrowse}
-        />
-      ) : null}
-      {step === 'roster' ? (
-        <Roster
-          preset={preset}
-          mode={mode}
-          skillIds={skillIds}
-          roster={roster}
-          detected={detected}
-          counts={counts}
-          onPreset={onPreset}
-          onMode={onMode}
-          onToggleSkill={onToggleSkill}
-          onSeatAgent={onSeatAgent}
-          onFillAll={onFillAll}
-          onAddSeat={onAddSeat}
-          onRemoveSeat={onRemoveSeat}
-          onToggleAuto={onToggleAuto}
-        />
-      ) : null}
-      {step === 'launch' ? (
-        <Review
-          swarmName={swarmName}
-          job={job}
-          folderPath={folderPath}
-          roster={roster}
-          mode={mode}
-          skillIds={skillIds}
-          onName={onName}
-        />
-      ) : null}
-
-      {error !== null && (
-        <p className="wizardError" role="alert">
-          {error}
-        </p>
-      )}
-
-      <footer className="swarmWizardFoot">
-        <button className="secondaryButton" type="button" onClick={onCancel}>
-          {step === 'mission' ? 'Cancel' : 'Back'}
-        </button>
-        <span className="swarmStepMeta">
-          Step {stepNo} of 3{swarmName.trim() ? ` · ${swarmName.trim()}` : ''}
-        </span>
+    <section className="spaceStage" aria-labelledby="swarm-setup-title">
+      <SignalField />
+      <div className="boardPage spaceWizard">
+        <SpaceStepper step={stepNo} items={SWARM_STEPS} />
+        {step === 'mission' ? (
+          <Mission
+            job={job}
+            folderPath={folderPath}
+            homeDir={homeDir}
+            recents={recents}
+            onJob={onJob}
+            onFolder={onFolder}
+            onBrowse={onBrowse}
+          />
+        ) : null}
+        {step === 'roster' ? (
+          <Roster
+            preset={preset}
+            mode={mode}
+            skillIds={skillIds}
+            skillDirectives={skillDirectives}
+            roster={roster}
+            detected={detected}
+            counts={counts}
+            onPreset={onPreset}
+            onMode={onMode}
+            onToggleSkill={onToggleSkill}
+            onSkillDirective={onSkillDirective}
+            onSeatAgent={onSeatAgent}
+            onSeatModel={onSeatModel}
+            onFillAll={onFillAll}
+            onAddSeat={onAddSeat}
+            onRemoveSeat={onRemoveSeat}
+            onToggleAuto={onToggleAuto}
+          />
+        ) : null}
         {step === 'launch' ? (
-          <button
-            className="primaryButton"
-            type="button"
-            disabled={!canLaunch}
-            onClick={onLaunch}
-          >
-            {pending ? 'Starting…' : 'Launch swarm'}
-          </button>
-        ) : (
-          <button
-            className="primaryButton"
-            type="button"
-            disabled={step === 'mission' && !missionReady}
-            onClick={() => onStep(step === 'mission' ? 'roster' : 'launch')}
-          >
-            Next
-          </button>
-        )}
-      </footer>
-    </section>
-  );
-}
+          <Review
+            swarmName={swarmName}
+            job={job}
+            folderPath={folderPath}
+            roster={roster}
+            mode={mode}
+            skillIds={skillIds}
+            onName={onName}
+          />
+        ) : null}
 
-function StepChip({
-  id,
-  label,
-  current,
-  done,
-  onClick,
-}: {
-  readonly id: Step;
-  readonly label: string;
-  readonly current: Step;
-  readonly done: boolean;
-  readonly onClick: (step: Step) => void;
-}): React.JSX.Element {
-  const on = current === id;
-  return (
-    <button
-      type="button"
-      className={on ? 'swarmStep swarmStepOn' : 'swarmStep'}
-      onClick={() => onClick(id)}
-    >
-      {done ? '✓ ' : ''}
-      {label}
-    </button>
+        {error !== null && (
+          <p className="wizardError" role="alert">
+            {error}
+          </p>
+        )}
+
+        <div className="spaceWizardFooter">
+          <button className="secondaryButton" type="button" onClick={onCancel}>
+            {step === 'mission' ? 'Cancel' : 'Back'}
+          </button>
+          <div className="spaceWizardActions">
+            {step === 'launch' ? (
+              <button
+                className="primaryButton"
+                type="button"
+                disabled={!canLaunch}
+                onClick={onLaunch}
+              >
+                {pending ? 'Starting…' : 'Launch swarm'}
+              </button>
+            ) : (
+              <button
+                className="primaryButton"
+                type="button"
+                disabled={step === 'mission' && !missionReady}
+                onClick={() => onStep(step === 'mission' ? 'roster' : 'launch')}
+              >
+                {step === 'mission' ? 'Next: Build roster' : 'Next: Review launch'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -233,20 +208,16 @@ function Mission({
   readonly onBrowse: () => void;
 }): React.JSX.Element {
   return (
-    <div className="swarmWizardBody">
-      <header className="swarmWizardHero">
-        <h1 id="swarm-setup-title">
-          Define the <em>mission</em>
-        </h1>
-        <p>
-          Any folder works. If it is not a git repo, BuilderHelm initializes one so seats
-          can isolate.
-        </p>
-      </header>
-      <label className="swarmField">
-        <span>Working folder</span>
+    <>
+      <h1 id="swarm-setup-title">Define the mission</h1>
+      <p className="lede">Pick a folder and write the brief every seat will share.</p>
+      <div className="wizardSection">
+        <label className="wizardLabel" htmlFor="swarm-folder">
+          Working folder <span>Where the swarm starts</span>
+        </label>
         <div className="folderRow">
           <input
+            id="swarm-folder"
             value={folderPath}
             placeholder={homeDir || 'Browse to any project folder'}
             onChange={(event) => onFolder(event.target.value)}
@@ -255,27 +226,35 @@ function Mission({
             Browse…
           </button>
         </div>
-      </label>
+      </div>
       {recents.length > 0 ? (
-        <div className="recentCards">
-          {recents.map((path) => (
-            <button
-              key={path}
-              type="button"
-              className={`recentCard${folderPath === path ? ' recentCardActive' : ''}`}
-              onClick={() => onFolder(path)}
-            >
-              <span>
-                <strong>{path.split('/').filter(Boolean).at(-1) ?? path}</strong>
-                <small>{path}</small>
-              </span>
-            </button>
-          ))}
+        <div className="wizardSection">
+          <span className="wizardLabel">
+            Recent <span>Last used swarm folders</span>
+          </span>
+          <div className="recentCards">
+            {recents.map((path) => (
+              <button
+                key={path}
+                type="button"
+                className={`recentCard${folderPath === path ? ' recentCardActive' : ''}`}
+                onClick={() => onFolder(path)}
+              >
+                <span>
+                  <strong>{path.split('/').filter(Boolean).at(-1) ?? path}</strong>
+                  <small>{path}</small>
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       ) : null}
-      <label className="swarmField">
-        <span>Mission brief</span>
+      <div className="wizardSection">
+        <label className="wizardLabel" htmlFor="swarm-job">
+          Mission brief <span>Shared with every seat</span>
+        </label>
         <textarea
+          id="swarm-job"
           className="swarmJob"
           rows={7}
           value={job}
@@ -283,9 +262,8 @@ function Mission({
           onChange={(event) => onJob(event.target.value)}
           onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => {
-            // Dropped paths become @tags the planner can read as context.
             const paths = [...event.dataTransfer.files]
-              .map((file) => file.name)
+              .map(droppedPath)
               .filter((name) => name.length > 0);
             if (paths.length === 0) return;
             event.preventDefault();
@@ -293,12 +271,12 @@ function Mission({
             onJob(job.trimEnd().length === 0 ? tags : `${job.trimEnd()}\n${tags}`);
           }}
         />
-      </label>
-      <p className="swarmShareNote">
-        Shared with every seat as the cache-stable part of their prompt. Drop files onto
-        the brief to tag them.
-      </p>
-    </div>
+        <p className="swarmShareNote">
+          If the folder is not a git repo, BuilderHelm initializes one so seats can
+          isolate. Drop files onto the brief to tag them.
+        </p>
+      </div>
+    </>
   );
 }
 
@@ -306,13 +284,16 @@ function Roster({
   preset,
   mode,
   skillIds,
+  skillDirectives,
   roster,
   detected,
   counts,
   onPreset,
   onMode,
   onToggleSkill,
+  onSkillDirective,
   onSeatAgent,
+  onSeatModel,
   onFillAll,
   onAddSeat,
   onRemoveSeat,
@@ -321,13 +302,16 @@ function Roster({
   readonly preset: SwarmPresetId;
   readonly mode: SwarmLaunchMode;
   readonly skillIds: readonly string[];
+  readonly skillDirectives: Readonly<Record<string, string>>;
   readonly roster: readonly SwarmAssignment[];
   readonly detected: readonly BoardAgentId[];
   readonly counts: Record<SwarmRole, number>;
   readonly onPreset: (id: SwarmPresetId) => void;
   readonly onMode: (mode: SwarmLaunchMode) => void;
   readonly onToggleSkill: (id: string) => void;
+  readonly onSkillDirective: (id: string, value: string) => void;
   readonly onSeatAgent: (index: number, agentId: BoardAgentId) => void;
+  readonly onSeatModel: (index: number, model: string) => void;
   readonly onFillAll: (agentId: BoardAgentId) => void;
   readonly onAddSeat: (role: SwarmRole) => void;
   readonly onRemoveSeat: (index: number) => void;
@@ -337,196 +321,235 @@ function Roster({
   const [openSkill, setOpenSkill] = useState<string | null>(null);
   const full = roster.length >= 12;
   return (
-    <div className="swarmWizardBody">
-      <header className="swarmWizardHero">
-        <h1 id="swarm-setup-title">
-          Build your <em>roster</em>
-        </h1>
-        <p>
-          Pick a preset, then add or remove agents. This is the team that will ship your
-          code.
-        </p>
-      </header>
-      <span className="swarmFieldLabel">Quick presets</span>
-      <div className="swarmPresets">
-        {SWARM_PRESETS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={item.id === preset ? 'swarmPreset swarmPresetOn' : 'swarmPreset'}
-            onClick={() => onPreset(item.id)}
-          >
-            <strong>{item.size}</strong>
-            <span>{item.label}</span>
-          </button>
-        ))}
-      </div>
-      <p className="swarmHint">
-        {counts.coordinator} coord · {counts.builder} builder
-        {counts.builder === 1 ? '' : 's'} · {counts.scout} scout
-        {counts.scout === 1 ? '' : 's'} · {counts.reviewer} reviewer
-        {counts.reviewer === 1 ? '' : 's'}
-      </p>
-      <p className="swarmCostBand">
-        Up to {swarmPlanBudget(preset)} tasks · rough spend {costBand(roster.length)} per
-        run, metered live per seat
-      </p>
-      <span className="swarmFieldLabel">Launch mode</span>
-      <div className="swarmModes">
-        <button
-          type="button"
-          className={mode === 'safe' ? 'swarmModeCard swarmModeOn' : 'swarmModeCard'}
-          onClick={() => onMode('safe')}
-        >
-          <strong>Safe</strong>
-          <span>Read and analyze only. Unapproved actions fail closed.</span>
-        </button>
-        <button
-          type="button"
-          className={mode === 'auto' ? 'swarmModeCard swarmModeOn' : 'swarmModeCard'}
-          onClick={() => onMode('auto')}
-        >
-          <strong>Auto-edit</strong>
-          <span>Agents edit files freely; shell commands still gated.</span>
-        </button>
-        <button
-          type="button"
-          className={mode === 'full' ? 'swarmModeCard swarmModeOn' : 'swarmModeCard'}
-          onClick={() => onMode('full')}
-        >
-          <strong>Full bypass</strong>
-          <span>
-            Trusted local workspaces only. Skips every approval; worktree isolation
-            strongly advised.
-          </span>
-        </button>
-      </div>
-      <div className="swarmRoleChips">
-        {(['coordinator', 'builder', 'scout', 'reviewer'] as const).map((role) => (
-          <button
-            key={role}
-            type="button"
-            disabled={full}
-            onClick={() => onAddSeat(role)}
-          >
-            + {counts[role]} {role}
-            {counts[role] === 1 ? '' : 's'}
-          </button>
-        ))}
-        <em>{roster.length} total</em>
-        {first !== undefined ? (
-          <label>
-            Fill all
-            <select
-              value=""
-              onChange={(event) => {
-                const id = event.target.value as BoardAgentId;
-                if (id) onFillAll(id);
-              }}
-            >
-              <option value="">Choose CLI</option>
-              {detected.map((id) => (
-                <option key={id} value={id}>
-                  {labelFor(id)}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-      </div>
-      <ol className="swarmSeatList">
-        {roster.map((seat, index) => (
-          <li key={`${seat.role}-${index}`}>
-            <span>{index + 1}</span>
-            <strong>{seat.role}</strong>
-            <select
-              value={seat.agentId}
-              onChange={(event) => onSeatAgent(index, event.target.value as BoardAgentId)}
-            >
-              {detected.map((id) => (
-                <option key={id} value={id}>
-                  {labelFor(id)}
-                </option>
-              ))}
-            </select>
+    <>
+      <h1 id="swarm-setup-title">Build your roster</h1>
+      <p className="lede">Pick a helm size, then assign a CLI to each seat.</p>
+      <div className="wizardSection">
+        <span className="wizardLabel">
+          Helm size <span>One queen, the rest workers</span>
+        </span>
+        <div className="layoutTiles courtTiles">
+          {SWARM_PRESETS.map((item) => (
             <button
+              key={item.id}
               type="button"
-              className={seat.auto ? 'swarmAuto swarmAutoOn' : 'swarmAuto'}
-              onClick={() => onToggleAuto(index)}
+              className={`layoutTile${item.id === preset ? ' layoutTileActive' : ''}`}
+              onClick={() => onPreset(item.id)}
             >
-              Auto
+              <CourtPreview workers={item.size - 1} />
+              {item.size}
+              <small>{item.label}</small>
             </button>
-            <button
-              type="button"
-              className="swarmSeatDrop"
-              onClick={() => onRemoveSeat(index)}
-            >
-              ×
-            </button>
-          </li>
-        ))}
-      </ol>
-      <button
-        type="button"
-        className="swarmAddSeat"
-        disabled={full || first === undefined}
-        onClick={() => onAddSeat('builder')}
-      >
-        + Add agent
-      </button>
-      <span className="swarmFieldLabel">Swarm skills</span>
-      {SKILL_GROUPS.map((group) => (
-        <div key={group} className="swarmSkillGroup">
-          <span>{group}</span>
-          <div className="swarmSkillGrid">
-            {SWARM_SKILLS.filter((skill) => skill.group === group).map((skill) => {
-              const on = skillIds.includes(skill.id);
-              const open = openSkill === skill.id;
-              return (
-                <div
-                  key={skill.id}
-                  className={on ? 'swarmSkill swarmSkillOn' : 'swarmSkill'}
-                >
-                  <button
-                    type="button"
-                    className="swarmSkillHead"
-                    onClick={() => onToggleSkill(skill.id)}
-                  >
-                    <strong>{skill.title}</strong>
-                    <span>{skill.detail}</span>
-                    <i className={on ? 'swarmSwitch swarmSwitchOn' : 'swarmSwitch'} />
-                  </button>
-                  {on ? (
-                    <button
-                      type="button"
-                      className="swarmSkillMore"
-                      onClick={() => setOpenSkill(open ? null : skill.id)}
-                    >
-                      {open ? 'Hide directive' : 'Show directive'}
-                    </button>
-                  ) : null}
-                  {on && open ? (
-                    <p className="swarmSkillDirective">
-                      <span>Agent directive</span>
-                      {skill.directive}
-                    </p>
-                  ) : null}
-                  {on ? (
-                    <button
-                      type="button"
-                      className="swarmSkillDrop"
-                      onClick={() => onToggleSkill(skill.id)}
-                    >
-                      Remove skill
-                    </button>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
+          ))}
         </div>
-      ))}
-    </div>
+        <p className="swarmHint">
+          {counts.coordinator} queen · {counts.builder} builder
+          {counts.builder === 1 ? '' : 's'} · {counts.scout} scout
+          {counts.scout === 1 ? '' : 's'} · {counts.reviewer} reviewer
+          {counts.reviewer === 1 ? '' : 's'} · up to {swarmPlanBudget(preset)} tasks ·{' '}
+          {costBand(roster.length)}
+        </p>
+      </div>
+      <div className="wizardSection">
+        <span className="wizardLabel">
+          Launch mode <span>How much the seats may do</span>
+        </span>
+        <div className="swarmModes">
+          <button
+            type="button"
+            className={mode === 'safe' ? 'swarmModeCard swarmModeOn' : 'swarmModeCard'}
+            onClick={() => onMode('safe')}
+          >
+            <strong>Safe</strong>
+            <span>Read and analyze only. Unapproved actions fail closed.</span>
+          </button>
+          <button
+            type="button"
+            className={mode === 'auto' ? 'swarmModeCard swarmModeOn' : 'swarmModeCard'}
+            onClick={() => onMode('auto')}
+          >
+            <strong>Auto-edit</strong>
+            <span>Agents edit files freely; shell commands still gated.</span>
+          </button>
+          <button
+            type="button"
+            className={mode === 'full' ? 'swarmModeCard swarmModeOn' : 'swarmModeCard'}
+            onClick={() => onMode('full')}
+          >
+            <strong>Full bypass</strong>
+            <span>Trusted local folders only. Skips every approval.</span>
+          </button>
+        </div>
+      </div>
+      <div className="wizardSection">
+        <span className="wizardLabel">
+          Seats <span>{roster.length} of 12</span>
+        </span>
+        <div className="swarmRoleChips">
+          {(['coordinator', 'builder', 'scout', 'reviewer'] as const).map((role) => (
+            <button
+              key={role}
+              type="button"
+              disabled={full}
+              onClick={() => onAddSeat(role)}
+            >
+              + {counts[role]} {role}
+              {counts[role] === 1 ? '' : 's'}
+            </button>
+          ))}
+          {first !== undefined ? (
+            <label>
+              Fill all
+              <select
+                value=""
+                onChange={(event) => {
+                  const id = event.target.value as BoardAgentId;
+                  if (id) onFillAll(id);
+                }}
+              >
+                <option value="">Choose CLI</option>
+                {detected.map((id) => (
+                  <option key={id} value={id}>
+                    {labelFor(id)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+        </div>
+        <ol className="swarmSeatList">
+          {roster.map((seat, index) => (
+            <li key={`${seat.role}-${index}`}>
+              <AgentMark
+                id={seat.agentId}
+                on
+                onClick={() => {
+                  const next =
+                    detected[(detected.indexOf(seat.agentId) + 1) % detected.length];
+                  if (next !== undefined) onSeatAgent(index, next);
+                }}
+              />
+              <strong>{seat.role === 'coordinator' ? 'queen' : seat.role}</strong>
+              <select
+                value={seat.agentId}
+                onChange={(event) =>
+                  onSeatAgent(index, event.target.value as BoardAgentId)
+                }
+              >
+                {detected.map((id) => (
+                  <option key={id} value={id}>
+                    {labelFor(id)}
+                  </option>
+                ))}
+              </select>
+              {(SEAT_MODELS[seat.agentId] ?? []).length > 0 ? (
+                <select
+                  value={seat.model ?? ''}
+                  onChange={(event) => onSeatModel(index, event.target.value)}
+                >
+                  <option value="">Default model</option>
+                  {(SEAT_MODELS[seat.agentId] ?? []).map((id) => (
+                    <option key={id} value={id}>
+                      {id}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+              <button
+                type="button"
+                className={seat.auto ? 'swarmAuto swarmAutoOn' : 'swarmAuto'}
+                onClick={() => onToggleAuto(index)}
+              >
+                Auto
+              </button>
+              <button
+                type="button"
+                className="swarmSeatDrop"
+                onClick={() => onRemoveSeat(index)}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ol>
+        <button
+          type="button"
+          className="swarmAddSeat"
+          disabled={full || first === undefined}
+          onClick={() => onAddSeat('builder')}
+        >
+          + Add agent
+        </button>
+      </div>
+      <div className="wizardSection">
+        <span className="wizardLabel">
+          Skills <span>Switch on, eye to preview, remove to drop</span>
+        </span>
+        {SKILL_GROUPS.map((group) => (
+          <div key={group} className="swarmSkillGroup">
+            <span>{group}</span>
+            <div className="swarmSkillGrid">
+              {SWARM_SKILLS.filter((skill) => skill.group === group).map((skill) => {
+                const on = skillIds.includes(skill.id);
+                const open = openSkill === skill.id;
+                return (
+                  <div
+                    key={skill.id}
+                    className={on ? 'swarmSkill swarmSkillOn' : 'swarmSkill'}
+                  >
+                    <div className="swarmSkillHead">
+                      <button
+                        type="button"
+                        className="swarmSkillToggle"
+                        onClick={() => onToggleSkill(skill.id)}
+                      >
+                        <strong>{skill.title}</strong>
+                        <span>{skill.detail}</span>
+                        <i className={on ? 'swarmSwitch swarmSwitchOn' : 'swarmSwitch'} />
+                      </button>
+                      <button
+                        type="button"
+                        className="swarmSkillEye"
+                        aria-label={
+                          open
+                            ? `Hide ${skill.title} directive`
+                            : `Show ${skill.title} directive`
+                        }
+                        aria-expanded={open}
+                        onClick={() => setOpenSkill(open ? null : skill.id)}
+                      >
+                        <EyeIcon />
+                      </button>
+                    </div>
+                    {open ? (
+                      <label className="swarmSkillDirective">
+                        <span>Agent directive</span>
+                        <textarea
+                          rows={3}
+                          value={skillDirectives[skill.id] ?? skill.directive}
+                          onChange={(event) =>
+                            onSkillDirective(skill.id, event.target.value)
+                          }
+                        />
+                      </label>
+                    ) : null}
+                    {on ? (
+                      <button
+                        type="button"
+                        className="swarmSkillDrop"
+                        onClick={() => onToggleSkill(skill.id)}
+                      >
+                        Remove skill
+                      </button>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -553,57 +576,91 @@ function Review({
   );
   const autos = roster.filter((seat) => seat.auto).length;
   return (
-    <div className="swarmWizardBody">
-      <header className="swarmWizardHero">
-        <h1 id="swarm-setup-title">
-          Review &amp; <em>launch</em>
-        </h1>
-        <p>
-          Name the swarm and check the brief. Seats can still change after launch in a
-          later slice.
-        </p>
-      </header>
-      <label className="swarmField">
-        <span>Swarm name — auto-named if left blank</span>
+    <>
+      <h1 id="swarm-setup-title">Review and launch</h1>
+      <p className="lede">Name the run, then start the swarm.</p>
+      <div className="wizardSection">
+        <label className="wizardLabel" htmlFor="swarm-name">
+          Swarm name <span>Auto-named if left blank</span>
+        </label>
         <input
+          id="swarm-name"
           value={swarmName}
           placeholder="Swarm 1"
           onChange={(event) => onName(event.target.value)}
         />
-      </label>
-      <ul className="swarmRecap">
-        <li>
-          <span>Mission</span>
-          <strong>{job.trim() || '—'}</strong>
-        </li>
-        <li>
-          <span>Folder</span>
-          <strong>{folderPath || '—'}</strong>
-        </li>
-        <li>
-          <span>Roster</span>
-          <strong>
-            {roster.length} agents — {counts.coordinator} coordinator · {counts.builder}{' '}
-            builders · {counts.scout} scout · {counts.reviewer} reviewer
-            {autos > 0 ? ` · ${autos} auto` : ''}
-          </strong>
-        </li>
-        <li>
-          <span>Mode</span>
-          <strong>
-            {mode === 'safe'
-              ? 'Safe — read and analyze only'
-              : mode === 'auto'
-                ? 'Auto-edit — files yes, commands gated'
-                : 'Full bypass — every approval skipped'}
-          </strong>
-        </li>
-        <li>
-          <span>Skills</span>
-          <strong>{skills.length === 0 ? 'None' : skills.join(', ')}</strong>
-        </li>
-      </ul>
-    </div>
+      </div>
+      <div className="wizardSection">
+        <span className="wizardLabel">Recap</span>
+        <ul className="swarmRecap">
+          <li>
+            <span>Mission</span>
+            <strong>{job.trim() || '—'}</strong>
+          </li>
+          <li>
+            <span>Folder</span>
+            <strong>{folderPath || '—'}</strong>
+          </li>
+          <li>
+            <span>Roster</span>
+            <strong>
+              {roster.length} agents — {counts.coordinator} queen · {counts.builder}{' '}
+              builders · {counts.scout} scout · {counts.reviewer} reviewer
+              {autos > 0 ? ` · ${autos} auto` : ''}
+            </strong>
+          </li>
+          <li>
+            <span>Mode</span>
+            <strong>
+              {mode === 'safe'
+                ? 'Safe — read and analyze only'
+                : mode === 'auto'
+                  ? 'Auto-edit — files yes, commands gated'
+                  : 'Full bypass — every approval skipped'}
+            </strong>
+          </li>
+          <li>
+            <span>Skills</span>
+            <strong>{skills.length === 0 ? 'None' : skills.join(', ')}</strong>
+          </li>
+          <li>
+            <span>Billing</span>
+            <strong>
+              Seats use the logged-in Claude / Grok / Codex subscription. Chat API keys
+              (Anthropic, xAI, OpenRouter) stay in Settings → Providers.
+            </strong>
+          </li>
+        </ul>
+      </div>
+    </>
+  );
+}
+
+function CourtPreview({ workers }: { readonly workers: number }): React.JSX.Element {
+  return (
+    <span className="courtPreview" aria-hidden="true">
+      <i className="courtQueen" />
+      <span className="courtWorkers">
+        {Array.from({ length: workers }, (_, index) => (
+          <i key={index} />
+        ))}
+      </span>
+    </span>
+  );
+}
+
+function EyeIcon(): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <path
+        d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="12" r="2.4" fill="currentColor" />
+    </svg>
   );
 }
 
@@ -618,4 +675,10 @@ function countRoles(roster: readonly SwarmAssignment[]): Record<SwarmRole, numbe
 
 function labelFor(id: BoardAgentId): string {
   return BOARD_AGENT_CATALOG.find((entry) => entry.id === id)?.label ?? id;
+}
+
+function droppedPath(file: File): string {
+  return 'path' in file && typeof file.path === 'string' && file.path.length > 0
+    ? file.path
+    : file.name;
 }

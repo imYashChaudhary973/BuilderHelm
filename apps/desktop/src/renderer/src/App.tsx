@@ -8,6 +8,16 @@ import { SpaceRail } from './components/space-rail.js';
 import { PreviewProvider, usePreview } from './preview-store.js';
 import { SpaceProvider } from './space-store.js';
 
+const MODES = [
+  ['/space', 'Space'],
+  ['/swarm', 'Swarm'],
+  ['/board', 'Board'],
+  ['/memory', 'Memory'],
+  ['/agent', 'Agent'],
+  ['/code', 'Code'],
+  ['/chat', 'Chat'],
+] as const;
+
 function Shell(): React.JSX.Element {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const preview = usePreview();
@@ -20,6 +30,9 @@ function Shell(): React.JSX.Element {
     }
   });
   const settingsActive = pathname.startsWith('/settings');
+  const modeIndex = MODES.findIndex(
+    ([to]) => pathname === to || (to === '/space' && pathname === '/'),
+  );
 
   useEffect(() => {
     if (preview.open && preview.tab === 'browser') return;
@@ -55,22 +68,45 @@ function Shell(): React.JSX.Element {
   return (
     <div className={shellClass}>
       <header className="topbar">
-        <button
-          type="button"
-          className={railCollapsed ? 'topbarIcon' : 'topbarIcon topbarIconOn'}
-          title={railCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-          aria-pressed={!railCollapsed}
-          onClick={toggleRail}
-        >
-          <RailIcon />
-        </button>
-        <div className="brand">
-          <img className="brandLogo" src={logo} width={22} height={22} alt="" />
-          BuilderHelm
-          <span className="buildStamp" title="Branch and commit this build came from">
-            {__BUILD_STAMP__}
-          </span>
+        <div className="topbarStart">
+          <button
+            type="button"
+            className={railCollapsed ? 'topbarIcon' : 'topbarIcon topbarIconOn'}
+            title={railCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+            aria-pressed={!railCollapsed}
+            onClick={toggleRail}
+          >
+            <RailIcon />
+          </button>
+          <div className="brand">
+            <img className="brandLogo" src={logo} width={22} height={22} alt="" />
+            <span className="brandName">BuilderHelm</span>
+          </div>
         </div>
+        <nav
+          className="segNav"
+          role="tablist"
+          aria-label="Modes"
+          style={
+            {
+              '--seg-count': MODES.length,
+              '--seg-index': Math.max(modeIndex, 0),
+            } as React.CSSProperties
+          }
+        >
+          {modeIndex >= 0 ? <span className="segNavPill" aria-hidden="true" /> : null}
+          {MODES.map(([to, label], index) => (
+            <Link
+              key={to}
+              to={to}
+              role="tab"
+              aria-selected={index === modeIndex}
+              className={index === modeIndex ? 'segNavItem segNavItemOn' : 'segNavItem'}
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
         <div className="topbarEnd">
           <Link
             className={settingsActive ? 'topbarIcon topbarIconOn' : 'topbarIcon'}

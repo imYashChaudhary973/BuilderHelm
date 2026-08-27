@@ -12,3 +12,4 @@ export * from './providers.js';
 export * from './projects.js';
 export * from './kanban.js';
 export * from './swarm.js';
+export * from './helm.js';

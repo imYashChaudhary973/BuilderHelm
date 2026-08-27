@@ -19,10 +19,27 @@
   --radius-s: 10px;
   --radius-m: 14px;
   --radius-l: 18px;
+  /* Multi-layer (inset + drop). P0-7 must prove iced can express this. */
   --shadow-card:
     0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 24px 48px -24px rgba(0, 0, 0, 0.55);
   --shadow-float: 0 20px 60px -20px rgba(0, 0, 0, 0.65);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-3d: cubic-bezier(0.32, 0.72, 0, 1);
+  /*
+   * P0-7 / iced bevel spike. These three are multi-layer and use inset.
+   * --bevel-3d: five layers, inset + outset (opensourceui dark 3d button).
+   * --bevel-3d-pressed: three layers, inset-heavy pressed state.
+   * --bevel-inset: two inset layers (track / well).
+   */
+  --bevel-3d:
+    0 1px 1px rgba(0, 0, 0, 0.35), 0 3px 6px rgba(0, 0, 0, 0.28),
+    0 8px 16px rgba(0, 0, 0, 0.22), inset 0 1px 2px rgba(255, 255, 255, 0.14),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.55);
+  --bevel-3d-pressed:
+    0 1px 2px rgba(0, 0, 0, 0.25), inset 0 2px 6px rgba(0, 0, 0, 0.55),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.06);
+  --bevel-inset:
+    inset 0 2px 5px rgba(0, 0, 0, 0.55), inset 0 -1px 1px rgba(255, 255, 255, 0.08);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   color: var(--text);
   background: var(--bg);
@@ -372,7 +389,8 @@ textarea:focus-visible {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: 200px 1fr;
+  --rail-w: 236px;
+  grid-template-columns: var(--rail-w) 1fr;
   grid-template-rows: 36px 1fr;
   grid-template-areas:
     'topbar topbar'
@@ -384,18 +402,20 @@ html.is-fullscreen .shell {
   grid-template-rows: 36px 1fr;
 }
 
+/* Rail width is a variable so collapsed + side panel can both apply. */
 .shellBrowserOn {
-  grid-template-columns: 200px 1fr var(--panel-w, 360px);
+  grid-template-columns: var(--rail-w) 1fr var(--panel-w, 360px);
   grid-template-areas:
     'topbar topbar topbar'
     'rail content browser';
 }
 
 .shellRailOff {
-  grid-template-columns: 52px 1fr;
+  --rail-w: 52px;
 }
 
 .topbar {
+  position: relative;
   grid-area: topbar;
   display: flex;
   align-items: center;
@@ -404,6 +424,21 @@ html.is-fullscreen .shell {
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   background: #050505;
   -webkit-app-region: drag;
+}
+
+/* Start and end claim equal share so the segmented nav sits dead centre. */
+.topbarStart {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Below this the centred nav would reach the wordmark, so drop to the logo. */
+@media (max-width: 1000px) {
+  .brandName {
+    display: none;
+  }
 }
 
 .topbar button,
@@ -421,18 +456,6 @@ html.is-fullscreen .shell {
   color: var(--text);
 }
 
-.buildStamp {
-  padding: 1px 6px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--text-3);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0;
-  -webkit-app-region: no-drag;
-}
-
 .brandLogo {
   display: block;
   width: 16px;
@@ -440,43 +463,93 @@ html.is-fullscreen .shell {
   object-fit: contain;
 }
 
-.topbarNav,
 .topbarEnd {
   display: flex;
+  min-width: 0;
   align-items: center;
-  gap: 2px;
-}
-
-.topbarEnd {
   margin-left: auto;
   gap: 10px;
 }
 
-.topbarItem {
-  padding: 6px 10px;
+/*
+ * Segmented toggle ported from opensourceui's SegmentedToggleButton
+ * (components/buttons/segmented-toggle-button.tsx): an inset track with a
+ * sliding pill. Tailwind's hard-coded per-count offsets are replaced by
+ * --seg-count / --seg-index so any number of segments works.
+ */
+.segNav {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  transform: translate(-50%, -50%);
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.5),
+    inset 0 2px 5px rgba(0, 0, 0, 0.3),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+    0 1px 0 rgba(255, 255, 255, 0.04);
+  user-select: none;
+}
+
+.segNavPill {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px - (var(--seg-count) - 1) * 4px) / var(--seg-count));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 20%, var(--line));
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.45),
+    0 1px 1px rgba(0, 0, 0, 0.3),
+    inset 0 0 0 1px var(--accent-line),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.4);
+  transform: translateX(calc(var(--seg-index) * (100% + 4px)));
+  transition: transform 0.5s var(--ease-out);
+  pointer-events: none;
+}
+
+.segNavItem {
+  position: relative;
+  z-index: 1;
+  padding: 4px 11px;
   border: 0;
   border-radius: 8px;
-  color: var(--text-2);
+  color: var(--text-3);
   background: transparent;
   text-align: center;
   text-decoration: none;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 550;
+  white-space: nowrap;
+  transition: color 0.5s var(--ease-out);
 }
 
-.topbarItem:hover:not(:disabled) {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
+.segNavItem:hover {
+  color: var(--text-2);
 }
 
-.topbarItem:disabled {
-  opacity: 0.38;
-  cursor: not-allowed;
+.segNavItem:active {
+  transform: translateY(0.5px);
 }
 
-.topbarItemOn {
+.segNavItemOn,
+.segNavItemOn:hover {
   color: var(--accent-bright);
-  background: var(--accent-dim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .segNavPill,
+  .segNavItem {
+    transition: none;
+  }
 }
 
 .rail {
@@ -495,10 +568,35 @@ html.is-fullscreen .shell {
   padding: 12px 6px;
 }
 
-.railModeDivider {
-  height: 1px;
-  margin: 2px 4px;
-  background: var(--line);
+/* Sidebar header: WORKSPACES <count> ............ + */
+.railHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.railCollapsed .railHead {
+  justify-content: center;
+  padding: 0 0 10px;
+}
+
+.railGroup {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.railGroup span {
+  margin-left: 4px;
+  color: var(--text-3);
+  font-weight: 600;
 }
 
 .railList {
@@ -507,6 +605,7 @@ html.is-fullscreen .shell {
   flex-direction: column;
   gap: 4px;
   min-height: 0;
+  padding-top: 4px;
   overflow: visible;
 }
 
@@ -518,6 +617,27 @@ html.is-fullscreen .shell {
   position: relative;
   display: flex;
   align-items: center;
+  gap: 2px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-s);
+}
+
+/* Active workspace card: tinted, outlined, with a left accent bar. */
+.rail:not(.railCollapsed) .railItemOn {
+  border-color: color-mix(in srgb, var(--tile) 45%, transparent);
+  background: color-mix(in srgb, var(--tile) 10%, transparent);
+}
+
+.rail:not(.railCollapsed) .railItemOn::before {
+  position: absolute;
+  top: 7px;
+  bottom: 7px;
+  left: -2px;
+  width: 4px;
+  border-radius: 3px;
+  background: var(--tile);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--tile) 55%, transparent);
+  content: '';
 }
 
 .railTile {
@@ -525,6 +645,7 @@ html.is-fullscreen .shell {
   display: grid;
   width: 36px;
   height: 36px;
+  padding: 0;
   place-items: center;
   border: 1px solid color-mix(in srgb, var(--tile) 50%, transparent);
   border-radius: 11px;
@@ -554,13 +675,14 @@ html.is-fullscreen .shell {
   text-align: center;
 }
 
-.railItem,
-.railNew {
+.railItem {
+  position: relative;
   display: flex;
+  min-width: 0;
+  flex: 1;
   align-items: center;
   gap: 10px;
-  width: 100%;
-  padding: 8px;
+  padding: 9px 8px;
   border: 0;
   border-radius: var(--radius-s);
   color: var(--text-2);
@@ -568,14 +690,11 @@ html.is-fullscreen .shell {
   text-align: left;
 }
 
-.railCollapsed .railNew {
-  justify-content: center;
-  padding: 8px 0;
+.railItem:hover {
+  color: var(--text);
 }
 
-.railItem:hover,
-.railNew:hover {
-  color: var(--text);
+.railRow:not(.railItemOn):hover {
   background: rgba(255, 255, 255, 0.04);
 }
 
@@ -583,9 +702,64 @@ html.is-fullscreen .shell {
   color: var(--text);
 }
 
-.railItemOn:not(:has(.railTile)) {
-  background: var(--accent-dim);
-  border-radius: var(--radius-s);
+/* Square glyph tile carrying the workspace colour. */
+.railGlyph {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--tile) 45%, transparent);
+  border-radius: 8px;
+  color: var(--tile);
+  background: color-mix(in srgb, var(--tile) 16%, var(--bg-1));
+}
+
+.railName {
+  overflow: hidden;
+  min-width: 0;
+  flex: 1;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.railItemOn .railName {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Round terminal-count badge at the row's trailing edge. */
+.railCount {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--tile);
+  background: color-mix(in srgb, var(--tile) 18%, transparent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.railClose {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  padding: 0;
+  place-items: center;
+  margin-right: 6px;
+  border: 0;
+  border-radius: 7px;
+  color: color-mix(in srgb, var(--tile) 80%, var(--text-3));
+  background: transparent;
+}
+
+.railClose:hover {
+  color: var(--tile);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .railTerm {
@@ -598,24 +772,9 @@ html.is-fullscreen .shell {
   height: 20px;
 }
 
-.railCopy {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  flex-direction: column;
-}
-
-.railCopy strong {
-  overflow: hidden;
-  font-size: 13px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.railCopy small {
-  color: var(--text-3);
-  font-size: 11px;
+.railGlyph .railTerm {
+  width: 15px;
+  height: 15px;
 }
 
 .railRename {
@@ -682,21 +841,37 @@ html.is-fullscreen .shell {
   border-radius: 50%;
 }
 
-.railFooter {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: auto;
+.railAdd {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-2);
+  background: transparent;
 }
 
-.railNew {
-  margin-top: 0;
-  font-size: 13px;
-  font-weight: 550;
+.railCollapsed .railAdd {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border-color: rgba(255, 255, 255, 0.14);
+  border-radius: 11px;
 }
 
-.railCollapsed .railFooter {
-  flex-direction: column;
+.railAdd:hover,
+.railAddOn {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.railAdd:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .privacyBadge {
@@ -727,7 +902,7 @@ html.is-fullscreen .shell {
     box-shadow: 0 0 0 3px rgba(182, 212, 117, 0.2);
   }
   50% {
-    box-shadow: 0 0 0 5px rgba(182, 212, 117, 0.12);
+    box-shadow: 0 0 0 5px var(--accent-dim);
   }
 }
 
@@ -743,9 +918,7 @@ html.is-fullscreen .shell {
 .content:has(.boardGrid),
 .content:has(.kanbanPage),
 .content:has(.memoryPage),
-.content:has(.swarmPage),
 .content:has(.swarmLive),
-.content:has(.swarmWizard),
 .content:has(.spaceHome),
 .content:has(.spaceWizard),
 .content:has(.spaceStage) {
@@ -828,7 +1001,7 @@ html.is-fullscreen .shell {
   place-items: center;
   margin-bottom: 14px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-s);
   color: var(--text-2);
 }
 
@@ -848,7 +1021,7 @@ html.is-fullscreen .shell {
 .browserChip,
 .browserNewTab {
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-s);
   background: #141414;
   color: var(--text);
 }
@@ -914,25 +1087,42 @@ html.is-fullscreen .shell {
   font-size: 11px;
 }
 
+/* opensourceui ThreeDIconButton: bevelled square that presses in on click. */
 .topbarIcon {
   display: grid;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   place-items: center;
+  padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: 7px;
   color: var(--text-3);
-  background: transparent;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: var(--bevel-3d);
+  transition:
+    background-color 0.2s var(--ease-3d),
+    box-shadow 0.2s var(--ease-3d),
+    color 0.2s var(--ease-3d);
 }
 
 .topbarIcon:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.topbarIcon:active {
+  box-shadow: var(--bevel-3d-pressed);
 }
 
 .topbarIconOn {
   color: var(--accent-bright);
-  background: var(--accent-dim);
+  background: color-mix(in srgb, var(--accent) 16%, rgba(255, 255, 255, 0.05));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topbarIcon {
+    transition: none;
+  }
 }
 
 /* ---------- TYPOGRAPHY PRIMITIVES ---------- */
@@ -1083,7 +1273,7 @@ p {
 .secondaryButton:hover:not(:disabled),
 .stopButton:hover:not(:disabled),
 .textButton:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--line);
   border-color: var(--line-strong);
   transform: translateY(-1px);
 }
@@ -1161,7 +1351,7 @@ textarea:focus {
   outline: none;
   border-color: var(--accent);
   background: rgba(0, 0, 0, 0.28);
-  box-shadow: 0 0 0 3px rgba(182, 212, 117, 0.12);
+  box-shadow: 0 0 0 3px var(--accent-dim);
 }
 
 textarea {
@@ -1750,7 +1940,7 @@ fieldset legend {
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
-  background: rgba(255, 143, 115, 0.12);
+  background: var(--danger-dim);
   color: var(--danger);
   border: 1px solid rgba(255, 143, 115, 0.22);
 }
@@ -1866,7 +2056,7 @@ fieldset legend {
 
 .chatComposer:focus-within textarea {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(182, 212, 117, 0.12);
+  box-shadow: 0 0 0 3px var(--accent-dim);
 }
 
 .composerFooter {
@@ -1918,7 +2108,7 @@ fieldset legend {
   flex: 0 0 36px;
   place-items: center;
   border: 1px solid color-mix(in srgb, #c9a0ff 46%, transparent);
-  border-radius: 10px;
+  border-radius: var(--radius-s);
   color: #dbc3ff;
   background: color-mix(in srgb, #c9a0ff 13%, #0b0c0b);
 }
@@ -1951,7 +2141,7 @@ fieldset legend {
   min-width: 0;
   min-height: 0;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-s);
   background: #0c0d0c;
 }
 
@@ -2339,11 +2529,16 @@ fieldset legend {
   display: flex;
   flex: 1;
   flex-direction: column;
+  width: 100%;
   min-width: 0;
   min-height: 0;
   padding: 16px 18px 14px;
   overflow: hidden;
-  background: #070807;
+  background: transparent;
+}
+
+.spaceStage:has(.swarmLive) {
+  height: 100%;
 }
 
 .swarmLiveHead {
@@ -2370,8 +2565,8 @@ fieldset legend {
 }
 
 .swarmViewOn {
-  border-color: color-mix(in srgb, #b6d475 50%, transparent);
-  color: #b6d475;
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  color: var(--accent);
 }
 
 .swarmLiveStage {
@@ -2382,6 +2577,11 @@ fieldset legend {
   flex: 1;
 }
 
+.swarmLiveStage > .boardGrid {
+  min-height: 0;
+  height: 100%;
+}
+
 .swarmGraph {
   position: relative;
   min-height: 0;
@@ -2389,24 +2589,40 @@ fieldset legend {
   border-radius: 16px;
   background:
     radial-gradient(
-      ellipse at 50% 60%,
-      color-mix(in srgb, #b6d475 10%, transparent),
-      transparent 55%
+      ellipse at 50% 58%,
+      color-mix(in srgb, #c8f542 12%, transparent),
+      transparent 50%
     ),
-    #080908;
+    color-mix(in srgb, #080908 70%, transparent);
   overflow: hidden;
 }
 
-.swarmGraph svg {
+.swarmGraph.courtPreview {
+  display: block;
+  width: auto;
+  height: auto;
+  justify-items: unset;
+  gap: 0;
+}
+
+.swarmGraph .courtWorkers {
+  position: absolute;
+  inset: 0;
+  display: contents;
+}
+
+.swarmGraph > svg {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
 }
 
-.swarmGraph line {
-  stroke: color-mix(in srgb, #b6d475 35%, transparent);
+.swarmGraph > svg line,
+.swarmGraph > svg path {
+  stroke: color-mix(in srgb, #c8f542 35%, transparent);
   stroke-width: 0.4;
+  fill: none;
 }
 
 .swarmNode {
@@ -2414,41 +2630,44 @@ fieldset legend {
   width: 148px;
   transform: translate(-50%, -50%);
   display: grid;
+  justify-items: start;
   gap: 2px;
   padding: 8px 10px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #0c0d0c;
+  border-radius: 8px;
+  background: color-mix(in srgb, #0c0d0c 88%, transparent);
   color: var(--text);
   text-align: left;
+  cursor: pointer;
+}
+
+.swarmGraph .courtQueen {
+  width: 148px;
+  height: auto;
+  border-radius: 16px;
+  background: color-mix(in srgb, #c8f542 14%, #0c0d0c);
+  box-shadow: 0 0 0 2px color-mix(in srgb, #c8f542 35%, transparent);
 }
 
 .swarmNodeOn,
 .swarmNode:hover {
-  border-color: color-mix(in srgb, #b6d475 55%, transparent);
+  border-color: color-mix(in srgb, #c8f542 55%, transparent);
 }
 
-.swarmNode i {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #8a8d86;
+.swarmNode .agentMark {
+  width: 28px;
+  height: 28px;
+  margin-bottom: 4px;
 }
 
-.swarmNode[data-status='running'] i,
-.swarmRosterRail em[data-status='running'] {
-  background: #b6d475;
-  color: #b6d475;
+.swarmRosterRail em[data-status='running'],
+.swarmRosterRail em[data-status='working'] {
+  color: var(--accent);
 }
 
-.swarmNode[data-status='stuck'] i,
 .swarmRosterRail em[data-status='stuck'],
 .swarmRosterRail em[data-status='failed'] {
-  background: #ff8f73;
-  color: #ff8f73;
+  color: var(--danger);
 }
 
 .swarmNode strong,
@@ -2469,46 +2688,43 @@ fieldset legend {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 16px;
-  background: #0c0d0c;
+  background: color-mix(in srgb, #0c0d0c 78%, transparent);
 }
 
-.swarmRosterRail header {
-  display: flex;
-  justify-content: space-between;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--line);
-}
-
-.swarmRosterRail ul {
-  list-style: none;
-  margin: 0;
-  padding: 8px;
+.swarmRosterRail .swarmSeatList {
+  flex: 1;
+  min-height: 0;
   overflow: auto;
 }
 
-.swarmRosterRail li {
-  margin-bottom: 8px;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
+.swarmRosterRail .swarmSeatList .stopButton {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+.swarmRosterRail .swarmPlanList,
+.swarmRosterRail .swarmChatList,
+.swarmRosterRail .swarmActivityList,
+.swarmRosterRail .swarmInspectorBody {
+  flex: 1;
+  min-height: 0;
 }
 
-.swarmRosterRail li > div {
+.swarmLive .swarmRoleChips {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
-.swarmRosterRail button {
-  margin-top: 8px;
+.swarmLive .swarmRoleChips button {
+  padding: 4px 10px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 4px 8px;
+  border-radius: 999px;
   background: transparent;
-  color: #d27b6a;
-  font-size: 11px;
+  color: var(--text-2);
+  font-size: 12px;
 }
 
 .swarmDirect {
@@ -2516,6 +2732,14 @@ fieldset legend {
   grid-template-columns: 160px 1fr auto;
   gap: 8px;
   margin-top: 12px;
+}
+
+.swarmLive .spaceWizardFooter {
+  display: grid;
+  grid-template-columns: 160px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .content:has(.swarmLive) {
@@ -2530,7 +2754,7 @@ fieldset legend {
   flex: 0 0 36px;
   place-items: center;
   border: 1px solid color-mix(in srgb, #7ec8e3 46%, transparent);
-  border-radius: 10px;
+  border-radius: var(--radius-s);
   color: #b7e4f3;
   background: color-mix(in srgb, #7ec8e3 13%, #0b0c0b);
 }
@@ -2541,7 +2765,7 @@ fieldset legend {
   resize: vertical;
   padding: 12px 14px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-s);
   background: #0c0d0c;
   color: var(--text);
   font: inherit;
@@ -2578,7 +2802,7 @@ fieldset legend {
   gap: 2px;
   padding: 10px 12px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-s);
   background: #0c0d0c;
 }
 
@@ -2595,12 +2819,12 @@ fieldset legend {
 .swarmRoles em {
   font-style: normal;
   font-size: 11px;
-  color: #b6d475;
+  color: var(--accent);
 }
 
 .swarmRoles em[data-status='stuck'],
 .swarmRoles em[data-status='failed'] {
-  color: #ff8f73;
+  color: var(--danger);
 }
 
 .swarmRoles em[data-status='exited'],
@@ -2619,104 +2843,18 @@ fieldset legend {
   }
 }
 
-.swarmWizard {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
-  padding: 28px 24px 18px;
-  overflow: auto;
-  background: #070807;
-}
-
-.swarmSteps {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 28px;
-}
-
-.swarmStep {
-  border: 1px solid transparent;
-  border-radius: 999px;
-  padding: 7px 14px;
-  background: transparent;
-  color: var(--text-3);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.swarmStepOn {
-  border-color: color-mix(in srgb, #b6d475 50%, transparent);
-  color: #b6d475;
-  background: color-mix(in srgb, #b6d475 10%, #0b0c0b);
-}
-
-.swarmStepLine {
-  width: 28px;
-  height: 1px;
-  background: var(--line);
-}
-
-.swarmWizardBody {
-  width: min(720px, 100%);
-  margin: 0 auto;
-}
-
-.swarmWizardHero {
-  text-align: center;
-  margin-bottom: 28px;
-}
-
-.swarmWizardHero h1 {
-  margin: 0 0 8px;
-  font-size: clamp(28px, 3.4vw, 40px);
-  letter-spacing: -0.04em;
-}
-
-.swarmWizardHero em {
-  font-style: normal;
-  color: #b6d475;
-}
-
-.swarmWizardHero p,
-.swarmShareNote,
-.swarmFieldLabel,
-.swarmField > span {
-  color: var(--text-3);
-  font-size: 12px;
-}
-
-.swarmField,
-.swarmFieldLabel {
-  display: block;
-  margin: 16px 0 8px;
-}
-
-.swarmField input {
-  width: 100%;
-}
-
 .swarmShareNote {
   margin: 10px 0 0;
   padding: 10px 12px;
-  border-radius: 10px;
-  background: color-mix(in srgb, #b6d475 10%, #0b0c0b);
+  border-radius: var(--radius-s);
+  background: color-mix(in srgb, var(--accent) 10%, #0b0c0b);
   color: #cfe6a4;
 }
 
-.swarmPresets,
 .swarmModes,
 .swarmSkillGrid {
   display: grid;
   gap: 10px;
-}
-
-.swarmPresets {
-  grid-template-columns: repeat(4, 1fr);
 }
 
 .swarmModes {
@@ -2727,7 +2865,6 @@ fieldset legend {
   grid-template-columns: 1fr 1fr;
 }
 
-.swarmPreset,
 .swarmModeCard,
 .swarmSkill {
   text-align: left;
@@ -2738,23 +2875,12 @@ fieldset legend {
   color: var(--text);
 }
 
-.swarmPreset {
-  text-align: center;
-}
-
-.swarmPresetOn,
 .swarmModeOn,
 .swarmSkillOn {
-  border-color: color-mix(in srgb, #b6d475 55%, transparent);
-  background: color-mix(in srgb, #b6d475 8%, #0c0d0c);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, #0c0d0c);
 }
 
-.swarmPreset strong {
-  display: block;
-  font-size: 22px;
-}
-
-.swarmPreset span,
 .swarmModeCard span,
 .swarmSkill span {
   display: block;
@@ -2765,20 +2891,6 @@ fieldset legend {
   letter-spacing: 0.06em;
 }
 
-.swarmFillRow,
-.swarmWizardFoot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.swarmFillRow {
-  margin: 14px 0;
-  color: var(--text-3);
-  font-size: 12px;
-}
-
 .swarmSeatList {
   list-style: none;
   margin: 0;
@@ -2787,7 +2899,7 @@ fieldset legend {
 
 .swarmSeatList li {
   display: grid;
-  grid-template-columns: 28px 1fr 150px auto auto;
+  grid-template-columns: 32px 1fr 150px auto auto;
   gap: 10px;
   align-items: center;
   margin-bottom: 8px;
@@ -2796,62 +2908,19 @@ fieldset legend {
   border-radius: 12px;
 }
 
-.swarmSeatList strong {
-  text-transform: capitalize;
-}
-
-.swarmRoleChips {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin: 16px 0 12px;
-}
-
-.swarmRoleChips button,
-.swarmAddSeat {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 6px 10px;
-  background: #0c0d0c;
-  color: var(--text);
-  font-size: 11px;
-  text-transform: capitalize;
-}
-
-.swarmRoleChips em {
-  margin-left: auto;
-  color: var(--text-3);
-  font-size: 12px;
-  font-style: normal;
-}
-
-.swarmAddSeat {
-  width: 100%;
-  margin: 4px 0 8px;
-  border-radius: 12px;
-}
-
-.swarmAuto,
-.swarmSeatDrop {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 4px 8px;
-  background: transparent;
-  color: var(--text-3);
-  font-size: 11px;
-}
-
-.swarmAutoOn {
-  border-color: color-mix(in srgb, #b6d475 55%, transparent);
-  color: #b6d475;
-}
-
-.swarmSkill {
-  position: relative;
+.swarmSeatList .agentMark {
+  width: 32px;
+  height: 32px;
 }
 
 .swarmSkillHead {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.swarmSkillToggle {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 4px 10px;
@@ -2861,6 +2930,37 @@ fieldset legend {
   background: transparent;
   color: inherit;
   text-align: left;
+}
+
+.swarmSkillToggle strong {
+  grid-column: 1;
+}
+
+.swarmSkillToggle span {
+  grid-column: 1;
+}
+
+.swarmSkillToggle .swarmSwitch {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+.swarmSkillEye {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-3);
+}
+
+.swarmSkillEye[aria-expanded='true'] {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--accent);
 }
 
 .swarmSkillHead strong {
@@ -2894,7 +2994,7 @@ fieldset legend {
 }
 
 .swarmSwitchOn {
-  background: color-mix(in srgb, #b6d475 70%, #1a1c16);
+  background: color-mix(in srgb, var(--accent) 70%, #1a1c16);
 }
 
 .swarmSwitchOn::after {
@@ -2938,10 +3038,16 @@ fieldset legend {
 .swarmSkillDirective span {
   display: block;
   margin-bottom: 4px;
-  color: #b6d475;
+  color: var(--accent);
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.swarmSkillDirective textarea {
+  width: 100%;
+  margin-top: 6px;
+  min-height: 64px;
 }
 
 .swarmRecap {
@@ -2965,25 +3071,6 @@ fieldset legend {
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-.swarmWizardFoot {
-  width: min(720px, 100%);
-  margin: 28px auto 0;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
-}
-
-.swarmStepMeta {
-  color: var(--text-3);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.content:has(.swarmWizard) {
-  padding: 0;
-  overflow: auto;
 }
 
 /* ---------- ACTIONS ---------- */
@@ -3944,8 +4031,14 @@ fieldset legend {
 }
 
 @media (max-width: 980px) {
-  .shell {
-    grid-template-columns: 168px 1fr;
+  /*
+   * Narrow the rail via the variable, not the template: hard-coding the
+   * columns here overrode --rail-w, so the *collapsed* rail rendered 168px
+   * wide and stole 116px from the content area. :not() keeps the collapsed
+   * width winning over this rule.
+   */
+  .shell:not(.shellRailOff) {
+    --rail-w: 196px;
   }
 
   .topbar {
@@ -4038,6 +4131,13 @@ fieldset legend {
   justify-content: center;
   align-items: stretch;
   width: 100%;
+  /*
+   * Opt out of the scroll container's align-items:stretch. Stretch would pin
+   * the stage to the *visible* height, so scrolled-past content sat outside it
+   * with no background or signal field behind it. Auto height + this floor
+   * makes the stage as tall as its content.
+   */
+  align-self: flex-start;
   min-height: 100%;
   background: #0a0a0a;
 }
@@ -4347,14 +4447,23 @@ html.is-fullscreen .spaceHome {
 
 .spaceWizardFooter {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   padding-top: 8px;
 }
 
+/* Wrap the row rather than squeezing labels onto three lines each. */
+.spaceWizardFooter button {
+  white-space: nowrap;
+}
+
 .spaceWizardActions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-left: auto;
   gap: 10px;
 }
 
@@ -4405,6 +4514,55 @@ html.is-fullscreen .spaceHome {
   border-radius: 1px;
   background: currentColor;
   opacity: 0.55;
+}
+
+.courtTiles {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.courtPreview {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  width: clamp(36px, 4vw, 52px);
+}
+
+.courtQueen {
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+  background: #c8f542;
+}
+
+.courtWorkers {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+}
+
+.courtWorkers i {
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0.5;
+}
+
+.layoutTileActive .courtQueen {
+  box-shadow: 0 0 0 2px color-mix(in srgb, #c8f542 35%, transparent);
+}
+
+.layoutTileActive .courtWorkers i {
+  background: var(--accent);
+  opacity: 1;
+}
+
+.layoutTile small {
+  color: var(--text-3);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .layoutTileActive .layoutPreview i {
@@ -4548,7 +4706,7 @@ html.is-fullscreen .spaceHome {
   place-items: center;
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  border-radius: var(--radius-s);
   background: #141414;
   color: #f3f3f3;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -5270,7 +5428,7 @@ html.is-fullscreen .spaceHome {
   min-width: 0;
   min-height: 0;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-s);
   background: #0c0d0c;
   transition:
     border-color 160ms var(--ease-out),
@@ -6195,13 +6353,6 @@ html.is-fullscreen .spaceHome {
 }
 
 /* Swarm inspector: tabs, plan, chat, activity, node previews. */
-.swarmNode[data-status='working'] i {
-  background: #b6d475;
-}
-
-.swarmNode[data-status='failed'] i {
-  background: #ff8f73;
-}
 
 .swarmNodePreview {
   margin-top: 4px;
@@ -6238,8 +6389,8 @@ html.is-fullscreen .spaceHome {
 }
 
 .swarmTabOn {
-  background: color-mix(in srgb, #b6d475 16%, transparent);
-  color: #b6d475;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
 }
 
 .swarmRosterList,
@@ -6261,18 +6412,18 @@ html.is-fullscreen .spaceHome {
   gap: 2px;
   padding: 7px 9px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-s);
   background: #0c0d0c;
   font-size: 11px;
 }
 
 .swarmPlanList li[data-status='landed'] {
-  border-color: color-mix(in srgb, #b6d475 45%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 .swarmPlanList li[data-status='failed'],
 .swarmPlanList li[data-status='skipped'] {
-  border-color: color-mix(in srgb, #ff8f73 45%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
 }
 
 .swarmPlanList span,
@@ -6290,6 +6441,10 @@ html.is-fullscreen .spaceHome {
   color: color-mix(in srgb, var(--text) 70%, transparent);
   font-style: normal;
   word-break: break-word;
+}
+
+.swarmPlanWhy {
+  color: color-mix(in srgb, var(--danger) 80%, var(--text));
 }
 
 .swarmInspectorBody {
@@ -6313,6 +6468,30 @@ html.is-fullscreen .spaceHome {
   word-break: break-all;
 }
 
+.swarmAgentModes {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.swarmIdlePane {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, #0c0d0c 80%, transparent);
+  color: var(--text);
+}
+
+.swarmIdlePane em {
+  color: var(--text-3);
+  font-style: normal;
+  font-size: 12px;
+}
+
 .swarmCostBand {
   margin: 4px 0 0;
   font-size: 10px;
@@ -6325,8 +6504,8 @@ html.is-fullscreen .spaceHome {
   gap: 8px;
   margin-bottom: 10px;
   padding: 14px 16px;
-  border: 1px solid color-mix(in srgb, #b6d475 25%, transparent);
-  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border-radius: var(--radius-m);
   background: #0c0d0c;
 }
 
@@ -6342,7 +6521,7 @@ html.is-fullscreen .spaceHome {
   background: linear-gradient(
     90deg,
     transparent 0%,
-    color-mix(in srgb, #b6d475 70%, transparent) 50%,
+    color-mix(in srgb, var(--accent) 70%, transparent) 50%,
     transparent 100%
   );
   background-size: 40% 100%;
@@ -6362,22 +6541,30 @@ html.is-fullscreen .spaceHome {
 @media (prefers-reduced-motion: reduce) {
   .swarmCoordinatingBar {
     animation: none;
-    background: color-mix(in srgb, #b6d475 40%, transparent);
+    background: color-mix(in srgb, var(--accent) 40%, transparent);
   }
 }
 
+.swarmFallback {
+  margin: 0 0 10px;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 12px;
+  color: var(--accent);
+  font-size: 12px;
+}
 .swarmSummary {
   display: grid;
   gap: 4px;
   margin-bottom: 10px;
   padding: 12px 16px;
-  border: 1px solid color-mix(in srgb, #b6d475 28%, transparent);
-  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  border-radius: var(--radius-m);
   background: #0c0d0c;
 }
 
 .swarmSummary[data-status='failed'] {
-  border-color: color-mix(in srgb, #ff8f73 40%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
 }
 
 .swarmSummary strong,
@@ -6390,8 +6577,8 @@ html.is-fullscreen .spaceHome {
   color: color-mix(in srgb, var(--text) 70%, transparent);
 }
 
-.swarmGraph line.swarmEdgeLive {
-  stroke: #b6d475;
+.swarmGraph > svg .swarmEdgeLive {
+  stroke: var(--accent);
   stroke-dasharray: 1.6 1.1;
   animation: swarmDash 0.9s linear infinite;
 }
@@ -6408,14 +6595,14 @@ html.is-fullscreen .spaceHome {
   opacity: 0.5;
 }
 
-.swarmNode[data-status='working'] i,
-.swarmNode[data-status='booting'] i,
-.swarmGraph[data-phase='coordinating'] .swarmNode i {
+.swarmNode[data-status='working'] .agentMark,
+.swarmNode[data-status='booting'] .agentMark,
+.swarmGraph[data-phase='coordinating'] .swarmNode .agentMark {
   animation: swarmPulse 1.2s ease-in-out infinite;
 }
 
 .swarmNodeNow {
-  color: #b6d475;
+  color: var(--accent);
   font-size: 10px;
   line-height: 1.3;
   text-transform: none;
@@ -6430,7 +6617,7 @@ html.is-fullscreen .spaceHome {
 @keyframes swarmPulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, #b6d475 55%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
   }
   50% {
     box-shadow: 0 0 0 6px transparent;
@@ -6438,8 +6625,30 @@ html.is-fullscreen .spaceHome {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .swarmGraph line.swarmEdgeLive,
-  .swarmNode i {
+  .swarmGraph > svg .swarmEdgeLive,
+  .swarmNode .agentMark {
     animation: none;
   }
+}
+
+.codePresets {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.codePresets button {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+}
+
+.pipeHud {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--text) 65%, transparent);
 }

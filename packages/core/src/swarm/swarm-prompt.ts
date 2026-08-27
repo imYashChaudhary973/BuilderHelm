@@ -1,7 +1,7 @@
 import type { SwarmRole } from '@zero/protocol';
 
-/** Everything after this marker varies per task; everything before it caches. */
 export const SWARM_PROMPT_TASK_MARKER = '--- task ---';
+export const SWARM_TASK_DONE = 'SWARM_TASK_DONE';
 
 const DUTY: Record<SwarmRole, string> = {
   coordinator:
@@ -50,9 +50,6 @@ export function buildSeatPrompt(input: SeatPromptInput): string {
       : 'Standing directives: none',
     '',
     `Mission: ${input.mission.trim()}`,
-    input.swarmDigest !== undefined && input.swarmDigest.length > 0
-      ? `\n${input.swarmDigest}`
-      : '',
     input.contextPack !== undefined && input.contextPack.length > 0
       ? `\nContext:\n${input.contextPack}`
       : '',
@@ -71,12 +68,18 @@ export function buildSeatPrompt(input: SeatPromptInput): string {
           .map((file) => `- ${file}`)
           .join('\n')}`
       : 'Files: decide from the mission, and stay narrow.',
+    input.swarmDigest !== undefined && input.swarmDigest.length > 0
+      ? input.swarmDigest
+      : '',
     input.directives.length > 0
       ? `New directives from the operator:\n${input.directives
           .map((directive) => `- ${directive}`)
           .join('\n')}`
       : '',
-    'Commit your work in this worktree when the task is done.',
+    input.role === 'scout'
+      ? 'Do not edit files. Report what builders need.'
+      : 'Commit your work in this worktree when the task is done.',
+    `When finished, print exactly ${SWARM_TASK_DONE} on its own line.`,
   ]
     .filter((line) => line.length > 0)
     .join('\n');

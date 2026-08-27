@@ -1,6 +1,7 @@
 import {
   ActionRepository,
   ChatRepository,
+  HelmRepository,
   KnowledgeRepository,
   migrations,
   ModelRepository,
@@ -29,6 +30,7 @@ import {
   type SwarmTaskVerifier,
 } from './swarm/swarm-service.js';
 import type { SwarmReviewer } from './swarm/swarm-reviewer.js';
+import { HelmService } from './helm/helm-service.js';
 import type { SecretStore } from './secrets/secret-store.js';
 
 export interface CoreOptions {
@@ -52,6 +54,7 @@ export interface CoreRuntime {
   readonly projects: ProjectService;
   readonly board: BoardService;
   readonly swarm: SwarmService;
+  readonly helm: HelmService;
   health(correlationId: CorrelationId): SystemHealthResponse;
   close(): void;
 }
@@ -124,6 +127,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     options.swarmVerifier ?? new PnpmTaskVerifier(),
     options.swarmReviewer === undefined ? {} : { reviewer: options.swarmReviewer },
   );
+  const helm = new HelmService(new HelmRepository(database), options.secretStore);
   const reconciledSwarms = swarm.reconcileInterruptedRuns();
   if (reconciledSwarms > 0) {
     logger.info({
@@ -143,6 +147,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     projects,
     board,
     swarm,
+    helm,
     health(correlationId) {
       return {
         status: 'ok',

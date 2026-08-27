@@ -9,6 +9,7 @@ import {
   type SwarmAssignment,
   type SwarmLaunchMode,
   type SwarmPresetId,
+  type SwarmRole,
   type SwarmRunRecord,
   type SwarmState,
 } from '@zero/protocol/swarm';
@@ -66,12 +67,14 @@ export function SwarmPage(): React.JSX.Element {
   const [preset, setPreset] = useState<SwarmPresetId>('frigate');
   const [mode, setMode] = useState<SwarmLaunchMode>('auto');
   const [skillIds, setSkillIds] = useState<string[]>([]);
+  const [skillDirectives, setSkillDirectives] = useState<Record<string, string>>({});
   const [swarmName, setSwarmName] = useState('');
   const [roster, setRoster] = useState<SwarmAssignment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [run, setRun] = useState<SwarmRunRecord | null>(null);
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [now, setNow] = useState(() => Date.now());
+  const [stopping, setStopping] = useState(false);
 
   const agents = useQuery({
     queryKey: ['board-agents'],
@@ -131,11 +134,10 @@ export function SwarmPage(): React.JSX.Element {
     });
   }, [queryClient]);
 
-  // Mini terminal previews come from the pane stream the grid already uses.
+  const liveSessionId = state.data?.run.boardSessionId ?? run?.boardSessionId ?? null;
   useEffect(() => {
-    const sessionId = run?.boardSessionId ?? null;
-    if (sessionId === null) return;
-    return window.zero.board.onPaneEvent(sessionId, (envelope) => {
+    if (liveSessionId === null) return;
+    return window.zero.board.onPaneEvent(liveSessionId, (envelope) => {
       if (envelope.event.type !== 'data') return;
       const text = atob(envelope.event.data);
       setPreviews((current) => ({
@@ -143,7 +145,7 @@ export function SwarmPage(): React.JSX.Element {
         [envelope.paneId]: `${current[envelope.paneId] ?? ''}${text}`.slice(-400),
       }));
     });
-  }, [run?.boardSessionId]);
+  }, [liveSessionId]);
 
   const launch = useMutation({
     mutationFn: async () => {
@@ -164,7 +166,14 @@ export function SwarmPage(): React.JSX.Element {
           launchMode: mode,
           presetId: preset,
           skillIds,
-          seats: roster.map((seat) => ({ role: seat.role, agentId: seat.agentId })),
+          skillDirectives,
+          seats: roster.map((seat) => ({
+            role: seat.role,
+            agentId: seat.agentId,
+            ...(seat.model === undefined || seat.model.length === 0
+              ? {}
+              : { model: seat.model }),
+          })),
         },
       });
     },
@@ -173,6 +182,7 @@ export function SwarmPage(): React.JSX.Element {
       writeLastJob(job);
       writeRecents(created.folderPath);
       setPreviews({});
+      setStopping(false);
       setRun(created);
     },
     onError: (cause: Error) => setError(cause.message),
@@ -184,7 +194,14 @@ export function SwarmPage(): React.JSX.Element {
         correlationId: crypto.randomUUID() as CorrelationId,
         runId,
       }),
-    onError: (cause: Error) => setError(cause.message),
+    onMutate: () => setStopping(true),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['swarm-state'] });
+    },
+    onError: (cause: Error) => {
+      setStopping(false);
+      setError(cause.message);
+    },
   });
 
   const stopSeat = useMutation({
@@ -194,6 +211,22 @@ export function SwarmPage(): React.JSX.Element {
         runId: run!.id,
         seatId,
       }),
+    onError: (cause: Error) => setError(cause.message),
+  });
+
+  const addSeat = useMutation({
+    mutationFn: (role: SwarmRole) => {
+      const agentId = state.data?.seats[0]?.agentId ?? detected[0];
+      if (agentId === undefined) {
+        throw new Error('Install an agent CLI first.');
+      }
+      return window.zero.swarm.addSeat({
+        correlationId: crypto.randomUUID() as CorrelationId,
+        runId: run!.id,
+        role,
+        agentId,
+      });
+    },
     onError: (cause: Error) => setError(cause.message),
   });
 
@@ -228,23 +261,15 @@ export function SwarmPage(): React.JSX.Element {
 
   if (run !== null) {
     const ledger = state.data ?? null;
-    const status = ledger?.run.status ?? run.status;
-    const startedMs = Date.parse(ledger?.run.startedAt ?? run.startedAt);
-    const remain = (ledger?.run.budgetMs ?? run.budgetMs) - (now - startedMs);
+    const live = ledger?.run ?? run;
+    const sessionId = live.boardSessionId;
+    const status = stopping ? 'stopped' : (live.status ?? run.status);
+    const startedMs = Date.parse(live.startedAt ?? run.startedAt);
+    const remain = (live.budgetMs ?? run.budgetMs) - (now - startedMs);
     const stopped = status !== 'running';
-    const coordinating = status === 'running' && (state.data?.tasks.length ?? 0) === 0;
-    const panes: BoardPaneSummary[] = seats
-      .filter((seat) => seat.paneId !== null)
-      .map((seat, index) => ({
-        paneId: seat.paneId!,
-        slot: index,
-        agentId: seat.agentId as BoardPaneSummary['agentId'],
-        title: `${seat.agentId} · ${seat.role}`,
-        status: seat.status === 'exited' ? 'exited' : 'running',
-        branch: seat.branch,
-        cwd: run.folderPath,
-      }));
-    const grid = gridForCount(Math.max(1, panes.length));
+    const coordinating =
+      !stopping && status === 'running' && (state.data?.tasks.length ?? 0) === 0;
+    const grid = gridForCount(Math.max(1, seats.length));
 
     return (
       <>
@@ -268,6 +293,8 @@ export function SwarmPage(): React.JSX.Element {
           stopped={stopped}
           onStopAll={() => stop.mutate(run.id)}
           onStopSeat={(seatId) => stopSeat.mutate(seatId)}
+          detected={detected}
+          onAddSeat={(role) => addSeat.mutate(role)}
           onDirect={(seatIds, text) => direct.mutate({ seatIds, body: text })}
         >
           <div
@@ -277,22 +304,42 @@ export function SwarmPage(): React.JSX.Element {
               gridTemplateRows: `repeat(${grid.rows}, 1fr)`,
             }}
           >
-            {panes.map((pane) => (
-              <TerminalPane
-                key={pane.paneId}
-                sessionId={run.boardSessionId ?? ''}
-                pane={pane}
-                maximized={false}
-                landing={false}
-                confirmLand={false}
-                onToggleMaximize={() => undefined}
-                onClose={() => undefined}
-                onAdd={undefined}
-                onDragStart={() => undefined}
-                onDrop={() => undefined}
-                onLand={undefined}
-              />
-            ))}
+            {seats.map((seat, index) =>
+              seat.paneId !== null && sessionId !== null ? (
+                <TerminalPane
+                  key={seat.paneId}
+                  sessionId={sessionId}
+                  pane={{
+                    paneId: seat.paneId,
+                    slot: index,
+                    agentId: seat.agentId as BoardPaneSummary['agentId'],
+                    title: `${seat.agentId} · ${seat.role}`,
+                    status: seat.status === 'exited' ? 'exited' : 'running',
+                    branch: seat.branch,
+                    cwd: run.folderPath,
+                  }}
+                  maximized={false}
+                  landing={false}
+                  confirmLand={false}
+                  onToggleMaximize={() => undefined}
+                  onClose={() => undefined}
+                  onAdd={undefined}
+                  onDragStart={() => undefined}
+                  onDrop={() => undefined}
+                  onLand={undefined}
+                />
+              ) : (
+                <div
+                  key={seat.seatId}
+                  className="swarmIdlePane"
+                  data-status={seat.status}
+                >
+                  <strong>{seat.role === 'coordinator' ? 'queen' : seat.role}</strong>
+                  <span>{seat.agentId}</span>
+                  <em>{seat.status === 'exited' ? 'Stopped' : 'Idle'}</em>
+                </div>
+              ),
+            )}
           </div>
         </SwarmLive>
       </>
@@ -311,6 +358,7 @@ export function SwarmPage(): React.JSX.Element {
       preset={preset}
       mode={mode}
       skillIds={skillIds}
+      skillDirectives={skillDirectives}
       swarmName={swarmName}
       roster={roster}
       detected={detected}
@@ -327,12 +375,28 @@ export function SwarmPage(): React.JSX.Element {
           current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
         )
       }
+      onSkillDirective={(id, value) =>
+        setSkillDirectives((current) => ({ ...current, [id]: value }))
+      }
       onName={setSwarmName}
       onSeatAgent={(index, agentId) =>
         setRoster((current) =>
-          current.map((seat, seatIndex) =>
-            seatIndex === index ? { ...seat, agentId } : seat,
-          ),
+          current.map((seat, seatIndex) => {
+            if (seatIndex !== index) return seat;
+            const { model: _drop, ...next } = seat;
+            void _drop;
+            return { ...next, agentId };
+          }),
+        )
+      }
+      onSeatModel={(index, model) =>
+        setRoster((current) =>
+          current.map((seat, seatIndex) => {
+            if (seatIndex !== index) return seat;
+            const { model: _drop, ...next } = seat;
+            void _drop;
+            return model.length === 0 ? next : { ...next, model };
+          }),
         )
       }
       onFillAll={(agentId) =>

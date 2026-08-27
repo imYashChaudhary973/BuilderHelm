@@ -14,9 +14,6 @@ declare global {
   interface Window {
     zero: ZeroDesktopApi;
   }
-
-  /** Branch and short SHA injected by electron-vite at build time. */
-  const __BUILD_STAMP__: string;
 }
 
 export {};

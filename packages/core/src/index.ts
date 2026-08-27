@@ -18,3 +18,4 @@ export * from './swarm/swarm-prompt.js';
 export * from './swarm/swarm-reviewer.js';
 export * from './swarm/agent-usage.js';
 export * from './swarm/cli-structured.js';
+export * from './helm/helm-service.js';

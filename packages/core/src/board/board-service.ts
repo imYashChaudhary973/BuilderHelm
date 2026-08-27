@@ -74,6 +74,8 @@ function assertExeumBranch(branch: string): void {
 }
 
 export class BoardService {
+  private agentProbe: Promise<BoardAgentDetection[]> | undefined;
+
   constructor(
     private readonly database: ZeroDatabase,
     private readonly logger: Logger,
@@ -138,6 +140,11 @@ export class BoardService {
   }
 
   async detectAgents(): Promise<BoardAgentDetection[]> {
+    this.agentProbe ??= this.probeAgents();
+    return this.agentProbe;
+  }
+
+  private async probeAgents(): Promise<BoardAgentDetection[]> {
     const detections = await Promise.all(
       BOARD_AGENT_CATALOG.map(async (entry): Promise<BoardAgentDetection> => {
         if (entry.id === 'custom' || entry.id === 'shell' || entry.command.length === 0) {
