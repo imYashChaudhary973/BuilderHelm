@@ -33,30 +33,59 @@ already built on both sides.
 
 ## 3. Adoption phases
 
-### Phase A — Put the Rust engine behind the Electron contract
+### Phase A — Put the Rust engine behind the Electron contract — **landed 2026-08-27**
 
 **Trigger:** hybrid docs land and `feat/swarm-v2` is stable.
 
-Use a bundled Rust sidecar, not a native Node addon:
+Shipped on `feat/hybrid-bridge` as a bundled Rust sidecar, not a native Node
+addon:
 
 - Electron main launches `helm-app engine` as a long-running child process.
-- Transport is newline-delimited JSON over stdio: request `{ id, method,
-input }`, response `{ id, ok, value | error }`, and event notifications.
+- Transport is newline-delimited JSON over stdio, one frame per line.
 - The process is local-only: no TCP listener, no remote trust boundary.
-- Keep the preload API and 12 namespaces unchanged, so the renderer does not
-  need a rewrite.
-- Add startup handshake fields for engine version, schema version, and
-  capabilities. Fail closed on mismatch; surface a repair action.
-- Add graceful shutdown, bounded restart after crash, request cancellation,
-  and redacted engine logs.
-- Replay every conformance fixture against the sidecar and the TypeScript
-  implementation during cutover.
+- The preload API and all 12 namespaces are unchanged; the renderer was not
+  touched. Every channel still runs on its TypeScript handler.
+- Handshake carries protocol version, engine version, host kind, the full
+  channel map, and the emittable event list. Verified before the client is
+  trusted; a refused handshake leaves no child running.
+- Graceful shutdown closes stdin then waits before SIGKILL, exits reject
+  in-flight calls, restarts bounded at three, cancellation via `AbortSignal`,
+  and engine stderr redacted for tokens, secret json values, and home paths.
+- All 218 fixtures replay through the sidecar, driven by the same runner that
+  drives the in-process host, so fixture setup has exactly one owner.
 
 **Ownership:** Rust owns the engine process and method dispatcher. TypeScript
 owns child-process lifecycle and preserves the renderer API.
 
-**Exit:** `pnpm verify`, desktop smoke, Rust workspace gates, and all 218
-fixtures pass through the sidecar with no visible product behavior change.
+**Exit — met.** `pnpm verify` green (221 tests), desktop smoke passes with the
+engine attached and without it, `cargo fmt --check` clean, clippy 0, 301 Rust
+tests, corpus 218/218 in-process and 218/218 over the sidecar, no visible
+product behavior change.
+
+Decisions this phase settled that the plan left open:
+
+- **Response frames pass the payload through verbatim** rather than the
+  planned `{ id, ok, value | error }`. Channels disagree on shape:
+  `zero:system:health` answers a bare object, `zero:board:home-dir` an
+  `{ok,value}` envelope. Re-wrapping would have broken the corpus.
+- **Contract mismatch is asymmetric.** A channel the app calls but the engine
+  does not serve is fatal. A channel the engine serves that the app never
+  calls is a warning, because a Rust-first plan lands engine channels ahead of
+  their callers; requiring equality would make the engine unshippable
+  mid-migration. This is live today: Rust serves 71 channels, TypeScript
+  knows 69.
+- **No event frames yet.** The Rust host has no emitter, so the handshake
+  advertises an empty `events` list and `zero:board:event`,
+  `zero:chat:stream-event`, and `zero:swarm:event` stay with TypeScript until
+  phases B and C. Consumers read the list instead of assuming.
+- **A missing engine is not fatal in phase A**, since no channel depends on
+  it. It becomes fatal in phase C, when the first namespace moves across.
+  `HELM_ENGINE_BIN` selects the binary; the smoke asserts `engine.ready`
+  whenever that variable is set, so the wiring cannot rot unnoticed.
+
+**Still open:** where the sidecar binary lives in a packaged build
+(resources directory, arch-specific naming, macOS notarization). Blocks P5-4
+packaging, not phases B–D.
 
 ### Phase B — Terminal/PTY cutover
 
