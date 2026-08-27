@@ -130,9 +130,62 @@ in-process and 218/218 over the sidecar, desktop smoke green with and without
 the engine. No visible product behaviour change: `zero:board:event` still
 comes from the TypeScript main process.
 
-**Next in phase B:** measure the 12-pane Electron baseline _before_ routing
-anything, then give `helm-pty` output a real emitter and advertise
-`zero:board:event` unconditionally.
+#### Step 2 — Electron baseline recorded — **2026-08-28**
+
+Recorded before any pane moves, because after the cutover the number is gone.
+Harness: `apps/desktop/test/pty-baseline.test.ts`, run with
+`pnpm --filter @zero/desktop baseline:pty`. It drives the real
+`BoardPtyManager` with the real `node-pty` (an N-API prebuild, so it loads
+outside Electron) and a recording stand-in for `WebContents`. Everything the
+cutover replaces is exercised: spawn, the per-chunk base64 and envelope parse,
+write, resize, kill. The test is skipped unless `HELM_PTY_BASELINE=1`, so CI
+stays fast.
+
+Workload: 12 shell panes in one shared folder; one warm round-trip each; then
+every pane prints 2,000 x 41 bytes at once (984 KB total, 1,014 KB observed
+with prompts and echo).
+
+Median of three runs on an M5, macOS 27, `zsh -i`:
+
+| Metric                           |      Value |
+| -------------------------------- | ---------: |
+| Spawn, 12 panes                  |    18.3 ms |
+| Spawn, per pane                  |     1.5 ms |
+| First byte, median               |    23.1 ms |
+| Shell ready (first command ran)  |   3,900 ms |
+| Shell ready, worst pane          |   4,210 ms |
+| Warm round-trip, median          |    11.0 ms |
+| Warm round-trip, worst pane      |    11.1 ms |
+| Burst, 12 panes x 82 KB          |    70.8 ms |
+| Throughput                       | 13.7 MiB/s |
+| Main-process CPU per MiB         |     105 ms |
+| RSS growth over the burst        |   42.8 MiB |
+| Resize, 12 panes                 |    0.24 ms |
+| Drain, 12 panes                  |    0.02 ms |
+| Orphan processes after `dispose` |          0 |
+
+What these say about the cutover:
+
+- **Spawn, resize, and drain are already cheap.** Rust will not win here, and
+  a regression would be the thing to watch instead.
+- **Shell readiness dominates everything a user feels** at 3.9 s, and it is
+  `zsh -i` sourcing rc files, not the transport. The engine cannot fix it;
+  only dropping `-i` or warming a shell can. Do not read a post-cutover change
+  in this number as an engine win.
+- **CPU per MiB is the real target**: 105 ms per MiB, 88 ms of it user time,
+  spent on a base64 encode plus a zod envelope parse for every chunk. Rust
+  owning the parser and framing is what should move this.
+- **RSS grows 43 MiB to move 1 MB.** The manager keeps an 80,000-char rolling
+  buffer per pane and rebuilds it with `output + text` on every chunk. That
+  allocation churn is a second thing the engine should remove.
+
+**Next in phase B:** delete the abandoned `src/main/pty-host.ts`
+utilityProcess PTY host first. Nothing spawns it - the only reference is its
+`electron.vite.config.ts` build entry, so it ships in every bundle and never
+loads - and adding a Rust owner while it exists would put three PTY
+implementations in the tree against the invariant below. Then give `helm-pty`
+output a real emitter, advertise `zero:board:event` unconditionally, drop the
+TypeScript emitter, and re-run this harness against the engine-backed path.
 
 ### Phase C — Core services cutover
 
