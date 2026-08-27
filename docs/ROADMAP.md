@@ -20,11 +20,13 @@ Git snapshots, PTY grid, app chrome.
 - Board: named project boards, isolated tasks, left-rail tabs, and persisted drag and drop.
 - Memory: private Obsidian retrieval, cited answers, source previews, and recent questions.
 
-## Shipped on feat/swarm-v2 (not “next”)
+## Shipped on `main` (not "next")
 
-Mission / Roster / Launch, helm presets, live graph, mid-flight add/remove,
-Plan / Activity tabs, worktree per builder, verify + review + land queue,
-20-minute budget. Mix with BridgeMind + Conductor: [ADE](ADE.md).
+Swarm: Mission / Roster / Launch, helm presets, live graph, mid-flight
+add/remove, Plan / Activity tabs, worktree per builder, verify + review + land
+queue, 20-minute budget. Engine bridge: the Rust sidecar behind the existing
+IPC shape ([ADOPTION](ADOPTION.md) phase A). Mix with BridgeMind + Conductor:
+[ADE](ADE.md), parked unmerged on `wip/helm-platform`.
 
 Still open on Swarm itself: context-file UI (only `@path` in the mission),
 Agent-tab tool transcript, Claude-only structured plan/review (no `grok -p`).
