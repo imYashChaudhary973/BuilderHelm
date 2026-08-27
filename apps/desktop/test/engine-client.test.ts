@@ -189,6 +189,110 @@ describe.skipIf(!existsSync(bin))('engine sidecar over stdio', () => {
     ).rejects.toThrow('not running');
   });
 
+  it('hands an advertised event to the listener with no request outstanding', async () => {
+    const events: { event: string; payload: unknown }[] = [];
+    const client = new EngineClient({
+      bin,
+      expectedChannels: expected,
+      testControls: true,
+      onEvent: (event, payload) => events.push({ event, payload }),
+    });
+    const handshake = await client.start();
+    // With test controls the engine can emit, so it must say so.
+    expect(handshake.testControls).toBe(true);
+    expect(handshake.events).toContain('zero:board:event');
+
+    // The engine queues the event ahead of this acknowledgement, so awaiting
+    // the control is the barrier. No sleep, no polling.
+    await client.control('emit', {
+      event: 'zero:board:event',
+      payload: { sessionId: 's1', paneId: 'p1', event: { kind: 'data', data: 'hi' } },
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0]?.event).toBe('zero:board:event');
+    expect(events[0]?.payload).toEqual({
+      sessionId: 's1',
+      paneId: 'p1',
+      event: { kind: 'data', data: 'hi' },
+    });
+    await client.stop();
+  });
+
+  it('keeps request correlation intact across an interleaved event', async () => {
+    const events: unknown[] = [];
+    const client = new EngineClient({
+      bin,
+      expectedChannels: expected,
+      testControls: true,
+      onEvent: (_event, payload) => events.push(payload),
+    });
+    await client.start();
+    // An unprompted frame between a request and its reply must not be
+    // mistaken for the reply, and must not consume the pending entry.
+    const health = client.invoke(ipcChannels.systemHealth, {
+      correlationId: '11111111-2222-4333-8444-555555555555',
+    });
+    await client.control('emit', {
+      event: 'zero:board:event',
+      payload: { paneId: 'p2' },
+    });
+    const answered = (await health) as Record<string, unknown>;
+    expect(answered['correlationId']).toBe('11111111-2222-4333-8444-555555555555');
+    expect(events).toEqual([{ paneId: 'p2' }]);
+    await client.stop();
+  });
+
+  it('refuses to emit on a production launch', async () => {
+    const logs: string[] = [];
+    const client = new EngineClient({
+      bin,
+      expectedChannels: expected,
+      onEvent: () => {
+        throw new Error('a production launch must not emit');
+      },
+      onLog: (line) => logs.push(line),
+    });
+    const handshake = await client.start();
+    // No flag, so the engine advertises no event source and rejects control
+    // frames outright. The TypeScript emitter stays in charge.
+    expect(handshake.events).toEqual([]);
+    await expect(client.control('emit', { event: 'zero:board:event' })).rejects.toThrow(
+      'VALIDATION_FAILED',
+    );
+    // The transport survives the refusal.
+    const health = (await client.invoke(ipcChannels.systemHealth, {
+      correlationId: '11111111-2222-4333-8444-555555555555',
+    })) as Record<string, unknown>;
+    expect(health['status']).toBe('ok');
+    await client.stop();
+  });
+
+  it('drops an event the handshake never advertised', async () => {
+    // The engine will not send one, so drive the frame straight into the
+    // client's reader to prove the consumer-side guard, not the engine's.
+    const events: string[] = [];
+    const logs: string[] = [];
+    const client = new EngineClient({
+      bin,
+      expectedChannels: expected,
+      onEvent: (event) => events.push(event),
+      onLog: (line) => logs.push(line),
+    });
+    await client.start();
+    const reader = client as unknown as { settle: (line: string) => void };
+    reader.settle(
+      JSON.stringify({ type: 'event', event: 'zero:chat:stream-event', payload: {} }),
+    );
+    expect(events).toEqual([]);
+    expect(logs.join(' ')).toContain('unadvertised event: zero:chat:stream-event');
+    // A nameless event is dropped too, rather than dispatched as undefined.
+    reader.settle(JSON.stringify({ type: 'event', payload: {} }));
+    expect(events).toEqual([]);
+    expect(logs.join(' ')).toContain('event without a name');
+    await client.stop();
+  });
+
   it('fails closed when the binary is missing', async () => {
     const client = new EngineClient({
       bin: join(process.cwd(), 'target', 'debug', 'helm-app-does-not-exist'),

@@ -4,8 +4,8 @@ No feature freeze. Active work lands on the hybrid stack: Rust core engine +
 TypeScript platform ([STACK](STACK.md), [ADOPTION](ADOPTION.md)).
 
 - Last reviewed: 2026-08-28
-- Baseline: ADOPTION phase A landed on `main` at `44f6985`
-- Active work: phase B, terminal/PTY cutover ([ADOPTION](ADOPTION.md))
+- Baseline: ADOPTION phase A at `44f6985`, plus phase B step 1 (event frames)
+- Active work: phase B, PTY baseline then the terminal cutover ([ADOPTION](ADOPTION.md))
 - **Hybrid architecture** ([ADR 0006](adr/0006-hybrid-architecture.md), [ADOPTION](ADOPTION.md)): Rust core engine + TypeScript platform. The full-Rust migration was cancelled ([ADR 0005](adr/0005-rust-migration.md), superseded).
 
 What the repository implements now. Product intent lives in
@@ -61,15 +61,21 @@ the Electron renderer ships.
 | Schema migrations  | 12                                                  |
 | Database tables    | 31                                                  |
 | UI routes          | 8 plus settings                                     |
-| TypeScript tests   | 221 in 46 files                                     |
-| Rust tests         | 301                                                 |
+| TypeScript tests   | 225 in 46 files                                     |
+| Rust tests         | 304 in 63 suites                                    |
 | Conformance corpus | 218 fixtures, green in-process and over the sidecar |
 
 Channel mismatch is asymmetric on purpose: a channel the platform calls but
 the engine does not serve is fatal, while a channel the engine serves ahead of
-its caller is a warning. The engine has no event emitter yet, so the handshake
-advertises zero events and `zero:board:event`, `zero:chat:stream-event`, and
-`zero:swarm:event` stay on TypeScript until phases B and C.
+its caller is a warning.
+
+The protocol carries unprompted `event` frames as of phase B step 1, and every
+frame leaves the engine through one writer thread so a response and an event
+cannot interleave mid-line. The source is still TypeScript: a production
+launch advertises no events, so `zero:board:event`, `zero:chat:stream-event`,
+and `zero:swarm:event` are emitted by the main process until phase B routes
+PTY output and phase C routes chat. A consumer reads the advertised list and
+drops anything outside it.
 
 Source: 15,566 lines of portable domain logic, 3,831 Electron-coupled,
 8,241 renderer. `src/` only.

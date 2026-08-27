@@ -101,6 +101,39 @@ packaging, not phases B–D.
 - **Exit:** transcript fixtures green, 12 panes responsive, no orphan
   processes after partial failure, CPU/memory recorded against baseline.
 
+#### Step 1 — event frames — **landed 2026-08-28**
+
+PTY output is push, and phase A left the protocol request/response only, so
+the transport had to exist before any pane could move. What shipped:
+
+- An `event` frame: `{"type":"event","event":"<channel>","payload":{...}}`,
+  with no id, because nothing asked for it.
+- Every frame now leaves the engine through one writer thread fed by a
+  channel. Responses and unprompted events share that queue, so ordering is
+  FIFO and a torn line is impossible once a background task emits.
+- `EngineClient` gained `onEvent` and drops any event the handshake did not
+  advertise, so the two sides cannot disagree about who owns a channel.
+- The handshake advertises only what the launch can actually emit. A
+  production launch still advertises none: the transport is real, the
+  engine-side source is not yet, and claiming otherwise would make the
+  consumer stand down its own emitter and lose events.
+- Under `--test-controls` an `emit` control drives a real event across the
+  process boundary, and answers `ok` only after the event is queued ahead of
+  it. That ack is a barrier, so the tests need no sleep.
+- The corpus sidecar reader skips event frames while waiting for a reply.
+  Without it, the first fixture that made the engine emit would have failed on
+  an id mismatch.
+
+**Exit — met.** `pnpm verify` green (225 tests, 4 new), `cargo fmt --check`
+clean, clippy 0, `cargo test --workspace` 0 failures, corpus 218/218
+in-process and 218/218 over the sidecar, desktop smoke green with and without
+the engine. No visible product behaviour change: `zero:board:event` still
+comes from the TypeScript main process.
+
+**Next in phase B:** measure the 12-pane Electron baseline _before_ routing
+anything, then give `helm-pty` output a real emitter and advertise
+`zero:board:event` unconditionally.
+
 ### Phase C — Core services cutover
 
 **Trigger:** Phase A contract stable; security review scheduled.

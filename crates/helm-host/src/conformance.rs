@@ -265,6 +265,10 @@ impl Sidecar {
     }
 
     /// Write one frame and read its reply, checking the id round-trips.
+    ///
+    /// Unprompted event frames can land between the request and its reply, so
+    /// they are skipped rather than mistaken for the answer. Without this, the
+    /// first fixture that makes the engine emit would fail on an id mismatch.
     fn round_trip(&mut self, mut frame: Value) -> Result<Value, String> {
         self.next_id += 1;
         let id = self.next_id;
@@ -274,11 +278,16 @@ impl Sidecar {
             .and_then(|()| std::io::Write::write_all(&mut self.stdin, b"\n"))
             .and_then(|()| std::io::Write::flush(&mut self.stdin))
             .map_err(|error| format!("write {error}"))?;
-        let reply = self.read_frame()?;
-        if reply.get("id").and_then(Value::as_u64) != Some(id) {
-            return Err(format!("id mismatch: sent {id}, got {reply}"));
+        loop {
+            let reply = self.read_frame()?;
+            if reply.get("type").and_then(Value::as_str) == Some("event") {
+                continue;
+            }
+            if reply.get("id").and_then(Value::as_u64) != Some(id) {
+                return Err(format!("id mismatch: sent {id}, got {reply}"));
+            }
+            return Ok(reply);
         }
-        Ok(reply)
     }
 
     fn control(&mut self, frame: Value) {

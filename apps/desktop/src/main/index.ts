@@ -48,7 +48,14 @@ async function startEngine(runtime: CoreRuntime): Promise<void> {
     runtime.logger.info({
       event: 'engine.ready',
       correlationId: createCorrelationId(),
-      data: { engine: hello.engine, host: hello.host, channels: hello.channels.length },
+      // `events` is who owns push channels. Zero means TypeScript still does,
+      // which is what phase B changes for the PTY.
+      data: {
+        engine: hello.engine,
+        host: hello.host,
+        channels: hello.channels.length,
+        events: hello.events.length,
+      },
     });
   } catch (error) {
     // Fail closed on the engine, not on the app: the TypeScript handlers are

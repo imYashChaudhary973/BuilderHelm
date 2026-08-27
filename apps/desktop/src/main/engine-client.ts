@@ -19,7 +19,12 @@ export interface EngineHello {
   readonly host: string;
   readonly channelCount: number;
   readonly channels: readonly string[];
-  /** Push channels the engine can emit unprompted. Empty until phase B. */
+  /**
+   * Push channels the engine can emit unprompted, and the only names this
+   * client will accept on an event frame. A production launch advertises
+   * none: the transport exists, the engine-side source arrives with the
+   * phase B PTY cutover.
+   */
   readonly events: readonly string[];
   readonly testControls: boolean;
 }
@@ -33,6 +38,16 @@ export interface EngineClientOptions {
   readonly handshakeTimeoutMs?: number;
   /** Restart attempts after an unexpected exit. Bounded on purpose. */
   readonly maxRestarts?: number;
+  /**
+   * Called for each event frame whose name the handshake advertised. Events
+   * carry no id because nothing requested them.
+   */
+  readonly onEvent?: (event: string, payload: unknown) => void;
+  /**
+   * Launch with `--test-controls`, which lets `control` drive the engine's
+   * fixture and emit frames. Never set this for a production launch.
+   */
+  readonly testControls?: boolean;
   readonly onLog?: (line: string) => void;
 }
 
@@ -119,7 +134,9 @@ export class EngineClient {
   async start(): Promise<EngineHello> {
     if (this.running) throw new EngineError('engine already running');
     this.stopping = false;
-    const child = spawn(this.options.bin, ['engine'], {
+    const args =
+      this.options.testControls === true ? ['engine', '--test-controls'] : ['engine'];
+    const child = spawn(this.options.bin, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
     }) as ChildProcessWithoutNullStreams;
     this.child = child;
@@ -207,6 +224,49 @@ export class EngineClient {
     }
   }
 
+  /**
+   * Drive one test-control frame (`reset`, `dialogFolder`, `confirm`, `emit`).
+   *
+   * Only useful on a client started with `testControls`. Without the flag the
+   * engine refuses every control frame, and that refusal surfaces here as a
+   * rejection rather than silently doing nothing.
+   */
+  async control(type: string, fields: Record<string, unknown> = {}): Promise<void> {
+    const child = this.child;
+    if (child === undefined || !this.running) {
+      throw new EngineError('engine is not running');
+    }
+    this.nextId += 1;
+    const id = this.nextId;
+    const settled = new Promise<unknown>((resolve, reject) => {
+      this.pending.set(id, { resolve, reject });
+    });
+    // `id` and `type` last: a caller's fields must not overwrite the envelope.
+    child.stdin.write(`${JSON.stringify({ ...fields, id, type })}\n`);
+    await settled;
+  }
+
+  /**
+   * Hand one event frame to the listener, or drop it.
+   *
+   * Fail closed on a name the handshake did not advertise: the advertised
+   * list is what a consumer uses to decide which of its own emitters to
+   * stand down, so accepting anything outside it would let the two sides
+   * disagree about who owns a channel.
+   */
+  private dispatchEvent(frame: Record<string, unknown>, line: string): void {
+    const event = typeof frame['event'] === 'string' ? frame['event'] : undefined;
+    if (event === undefined) {
+      this.options.onLog?.(`engine event without a name: ${redact(line)}`);
+      return;
+    }
+    if (this.hello?.events.includes(event) !== true) {
+      this.options.onLog?.(`engine emitted an unadvertised event: ${event}`);
+      return;
+    }
+    this.options.onEvent?.(event, frame['payload']);
+  }
+
   /** Split the stream on newlines and settle whatever each frame answers. */
   private consume(chunk: string): void {
     this.buffer += chunk;
@@ -231,6 +291,11 @@ export class EngineClient {
     if (frame['type'] === 'hello') {
       this.pending.get(0)?.resolve(frame);
       this.pending.delete(0);
+      return;
+    }
+    // An event is unprompted, so it has no id to settle against.
+    if (frame['type'] === 'event') {
+      this.dispatchEvent(frame, line);
       return;
     }
     const id = typeof frame['id'] === 'number' ? frame['id'] : undefined;

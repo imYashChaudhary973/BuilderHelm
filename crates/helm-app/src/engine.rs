@@ -12,6 +12,7 @@
 //! in   {"id":1,"method":"zero:system:health","input":{...}}
 //! out  {"type":"response","id":1,"payload":{"ok":true,"value":{...}}}
 //! out  {"type":"error","id":null,"code":"VALIDATION_FAILED","message":"..."}
+//! out  {"type":"event","event":"zero:board:event","payload":{...}}
 //! ```
 //!
 //! `payload` is exactly what `Host::invoke` returns, byte for byte. Channels
@@ -22,18 +23,31 @@
 //! The consumer must check `protocol` and `channels` against its own map and
 //! fail closed on mismatch rather than degrade.
 //!
-//! `events` lists the push channels this build can emit unprompted. It is
-//! empty: the Rust host has no event source yet, so `zero:board:event`,
-//! `zero:chat:stream-event`, and `zero:swarm:event` stay with the TypeScript
-//! main process until phases B and C move PTY and chat streaming behind the
-//! engine. A consumer reads this list rather than assuming.
+//! `events` lists the push channels this build can emit unprompted, and an
+//! event frame carries no id because nothing asked for it. A consumer reads
+//! the list rather than assuming, and drops any event the handshake did not
+//! advertise.
 //!
-//! `--test-controls` additionally accepts `reset`, `dialogFolder`, and
-//! `confirm` frames so the conformance runner can drive fixture setup across
+//! Phase B step 1 builds the transport, not the source. The engine has no
+//! unprompted event source yet, so a production launch advertises no events
+//! and `zero:board:event`, `zero:chat:stream-event`, and `zero:swarm:event`
+//! stay with the TypeScript main process. Under `--test-controls` the `emit`
+//! control drives the transport across a real process boundary, so the
+//! handshake advertises what `emit` can produce. Phase B replaces that source
+//! with `helm-pty` output and advertises it unconditionally.
+//!
+//! Every frame leaves through one writer thread fed by a channel, so an
+//! unprompted event can never interleave with a response mid-line. `emit`
+//! answers `ok` only after the event frame is queued ahead of it, which gives
+//! a test a barrier instead of a sleep.
+//!
+//! `--test-controls` additionally accepts `reset`, `dialogFolder`, `confirm`,
+//! and `emit` frames so the conformance runner can drive fixture setup across
 //! the process boundary. Production launches must omit the flag; without it
 //! those frames are rejected.
 
 use std::io::{BufRead, Write};
+use std::sync::mpsc;
 
 use helm_host::Host;
 use helm_protocol::{ipc_channel_count, ipc_channel_names};
@@ -41,6 +55,14 @@ use serde_json::{json, Value};
 
 /// Wire format version. Bump when a frame shape changes incompatibly.
 pub const ENGINE_PROTOCOL: u32 = 1;
+
+/// Push channels the engine knows how to emit unprompted.
+///
+/// Phase B step 1 has no production source for these; `emit` under
+/// `--test-controls` is the only thing that produces one, so a production
+/// handshake advertises none of them. Adding a name here without a source
+/// would make a consumer drop its own emitter and lose the events.
+pub const EMITTABLE_EVENTS: [&str; 1] = ["zero:board:event"];
 
 /// A request, or a test-only control.
 #[derive(Debug, PartialEq)]
@@ -60,6 +82,12 @@ enum Frame {
     },
     /// Preload the answer a confirmation dialog would return.
     Confirm { id: Value, response: i32 },
+    /// Push one event frame, then acknowledge. Proves the event transport.
+    Emit {
+        id: Value,
+        event: String,
+        payload: Value,
+    },
 }
 
 /// Decode one input line into a frame, or an error frame to write back.
@@ -95,6 +123,25 @@ fn decode(line: &str, test_controls: bool) -> Result<Frame, Value> {
                     .unwrap_or(1)
                     .clamp(i32::MIN as i64, i32::MAX as i64) as i32,
             }),
+            // An event nobody advertised would be dropped by the consumer, so
+            // refuse it here where the refusal is visible instead.
+            "emit" => match value.get("event").and_then(Value::as_str) {
+                Some(event) if EMITTABLE_EVENTS.contains(&event) => Ok(Frame::Emit {
+                    id,
+                    event: event.to_string(),
+                    payload: value.get("payload").cloned().unwrap_or_else(|| json!({})),
+                }),
+                Some(event) => Err(error_frame(
+                    id,
+                    "VALIDATION_FAILED",
+                    &format!("{event} is not an emittable event"),
+                )),
+                None => Err(error_frame(
+                    id,
+                    "VALIDATION_FAILED",
+                    "emit needs an event name",
+                )),
+            },
             other => Err(error_frame(
                 id,
                 "VALIDATION_FAILED",
@@ -125,6 +172,14 @@ fn error_frame(id: Value, code: &str, message: &str) -> Value {
 }
 
 fn hello_frame(host: &str, test_controls: bool) -> Value {
+    // Advertise only what this launch can actually emit. Without the flag
+    // nothing produces an event, and claiming otherwise would make the
+    // consumer stand down its own emitter.
+    let events: Vec<&str> = if test_controls {
+        EMITTABLE_EVENTS.to_vec()
+    } else {
+        Vec::new()
+    };
     json!({
         "type": "hello",
         "protocol": ENGINE_PROTOCOL,
@@ -132,9 +187,14 @@ fn hello_frame(host: &str, test_controls: bool) -> Value {
         "host": host,
         "channelCount": ipc_channel_count(),
         "channels": ipc_channel_names().to_vec(),
-        "events": Vec::<&str>::new(),
+        "events": events,
         "testControls": test_controls,
     })
+}
+
+/// An unprompted push. No id: nothing asked for it.
+fn event_frame(event: &str, payload: Value) -> Value {
+    json!({ "type": "event", "event": event, "payload": payload })
 }
 
 fn write_frame(out: &mut impl Write, frame: &Value) -> std::io::Result<()> {
@@ -165,6 +225,25 @@ fn invoke_caught(rt: &tokio::runtime::Runtime, host: &Host, channel: &str, input
     })
 }
 
+/// Own stdout on one thread so nothing can interleave mid-line.
+///
+/// Responses and unprompted events share this queue, which makes ordering
+/// FIFO and makes a torn frame impossible once phase B emits PTY output from
+/// a background task. Returns whether every frame reached stdout.
+fn spawn_writer(rx: mpsc::Receiver<Value>) -> std::thread::JoinHandle<bool> {
+    std::thread::spawn(move || {
+        let mut out = std::io::stdout();
+        for frame in rx {
+            if write_frame(&mut out, &frame).is_err() {
+                // Drain without writing: the consumer is gone, and the read
+                // loop learns about it from its own failed send.
+                return false;
+            }
+        }
+        true
+    })
+}
+
 /// Serve the sidecar protocol until stdin closes. Returns a process exit code.
 pub fn run(test_controls: bool) -> i32 {
     let rt = match tokio::runtime::Runtime::new() {
@@ -180,18 +259,23 @@ pub fn run(test_controls: bool) -> i32 {
     // handshake so a consumer can tell the difference.
     let mut host = Host::for_conformance();
     let stdin = std::io::stdin();
-    let mut stdout = std::io::stdout();
+    let (tx, rx) = mpsc::channel::<Value>();
+    let writer = spawn_writer(rx);
 
-    if write_frame(&mut stdout, &hello_frame("conformance", test_controls)).is_err() {
+    // A closed queue means stdout is gone; stop rather than spin.
+    let send = |frame: Value| tx.send(frame).is_ok();
+    if !send(hello_frame("conformance", test_controls)) {
         return 1;
     }
 
+    let mut failed = false;
     for line in stdin.lock().lines() {
         let line = match line {
             Ok(line) => line,
             Err(error) => {
                 eprintln!("engine: stdin failed: {error}");
-                return 1;
+                failed = true;
+                break;
             }
         };
         if line.trim().is_empty() {
@@ -218,13 +302,26 @@ pub fn run(test_controls: bool) -> i32 {
                 host.set_confirm(response);
                 json!({ "type": "ok", "id": id })
             }
+            // The event goes ahead of its own acknowledgement, so a caller
+            // that has seen the `ok` has already been handed the event.
+            Ok(Frame::Emit { id, event, payload }) => {
+                if !send(event_frame(&event, payload)) {
+                    failed = true;
+                    break;
+                }
+                json!({ "type": "ok", "id": id })
+            }
             Err(error) => error,
         };
-        if write_frame(&mut stdout, &frame).is_err() {
-            return 1;
+        if !send(frame) {
+            failed = true;
+            break;
         }
     }
-    0
+    // Dropping the queue ends the writer, which flushes what is still buffered.
+    drop(tx);
+    let flushed = writer.join().unwrap_or(false);
+    i32::from(failed || !flushed)
 }
 
 #[cfg(test)]
@@ -249,18 +346,96 @@ mod tests {
     }
 
     #[test]
-    fn hello_declares_no_event_source_yet() {
+    fn a_production_launch_declares_no_event_source() {
         let hello = hello_frame("conformance", false);
         assert_eq!(
             hello["events"],
             json!([]),
-            "the rust host has no emitter; a consumer must keep its own"
+            "nothing emits without the flag; a consumer must keep its own emitter"
         );
         assert_eq!(hello["testControls"], json!(false));
+    }
+
+    #[test]
+    fn test_controls_advertise_what_emit_can_produce() {
+        let hello = hello_frame("conformance", true);
+        assert_eq!(hello["testControls"], json!(true));
         assert_eq!(
-            hello_frame("conformance", true)["testControls"],
-            json!(true)
+            hello["events"],
+            json!(["zero:board:event"]),
+            "the advertised list must match what emit accepts"
         );
+        // The list a consumer filters on and the list emit validates against
+        // are the same list, or an accepted event would be dropped.
+        for event in EMITTABLE_EVENTS {
+            assert!(hello["events"]
+                .as_array()
+                .expect("events")
+                .iter()
+                .any(|advertised| advertised == event));
+        }
+    }
+
+    #[test]
+    fn an_event_frame_carries_no_id() {
+        let frame = event_frame("zero:board:event", json!({ "paneId": "p1" }));
+        assert_eq!(frame["type"], json!("event"));
+        assert_eq!(frame["event"], json!("zero:board:event"));
+        assert_eq!(frame["payload"]["paneId"], json!("p1"));
+        assert!(
+            frame.get("id").is_none(),
+            "nothing asked for it, so there is no id to answer"
+        );
+    }
+
+    #[test]
+    fn emit_decodes_only_advertised_events() {
+        assert_eq!(
+            decode(
+                r#"{"id":9,"type":"emit","event":"zero:board:event","payload":{"a":1}}"#,
+                true
+            )
+            .expect("frame"),
+            Frame::Emit {
+                id: json!(9),
+                event: "zero:board:event".into(),
+                payload: json!({ "a": 1 }),
+            }
+        );
+        // A missing payload is an empty object, matching the request path.
+        assert_eq!(
+            decode(r#"{"id":9,"type":"emit","event":"zero:board:event"}"#, true).expect("frame"),
+            Frame::Emit {
+                id: json!(9),
+                event: "zero:board:event".into(),
+                payload: json!({}),
+            }
+        );
+
+        let error = decode(
+            r#"{"id":1,"type":"emit","event":"zero:chat:stream-event"}"#,
+            true,
+        )
+        .expect_err("not emittable yet");
+        assert_eq!(error["code"], json!("VALIDATION_FAILED"));
+        assert!(error["message"]
+            .as_str()
+            .unwrap()
+            .contains("not an emittable event"));
+
+        let error = decode(r#"{"id":2,"type":"emit"}"#, true).expect_err("event is required");
+        assert_eq!(error["id"], json!(2));
+
+        // Emitting is a control, so it needs the flag like every other one.
+        let error = decode(
+            r#"{"id":3,"type":"emit","event":"zero:board:event"}"#,
+            false,
+        )
+        .expect_err("must be refused");
+        assert!(error["message"]
+            .as_str()
+            .unwrap()
+            .contains("--test-controls"));
     }
 
     #[test]
