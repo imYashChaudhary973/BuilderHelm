@@ -633,20 +633,20 @@ pub fn space_stepper<'a, Message: 'a>(
 }
 
 pub fn window_settings() -> window::Settings {
-    let mut settings = window::Settings {
+    // The `platform_specific` field is macOS-only. Gating the field instead of
+    // mutating a `mut` binding keeps this warning-free on Linux and Windows,
+    // where the cfg block would vanish and leave the `mut` unused.
+    window::Settings {
         size: Size::new(1280.0, 800.0),
         min_size: Some(Size::new(900.0, 600.0)),
-        ..window::Settings::default()
-    };
-    #[cfg(target_os = "macos")]
-    {
-        settings.platform_specific = window::settings::PlatformSpecific {
+        #[cfg(target_os = "macos")]
+        platform_specific: window::settings::PlatformSpecific {
             title_hidden: true,
             titlebar_transparent: true,
             fullsize_content_view: true,
-        };
+        },
+        ..window::Settings::default()
     }
-    settings
 }
 
 #[cfg(test)]

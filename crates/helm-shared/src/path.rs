@@ -173,15 +173,6 @@ pub fn is_forbidden_root(candidate: &Path, home: Option<&Path>) -> bool {
     let home_str = home.map(|h| h.to_string_lossy().into_owned());
     is_forbidden_root_normalized(&candidate.to_string_lossy(), false, home_str.as_deref())
 }
-/// Host wrapper: drive roots, `\Users`, `\Windows`, `\Program Files`, home.
-#[cfg(windows)]
-pub fn is_forbidden_root(candidate: &Path, home: Option<&Path>) -> bool {
-    is_forbidden_root_normalized(
-        &candidate.to_string_lossy(),
-        false,
-        home.map(|h| h.to_string_lossy().as_ref()),
-    )
-}
 
 #[cfg(test)]
 mod tests {
