@@ -6,7 +6,7 @@ mod keyring_secret_store;
 mod security;
 mod startup_ack;
 
-pub use conformance::run_conformance;
+pub use conformance::{run_conformance, run_conformance_sidecar};
 pub use dialogs::{confirm_warning, pick_directory, pick_file};
 pub use file_reader::{
     commit_git, create_editor_entry, list_editor_dir, list_git_changes, pick_editor_file,

@@ -1352,6 +1352,7 @@ version = "0.0.0"
 dependencies = [
  "helm-core",
  "helm-host",
+ "helm-protocol",
  "helm-pty",
  "helm-shared",
  "serde_json",

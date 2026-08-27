@@ -1,3 +1,5 @@
+mod engine;
+
 use std::env;
 use std::path::PathBuf;
 
@@ -7,12 +9,34 @@ use helm_shared::create_correlation_id;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
+    if args.get(1).map(String::as_str) == Some("engine") {
+        // `--test-controls` is opt-in so a production launch cannot reset the
+        // host or preload dialog answers.
+        let test_controls = args.iter().any(|arg| arg == "--test-controls");
+        std::process::exit(engine::run(test_controls));
+    }
     if args.get(1).map(String::as_str) == Some("--conformance") {
         let root = args
             .get(2)
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("conformance"));
         std::process::exit(helm_host::run_conformance(&root));
+    }
+    // Same corpus, same fixture setup, but every call crosses the sidecar
+    // process boundary. This is the phase A transport gate.
+    if args.get(1).map(String::as_str) == Some("--conformance-sidecar") {
+        let root = args
+            .get(2)
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("conformance"));
+        let bin = match env::current_exe() {
+            Ok(bin) => bin,
+            Err(error) => {
+                eprintln!("current_exe: {error}");
+                std::process::exit(2);
+            }
+        };
+        std::process::exit(helm_host::run_conformance_sidecar(&root, &bin));
     }
     let rt = tokio::runtime::Runtime::new().expect("runtime");
     if let Err(error) = rt.block_on(headless_smoke()) {

@@ -202,7 +202,172 @@ fn invoke_caught(rt: &tokio::runtime::Runtime, host: &Host, channel: &str, input
     })
 }
 
+/// A sidecar child driven over newline-delimited JSON.
+///
+/// The corpus runner owns every fixture's setup. Routing only the invoke
+/// through here keeps one source of fixture truth while still crossing a real
+/// process boundary, which is what phase A has to prove.
+struct Sidecar {
+    child: std::process::Child,
+    stdin: std::process::ChildStdin,
+    stdout: std::io::BufReader<std::process::ChildStdout>,
+    next_id: u64,
+}
+
+impl Sidecar {
+    fn spawn(bin: &Path) -> Result<Self, String> {
+        let mut child = Command::new(bin)
+            .args(["engine", "--test-controls"])
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .map_err(|error| format!("spawn {}: {error}", bin.display()))?;
+        let stdin = child.stdin.take().ok_or("no stdin")?;
+        let stdout = std::io::BufReader::new(child.stdout.take().ok_or("no stdout")?);
+        let mut sidecar = Self {
+            child,
+            stdin,
+            stdout,
+            next_id: 0,
+        };
+        let hello = sidecar.read_frame()?;
+        // Fail closed on a handshake that is not the build we expect.
+        if hello.get("type").and_then(Value::as_str) != Some("hello") {
+            return Err(format!("first frame was not hello: {hello}"));
+        }
+        if hello.get("protocol").and_then(Value::as_u64) != Some(1) {
+            return Err(format!("unsupported protocol: {hello}"));
+        }
+        let advertised = hello
+            .get("channels")
+            .and_then(Value::as_array)
+            .map(Vec::len)
+            .unwrap_or(0);
+        let expected = helm_protocol::ipc_channel_count();
+        if advertised != expected {
+            return Err(format!(
+                "sidecar lists {advertised} channels, want {expected}"
+            ));
+        }
+        if hello.get("testControls") != Some(&Value::Bool(true)) {
+            return Err("sidecar refused test controls".into());
+        }
+        Ok(sidecar)
+    }
+
+    fn read_frame(&mut self) -> Result<Value, String> {
+        let mut line = String::new();
+        match std::io::BufRead::read_line(&mut self.stdout, &mut line) {
+            Ok(0) => Err("sidecar closed stdout".into()),
+            Ok(_) => serde_json::from_str(&line).map_err(|error| format!("frame {error}: {line}")),
+            Err(error) => Err(format!("read {error}")),
+        }
+    }
+
+    /// Write one frame and read its reply, checking the id round-trips.
+    fn round_trip(&mut self, mut frame: Value) -> Result<Value, String> {
+        self.next_id += 1;
+        let id = self.next_id;
+        frame["id"] = Value::from(id);
+        let line = serde_json::to_string(&frame).map_err(|error| error.to_string())?;
+        std::io::Write::write_all(&mut self.stdin, line.as_bytes())
+            .and_then(|()| std::io::Write::write_all(&mut self.stdin, b"\n"))
+            .and_then(|()| std::io::Write::flush(&mut self.stdin))
+            .map_err(|error| format!("write {error}"))?;
+        let reply = self.read_frame()?;
+        if reply.get("id").and_then(Value::as_u64) != Some(id) {
+            return Err(format!("id mismatch: sent {id}, got {reply}"));
+        }
+        Ok(reply)
+    }
+
+    fn control(&mut self, frame: Value) {
+        if let Err(error) = self.round_trip(frame) {
+            panic!("sidecar control failed: {error}");
+        }
+    }
+
+    fn invoke(&mut self, channel: &str, input: Value) -> Value {
+        match self.round_trip(serde_json::json!({ "method": channel, "input": input })) {
+            Ok(reply) => reply
+                .get("payload")
+                .cloned()
+                // An error frame means the transport rejected the line, which
+                // is a real failure rather than a channel-level error.
+                .unwrap_or_else(|| panic!("no payload in {reply}")),
+            Err(error) => panic!("sidecar invoke {channel}: {error}"),
+        }
+    }
+}
+
+impl Drop for Sidecar {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+/// Where a fixture's calls go: straight into the host, or across the sidecar.
+enum Target {
+    InProcess(Box<Host>),
+    Sidecar(Sidecar),
+}
+
+impl Target {
+    /// Discard all state, as a fresh `Host` does for the in-process path.
+    fn reset(&mut self) {
+        match self {
+            Self::InProcess(host) => **host = Host::for_conformance(),
+            Self::Sidecar(sidecar) => sidecar.control(serde_json::json!({ "type": "reset" })),
+        }
+    }
+
+    fn set_dialog_folder(&mut self, folder: impl Into<String>, canceled: bool) {
+        let folder = folder.into();
+        match self {
+            Self::InProcess(host) => host.set_dialog_folder(folder, canceled),
+            Self::Sidecar(sidecar) => sidecar.control(serde_json::json!({
+                "type": "dialogFolder",
+                "folder": folder,
+                "canceled": canceled
+            })),
+        }
+    }
+
+    fn set_confirm(&mut self, response: i32) {
+        match self {
+            Self::InProcess(host) => host.set_confirm(response),
+            Self::Sidecar(sidecar) => {
+                sidecar.control(serde_json::json!({ "type": "confirm", "response": response }))
+            }
+        }
+    }
+
+    fn invoke(&mut self, rt: &tokio::runtime::Runtime, channel: &str, input: Value) -> Value {
+        match self {
+            Self::InProcess(host) => invoke_caught(rt, host, channel, input),
+            Self::Sidecar(sidecar) => sidecar.invoke(channel, input),
+        }
+    }
+}
+
 pub fn run_conformance(root: &Path) -> i32 {
+    run_with(root, Target::InProcess(Box::new(Host::for_conformance())))
+}
+
+/// Replay the corpus through a sidecar child instead of the in-process host.
+/// Every fixture's setup stays here, so the only difference is the boundary.
+pub fn run_conformance_sidecar(root: &Path, bin: &Path) -> i32 {
+    match Sidecar::spawn(bin) {
+        Ok(sidecar) => run_with(root, Target::Sidecar(sidecar)),
+        Err(error) => {
+            eprintln!("sidecar: {error}");
+            2
+        }
+    }
+}
+
+fn run_with(root: &Path, mut target: Target) -> i32 {
     let rt = tokio::runtime::Runtime::new().expect("runtime");
     let mut files = Vec::new();
     walk(root, &mut files);
@@ -227,7 +392,7 @@ pub fn run_conformance(root: &Path) -> i32 {
             .unwrap_or(&path)
             .display()
             .to_string();
-        let mut host = Host::for_conformance();
+        target.reset();
         let needs_workspace = raw.contains("$workspace")
             || rel.starts_with("editor/")
             || rel.starts_with("projects/")
@@ -250,30 +415,29 @@ pub fn run_conformance(root: &Path) -> i32 {
             let _ = fs::write(workspace.join("bin.dat"), [0u8, 1, 2, 255]);
         }
         if rel.contains("editor/pick/file") {
-            host.set_dialog_folder(workspace.join("README.md").to_string_lossy(), false);
+            target.set_dialog_folder(workspace.join("README.md").to_string_lossy(), false);
         }
         if rel.contains("canceled") || rel.contains("cancelled") {
-            host.set_dialog_folder(ws, true);
-            host.set_confirm(1);
+            target.set_dialog_folder(ws, true);
+            target.set_confirm(1);
         } else if raw.contains("$workspace")
             || rel.starts_with("editor/")
             || rel.starts_with("projects/")
         {
-            host.set_dialog_folder(
+            target.set_dialog_folder(
                 ws,
                 fixture.get("dialogCanceled") == Some(&Value::Bool(true)),
             );
         }
         if let Some(confirm) = fixture.get("confirm").and_then(Value::as_i64) {
-            host.set_confirm(confirm as i32);
+            target.set_confirm(confirm as i32);
         }
         if rel.contains("helm/createRoutine")
             || rel.contains("helm/listRoutines/one")
             || rel.contains("helm/listAgents/one")
         {
-            let _ = invoke_caught(
+            let _ = target.invoke(
                 &rt,
-                &host,
                 "zero:helm",
                 serde_json::json!({
                     "action": "createAgent",
@@ -288,9 +452,8 @@ pub fn run_conformance(root: &Path) -> i32 {
             );
         }
         if rel.contains("helm/listPlugins/connected") || rel.contains("helm/connectPlugin/happy") {
-            let _ = invoke_caught(
+            let _ = target.invoke(
                 &rt,
-                &host,
                 "zero:helm",
                 serde_json::json!({
                     "action": "connectPlugin",
@@ -304,9 +467,8 @@ pub fn run_conformance(root: &Path) -> i32 {
             || rel.contains("board/deleteCard")
             || rel.contains("board/listProjects/one")
         {
-            let _ = invoke_caught(
+            let _ = target.invoke(
                 &rt,
-                &host,
                 "zero:kanban:project-create",
                 serde_json::json!({
                     "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
@@ -322,7 +484,7 @@ pub fn run_conformance(root: &Path) -> i32 {
                     &materialize(step.get("input").unwrap_or(&Value::Null), ws),
                     &setup_results,
                 );
-                setup_results.push(invoke_caught(&rt, &host, channel, input));
+                setup_results.push(target.invoke(&rt, channel, input));
             }
         }
         let channel = fixture.get("channel").and_then(Value::as_str).unwrap_or("");
@@ -330,7 +492,7 @@ pub fn run_conformance(root: &Path) -> i32 {
             &materialize(fixture.get("input").unwrap_or(&Value::Null), ws),
             &setup_results,
         );
-        let actual = invoke_caught(&rt, &host, channel, input);
+        let actual = target.invoke(&rt, channel, input);
         let expected = fixture.get("expected").unwrap_or(&Value::Null);
         let mut errors = match_expected(expected, &actual);
         if !errors.is_empty() {
