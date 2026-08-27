@@ -1,0 +1,24 @@
+{
+  "channel": "zero:browser:command",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "action": "open",
+      "url": "http://127.0.0.1:4173",
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 400,
+        "height": 300
+      }
+    }
+  },
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "INTERNAL_ERROR",
+      "message": "The request could not be completed",
+      "retryable": false
+    }
+  }
+}

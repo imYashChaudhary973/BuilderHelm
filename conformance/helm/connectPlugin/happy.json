@@ -1,0 +1,18 @@
+{
+  "channel": "zero:helm",
+  "input": {
+    "action": "connectPlugin",
+    "payload": {
+      "id": "github",
+      "token": "gho_not-a-real-token-value"
+    }
+  },
+  "expected": {
+    "ok": true,
+    "value": {
+      "id": "github",
+      "connected": true,
+      "account": "github"
+    }
+  }
+}

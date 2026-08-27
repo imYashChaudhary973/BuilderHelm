@@ -1,0 +1,17 @@
+{
+  "channel": "zero:model:discover",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "providerId": "01a03c46-0ade-78fc-ba9f-13d88bf2dafd"
+    }
+  },
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "AUTH_FAILED",
+      "message": "Provider authentication failed",
+      "retryable": false
+    }
+  }
+}

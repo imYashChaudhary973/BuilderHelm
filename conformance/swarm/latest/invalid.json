@@ -1,0 +1,12 @@
+{
+  "channel": "zero:swarm:latest",
+  "input": {},
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "VALIDATION_FAILED",
+      "message": "Request validation failed",
+      "retryable": false
+    }
+  }
+}

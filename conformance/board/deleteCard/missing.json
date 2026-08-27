@@ -1,0 +1,17 @@
+{
+  "channel": "zero:kanban:delete",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "id": "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff"
+    }
+  },
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "VALIDATION_FAILED",
+      "message": "That card is gone",
+      "retryable": false
+    }
+  }
+}

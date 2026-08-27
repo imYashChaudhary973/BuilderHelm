@@ -1,0 +1,10 @@
+[package]
+name = "helm-shared"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+time.workspace = true
+uuid = { workspace = true, features = ["v7"] }

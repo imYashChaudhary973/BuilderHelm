@@ -1,0 +1,31 @@
+{
+  "channel": "zero:chat:stream-start",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "runId": "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff",
+    "input": {
+      "threadId": "$setup[0].id",
+      "modelRef": "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff:gpt-test",
+      "content": ""
+    }
+  },
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "VALIDATION_FAILED",
+      "message": "Request validation failed",
+      "retryable": false
+    }
+  },
+  "setup": [
+    {
+      "channel": "zero:chat:create",
+      "input": {
+        "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+        "input": {
+          "title": "Thread"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "channel": "zero:provider:create",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "label": "",
+      "protocol": "openai",
+      "baseUrl": "https://api.example.test/v1",
+      "headers": [],
+      "privacy": {
+        "allowPersonal": true,
+        "allowSensitive": false,
+        "allowHealth": false
+      },
+      "enabled": true,
+      "apiKey": "phase-one-secret-sentinel"
+    }
+  },
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "UNCAUGHT",
+      "message": "[\n  {\n    \"origin\": \"string\",\n    \"code\": \"too_small\",\n    \"minimum\": 1,\n    \"inclusive\": true,\n    \"path\": [\n      \"input\",\n      \"label\"\n    ],\n    \"message\": \"Too small: expected string to have >=1 characters\"\n  }\n]",
+      "retryable": false
+    }
+  }
+}

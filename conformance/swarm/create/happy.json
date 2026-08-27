@@ -1,0 +1,34 @@
+{
+  "channel": "zero:swarm:create",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "name": "Corpus swarm",
+      "folderPath": "$workspace",
+      "mission": "ship the fixtures",
+      "launchMode": "auto",
+      "presetId": "skiff",
+      "skillIds": [
+        "tdd"
+      ],
+      "seats": [
+        {
+          "role": "coordinator",
+          "agentId": "claude"
+        },
+        {
+          "role": "builder",
+          "agentId": "claude"
+        }
+      ]
+    }
+  },
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "VALIDATION_FAILED",
+      "message": "Swarm host is not available",
+      "retryable": false
+    }
+  }
+}

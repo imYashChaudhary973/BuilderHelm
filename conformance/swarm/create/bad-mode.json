@@ -1,0 +1,28 @@
+{
+  "channel": "zero:swarm:create",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "name": "X",
+      "folderPath": "/tmp",
+      "mission": "go",
+      "launchMode": "nope",
+      "presetId": "skiff",
+      "skillIds": [],
+      "seats": [
+        {
+          "role": "coordinator",
+          "agentId": "claude"
+        }
+      ]
+    }
+  },
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "VALIDATION_FAILED",
+      "message": "Request validation failed",
+      "retryable": false
+    }
+  }
+}

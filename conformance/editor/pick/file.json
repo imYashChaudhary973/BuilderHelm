@@ -1,0 +1,7 @@
+{
+  "channel": "zero:editor:pick",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+  },
+  "expected": "$any"
+}

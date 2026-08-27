@@ -1,0 +1,33 @@
+{
+  "channel": "zero:provider:delete",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "id": "$setup[0].id"
+    }
+  },
+  "expected": {
+    "deleted": true
+  },
+  "setup": [
+    {
+      "channel": "zero:provider:create",
+      "input": {
+        "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+        "input": {
+          "label": "Example",
+          "protocol": "openai",
+          "baseUrl": "https://api.example.test/v1",
+          "headers": [],
+          "privacy": {
+            "allowPersonal": true,
+            "allowSensitive": false,
+            "allowHealth": false
+          },
+          "enabled": true,
+          "apiKey": "phase-one-secret-sentinel"
+        }
+      }
+    }
+  ]
+}

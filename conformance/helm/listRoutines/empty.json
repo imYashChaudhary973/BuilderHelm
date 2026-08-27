@@ -1,0 +1,10 @@
+{
+  "channel": "zero:helm",
+  "input": {
+    "action": "listRoutines"
+  },
+  "expected": {
+    "ok": true,
+    "value": []
+  }
+}

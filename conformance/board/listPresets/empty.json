@@ -1,0 +1,10 @@
+{
+  "channel": "zero:board:preset-list",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+  },
+  "expected": {
+    "ok": true,
+    "value": []
+  }
+}

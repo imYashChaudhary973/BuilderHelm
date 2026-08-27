@@ -1,0 +1,21 @@
+{
+  "input": {
+    "correlationId": "3f0c0c0c-0c0c-4c0c-8c0c-0c0c0c0c0c0d",
+    "folderPath": "$workspace",
+    "paneCount": 3,
+    "isolation": "shared",
+    "panes": [
+      { "slot": 0, "agentId": "shell" },
+      { "slot": 1, "agentId": "shell" },
+      { "slot": 2, "agentId": "shell" }
+    ]
+  },
+  "expected": {
+    "ok": false,
+    "error": { "code": "TOOL_EXECUTION_FAILED" },
+    "constraints": {
+      "orphans": 0,
+      "sessionRetained": false
+    }
+  }
+}

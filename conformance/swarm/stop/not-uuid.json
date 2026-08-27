@@ -1,0 +1,15 @@
+{
+  "channel": "zero:swarm:stop",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "runId": "nope"
+  },
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "VALIDATION_FAILED",
+      "message": "Request validation failed",
+      "retryable": false
+    }
+  }
+}

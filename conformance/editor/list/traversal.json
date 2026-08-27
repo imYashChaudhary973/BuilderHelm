@@ -1,0 +1,18 @@
+{
+  "channel": "zero:editor:list",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "root": "$workspace",
+      "path": "/etc"
+    }
+  },
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "PERMISSION_DENIED",
+      "message": "Path is outside the workspace",
+      "retryable": false
+    }
+  }
+}

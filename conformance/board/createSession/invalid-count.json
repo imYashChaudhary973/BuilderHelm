@@ -1,0 +1,23 @@
+{
+  "channel": "zero:board:create",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "folderPath": "$workspace",
+    "paneCount": 2,
+    "isolation": "shared",
+    "panes": [
+      {
+        "slot": 0,
+        "agentId": "shell"
+      }
+    ]
+  },
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "VALIDATION_FAILED",
+      "message": "Request validation failed",
+      "retryable": false
+    }
+  }
+}

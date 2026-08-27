@@ -1,0 +1,24 @@
+{
+  "channel": "zero:kanban:list",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "workspace": "$setup[0].id"
+    }
+  },
+  "expected": {
+    "ok": true,
+    "value": []
+  },
+  "setup": [
+    {
+      "channel": "zero:kanban:project-create",
+      "input": {
+        "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+        "input": {
+          "name": "Board A"
+        }
+      }
+    }
+  ]
+}

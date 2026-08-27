@@ -1,0 +1,7 @@
+{
+  "channel": "zero:knowledge:vault-select",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+  },
+  "expected": "$any"
+}

@@ -1,0 +1,16 @@
+{
+  "channel": "zero:board:land",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "repoPath": "$workspace",
+    "branch": "p1-missing"
+  },
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "VALIDATION_FAILED",
+      "message": "Only exeum/* pane branches can be landed",
+      "retryable": false
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "channel": "zero:knowledge:query",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "vaultId": "nope",
+      "query": "x"
+    }
+  },
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "VALIDATION_FAILED",
+      "message": "Request validation failed",
+      "retryable": false
+    }
+  }
+}

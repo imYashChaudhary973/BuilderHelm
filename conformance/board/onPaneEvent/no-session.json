@@ -1,0 +1,14 @@
+{
+  "channel": "zero:board:event",
+  "input": {
+    "sessionId": "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff"
+  },
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "UNSUPPORTED",
+      "message": "no request handler for zero:board:event",
+      "retryable": false
+    }
+  }
+}

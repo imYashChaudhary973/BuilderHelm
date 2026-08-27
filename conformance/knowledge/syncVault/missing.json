@@ -1,0 +1,17 @@
+{
+  "channel": "zero:knowledge:vault-sync",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "vaultId": "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff"
+    }
+  },
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "VALIDATION_FAILED",
+      "message": "The selected vault is not registered",
+      "retryable": false
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "channel": "zero:action:reject",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "approvalId": "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff"
+    }
+  },
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "VALIDATION_FAILED",
+      "message": "The approval request was not found",
+      "retryable": false
+    }
+  }
+}

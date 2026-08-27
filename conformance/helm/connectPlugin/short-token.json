@@ -1,0 +1,18 @@
+{
+  "channel": "zero:helm",
+  "input": {
+    "action": "connectPlugin",
+    "payload": {
+      "id": "github",
+      "token": "short"
+    }
+  },
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "VALIDATION_FAILED",
+      "message": "Request validation failed",
+      "retryable": false
+    }
+  }
+}

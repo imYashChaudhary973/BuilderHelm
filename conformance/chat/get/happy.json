@@ -1,0 +1,33 @@
+{
+  "channel": "zero:chat:get",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "threadId": "$setup[0].id"
+    }
+  },
+  "expected": {
+    "ok": true,
+    "value": {
+      "thread": {
+        "id": "$uuid",
+        "title": "Thread",
+        "createdAt": "$iso8601",
+        "updatedAt": "$iso8601"
+      },
+      "turns": [],
+      "usage": []
+    }
+  },
+  "setup": [
+    {
+      "channel": "zero:chat:create",
+      "input": {
+        "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+        "input": {
+          "title": "Thread"
+        }
+      }
+    }
+  ]
+}

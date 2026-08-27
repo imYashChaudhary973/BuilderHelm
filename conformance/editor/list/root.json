@@ -1,0 +1,29 @@
+{
+  "channel": "zero:editor:list",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "root": "$workspace"
+    }
+  },
+  "expected": {
+    "ok": true,
+    "value": [
+      {
+        "path": "/private$workspace/bin.dat",
+        "name": "bin.dat",
+        "kind": "file"
+      },
+      {
+        "path": "/private$workspace/dirty.txt",
+        "name": "dirty.txt",
+        "kind": "file"
+      },
+      {
+        "path": "/private$workspace/README.md",
+        "name": "README.md",
+        "kind": "file"
+      }
+    ]
+  }
+}

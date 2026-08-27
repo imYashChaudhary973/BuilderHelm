@@ -1,0 +1,18 @@
+{
+  "channel": "zero:editor:read",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "root": "$workspace",
+      "path": "/var/folders/wy/fptm0gf16vvc_pwrz5sb31vr0000gn/T/etc/passwd"
+    }
+  },
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "VALIDATION_FAILED",
+      "message": "The folder does not exist",
+      "retryable": false
+    }
+  }
+}

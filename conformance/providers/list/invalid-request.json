@@ -1,0 +1,12 @@
+{
+  "channel": "zero:provider:list",
+  "input": {},
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "UNCAUGHT",
+      "message": "[\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"correlationId\"\n    ],\n    \"message\": \"Invalid input: expected string, received undefined\"\n  }\n]",
+      "retryable": false
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "channel": "zero:editor:search",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "root": "$workspace",
+      "query": "edited"
+    }
+  },
+  "expected": {
+    "ok": true,
+    "value": []
+  }
+}

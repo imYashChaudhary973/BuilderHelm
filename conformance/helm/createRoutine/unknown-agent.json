@@ -1,0 +1,20 @@
+{
+  "channel": "zero:helm",
+  "input": {
+    "action": "createRoutine",
+    "payload": {
+      "agentId": "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff",
+      "name": "Nightly",
+      "instruction": "Check the board",
+      "everyMinutes": 60
+    }
+  },
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "INTERNAL_ERROR",
+      "message": "The request could not be completed",
+      "retryable": false
+    }
+  }
+}

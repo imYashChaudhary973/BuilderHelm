@@ -1,0 +1,18 @@
+{
+  "channel": "zero:editor:read",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "root": "$workspace",
+      "path": "$workspace/nope.txt"
+    }
+  },
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "VALIDATION_FAILED",
+      "message": "The folder does not exist",
+      "retryable": false
+    }
+  }
+}

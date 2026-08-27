@@ -1,0 +1,15 @@
+{
+  "channel": "zero:chat:stream-cancel",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "runId": "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff"
+    }
+  },
+  "expected": {
+    "ok": true,
+    "value": {
+      "cancelled": false
+    }
+  }
+}

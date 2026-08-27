@@ -1,0 +1,20 @@
+OpenAI Codex v0.149.1
+--------
+[1mworkdir:[0m /private/var/folders/wy/fptm0gf16vvc_pwrz5sb31vr0000gn/T/helm-pty-XmZeEJ
+[1mmodel:[0m gpt-5.6-sol
+[1mprovider:[0m openai
+[1mapproval:[0m never
+[1msandbox:[0m read-only
+[1mreasoning effort:[0m high
+[1mreasoning summaries:[0m none
+[1msession id:[0m 01a03c59-0e6f-76b1-b426-92de556ecea3
+--------
+[36muser[0m
+Print the integers 1 through 1100, each on its own line. No markdown, no extra text.
+[1m[33mwarning:[0m[0m Under-development features enabled: chronicle. Under-development features are incomplete and may behave unpredictably. To suppress this warning, set `suppress_unstable_features_warning = true` in /Users/yashchaudhary/.codex/config.toml.
+[1mhook:[0m [2mSessionStart[0m
+[1mhook:[0m [2mSessionStart[0m Completed
+[1mhook:[0m [2mUserPromptSubmit[0m
+[1mhook:[0m [2mUserPromptSubmit[0m Completed
+[1m[31mERROR:[0m[0m You've hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro), visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at 11:51 AM.
+[1m[31mERROR:[0m[0m You've hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro), visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at 11:51 AM.

@@ -1,0 +1,35 @@
+{
+  "channel": "zero:board:create",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "folderPath": "$workspace",
+    "paneCount": 1,
+    "isolation": "shared",
+    "panes": [
+      {
+        "slot": 0,
+        "agentId": "shell"
+      }
+    ]
+  },
+  "expected": {
+    "ok": true,
+    "value": {
+      "sessionId": "$uuid",
+      "folderPath": "$workspace",
+      "paneCount": 1,
+      "isolation": "shared",
+      "panes": [
+        {
+          "paneId": "$uuid",
+          "slot": 0,
+          "agentId": "shell",
+          "title": "Terminal \u00b7 pane 1",
+          "status": "running",
+          "branch": null,
+          "cwd": "$workspace"
+        }
+      ]
+    }
+  }
+}

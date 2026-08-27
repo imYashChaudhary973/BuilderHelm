@@ -1,0 +1,18 @@
+{
+  "channel": "zero:editor:read",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "root": "$workspace",
+      "path": "$workspace/bin.dat"
+    }
+  },
+  "expected": {
+    "ok": true,
+    "value": {
+      "path": "/private$workspace/bin.dat",
+      "name": "bin.dat",
+      "text": "\u0000\u0001\u0002\ufffd"
+    }
+  }
+}

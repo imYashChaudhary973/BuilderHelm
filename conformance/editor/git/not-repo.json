@@ -1,0 +1,13 @@
+{
+  "channel": "zero:editor:git",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "root": "$workspace"
+    }
+  },
+  "expected": {
+    "ok": true,
+    "value": null
+  }
+}

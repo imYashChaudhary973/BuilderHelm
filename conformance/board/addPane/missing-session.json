@@ -1,0 +1,15 @@
+{
+  "channel": "zero:board:pane-add",
+  "input": {
+    "sessionId": "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff",
+    "agentId": "shell"
+  },
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "VALIDATION_FAILED",
+      "message": "Request validation failed",
+      "retryable": false
+    }
+  }
+}

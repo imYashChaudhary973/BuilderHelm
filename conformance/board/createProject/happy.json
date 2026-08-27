@@ -1,0 +1,19 @@
+{
+  "channel": "zero:kanban:project-create",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "name": "Board A"
+    }
+  },
+  "expected": {
+    "ok": true,
+    "value": {
+      "id": "$uuid",
+      "name": "Board A",
+      "taskCount": 0,
+      "createdAt": "$iso8601",
+      "updatedAt": "$iso8601"
+    }
+  }
+}

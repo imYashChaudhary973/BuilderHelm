@@ -1,0 +1,16 @@
+{
+  "channel": "zero:helm",
+  "input": {
+    "action": "listPlugins"
+  },
+  "expected": {
+    "ok": true,
+    "value": [
+      {
+        "id": "github",
+        "connected": false,
+        "account": null
+      }
+    ]
+  }
+}

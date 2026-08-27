@@ -1,0 +1,19 @@
+{
+  "channel": "zero:editor:create",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "root": "$workspace",
+      "path": "$workspace/sub",
+      "kind": "dir"
+    }
+  },
+  "expected": {
+    "ok": true,
+    "value": {
+      "path": "/private$workspace/sub",
+      "name": "sub",
+      "kind": "dir"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "channel": "zero:swarm:state",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "runId": "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff"
+  },
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "VALIDATION_FAILED",
+      "message": "Unknown swarm run",
+      "retryable": false
+    }
+  }
+}

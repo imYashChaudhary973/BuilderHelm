@@ -1,0 +1,43 @@
+{
+  "channel": "zero:action:command",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "requestId": "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff",
+      "text": "Create project Corpus",
+      "modelRef": null
+    }
+  },
+  "expected": {
+    "ok": true,
+    "value": {
+      "kind": "approval_required",
+      "message": "Review the exact action before it changes local data.",
+      "approval": {
+        "id": "$uuid",
+        "requestId": "$uuid",
+        "toolId": "project.create",
+        "summary": "Create project \u201cCorpus\u201d",
+        "exactArguments": {
+          "name": "Corpus",
+          "description": null
+        },
+        "risk": "reversible_write",
+        "affectedResources": [
+          {
+            "type": "project",
+            "id": "$uuid",
+            "label": "Corpus"
+          }
+        ],
+        "reversible": true,
+        "status": "pending",
+        "actorType": "deterministic_intent",
+        "modelRef": null,
+        "expiresAt": "$iso8601",
+        "resolvedAt": null,
+        "createdAt": "$iso8601"
+      }
+    }
+  }
+}

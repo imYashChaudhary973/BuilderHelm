@@ -1,0 +1,18 @@
+{
+  "channel": "zero:editor:read",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "root": "$workspace",
+      "path": "$workspace/README.md"
+    }
+  },
+  "expected": {
+    "ok": true,
+    "value": {
+      "path": "/private$workspace/README.md",
+      "name": "README.md",
+      "text": "# corpus\n"
+    }
+  }
+}

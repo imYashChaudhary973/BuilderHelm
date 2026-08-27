@@ -1,0 +1,11 @@
+{
+  "channel": "zero:model-capability-override:list",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {}
+  },
+  "expected": {
+    "ok": true,
+    "value": []
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "channel": "zero:chat:create",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {}
+  },
+  "expected": {
+    "ok": true,
+    "value": {
+      "id": "$uuid",
+      "title": null,
+      "createdAt": "$iso8601",
+      "updatedAt": "$iso8601"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "channel": "zero:project:dashboard",
+  "input": {},
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "VALIDATION_FAILED",
+      "message": "Request validation failed",
+      "retryable": false
+    }
+  }
+}

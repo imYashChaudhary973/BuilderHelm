@@ -1,0 +1,12 @@
+[package]
+name = "helm-observability"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+helm-shared.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

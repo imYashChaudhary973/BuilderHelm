@@ -1,0 +1,10 @@
+{
+  "channel": "zero:helm",
+  "input": {
+    "action": "listAgents"
+  },
+  "expected": {
+    "ok": true,
+    "value": []
+  }
+}

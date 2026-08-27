@@ -1,0 +1,43 @@
+{
+  "channel": "zero:action:command",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "input": {
+      "requestId": "01a03c46-0aeb-7a31-92c9-8bd51f6556e6",
+      "text": "Create project Other",
+      "modelRef": null
+    }
+  },
+  "expected": {
+    "ok": true,
+    "value": {
+      "kind": "approval_required",
+      "message": "Review the exact action before it changes local data.",
+      "approval": {
+        "id": "$uuid",
+        "requestId": "$uuid",
+        "toolId": "project.create",
+        "summary": "Create project \u201cOther\u201d",
+        "exactArguments": {
+          "name": "Other",
+          "description": null
+        },
+        "risk": "reversible_write",
+        "affectedResources": [
+          {
+            "type": "project",
+            "id": "$uuid",
+            "label": "Other"
+          }
+        ],
+        "reversible": true,
+        "status": "pending",
+        "actorType": "deterministic_intent",
+        "modelRef": null,
+        "expiresAt": "$iso8601",
+        "resolvedAt": null,
+        "createdAt": "$iso8601"
+      }
+    }
+  }
+}

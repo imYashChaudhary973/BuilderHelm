@@ -1,0 +1,12 @@
+{
+  "channel": "zero:system:health",
+  "input": {
+    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+  },
+  "expected": {
+    "status": "ok",
+    "database": "ready",
+    "occurredAt": "$iso8601",
+    "correlationId": "$uuid"
+  }
+}

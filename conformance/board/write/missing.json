@@ -1,0 +1,16 @@
+{
+  "channel": "zero:board:write",
+  "input": {
+    "sessionId": "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff",
+    "paneId": "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff",
+    "data": "x"
+  },
+  "expected": {
+    "ok": false,
+    "error": {
+      "code": "VALIDATION_FAILED",
+      "message": "Request validation failed",
+      "retryable": false
+    }
+  }
+}
