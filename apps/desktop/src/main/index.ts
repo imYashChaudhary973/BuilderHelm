@@ -2,9 +2,11 @@ import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { bootstrapCore, type CoreRuntime } from '@zero/core';
+import { ipcChannels } from '@zero/protocol';
 import { createCorrelationId } from '@zero/shared';
 import { app, BrowserWindow, session } from 'electron';
 
+import { EngineClient } from './engine-client.js';
 import { registerIpcHandlers } from './ipc.js';
 import { BoardPtyManager, probePty } from './board-pty-manager.js';
 import { PtySwarmRunner } from './swarm-runner.js';
@@ -16,6 +18,48 @@ let unregisterIpc: (() => void) | undefined;
 let boardPty: BoardPtyManager | undefined;
 let swarmRunner: PtySwarmRunner | undefined;
 let smokeDatabasePath: string | undefined;
+let engine: EngineClient | undefined;
+
+/**
+ * Start the Rust engine sidecar if this build ships one.
+ *
+ * Phase A stands the bridge up and verifies it; every channel still runs on
+ * its TypeScript handler, so a missing binary is not a failure - it means the
+ * engine has not been built in this checkout. Phase C moves namespaces onto
+ * the engine one at a time, and from then on its absence is fatal.
+ */
+async function startEngine(runtime: CoreRuntime): Promise<void> {
+  const bin = process.env.HELM_ENGINE_BIN;
+  if (bin === undefined || bin.length === 0) return;
+  const client = new EngineClient({
+    bin,
+    expectedChannels: Object.values(ipcChannels),
+    onLog: (line) => {
+      runtime.logger.info({
+        event: 'engine.log',
+        correlationId: createCorrelationId(),
+        data: { line },
+      });
+    },
+  });
+  try {
+    const hello = await client.start();
+    engine = client;
+    runtime.logger.info({
+      event: 'engine.ready',
+      correlationId: createCorrelationId(),
+      data: { engine: hello.engine, host: hello.host, channels: hello.channels.length },
+    });
+  } catch (error) {
+    // Fail closed on the engine, not on the app: the TypeScript handlers are
+    // still serving every channel in phase A.
+    runtime.logger.error({
+      event: 'engine.unavailable',
+      correlationId: createCorrelationId(),
+      data: { reason: error instanceof Error ? error.message : String(error) },
+    });
+  }
+}
 
 function isAllowedNavigation(currentUrl: string, destinationUrl: string): boolean {
   try {
@@ -141,7 +185,7 @@ if (process.env.ZERO_DEBUG_PORT !== undefined) {
   app.commandLine.appendSwitch('remote-debugging-port', process.env.ZERO_DEBUG_PORT);
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   session.defaultSession.setPermissionRequestHandler(
     (_webContents, _permission, callback) => {
       callback(false);
@@ -181,6 +225,14 @@ app.whenReady().then(() => {
     });
   }
   unregisterIpc = registerIpcHandlers(core, boardPty, swarmRunner);
+  // The smoke test asserts on the engine's log line, so it waits for the
+  // handshake to settle. A normal launch does not: phase A keeps every
+  // channel on its TypeScript handler, so the window must not sit behind a
+  // process spawn it does not yet depend on.
+  const engineStarted = startEngine(core);
+  if (process.env.ZERO_SMOKE_TEST === '1') {
+    await engineStarted;
+  }
   createWindow();
 
   app.on('activate', () => {
@@ -201,6 +253,8 @@ app.on('before-quit', () => {
   unregisterIpc = undefined;
   boardPty?.dispose();
   boardPty = undefined;
+  void engine?.stop();
+  engine = undefined;
   core?.close();
   core = undefined;
   if (smokeDatabasePath !== undefined) {

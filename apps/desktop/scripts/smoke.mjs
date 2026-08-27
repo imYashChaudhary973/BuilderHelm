@@ -45,5 +45,19 @@ child.on('exit', () => {
     process.exitCode = 1;
     return;
   }
+  // When this build ships the Rust engine, the sidecar must have handshaked.
+  // Without this the wiring could rot silently, since phase A routes no
+  // channel through it yet.
+  const engineBin = process.env.HELM_ENGINE_BIN;
+  if (
+    engineBin !== undefined &&
+    engineBin.length > 0 &&
+    !output.includes('engine.ready')
+  ) {
+    process.stderr.write(output);
+    process.stderr.write('\nEngine was configured but never became ready.\n');
+    process.exitCode = 1;
+    return;
+  }
   process.stdout.write('Electron desktop smoke test passed.\n');
 });
