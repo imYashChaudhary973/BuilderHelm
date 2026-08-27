@@ -1,31 +1,35 @@
 # Implementation Status
 
-- Last reviewed: 2026-08-25
+No feature freeze. Active work lands on the hybrid stack: Rust core engine +
+TypeScript platform ([STACK](STACK.md), [ADOPTION](ADOPTION.md)).
+
+- Last reviewed: 2026-08-27
 - Baseline: BuilderHelm chrome landed on `main` at `c9726ab`
-- Active work: Swarm execution engine on `feat/swarm-v2`
+- Active work: Swarm P0 + ADE mix on `feat/swarm-v2` ([ADE](ADE.md))
+- **Hybrid architecture** ([ADR 0006](adr/0006-hybrid-architecture.md), [ADOPTION](ADOPTION.md)): Rust core engine + TypeScript platform. The full-Rust migration was cancelled ([ADR 0005](adr/0005-rust-migration.md), superseded).
 
 What the repository implements now. Product intent lives in
-[PRODUCT](PRODUCT.md), [UX](UX.md), and [ROADMAP](ROADMAP.md).
+[PRODUCT](PRODUCT.md), [UX](UX.md), [ROADMAP](ROADMAP.md), and [ADE](ADE.md).
 
 ## Shipped
 
-| Surface       | Capability                                                                                                                                                                                                                                                            |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Foundation    | pnpm workspace, secure Electron boundary, SQLite migrations, typed IPC, observability                                                                                                                                                                                 |
-| Providers     | Keychain-backed settings, discovery, audit events                                                                                                                                                                                                                     |
-| Model gateway | Provider-independent adapters, streaming chat, canonical history                                                                                                                                                                                                      |
-| Memory        | Left-rail BuilderHelm Memory, local Obsidian indexing, cited answers and source previews                                                                                                                                                                              |
-| Actions       | Schema-backed tools, permissions, approvals, receipts                                                                                                                                                                                                                 |
-| Projects      | Dashboard, Git status and history, Today summary                                                                                                                                                                                                                      |
-| Space         | BuilderHelm Space home, wizard, per-pane agents, live xterm grid                                                                                                                                                                                                      |
-| Brand         | BuilderHelm name, tagline, helm mark                                                                                                                                                                                                                                  |
-| Chrome        | Left feature rail, icon tools panel, 18–60% resize                                                                                                                                                                                                                    |
-| Browser       | Localhost preview, recents, last tab, stage-clipped BrowserView                                                                                                                                                                                                       |
-| Editor        | Workspace-scoped tree, tabs, save / save-all / autosave, word wrap                                                                                                                                                                                                    |
-| Git           | Branch, staged vs worktree, history, stage, unstage, commit                                                                                                                                                                                                           |
-| Board         | Project chooser, independent persisted boards, left-rail project tabs, drag-and-drop stages                                                                                                                                                                           |
-| Swarm         | Mission / roster / launch wizard, Skiff 3 · Cutter 5 · Frigate 8 · Flagship 12, per-seat CLI, 18 skills, live graph + `@all` bar                                                                                                                                      |
-| Swarm engine  | Headless argv seats (8 CLIs, safe / auto-edit / full modes), structured decomposition with exclusive file ownership, worktree per seat, verify gate, review gate, land queue, retry-once, budget clock, resume from ledger, token and cost metering (`feat/swarm-v2`) |
+| Surface       | Capability                                                                                                                                                  |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Foundation    | pnpm workspace, secure Electron boundary, SQLite migrations, typed IPC, observability                                                                       |
+| Providers     | Keychain-backed settings, discovery, audit events                                                                                                           |
+| Model gateway | Provider-independent adapters, streaming chat, canonical history                                                                                            |
+| Memory        | Left-rail BuilderHelm Memory, local Obsidian indexing, cited answers and source previews                                                                    |
+| Actions       | Schema-backed tools, permissions, approvals, receipts                                                                                                       |
+| Projects      | Dashboard, Git status and history, Today summary                                                                                                            |
+| Space         | BuilderHelm Space home, wizard, per-pane agents, live xterm grid                                                                                            |
+| Brand         | BuilderHelm name, tagline, helm mark                                                                                                                        |
+| Chrome        | Square plus opens home; workspace icons with rename/color/close; expanded name + terminal count; no build stamp                                             |
+| Browser       | Localhost preview, recents, last tab, stage-clipped BrowserView                                                                                             |
+| Editor        | Workspace-scoped tree, tabs, save / save-all / autosave, word wrap                                                                                          |
+| Git           | Branch, staged vs worktree, history, stage, unstage, commit                                                                                                 |
+| Board         | Project chooser, independent persisted boards, drag-and-drop stages                                                                                         |
+| Swarm         | Mission / roster / launch, helm presets, per-seat CLI, live graph, `@all`, Plan / Activity / Roster, mid-flight add/stop                                    |
+| Swarm engine  | PATH CLIs in PTYs (Grok interactive; others headless argv), exclusive files, worktree per builder, verify + review + land, budget, resume (`feat/swarm-v2`) |
 
 ## Current application surfaces
 
@@ -33,13 +37,34 @@ What the repository implements now. Product intent lives in
 - BuilderHelm Board (multi-project Kanban with isolated tasks and drag and drop)
 - BuilderHelm Memory (private Obsidian recall with inspectable citations)
 - BuilderHelm Swarm (wizard, helm-size presets, live graph and terminals)
-- App chrome (top bar + left feature rail + tools panel)
+- App chrome (top bar + square plus rail of workspaces + tools panel)
 - Browser, editor, and Git tools tabs
 - Provider and model settings
-- Multi-provider chat
+- Agent, Code, and Chat coming soon (home background)
 - Permissioned actions, tasks, and receipts
 - Projects and Git continuity
 - Today dashboard
+
+## Engine status
+
+The Rust engine (`crates/`) replays green against the 218-fixture corpus and
+becomes the in-process core behind the Electron desk in Phase A of
+[ADOPTION](ADOPTION.md). The renderer-cutover phases of the old migration
+plan are cancelled; the Electron renderer ships.
+
+| Surface            | Count                     |
+| ------------------ | ------------------------- |
+| IPC methods        | 75                        |
+| IPC channels       | 71                        |
+| Schema migrations  | 13                        |
+| Database tables    | 35                        |
+| UI routes          | 12                        |
+| UI components      | 12                        |
+| Tests              | 245                       |
+| Conformance corpus | 218 fixtures / 75 methods |
+
+Source: 15,566 lines of portable domain logic, 3,831 Electron-coupled,
+8,241 renderer. `src/` only.
 
 ## Current architecture
 
@@ -49,9 +74,8 @@ SQLite, model policy, provider credentials, knowledge retrieval,
 permission decisions, and tool execution. Provider wire formats stay
 inside `@zero/model-gateway`.
 
-SQLite is at migration 12. Migration 11 adds Kanban review and cancelled
-columns. Migration 12 stores swarm runs, seats, tasks, and an append-only
-message ledger, so a swarm survives a restart and can resume.
+SQLite is at migration 13. Migration 12 stores swarm runs. Migration 13
+stores named Agents, Routines, and the GitHub plugin row.
 
 Unsigned macOS `BuilderHelm.app`: `pnpm --filter @zero/desktop dist`.
 
@@ -64,13 +88,20 @@ pnpm smoke:desktop
 
 ## Known scope boundaries
 
-- macOS is the supported desktop runtime. Keychain is fail-closed.
+- macOS is the only verified desktop runtime today. Secret storage is
+  fail-closed on every platform.
 - Local Ollama may use loopback HTTP. Remote credentialed providers must
   use HTTPS.
 - Models can propose actions. Application code validates permission and
   executes them.
 - Ready work lands on `main`. Permission or security changes still use a PR.
-- Windows and Linux desktops are not verified yet.
-- Swarm runs on `feat/swarm-v2`. Mid-flight roster edits and Bridge are not built yet.
-- Swarm seats run headless one task at a time; kiro-cli has no headless mode and cannot take a seat.
-- Decomposition needs a CLI that constrains output to a JSON Schema (claude or grok). Without one a swarm runs the mission as a single task.
+- Windows and Linux desktops are not verified yet; they are Phase D targets
+  of [ADOPTION](ADOPTION.md) (ConPTY, Credential Manager, DX12 on Windows).
+- Swarm runs on `feat/swarm-v2`. Bridge overlay is not built. Local MCP is not built.
+- Grok **planner/reviewer** still uses `grok -p` (Grok Build, 402 even when Super Grok chat has quota). Seats use interactive grok (no `-p`). kiro-cli cannot take a seat.
+- Worktrees stay serial; pane PTYs spawn concurrently after locate (P0-2). Login
+  shell is still `zsh -i`. Fixture: `conformance/board/createSession/`.
+- Electron `BrowserView` (browser panel) was **cut for v1** on 2026-08-27
+  (Gate 3 retro). The Browser sidebar tab stays a recorded placeholder; the
+  `browser.command` IPC method stays in the corpus with no UI. Revisit a
+  webview-based panel (wry or Electron-native) when the platform suite opens.

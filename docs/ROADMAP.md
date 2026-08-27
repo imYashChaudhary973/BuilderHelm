@@ -1,5 +1,8 @@
 # Roadmap
 
+No feature freeze. New work lands on the hybrid stack: Rust engine +
+TypeScript platform ([STACK](STACK.md), [ADOPTION](ADOPTION.md)).
+
 Build the four-mode harness, one complete loop at a time. Do not revive the
 old Zero OS 12-phase personal-OS plan (health companion, content studio,
 life automations).
@@ -17,70 +20,55 @@ Git snapshots, PTY grid, app chrome.
 - Board: named project boards, isolated tasks, left-rail tabs, and persisted drag and drop.
 - Memory: private Obsidian retrieval, cited answers, source previews, and recent questions.
 
-## Next — Swarm
+## Shipped on feat/swarm-v2 (not “next”)
 
-On `feat/swarm`: Mission / Roster / Launch, then a live graph of the seats.
-Presets are **Skiff 3**, **Cutter 5**, **Frigate 8**, **Flagship 12**.
-Worktree per seat when the folder is a git repo (shared folder otherwise).
-20-minute budget, 90s silence → nudge → stop that pane.
+Mission / Roster / Launch, helm presets, live graph, mid-flight add/remove,
+Plan / Activity tabs, worktree per builder, verify + review + land queue,
+20-minute budget. Mix with BridgeMind + Conductor: [ADE](ADE.md).
 
-Still open after the live graph: context files, editable skill directives,
-mid-flight add/remove, Plan / Activity tabs.
+Still open on Swarm itself: context-file UI (only `@path` in the mission),
+Agent-tab tool transcript, Claude-only structured plan/review (no `grok -p`).
 
-## Future directions — delegate and build
+## Next — P0 then Agent / Code / Chat
 
-These are directional capabilities to evaluate after Swarm. BuilderHelm should
-adapt the interaction patterns to its local-first security model rather than
-clone the referenced product.
+Do not start routines, voice, or plugins until P0 is green.
 
-### Agent, Code, and Chat in one window
+### P0 Swarm usable
 
-- Add a title-bar mode switch that changes the rail, workspace, and composer
-  while preserving each mode's state.
-- Give named agents their own chat history, working status, skills, settings,
-  tool-call trace, and approval queue.
-- Keep model, reasoning, permission, build, token-usage, and voice controls
-  consistent across modes.
+- Claude-only JSON plan/review. Banner: Grok Build CLI ≠ Super Grok chat.
+- Agent inspector shows active task + PTY tail.
+- Stop and terminals stay attached (`boardSessionId` on create).
 
-### Dockable ADE workspace
+### P1 Title-bar Agent | Code | Chat
 
-- Expand BuilderHelm Space into a workspace tree of local projects, agent CLIs,
-  shells, localhost previews, and task threads.
-- Dock terminals, browser previews, and agent threads beside the work, with a
-  one-click tidy layout.
-- Continue launching Claude Code, Codex, and other compatible CLIs from the
-  user's PATH over local folders.
+- Agent: named teammate + tool-call transcript ([docs](https://docs.bridgemind.ai/docs/agent-mode)).
+- Code: folder + PTY grid + Claude/Codex thread pane ([docs](https://docs.bridgemind.ai/docs/code-mode)).
+- Chat: unmounted threads — put `/chat` in chrome.
 
-### Scheduled agent routines
+### P2 Conductor review
 
-- Run named agents on explicit schedules for recurring research, summaries,
-  maintenance, and outreach preparation.
-- Include enable/disable controls, recurrence, run history, failure status,
-  budgets, permissions, and approval gates before external side effects.
+- Diff + comment-to-seat + Checks before land-to-main
+  ([parallel agents](https://www.conductor.build/docs/concepts/parallel-agents)).
+- Worktree setup/run + port map.
 
-### Voice inside BuilderHelm
+### P3 Local MCP board
 
-- Add hold-to-talk dictation, such as Fn-to-record, directly to the real
-  composer with a visible recording state and explicit send.
-- Keep wake-word listening out of scope; voice starts only from deliberate user
-  input.
+- `claim` / `in-review` / human `complete` over `swarm_*`. Not a PTY host.
+  Not `api.conductor.build`.
 
-### Secure plugin catalog
+### Later (unchanged intent)
 
-- Add permission-scoped integrations for social publishing, lead enrichment,
-  video analytics, image generation, and future services.
-- Store credentials in Keychain, keep secrets out of engine prompts, preview
-  requested access, and expose connection and audit status.
+- Scheduled routines, hold-to-talk voice, Keychain plugin catalog.
+- Settings shell, usage HUD, auto-update, mobile companion.
 
-## Later — platform
+## Hybrid architecture adoption
 
-Platform work starts after Swarm and only when it supports a proven product
-loop:
-
-- Settings shell beyond providers
-- Mobile companion + QR LAN pair
-- Usage credits, budgets, and billing controls
-- Auto-update + About
+Accepted 2026-08-27. Rust core engine (engine, settings, agent workflows,
+performance-critical operations) + TypeScript platform (development
+environment, UI, cross-platform capability). Decision:
+[ADR 0006](adr/0006-hybrid-architecture.md). Plan of record:
+[ADOPTION](ADOPTION.md). Phase A (engine embedding) starts after the current
+`feat/swarm-v2` work lands.
 
 ## Explicitly not on this roadmap
 
@@ -89,4 +77,5 @@ loop:
 - Wake word
 - Cloud multi-user “life OS”
 - Fancy 3D knowledge graph as a v1 goal
-- Rewriting the app in Rust ([STACK](STACK.md))
+- Microsoft Conductor YAML as a second orchestrator
+- Conductor Cloud / BridgeMind Cloud as a dependency

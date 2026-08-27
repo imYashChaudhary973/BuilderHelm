@@ -9,6 +9,26 @@ browser, editor, Git, and skills stay in one shell.
 The npm workspace is still `zero-os`. That is a repository name, not the
 product name.
 
+## The platform
+
+BuilderHelm is the first of four integrated products on one engine:
+
+- **BuilderHelm** — the desk: Space · Swarm · Board · Memory · Agent · Code ·
+  Chat in one shell.
+- **Swarm Builder** — multi-agent collaboration: named rosters, live graphs,
+  shared task boards, parallel development.
+- **Terminal workflow builder** — agent-native workflows described in plain
+  English; the agent scans, plans, and implements across files
+  (Helm Transform).
+- **Helm Code** — CLI-first coding engine, launching as a standalone CLI on
+  the same engine.
+
+Planned: **BuilderHelm Voice** (privacy-first, on-device voice) and
+**BuilderHelm MCP** (multi-agent collaboration over MCP standards).
+Integrations: Cursor-compatible and Windsurf-compatible tooling, open MCP
+standards. Stack: Rust core engine + TypeScript platform
+([STACK](STACK.md), [ADOPTION](ADOPTION.md)).
+
 ## Choose how you want to work
 
 The first screen is four modes. Each card shows a keyboard shortcut on the
@@ -21,11 +41,11 @@ right.
 | **Board**  | ⌘B       | Plan the work. Work the plan. A Kanban board built for builders — turn loose ideas into shipped tasks.        |
 | **Memory** | ⌘M       | A living knowledge graph. Persistent memory your agents read and write as they build. Context that compounds. |
 
-**Bridge** is not a fifth home card. It is the assistant overlay (and later
-the voice assistant) that can be toggled from any mode.
+**Bridge** is not a fifth home card. It is a later overlay. Not built.
 
-The terminal grid under `/board` is **Space**, not Kanban Board. Kanban
-Board is a different surface and is not built yet.
+The terminal grid is **Space**. **Board** is the shipped Kanban at `/board`.
+Agent / Code / Chat (title-bar) and the mix with Conductor live in
+[ADE](ADE.md).
 
 ## Swarm
 
@@ -52,9 +72,13 @@ the Mac is eligible.
 
 ### Live
 
-A graph of the roster (coordinator as hub), a roster rail, an `@all` /
-`@seat` command bar, and a toggle back to the terminal grid. 20-minute
-budget. Silent seats get a nudge, then stop.
+Queen (coordinator) splits the mission. Scout maps. Builders take exclusive
+files in `exeum/*` worktrees. Reviewer gates. Sequential land. Graph +
+roster + `@all` / `@seat` + Terminals toggle. 20-minute budget. Stop kills
+every pane.
+
+Seats use PATH CLIs (Claude Max, Codex, Grok **Build** CLI). Super Grok
+chat quota is a different pool. Plan/review is Claude JSON, not `grok -p`.
 
 ## Principles
 
