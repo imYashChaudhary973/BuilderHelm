@@ -46,4 +46,25 @@ describe('terminal font', () => {
     // what monospace means, which is how the sans-serif inheritance crept in.
     expect(stack).toBe(token);
   });
+
+  it('renders through a cell-accurate renderer with a fallback', () => {
+    // The DOM renderer flows each row as text, so a glyph the font does not
+    // cover falls back to a wider face and drags every later cell with it. Grok
+    // draws its logo from Braille, which no installed monospace font covers, so
+    // this is load-bearing rather than a performance tweak.
+    expect(renderer).toContain('WebglAddon');
+    expect(renderer, 'a lost GPU context must not leave the pane blank').toContain(
+      'onContextLoss',
+    );
+    expect(renderer, 'WebGL may be unavailable; canvas still draws per cell').toContain(
+      'CanvasAddon',
+    );
+  });
+
+  it('uses Unicode 11 widths', () => {
+    // xterm defaults to Unicode 6, which disagrees with the widths modern CLIs
+    // assume when they pad a row out to the terminal width.
+    expect(renderer).toContain('Unicode11Addon');
+    expect(renderer).toMatch(/unicode\.activeVersion\s*=\s*'11'/);
+  });
 });
