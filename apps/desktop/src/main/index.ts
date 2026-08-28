@@ -160,8 +160,13 @@ function reportStartupFailure(error: unknown): void {
       ? 'This local database was created by an incompatible version of BuilderHelm. Move it aside, or point BUILDERHELM_DATABASE_PATH at a new file.'
       : failure.message;
   process.stderr.write(`desktop.startup_failed ${failure.code}: ${failure.message}\n`);
-  // A modal dialog would block the smoke test instead of letting it fail fast.
-  if (process.env.BUILDERHELM_SMOKE_TEST !== '1') {
+  // The stderr line above is the unattended path. A modal blocks until someone
+  // dismisses it, which would hang the smoke harness or a CI job rather than
+  // failing fast. Deliberately not keyed on TTY: a packaged app has no TTY and
+  // is exactly when the dialog is needed.
+  const unattended =
+    process.env.BUILDERHELM_SMOKE_TEST === '1' || process.env.CI !== undefined;
+  if (!unattended) {
     dialog.showErrorBox('BuilderHelm could not start', guidance);
   }
   app.exit(1);
