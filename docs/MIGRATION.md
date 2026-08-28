@@ -45,3 +45,15 @@ deliberate manual step.
 Every `ZERO_`-prefixed variable was renamed to `BUILDERHELM_`. Update shell
 profiles, run configurations, and scripts. The current set is documented in
 [DEVELOPMENT.md](DEVELOPMENT.md).
+
+## Stale Rust build output
+
+Checkouts that built the retired Rust workspace still hold a `target/`
+directory, often several gigabytes per worktree. Nothing reads it now. It stays
+listed in `.gitignore` and `.prettierignore` so it can never be staged or
+linted, but it is pure dead weight:
+
+```bash
+# Per worktree. Check the size first, then remove.
+du -sh target && rm -rf target
+```

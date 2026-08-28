@@ -3,6 +3,7 @@ dist/
 dist-types/
 out/
 coverage/
+target/
 pnpm-lock.yaml
 *.tsbuildinfo
 [0-9][0-9]_*.md

@@ -4,6 +4,9 @@ dist/
 dist-types/
 out/
 coverage/
+# Retired Rust build output. Kept ignored so a stale multi-gigabyte directory in
+# an existing checkout can never be staged or linted. See docs/MIGRATION.md.
+target/
 *.tsbuildinfo
 *.log
 *.sqlite
