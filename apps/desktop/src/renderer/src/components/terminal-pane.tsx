@@ -8,6 +8,13 @@ import { useEffect, useRef, useState } from 'react';
 
 const MIN_COLS = 2;
 const MIN_ROWS = 2;
+// Must stay a monospace stack, and must match `--font-mono` in styles.css.
+// xterm.js measures one cell from this family and then positions every glyph on
+// that grid. Left unset it inherits the application sans-serif, where a space
+// is 4.2px but U+2500 is 16px, so box borders and padding drift apart and every
+// bordered CLI panel tears. The terminal buffer stays correct either way; only
+// the drawing is wrong, which makes it look like a CLI bug rather than a font one.
+const TERMINAL_FONT_FAMILY = 'ui-monospace, SFMono-Regular, Menlo, monospace';
 interface TerminalPaneProps {
   readonly sessionId: string;
   readonly pane: BoardPaneSummary;
@@ -50,6 +57,7 @@ export function TerminalPane({
 
     const term = new Terminal({
       convertEol: false,
+      fontFamily: TERMINAL_FONT_FAMILY,
       fontSize: 13,
       cursorBlink: true,
       allowProposedApi: true,
