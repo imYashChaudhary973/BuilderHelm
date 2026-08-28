@@ -12,6 +12,8 @@
     "dev": "pnpm --filter @builderhelm/desktop dev",
     "dist": "pnpm --filter @builderhelm/desktop dist",
     "check:architecture": "node scripts/check-architecture.mjs",
+    "check:licenses": "node scripts/check-licenses.mjs",
+    "notices": "pnpm --filter @builderhelm/desktop notices",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
@@ -20,7 +22,7 @@
     "test:architecture": "vitest run tests/architecture",
     "test:migrations": "vitest run packages/db/test/migrations.test.ts",
     "smoke:desktop": "pnpm --filter @builderhelm/desktop smoke",
-    "verify": "pnpm check:architecture && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "verify": "pnpm check:architecture && pnpm check:licenses && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

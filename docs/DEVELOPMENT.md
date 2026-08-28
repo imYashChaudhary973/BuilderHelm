@@ -54,6 +54,7 @@ first migration. Nothing is migrated automatically. See
 
 ```bash
 pnpm check:architecture
+pnpm check:licenses
 pnpm format:check
 pnpm lint
 pnpm typecheck
@@ -62,8 +63,28 @@ pnpm build
 pnpm smoke:desktop
 ```
 
-`pnpm verify` runs formatting, lint, types, tests, and the desktop build. Run
-focused tests while iterating and the complete relevant gate before review.
+`pnpm verify` runs the architecture and licence guards, formatting, lint, types,
+tests, and the desktop build. Run focused tests while iterating and the complete
+relevant gate before review.
+
+## Third-party licences
+
+BuilderHelm is proprietary but ships permissively licensed components, which
+obliges us to reproduce their copyright and licence text in the distribution.
+
+- `pnpm check:licenses` fails on any shipped dependency that is reciprocal
+  (GPL, AGPL, LGPL) or commercially restricted (SSPL, BUSL, non-commercial).
+  Only production dependencies count; build and test tooling is never shipped.
+- `pnpm notices` regenerates `THIRD_PARTY_NOTICES.txt` from the resolved
+  production graph. `pnpm build` and `pnpm dist` run it automatically.
+- Packaging copies that file plus Electron's `LICENSES.chromium.html`, which
+  also carries the Chromium, Node.js, and LGPL ffmpeg texts, into the app
+  resources. The Help menu opens all three.
+- Keep ffmpeg dynamically linked. LGPL is satisfied by the separate
+  `libffmpeg.dylib`; statically linking it would not be.
+
+Adding a dependency with an unrecognised licence fails the guard on purpose.
+Clear it, then add it to the allowlist in `scripts/check-licenses.mjs`.
 
 ## Native dependencies
 

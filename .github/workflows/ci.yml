@@ -33,6 +33,9 @@ jobs:
       - name: Check architecture
         run: pnpm check:architecture
 
+      - name: Check dependency licences
+        run: pnpm check:licenses
+
       - name: Verify formatting
         run: pnpm format:check
 

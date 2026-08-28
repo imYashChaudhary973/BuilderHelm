@@ -17,6 +17,18 @@ function buildStamp(): string {
   }
 }
 
+// Preventive, not the active compliance mechanism. esbuild defaults
+// `legalComments` to dropping them and, unlike Terser, has no `@license`
+// heuristic, so enabling minification later would silently delete dependency
+// copyright lines. `external` writes them beside the bundle instead.
+//
+// This does not by itself restore every banner today: minification is off, and
+// @rollup/plugin-commonjs drops the leading banner of CJS dependencies such as
+// React during interop. Attribution is therefore carried by the generated
+// THIRD_PARTY_NOTICES.txt, which reproduces each dependency's full licence text
+// and is what the MIT and BSD terms actually require.
+const preserveLegalComments = { legalComments: 'external' } as const;
+
 export default defineConfig({
   main: {
     plugins: [
@@ -31,6 +43,7 @@ export default defineConfig({
         ],
       }),
     ],
+    esbuild: preserveLegalComments,
     build: {
       rollupOptions: {
         input: { index: resolve(directory, 'src/main/index.ts') },
@@ -51,6 +64,7 @@ export default defineConfig({
         ],
       }),
     ],
+    esbuild: preserveLegalComments,
     build: {
       rollupOptions: {
         output: {
@@ -62,6 +76,7 @@ export default defineConfig({
   },
   renderer: {
     root: resolve(directory, 'src/renderer'),
+    esbuild: preserveLegalComments,
     define: {
       __BUILD_STAMP__: JSON.stringify(buildStamp()),
     },

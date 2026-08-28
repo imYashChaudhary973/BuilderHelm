@@ -21,6 +21,8 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 - Editor tree, tabs, save, save-all, autosave, and word wrap.
 - Git status, history, stage, unstage, and commit.
 - Swarm mission, roster, CLI seats, live state, directives, budgets, and worktree flow.
+- Third-party attribution generated from the production graph, shipped in the
+  app resources, reachable from the Help menu, and guarded in CI.
 
 ## Partial or needing hardening
 
@@ -28,7 +30,9 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 - Terminal throughput and renderer batching under sustained multi-pane output.
 - Consistent agent capability detection and structured-output adapters.
 - Cross-platform shell, path, credential, and PTY behavior.
-- The Node 24 and Electron 43 upgrade still needs packaged desktop verification.
+- Packaged desktop verification is thin: the packaged arm64 app starts, reports
+  renderer ready, and exits cleanly, but it is unsigned, unnotarized, and has
+  had no real user session run against it.
 
 ## Planned, not shipped
 

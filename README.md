@@ -101,6 +101,7 @@ Useful checks:
 
 ```bash
 pnpm check:architecture
+pnpm check:licenses
 pnpm typecheck
 pnpm test
 pnpm build

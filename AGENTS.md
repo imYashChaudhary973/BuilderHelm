@@ -160,6 +160,7 @@ Use focused checks while iterating. Before review, run:
 
 ```bash
 pnpm check:architecture
+pnpm check:licenses
 pnpm format:check
 pnpm lint
 pnpm typecheck

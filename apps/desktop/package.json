@@ -21,9 +21,10 @@
   },
   "scripts": {
     "postinstall": "node scripts/ensure-node-pty.mjs",
-    "build": "electron-vite build",
+    "build": "electron-vite build && pnpm notices",
     "dev": "electron-vite dev",
-    "dist": "electron-vite build && electron-builder --mac --arm64 --publish never",
+    "dist": "electron-vite build && pnpm notices && electron-builder --mac --arm64 --publish never",
+    "notices": "node ../../scripts/generate-notices.mjs",
     "smoke": "node scripts/smoke.mjs",
     "baseline:pty": "HELM_PTY_BASELINE=1 vitest run --root ../.. apps/desktop/test/pty-baseline.test.ts",
     "typecheck": "tsc -b tsconfig.node.json tsconfig.web.json --pretty false"
@@ -39,6 +40,20 @@
     ],
     "files": [
       "out"
+    ],
+    "extraResources": [
+      {
+        "from": "out/THIRD_PARTY_NOTICES.txt",
+        "to": "THIRD_PARTY_NOTICES.txt"
+      },
+      {
+        "from": "../../node_modules/electron/dist/LICENSES.chromium.html",
+        "to": "LICENSES.chromium.html"
+      },
+      {
+        "from": "../../node_modules/electron/dist/LICENSE",
+        "to": "LICENSE.electron.txt"
+      }
     ],
     "electronVersion": "43.4.1",
     "electronDist": "../../node_modules/electron/dist",

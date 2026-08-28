@@ -9,6 +9,7 @@ import { registerIpcHandlers } from './ipc.js';
 import { BoardPtyManager, probePty } from './board-pty-manager.js';
 import { PtySwarmRunner } from './swarm-runner.js';
 import { KeyringSecretStore } from './keyring-secret-store.js';
+import { installApplicationMenu } from './legal-menu.js';
 import { buildContentSecurityPolicy, secureWebPreferences } from './security.js';
 
 let core: CoreRuntime | undefined;
@@ -219,6 +220,7 @@ app
       });
     }
     unregisterIpc = registerIpcHandlers(core, boardPty, swarmRunner);
+    installApplicationMenu();
     createWindow();
 
     app.on('activate', () => {
