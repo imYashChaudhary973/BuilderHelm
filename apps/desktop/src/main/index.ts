@@ -2,8 +2,8 @@ import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { bootstrapCore, type CoreRuntime } from '@builderhelm/core';
-import { createCorrelationId } from '@builderhelm/shared';
-import { app, BrowserWindow, session } from 'electron';
+import { createCorrelationId, normalizeError } from '@builderhelm/shared';
+import { app, BrowserWindow, dialog, session } from 'electron';
 
 import { registerIpcHandlers } from './ipc.js';
 import { BoardPtyManager, probePty } from './board-pty-manager.js';
@@ -144,59 +144,85 @@ if (process.env.BUILDERHELM_DEBUG_PORT !== undefined) {
   );
 }
 
-app.whenReady().then(() => {
-  session.defaultSession.setPermissionRequestHandler(
-    (_webContents, _permission, callback) => {
-      callback(false);
-    },
-  );
-
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Content-Security-Policy': [
-          buildContentSecurityPolicy({
-            dev: Boolean(process.env.ELECTRON_RENDERER_URL),
-          }),
-        ],
-      },
-    });
-  });
-
-  const databasePath =
-    process.env.BUILDERHELM_SMOKE_TEST === '1'
-      ? join(app.getPath('temp'), `builderhelm-smoke-${process.pid}.sqlite`)
-      : (process.env.BUILDERHELM_DATABASE_PATH ??
-        join(app.getPath('userData'), 'builderhelm.sqlite'));
-  smokeDatabasePath =
-    process.env.BUILDERHELM_SMOKE_TEST === '1' ? databasePath : undefined;
-  boardPty = new BoardPtyManager();
-  swarmRunner = new PtySwarmRunner(boardPty);
-  core = bootstrapCore({
-    databasePath,
-    secretStore: new KeyringSecretStore(),
-    swarmRunner,
-  });
-  if (
-    process.env.BUILDERHELM_PTY_PROBE !== undefined &&
-    process.env.BUILDERHELM_PTY_PROBE.length > 0
-  ) {
-    core.logger.info({
-      event: 'pty.probe',
-      correlationId: createCorrelationId(),
-      data: { result: probePty(process.env.BUILDERHELM_PTY_PROBE) },
-    });
+/**
+ * Startup must fail closed and visibly.
+ *
+ * Bootstrap opens the database, runs migrations, and resolves credential
+ * storage. Any of those can fail for a reason the user has to act on: a
+ * database written by an incompatible build, an unwritable path, or a missing
+ * OS keyring. Without this the rejection is silent and leaves a running
+ * process with no window and no stated reason.
+ */
+function reportStartupFailure(error: unknown): void {
+  const failure = normalizeError(error, 'INTERNAL_ERROR');
+  const guidance =
+    failure.code === 'MIGRATION_FAILED'
+      ? 'This local database was created by an incompatible version of BuilderHelm. Move it aside, or point BUILDERHELM_DATABASE_PATH at a new file.'
+      : failure.message;
+  process.stderr.write(`desktop.startup_failed ${failure.code}: ${failure.message}\n`);
+  // A modal dialog would block the smoke test instead of letting it fail fast.
+  if (process.env.BUILDERHELM_SMOKE_TEST !== '1') {
+    dialog.showErrorBox('BuilderHelm could not start', guidance);
   }
-  unregisterIpc = registerIpcHandlers(core, boardPty, swarmRunner);
-  createWindow();
+  app.exit(1);
+}
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+app
+  .whenReady()
+  .then(() => {
+    session.defaultSession.setPermissionRequestHandler(
+      (_webContents, _permission, callback) => {
+        callback(false);
+      },
+    );
+
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [
+            buildContentSecurityPolicy({
+              dev: Boolean(process.env.ELECTRON_RENDERER_URL),
+            }),
+          ],
+        },
+      });
+    });
+
+    const databasePath =
+      process.env.BUILDERHELM_SMOKE_TEST === '1'
+        ? join(app.getPath('temp'), `builderhelm-smoke-${process.pid}.sqlite`)
+        : (process.env.BUILDERHELM_DATABASE_PATH ??
+          join(app.getPath('userData'), 'builderhelm.sqlite'));
+    smokeDatabasePath =
+      process.env.BUILDERHELM_SMOKE_TEST === '1' ? databasePath : undefined;
+    boardPty = new BoardPtyManager();
+    swarmRunner = new PtySwarmRunner(boardPty);
+    core = bootstrapCore({
+      databasePath,
+      secretStore: new KeyringSecretStore(),
+      swarmRunner,
+    });
+    if (
+      process.env.BUILDERHELM_PTY_PROBE !== undefined &&
+      process.env.BUILDERHELM_PTY_PROBE.length > 0
+    ) {
+      core.logger.info({
+        event: 'pty.probe',
+        correlationId: createCorrelationId(),
+        data: { result: probePty(process.env.BUILDERHELM_PTY_PROBE) },
+      });
     }
-  });
-});
+    unregisterIpc = registerIpcHandlers(core, boardPty, swarmRunner);
+    createWindow();
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow();
+      }
+    });
+  })
+  .catch(reportStartupFailure);
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

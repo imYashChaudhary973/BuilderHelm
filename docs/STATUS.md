@@ -54,4 +54,7 @@ This reset changes internal package names, IPC channel names, environment
 variables, the local database filename, and the Keychain service name. Existing
 development databases are not migrated automatically, and provider credentials
 must be entered again. Previous Keychain items are left untouched rather than
-deleted.
+deleted. Startup fails closed with an explanatory dialog rather than silently
+when a database predates the reset.
+
+See [MIGRATION.md](MIGRATION.md) for the one-time cleanup steps.

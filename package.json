@@ -20,7 +20,7 @@
     "test:architecture": "vitest run tests/architecture",
     "test:migrations": "vitest run packages/db/test/migrations.test.ts",
     "smoke:desktop": "pnpm --filter @builderhelm/desktop smoke",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "verify": "pnpm check:architecture && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

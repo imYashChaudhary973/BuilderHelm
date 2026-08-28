@@ -37,7 +37,7 @@ Task
 
 There is no Rust runtime, sidecar, crate, or native UI rewrite in the product
 architecture. See [Architecture](docs/ARCHITECTURE.md) and the accepted
-[TypeScript platform decision](docs/adr/0001-typescript-platform.md).
+[TypeScript platform decision](docs/adr/0007-typescript-platform.md).
 
 ## Surfaces
 

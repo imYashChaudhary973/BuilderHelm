@@ -20,16 +20,33 @@ const textExtensions = new Set([
   '.yaml',
   '.yml',
 ]);
+// Stale product namespaces. Each token must be specific enough that ordinary
+// prose cannot trip it: a bare 'zero-' also matches "zero-based" and
+// "zero-width", so the retired identifiers are listed explicitly instead.
 const staleTokens = [
   '@zero/',
   'ZERO_',
   'zero-os',
   'zero_metadata',
   'zero.provider',
-  'zero-',
+  'zero.sqlite',
   'phase-zero',
+  'phaseZero',
   'window.zero',
+  // Retired IPC channel prefix; every channel moved to 'builderhelm:'. Bare so
+  // single-quoted, double-quoted, and template literals are all caught.
+  'zero:',
+  // Retired exported identifiers from the pre-reset package namespace.
+  'ZeroError',
+  'ZeroErrorCode',
+  'ZeroDatabase',
+  'ZeroDesktopApi',
+  'ZeroId',
 ];
+// Files allowed to quote retired identifiers: this guard, which must list them,
+// and the transition runbook, which must tell users what to clean up. Keep this
+// set at exactly those two entries.
+const tokenScanExempt = new Set(['scripts/check-architecture.mjs', 'docs/MIGRATION.md']);
 const failures = [];
 
 function walk(directory) {
@@ -47,7 +64,7 @@ function walk(directory) {
       continue;
     }
     if (
-      repoPath !== 'scripts/check-architecture.mjs' &&
+      !tokenScanExempt.has(repoPath) &&
       textExtensions.has(entry.name.slice(entry.name.lastIndexOf('.')))
     ) {
       const source = readFileSync(path, 'utf8');

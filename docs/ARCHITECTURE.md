@@ -7,7 +7,7 @@ xterm.js, node-pty, SQLite, and schema-validated contracts.
 
 Product runtime and application logic are implemented in TypeScript. The
 repository does not contain or ship a Rust engine, Rust UI, Cargo workspace, or
-native sidecar. See [ADR 0001](adr/0001-typescript-platform.md).
+native sidecar. See [ADR 0007](adr/0007-typescript-platform.md).
 
 ## Process model
 

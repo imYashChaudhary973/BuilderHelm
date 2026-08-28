@@ -1,7 +1,8 @@
-# ADR 0001: TypeScript product platform
+# ADR 0007: TypeScript product platform
 
 - Status: Accepted
 - Date: 2026-08-28
+- Supersedes: the retired native-engine migration and hybrid-architecture plans.
 
 ## Context
 

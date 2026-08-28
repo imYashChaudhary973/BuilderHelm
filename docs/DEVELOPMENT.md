@@ -32,6 +32,24 @@ Use an isolated database while developing:
 BUILDERHELM_DATABASE_PATH=/private/tmp/builderhelm-dev.sqlite pnpm dev
 ```
 
+### Environment variables
+
+| Variable                    | Purpose                                                                                                                                                                     |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BUILDERHELM_DATABASE_PATH` | Use an explicit SQLite file. Defaults to `builderhelm.sqlite` in the user data directory.                                                                                   |
+| `BUILDERHELM_SMOKE_TEST`    | Set to `1` by `pnpm smoke:desktop`. Forces a temporary database, keeps the window hidden, and exits once the renderer reports ready. Overrides `BUILDERHELM_DATABASE_PATH`. |
+| `BUILDERHELM_DEBUG_PORT`    | Exposes a Chrome DevTools Protocol endpoint on that port so external tooling can attach to the renderer.                                                                    |
+| `BUILDERHELM_PTY_PROBE`     | Spawns one throwaway PTY in the given directory at startup and logs the result. Use when diagnosing terminal spawn failures.                                                |
+
+Never point these at live user data. `BUILDERHELM_SMOKE_TEST` and
+`BUILDERHELM_PTY_PROBE` are diagnostics, not product configuration.
+
+## Migrating from a pre-reset build
+
+The architecture reset renamed the local database, the keychain service, and the
+first migration. Nothing is migrated automatically. See
+[MIGRATION.md](MIGRATION.md) for the one-time cleanup steps.
+
 ## Checks
 
 ```bash
