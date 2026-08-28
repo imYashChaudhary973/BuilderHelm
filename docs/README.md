@@ -15,6 +15,7 @@ behavior or the intended product changes.
 7. [Feature contracts](features/README.md) — one document per product surface.
 8. [Architecture decisions](adr/README.md) — durable accepted decisions.
 9. [Migration](MIGRATION.md) — one-time steps for installs predating the reset.
+10. [Legal](legal/README.md) — customer-facing EULA and Privacy Policy drafts.
 
 ## Source hierarchy
 
