@@ -6,7 +6,7 @@
 // Electron on this path is the final `webContents.send`. Spawn, per-chunk
 // encoding and envelope parsing, write, resize, and kill are exercised for real.
 //
-// Skipped unless `HELM_PTY_BASELINE=1`, because it starts twelve interactive
+// Skipped unless `BUILDERHELM_PTY_BASELINE=1`, because it starts twelve interactive
 // login shells and takes seconds. Run it with:
 //
 //     pnpm --filter @builderhelm/desktop baseline:pty
@@ -134,11 +134,11 @@ function report(rows: BaselineReport): void {
   process.stdout.write(`\n12-pane Electron PTY baseline\n${lines.join('\n')}\n\n`);
 }
 
-describe.skipIf(process.env['HELM_PTY_BASELINE'] !== '1')(
+describe.skipIf(process.env['BUILDERHELM_PTY_BASELINE'] !== '1')(
   'twelve-pane Electron PTY baseline',
   () => {
     it('records spawn, echo, throughput, cost, and orphan behaviour', async () => {
-      const folder = mkdtempSync(join(tmpdir(), 'helm-pty-baseline-'));
+      const folder = mkdtempSync(join(tmpdir(), 'builderhelm-pty-baseline-'));
       const manager = new BoardPtyManager();
       const sender = new RecordingSender();
       const timings = new Map<string, PaneTiming>();

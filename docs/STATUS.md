@@ -25,8 +25,14 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 ## Partial or needing hardening
 
 - Swarm verification, review, landing, stop/reconnect, and failure recovery.
-- Terminal throughput and renderer batching under sustained multi-pane output.
-- Consistent agent capability detection and structured-output adapters.
+- Terminal output is batched in Electron main and startup scanning is
+  incremental. Verified on macOS at 1, 2, 4, 8, and 12 panes. Still missing:
+  renderer-side write coalescing, backpressure when a pane outruns the
+  renderer, and reconnect that reconciles the drain snapshot against live
+  events without duplicating output.
+- Installed CLI detection spawns one login shell per catalogued agent, so a
+  single probe starts twelve of them and inherits whatever the user's shell
+  profile launches. Needs one probe per call and structured-output adapters.
 - Cross-platform shell, path, credential, and PTY behavior.
 - The Node 24 and Electron 43 upgrade still needs packaged desktop verification.
 

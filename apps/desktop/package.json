@@ -25,7 +25,7 @@
     "dev": "electron-vite dev",
     "dist": "electron-vite build && electron-builder --mac --arm64 --publish never",
     "smoke": "node scripts/smoke.mjs",
-    "baseline:pty": "HELM_PTY_BASELINE=1 vitest run --root ../.. apps/desktop/test/pty-baseline.test.ts",
+    "baseline:pty": "BUILDERHELM_PTY_BASELINE=1 vitest run --root ../.. apps/desktop/test/pty-baseline.test.ts",
     "typecheck": "tsc -b tsconfig.node.json tsconfig.web.json --pretty false"
   },
   "build": {

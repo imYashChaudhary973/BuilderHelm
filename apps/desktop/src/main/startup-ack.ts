@@ -17,6 +17,51 @@ const STARTUP_FAILS: readonly { id: string; match: RegExp }[] = [
 
 const ansi = new RegExp(`${String.fromCharCode(27)}\\[[0-9;?]*[ -/]*[@-~]`, 'g');
 
+const startupScanOverlapChars = 256;
+
+export interface StartupScan {
+  readonly tail: string;
+  readonly ack: { id: string; reply: string } | null;
+  readonly failure: string | null;
+}
+
+function findStartupAck(
+  text: string,
+  already: ReadonlySet<string>,
+): { id: string; reply: string } | null {
+  for (const ack of STARTUP_ACKS) {
+    if (already.has(ack.id)) continue;
+    if (ack.match.test(text)) return { id: ack.id, reply: ack.reply };
+  }
+  return null;
+}
+
+function findStartupFailure(text: string): string | null {
+  for (const fail of STARTUP_FAILS) {
+    if (fail.match.test(text)) return fail.id;
+  }
+  return null;
+}
+
+/**
+ * Scans only new PTY output plus enough raw overlap to catch a prompt or ANSI
+ * sequence split across chunks. The retained terminal snapshot is much larger
+ * and must not be reprocessed for every byte.
+ */
+export function scanStartupChunk(
+  previousTail: string,
+  chunk: string,
+  already: ReadonlySet<string>,
+): StartupScan {
+  const raw = previousTail + chunk;
+  const text = visibleText(raw);
+  return {
+    tail: raw.slice(-startupScanOverlapChars),
+    ack: findStartupAck(text, already),
+    failure: findStartupFailure(text),
+  };
+}
+
 export function visibleText(output: string): string {
   return output.replace(ansi, '');
 }
@@ -25,18 +70,9 @@ export function nextStartupAck(
   output: string,
   already: ReadonlySet<string>,
 ): { id: string; reply: string } | null {
-  const text = visibleText(output);
-  for (const ack of STARTUP_ACKS) {
-    if (already.has(ack.id)) continue;
-    if (ack.match.test(text)) return { id: ack.id, reply: ack.reply };
-  }
-  return null;
+  return findStartupAck(visibleText(output), already);
 }
 
 export function startupFailure(output: string): string | null {
-  const text = visibleText(output);
-  for (const fail of STARTUP_FAILS) {
-    if (fail.match.test(text)) return fail.id;
-  }
-  return null;
+  return findStartupFailure(visibleText(output));
 }

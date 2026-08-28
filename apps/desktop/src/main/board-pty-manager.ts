@@ -27,7 +27,7 @@ import { BuilderHelmError } from '@builderhelm/shared';
 import { Notification, type WebContents } from 'electron';
 import { spawn, type IPty } from 'node-pty';
 
-import { nextStartupAck, startupFailure } from './startup-ack.js';
+import { scanStartupChunk } from './startup-ack.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -39,6 +39,9 @@ interface PaneMeta {
   branch: string | null;
   cwd: string;
   output: string;
+  startupTail: string;
+  pendingData: string;
+  flushTimer: NodeJS.Timeout | null;
   acked: Set<string>;
   pty: IPty | null;
 }
@@ -58,6 +61,9 @@ const agentLabelById: Record<string, string> = Object.fromEntries(
   BOARD_AGENT_CATALOG.map((entry) => [entry.id, entry.label]),
 );
 const maxBufferedChars = 80_000;
+
+const outputBatchDelayMs = 8;
+const maxPendingDataChars = 64 * 1024;
 
 function resolveCommand(agentId: BoardAgentId, override: string | undefined): string {
   if (agentId === 'shell') return '';
@@ -245,7 +251,10 @@ export class BoardPtyManager {
         );
       }
     } catch (error) {
-      for (const pane of session.panes.values()) pane.pty?.kill();
+      for (const pane of session.panes.values()) {
+        this.cancelDataFlush(pane);
+        pane.pty?.kill();
+      }
       this.sessions.delete(sessionId);
       throw error;
     }
@@ -330,6 +339,9 @@ export class BoardPtyManager {
       branch: location.branch,
       cwd: location.cwd,
       output: '',
+      startupTail: '',
+      pendingData: '',
+      flushTimer: null,
       acked: new Set(),
       pty,
     };
@@ -340,12 +352,13 @@ export class BoardPtyManager {
       const next = meta.output + text;
       meta.output =
         next.length <= maxBufferedChars ? next : next.slice(-maxBufferedChars);
-      const ack = nextStartupAck(meta.output, meta.acked);
-      if (ack !== null) {
-        meta.acked.add(ack.id);
-        pty.write(ack.reply);
+      const startup = scanStartupChunk(meta.startupTail, text, meta.acked);
+      meta.startupTail = startup.tail;
+      if (startup.ack !== null) {
+        meta.acked.add(startup.ack.id);
+        pty.write(startup.ack.reply);
       }
-      if (meta.status === 'running' && startupFailure(meta.output) !== null) {
+      if (meta.status === 'running' && startup.failure !== null) {
         meta.status = 'failed';
         this.forward(sessionId, paneId, {
           type: 'status',
@@ -353,12 +366,10 @@ export class BoardPtyManager {
           exitCode: null,
         });
       }
-      this.forward(sessionId, paneId, {
-        type: 'data',
-        data: Buffer.from(text, 'utf8').toString('base64'),
-      });
+      this.queueData(sessionId, paneId, meta, text);
     });
     pty.onExit(({ exitCode }) => {
+      this.flushData(sessionId, paneId, meta);
       meta.pty = null;
       for (const resolve of this.exitWaiters.get(paneId) ?? []) {
         resolve({ exitCode, output: meta.output });
@@ -397,6 +408,7 @@ export class BoardPtyManager {
     if (session === undefined || pane === undefined) {
       throw new BuilderHelmError('VALIDATION_FAILED', 'Unknown pane session or pane');
     }
+    this.flushData(input.sessionId, input.paneId, pane);
     this.closing.add(input.paneId);
     pane.pty?.kill();
     pane.pty = null;
@@ -421,12 +433,47 @@ export class BoardPtyManager {
   dispose(): void {
     for (const session of this.sessions.values()) {
       for (const [paneId, pane] of session.panes) {
+        this.cancelDataFlush(pane);
         this.closing.add(paneId);
         pane.pty?.kill();
         pane.pty = null;
       }
     }
     this.sessions.clear();
+  }
+
+  private queueData(
+    sessionId: string,
+    paneId: string,
+    pane: PaneMeta,
+    text: string,
+  ): void {
+    pane.pendingData += text;
+    if (pane.pendingData.length >= maxPendingDataChars) {
+      this.flushData(sessionId, paneId, pane);
+      return;
+    }
+    pane.flushTimer ??= setTimeout(() => {
+      pane.flushTimer = null;
+      this.flushData(sessionId, paneId, pane);
+    }, outputBatchDelayMs);
+  }
+
+  private flushData(sessionId: string, paneId: string, pane: PaneMeta): void {
+    this.cancelDataFlush(pane);
+    if (pane.pendingData.length === 0) return;
+    const data = pane.pendingData;
+    pane.pendingData = '';
+    this.forward(sessionId, paneId, {
+      type: 'data',
+      data: Buffer.from(data, 'utf8').toString('base64'),
+    });
+  }
+
+  private cancelDataFlush(pane: PaneMeta): void {
+    if (pane.flushTimer === null) return;
+    clearTimeout(pane.flushTimer);
+    pane.flushTimer = null;
   }
 
   private requirePane(sessionId: string, paneId: string): PaneMeta {
