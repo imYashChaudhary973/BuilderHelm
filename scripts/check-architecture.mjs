@@ -3,7 +3,21 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const ignored = new Set(['.git', 'node_modules', 'out', 'dist', 'coverage']);
+// Generated output, never source. Stale artifacts from an earlier build would
+// otherwise fail this check on a developer machine while passing on a fresh CI
+// checkout, which makes the gate untrustworthy locally. `target` is retired
+// Rust output; skipping it opens no hole, because reintroducing Rust also
+// reintroduces Cargo.toml, `crates/`, or a `.rs` source file, all still caught.
+const ignored = new Set([
+  '.git',
+  'node_modules',
+  '.pnpm-store',
+  'out',
+  'dist',
+  'dist-types',
+  'coverage',
+  'target',
+]);
 const forbiddenNames = new Set([
   'Cargo.lock',
   'Cargo.toml',
