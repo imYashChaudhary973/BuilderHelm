@@ -1,5 +1,5 @@
 {
-  "name": "@zero/observability",
+  "name": "@builderhelm/observability",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     }
   },
   "dependencies": {
-    "@zero/shared": "workspace:*"
+    "@builderhelm/shared": "workspace:*"
   },
   "scripts": {
     "build": "tsc -b",

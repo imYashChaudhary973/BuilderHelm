@@ -1,21 +1,24 @@
 import { AsyncEntry } from '@napi-rs/keyring';
-import { ZERO_KEYCHAIN_SERVICE, type SecretStore } from '@zero/core';
-import { ZeroError } from '@zero/shared';
+import { BUILDERHELM_KEYCHAIN_SERVICE, type SecretStore } from '@builderhelm/core';
+import { BuilderHelmError } from '@builderhelm/shared';
 
-const validSecretRef = /^zero\.provider\.[0-9a-f-]{36}\.api-key$/;
+const validSecretRef = /^builderhelm\.provider\.[0-9a-f-]{36}\.api-key$/;
 
 export class KeyringSecretStore implements SecretStore {
   private entry(ref: string): AsyncEntry {
     if (process.platform !== 'darwin') {
-      throw new ZeroError(
+      throw new BuilderHelmError(
         'INTEGRATION_OFFLINE',
         'Secure provider credentials currently require macOS Keychain',
       );
     }
     if (!validSecretRef.test(ref)) {
-      throw new ZeroError('VALIDATION_FAILED', 'Invalid secure credential reference');
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'Invalid secure credential reference',
+      );
     }
-    return new AsyncEntry(ZERO_KEYCHAIN_SERVICE, ref);
+    return new AsyncEntry(BUILDERHELM_KEYCHAIN_SERVICE, ref);
   }
 
   async set(ref: string, secret: string): Promise<void> {

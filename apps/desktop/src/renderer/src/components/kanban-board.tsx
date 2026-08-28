@@ -1,5 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { KanbanCard, KanbanColumn, KanbanProject } from '@zero/protocol/kanban';
+import type {
+  KanbanCard,
+  KanbanColumn,
+  KanbanProject,
+} from '@builderhelm/protocol/kanban';
 import { useEffect, useState } from 'react';
 
 import { useBoards } from '../board-store.js';
@@ -167,7 +171,7 @@ export function KanbanBoard(): React.JSX.Element {
   const queryClient = useQueryClient();
   const projects = useQuery({
     queryKey: ['kanban-projects'],
-    queryFn: () => window.zero.board.listProjects({}),
+    queryFn: () => window.builderHelm.board.listProjects({}),
   });
   const selectedProject = projects.data?.find(
     (project) => project.id === boards.activeId,
@@ -196,7 +200,7 @@ export function KanbanBoard(): React.JSX.Element {
       return;
     }
     let alive = true;
-    void window.zero.board
+    void window.builderHelm.board
       .listCards({ workspace: boards.activeId })
       .then((next) => {
         if (!alive) return;
@@ -214,7 +218,7 @@ export function KanbanBoard(): React.JSX.Element {
   }, [boards.activeId]);
 
   const createProject = useMutation({
-    mutationFn: (name: string) => window.zero.board.createProject({ name }),
+    mutationFn: (name: string) => window.builderHelm.board.createProject({ name }),
     onMutate: () => setError(null),
     onSuccess: async (project) => {
       setProjectName('');
@@ -240,7 +244,7 @@ export function KanbanBoard(): React.JSX.Element {
     setBusy(true);
     setError(null);
     try {
-      const card = await window.zero.board.createCard({
+      const card = await window.builderHelm.board.createCard({
         workspace: selectedProject.id,
         title: trimmed,
         column,
@@ -264,7 +268,10 @@ export function KanbanBoard(): React.JSX.Element {
     setBusy(true);
     setError(null);
     try {
-      const next = await window.zero.board.updateCard({ id: card.id, title: trimmed });
+      const next = await window.builderHelm.board.updateCard({
+        id: card.id,
+        title: trimmed,
+      });
       setCards((current) => current.map((item) => (item.id === next.id ? next : item)));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not rename the card');
@@ -277,7 +284,7 @@ export function KanbanBoard(): React.JSX.Element {
     setBusy(true);
     setError(null);
     try {
-      await window.zero.board.deleteCard({ id: card.id });
+      await window.builderHelm.board.deleteCard({ id: card.id });
       setCards((current) => current.filter((item) => item.id !== card.id));
       if (editingId === card.id) setEditingId(null);
       await refreshProjects();
@@ -292,7 +299,7 @@ export function KanbanBoard(): React.JSX.Element {
     setBusy(true);
     setError(null);
     try {
-      const next = await window.zero.board.moveCard({ id: card.id, column });
+      const next = await window.builderHelm.board.moveCard({ id: card.id, column });
       setCards((current) => current.map((item) => (item.id === next.id ? next : item)));
       await refreshProjects();
     } catch (cause) {

@@ -1,5 +1,5 @@
-import type { ModelRequest } from '@zero/protocol';
-import { createId, utcNow } from '@zero/shared';
+import type { ModelRequest } from '@builderhelm/protocol';
+import { createId, utcNow } from '@builderhelm/shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -14,7 +14,7 @@ function context(providerId = createId()): ProviderInvocationContext {
     providerId,
     baseUrl: 'https://api.example.test/v1',
     credential: 'fake-openai-contract-credential',
-    headers: { 'X-Zero-Test': 'contract' },
+    headers: { 'X-BuilderHelm-Test': 'contract' },
     signal: new AbortController().signal,
   };
 }

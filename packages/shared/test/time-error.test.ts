@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { normalizeError, toUtcTimestamp, ZeroError } from '../src/index.js';
+import { normalizeError, toUtcTimestamp, BuilderHelmError } from '../src/index.js';
 
 describe('time utilities', () => {
   it('normalizes timestamps to UTC', () => {
@@ -12,15 +12,15 @@ describe('time utilities', () => {
   });
 });
 
-describe('ZeroError', () => {
+describe('BuilderHelmError', () => {
   it('preserves stable error codes without serializing the cause', () => {
-    const error = new ZeroError('PERMISSION_DENIED', 'Denied', {
+    const error = new BuilderHelmError('PERMISSION_DENIED', 'Denied', {
       cause: new Error('internal'),
       metadata: { toolId: 'task.create' },
     });
 
     expect(error.toJSON()).toEqual({
-      name: 'ZeroError',
+      name: 'BuilderHelmError',
       code: 'PERMISSION_DENIED',
       message: 'Denied',
       retryable: false,

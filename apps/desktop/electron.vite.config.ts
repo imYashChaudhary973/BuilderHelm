@@ -22,21 +22,18 @@ export default defineConfig({
     plugins: [
       externalizeDepsPlugin({
         exclude: [
-          '@zero/core',
-          '@zero/db',
-          '@zero/model-gateway',
-          '@zero/observability',
-          '@zero/protocol',
-          '@zero/shared',
+          '@builderhelm/core',
+          '@builderhelm/db',
+          '@builderhelm/model-gateway',
+          '@builderhelm/observability',
+          '@builderhelm/protocol',
+          '@builderhelm/shared',
         ],
       }),
     ],
     build: {
       rollupOptions: {
-        input: {
-          index: resolve(directory, 'src/main/index.ts'),
-          'pty-host': resolve(directory, 'src/main/pty-host.ts'),
-        },
+        input: { index: resolve(directory, 'src/main/index.ts') },
         output: {
           entryFileNames: '[name].js',
         },
@@ -46,7 +43,12 @@ export default defineConfig({
   preload: {
     plugins: [
       externalizeDepsPlugin({
-        exclude: ['@zero/protocol', '@zero/shared', '@zero/shared/error', 'zod'],
+        exclude: [
+          '@builderhelm/protocol',
+          '@builderhelm/shared',
+          '@builderhelm/shared/error',
+          'zod',
+        ],
       }),
     ],
     build: {

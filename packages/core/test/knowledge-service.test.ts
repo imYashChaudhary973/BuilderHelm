@@ -2,10 +2,15 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { KnowledgeRepository, migrations, openDatabase, runMigrations } from '@zero/db';
-import { createLogger } from '@zero/observability';
-import type { ModelRequest } from '@zero/protocol';
-import { createCorrelationId, createId } from '@zero/shared';
+import {
+  KnowledgeRepository,
+  migrations,
+  openDatabase,
+  runMigrations,
+} from '@builderhelm/db';
+import { createLogger } from '@builderhelm/observability';
+import type { ModelRequest } from '@builderhelm/protocol';
+import { createCorrelationId, createId } from '@builderhelm/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { KnowledgeService } from '../src/knowledge/knowledge-service.js';
@@ -20,7 +25,7 @@ afterEach(() => {
 function fixture(
   answerText = 'Architecture B was selected for local-first offline use [S1].',
 ) {
-  const root = mkdtempSync(join(tmpdir(), 'zero-knowledge-'));
+  const root = mkdtempSync(join(tmpdir(), 'builderhelm-knowledge-'));
   mkdirSync(join(root, '.obsidian'));
   const notePath = join(root, 'Architecture Decision.md');
   writeFileSync(
@@ -31,12 +36,12 @@ function fixture(
       '---',
       '# Decision',
       'We chose architecture B because it keeps personal notes local and works offline.',
-      'See [[Project Zero]].',
+      'See [[Project BuilderHelm]].',
     ].join('\n'),
   );
   writeFileSync(
-    join(root, 'Project Zero.md'),
-    '# Project Zero\nProject context linked from the decision.',
+    join(root, 'Project BuilderHelm.md'),
+    '# Project BuilderHelm\nProject context linked from the decision.',
   );
   const database = openDatabase(':memory:');
   runMigrations(database, migrations);
@@ -93,7 +98,7 @@ describe('knowledge service', () => {
         lineStart: 4,
         lineEnd: 6,
       },
-      { notePath: 'Project Zero.md', title: 'Project Zero' },
+      { notePath: 'Project BuilderHelm.md', title: 'Project BuilderHelm' },
     ]);
     const source = test.service.getSource(
       answer.citations[0]!.sourceId,

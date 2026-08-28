@@ -6,8 +6,8 @@ import type {
   KnowledgeDocumentWrite,
   KnowledgeEntityWrite,
   KnowledgeLinkWrite,
-} from '@zero/db';
-import { createId, utcNow } from '@zero/shared';
+} from '@builderhelm/db';
+import { createId, utcNow } from '@builderhelm/shared';
 
 const maxChunkCharacters = 3_000;
 const maxLabelCharacters = 500;

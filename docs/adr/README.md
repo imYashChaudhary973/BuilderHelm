@@ -1,20 +1,12 @@
-# Architecture Decision Records
+# Architecture decisions
 
-ADRs preserve durable technical decisions and their consequences. Accepted ADRs
-are historical records: supersede a decision with a new ADR instead of rewriting
-the original outcome.
+Only current durable decisions live here. Abandoned migration plans and
+superseded implementation checklists are removed to prevent agents from acting
+on stale instructions.
 
-| ADR                                        | Status     | Decision                                                                                     |
-| ------------------------------------------ | ---------- | -------------------------------------------------------------------------------------------- |
-| [0001](0001-phase-zero-foundation.md)      | Accepted   | Phase 0 workspace, Electron, SQLite, IPC, IDs, and UI foundation                             |
-| [0002](0002-secure-provider-settings.md)   | Accepted   | Keychain-backed provider settings and secret boundary                                        |
-| [0003](0003-model-gateway-boundary.md)     | Accepted   | Provider-independent model gateway boundary                                                  |
-| [0004](0004-canonical-chat-persistence.md) | Accepted   | Provider-independent canonical chat persistence                                              |
-| [0005](0005-rust-migration.md)             | Superseded | Full migration to a single Rust codebase (superseded by [0006](0006-hybrid-architecture.md)) |
-| [0006](0006-hybrid-architecture.md)        | Accepted   | Hybrid architecture: Rust core engine + TypeScript platform                                  |
+| ADR                                 | Status   | Decision                                                                |
+| ----------------------------------- | -------- | ----------------------------------------------------------------------- |
+| [0001](0001-typescript-platform.md) | Accepted | Electron, React, Vite, Node.js, and TypeScript are the product platform |
 
-## Adding a decision
-
-Use the next four-digit sequence and include `Status`, `Date`, `Context`,
-`Decision`, and `Consequences`. Link superseding and superseded ADRs in both
-documents.
+New ADRs include status, date, context, decision, consequences, and replacement
+criteria. If a decision changes, update this index and remove conflicting plans.

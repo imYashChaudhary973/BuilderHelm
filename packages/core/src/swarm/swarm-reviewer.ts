@@ -1,4 +1,4 @@
-import type { SwarmReviewVerdict } from '@zero/protocol';
+import type { SwarmReviewVerdict } from '@builderhelm/protocol';
 
 export interface SwarmReviewRequest {
   readonly taskTitle: string;

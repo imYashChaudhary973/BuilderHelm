@@ -1,12 +1,10 @@
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { bootstrapCore, type CoreRuntime } from '@zero/core';
-import { ipcChannels } from '@zero/protocol';
-import { createCorrelationId } from '@zero/shared';
+import { bootstrapCore, type CoreRuntime } from '@builderhelm/core';
+import { createCorrelationId } from '@builderhelm/shared';
 import { app, BrowserWindow, session } from 'electron';
 
-import { EngineClient } from './engine-client.js';
 import { registerIpcHandlers } from './ipc.js';
 import { BoardPtyManager, probePty } from './board-pty-manager.js';
 import { PtySwarmRunner } from './swarm-runner.js';
@@ -18,55 +16,6 @@ let unregisterIpc: (() => void) | undefined;
 let boardPty: BoardPtyManager | undefined;
 let swarmRunner: PtySwarmRunner | undefined;
 let smokeDatabasePath: string | undefined;
-let engine: EngineClient | undefined;
-
-/**
- * Start the Rust engine sidecar if this build ships one.
- *
- * Phase A stands the bridge up and verifies it; every channel still runs on
- * its TypeScript handler, so a missing binary is not a failure - it means the
- * engine has not been built in this checkout. Phase C moves namespaces onto
- * the engine one at a time, and from then on its absence is fatal.
- */
-async function startEngine(runtime: CoreRuntime): Promise<void> {
-  const bin = process.env.HELM_ENGINE_BIN;
-  if (bin === undefined || bin.length === 0) return;
-  const client = new EngineClient({
-    bin,
-    expectedChannels: Object.values(ipcChannels),
-    onLog: (line) => {
-      runtime.logger.info({
-        event: 'engine.log',
-        correlationId: createCorrelationId(),
-        data: { line },
-      });
-    },
-  });
-  try {
-    const hello = await client.start();
-    engine = client;
-    runtime.logger.info({
-      event: 'engine.ready',
-      correlationId: createCorrelationId(),
-      // `events` is who owns push channels. Zero means TypeScript still does,
-      // which is what phase B changes for the PTY.
-      data: {
-        engine: hello.engine,
-        host: hello.host,
-        channels: hello.channels.length,
-        events: hello.events.length,
-      },
-    });
-  } catch (error) {
-    // Fail closed on the engine, not on the app: the TypeScript handlers are
-    // still serving every channel in phase A.
-    runtime.logger.error({
-      event: 'engine.unavailable',
-      correlationId: createCorrelationId(),
-      data: { reason: error instanceof Error ? error.message : String(error) },
-    });
-  }
-}
 
 function isAllowedNavigation(currentUrl: string, destinationUrl: string): boolean {
   try {
@@ -121,7 +70,7 @@ function createWindow(): BrowserWindow {
   });
 
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  if (process.env.ZERO_SMOKE_TEST === '1') {
+  if (process.env.BUILDERHELM_SMOKE_TEST === '1') {
     window.webContents.on('preload-error', (_event, _preloadPath, error) => {
       core?.logger.error({
         event: 'desktop.preload_failed',
@@ -162,14 +111,14 @@ function createWindow(): BrowserWindow {
   window.on('leave-full-screen', syncFullscreen);
   window.webContents.on('did-finish-load', syncFullscreen);
 
-  if (process.env.ZERO_SMOKE_TEST !== '1') {
+  if (process.env.BUILDERHELM_SMOKE_TEST !== '1') {
     window.once('ready-to-show', () => {
       window.show();
       window.focus();
     });
   }
 
-  if (process.env.ZERO_SMOKE_TEST === '1') {
+  if (process.env.BUILDERHELM_SMOKE_TEST === '1') {
     window.webContents.once('did-finish-load', () => {
       void completeSmokeWhenRendererIsReady(window).catch((error: unknown) => {
         core?.logger.error({
@@ -186,13 +135,16 @@ function createWindow(): BrowserWindow {
   return window;
 }
 
-// Dev affordance: ZERO_DEBUG_PORT=<port> exposes a CDP endpoint so external
+// Dev affordance: BUILDERHELM_DEBUG_PORT=<port> exposes a CDP endpoint so external
 // tooling can attach to the renderer. No effect unless the variable is set.
-if (process.env.ZERO_DEBUG_PORT !== undefined) {
-  app.commandLine.appendSwitch('remote-debugging-port', process.env.ZERO_DEBUG_PORT);
+if (process.env.BUILDERHELM_DEBUG_PORT !== undefined) {
+  app.commandLine.appendSwitch(
+    'remote-debugging-port',
+    process.env.BUILDERHELM_DEBUG_PORT,
+  );
 }
 
-app.whenReady().then(async () => {
+app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler(
     (_webContents, _permission, callback) => {
       callback(false);
@@ -213,10 +165,12 @@ app.whenReady().then(async () => {
   });
 
   const databasePath =
-    process.env.ZERO_SMOKE_TEST === '1'
-      ? join(app.getPath('temp'), `zero-os-smoke-${process.pid}.sqlite`)
-      : (process.env.ZERO_DATABASE_PATH ?? join(app.getPath('userData'), 'zero.sqlite'));
-  smokeDatabasePath = process.env.ZERO_SMOKE_TEST === '1' ? databasePath : undefined;
+    process.env.BUILDERHELM_SMOKE_TEST === '1'
+      ? join(app.getPath('temp'), `builderhelm-smoke-${process.pid}.sqlite`)
+      : (process.env.BUILDERHELM_DATABASE_PATH ??
+        join(app.getPath('userData'), 'builderhelm.sqlite'));
+  smokeDatabasePath =
+    process.env.BUILDERHELM_SMOKE_TEST === '1' ? databasePath : undefined;
   boardPty = new BoardPtyManager();
   swarmRunner = new PtySwarmRunner(boardPty);
   core = bootstrapCore({
@@ -224,22 +178,17 @@ app.whenReady().then(async () => {
     secretStore: new KeyringSecretStore(),
     swarmRunner,
   });
-  if (process.env.ZERO_PTY_PROBE !== undefined && process.env.ZERO_PTY_PROBE.length > 0) {
+  if (
+    process.env.BUILDERHELM_PTY_PROBE !== undefined &&
+    process.env.BUILDERHELM_PTY_PROBE.length > 0
+  ) {
     core.logger.info({
       event: 'pty.probe',
       correlationId: createCorrelationId(),
-      data: { result: probePty(process.env.ZERO_PTY_PROBE) },
+      data: { result: probePty(process.env.BUILDERHELM_PTY_PROBE) },
     });
   }
   unregisterIpc = registerIpcHandlers(core, boardPty, swarmRunner);
-  // The smoke test asserts on the engine's log line, so it waits for the
-  // handshake to settle. A normal launch does not: phase A keeps every
-  // channel on its TypeScript handler, so the window must not sit behind a
-  // process spawn it does not yet depend on.
-  const engineStarted = startEngine(core);
-  if (process.env.ZERO_SMOKE_TEST === '1') {
-    await engineStarted;
-  }
   createWindow();
 
   app.on('activate', () => {
@@ -260,8 +209,6 @@ app.on('before-quit', () => {
   unregisterIpc = undefined;
   boardPty?.dispose();
   boardPty = undefined;
-  void engine?.stop();
-  engine = undefined;
   core?.close();
   core = undefined;
   if (smokeDatabasePath !== undefined) {

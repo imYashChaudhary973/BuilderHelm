@@ -1,4 +1,4 @@
-import type { ZeroDatabase } from './database.js';
+import type { BuilderHelmDatabase } from './database.js';
 
 export interface KnowledgeVaultWrite {
   readonly id: string;
@@ -99,7 +99,7 @@ const vaultColumns = `
 `;
 
 export class KnowledgeRepository {
-  constructor(private readonly database: ZeroDatabase) {}
+  constructor(private readonly database: BuilderHelmDatabase) {}
 
   listVaults(): StoredKnowledgeVault[] {
     return this.database.queryAll<StoredKnowledgeVault>(`

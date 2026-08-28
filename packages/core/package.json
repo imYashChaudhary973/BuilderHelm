@@ -1,5 +1,5 @@
 {
-  "name": "@zero/core",
+  "name": "@builderhelm/core",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,12 +10,12 @@
     }
   },
   "dependencies": {
-    "@zero/db": "workspace:*",
-    "@zero/model-gateway": "workspace:*",
-    "@zero/observability": "workspace:*",
-    "@zero/protocol": "workspace:*",
-    "@zero/shared": "workspace:*",
-    "@zero/tools": "workspace:*"
+    "@builderhelm/db": "workspace:*",
+    "@builderhelm/model-gateway": "workspace:*",
+    "@builderhelm/observability": "workspace:*",
+    "@builderhelm/protocol": "workspace:*",
+    "@builderhelm/shared": "workspace:*",
+    "@builderhelm/tools": "workspace:*"
   },
   "scripts": {
     "build": "tsc -b",

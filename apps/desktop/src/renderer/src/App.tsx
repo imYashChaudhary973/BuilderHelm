@@ -23,7 +23,7 @@ function Shell(): React.JSX.Element {
 
   useEffect(() => {
     if (preview.open && preview.tab === 'browser') return;
-    void window.zero?.browser.command({ action: 'hide' }).catch(() => undefined);
+    void window.builderHelm?.browser.command({ action: 'hide' }).catch(() => undefined);
   }, [preview.open, preview.tab]);
 
   function toggleRail(): void {
@@ -42,7 +42,7 @@ function Shell(): React.JSX.Element {
     .filter((item) => item.length > 0)
     .join(' ');
 
-  if (typeof window.zero === 'undefined') {
+  if (typeof window.builderHelm === 'undefined') {
     return (
       <main className="content" role="main">
         <p className="errorBanner" role="alert">

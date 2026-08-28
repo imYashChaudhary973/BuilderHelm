@@ -5,8 +5,8 @@ import {
   type BrowserCommandInput,
   type BrowserState,
   type PreviewBounds,
-} from '@zero/protocol/browser';
-import { ZeroError } from '@zero/shared';
+} from '@builderhelm/protocol/browser';
+import { BuilderHelmError } from '@builderhelm/shared';
 
 import { secureWebPreferences } from './security.js';
 
@@ -26,7 +26,7 @@ export class PreviewBrowser {
   async handle(sender: WebContents, input: BrowserCommandInput): Promise<BrowserState> {
     const win = BrowserWindow.fromWebContents(sender);
     if (win === null) {
-      throw new ZeroError('VALIDATION_FAILED', 'No window for preview');
+      throw new BuilderHelmError('VALIDATION_FAILED', 'No window for preview');
     }
     switch (input.action) {
       case 'open':
@@ -67,7 +67,10 @@ export class PreviewBrowser {
   ): Promise<void> {
     const url = parsePreviewUrl(raw);
     if (url === null) {
-      throw new ZeroError('VALIDATION_FAILED', 'Only http and https URLs are allowed');
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'Only http and https URLs are allowed',
+      );
     }
     const view = this.ensure(win);
     this.layout(win, bounds);
@@ -118,7 +121,7 @@ export class PreviewBrowser {
 
   private requireView(): BrowserView {
     if (this.view === null) {
-      throw new ZeroError('VALIDATION_FAILED', 'Preview is not open');
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Preview is not open');
     }
     return this.view;
   }

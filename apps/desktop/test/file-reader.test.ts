@@ -12,7 +12,7 @@ import { readEditorFile } from '../src/main/file-reader.js';
 
 describe('readEditorFile', () => {
   it('reads utf-8 text and rejects files over 1 MB', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'zero-editor-'));
+    const dir = mkdtempSync(join(tmpdir(), 'builderhelm-editor-'));
     try {
       const small = join(dir, 'note.txt');
       writeFileSync(small, 'hello');

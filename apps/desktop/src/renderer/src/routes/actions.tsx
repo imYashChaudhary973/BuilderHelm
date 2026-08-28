@@ -5,7 +5,7 @@ import type {
   ApprovalRequest,
   PermissionPolicyMode,
   ToolDescriptor,
-} from '@zero/protocol/actions';
+} from '@builderhelm/protocol/actions';
 import { useEffect, useMemo, useState } from 'react';
 
 function localTime(value: string): string {
@@ -145,11 +145,11 @@ export function ActionsPage(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const snapshot = useQuery({
     queryKey: ['action-snapshot'],
-    queryFn: () => window.zero.actions.snapshot({}),
+    queryFn: () => window.builderHelm.actions.snapshot({}),
   });
   const models = useQuery({
     queryKey: ['models'],
-    queryFn: () => window.zero.models.list({}),
+    queryFn: () => window.builderHelm.models.list({}),
   });
   const actionModels = useMemo(
     () =>
@@ -170,7 +170,7 @@ export function ActionsPage(): React.JSX.Element {
 
   const runCommand = useMutation({
     mutationFn: (text: string) =>
-      window.zero.actions.command({
+      window.builderHelm.actions.command({
         requestId: globalThis.crypto.randomUUID(),
         text,
         modelRef: modelRef || null,
@@ -186,11 +186,12 @@ export function ActionsPage(): React.JSX.Element {
     },
     onError: () =>
       setError(
-        'Zero could not safely resolve this command. Use one action at a time and verify project or task names.',
+        'BuilderHelm could not safely resolve this command. Use one action at a time and verify project or task names.',
       ),
   });
   const approve = useMutation({
-    mutationFn: (approvalId: string) => window.zero.actions.approve({ approvalId }),
+    mutationFn: (approvalId: string) =>
+      window.builderHelm.actions.approve({ approvalId }),
     onMutate: () => setError(null),
     onSuccess: async (outcome) => {
       setLastOutcome(outcome);
@@ -200,14 +201,14 @@ export function ActionsPage(): React.JSX.Element {
       setError('The action was not executed. It may have expired or changed policy.'),
   });
   const reject = useMutation({
-    mutationFn: (approvalId: string) => window.zero.actions.reject({ approvalId }),
+    mutationFn: (approvalId: string) => window.builderHelm.actions.reject({ approvalId }),
     onMutate: () => setError(null),
     onSuccess: refresh,
     onError: () => setError('The approval could not be rejected.'),
   });
   const updatePolicy = useMutation({
     mutationFn: (input: { toolId: ToolDescriptor['id']; mode: PermissionPolicyMode }) =>
-      window.zero.actions.updatePolicy(input),
+      window.builderHelm.actions.updatePolicy(input),
     onMutate: () => setError(null),
     onSuccess: refresh,
     onError: () => setError('The permission policy was not changed.'),
@@ -228,7 +229,8 @@ export function ActionsPage(): React.JSX.Element {
           <p className="eyebrow">Permission-controlled local tools</p>
           <h1>Actions</h1>
           <p className="lede">
-            Describe one task or project action. Zero validates it before any write.
+            Describe one task or project action. BuilderHelm validates it before any
+            write.
           </p>
         </div>
         <div className="actionSafetyBadge">
@@ -308,7 +310,7 @@ export function ActionsPage(): React.JSX.Element {
           </div>
           {lastOutcome !== null && (
             <div className="actionOutcome" aria-live="polite">
-              <p className="eyebrow">Zero</p>
+              <p className="eyebrow">BuilderHelm</p>
               <strong>{lastOutcome.message}</strong>
               {lastOutcome.kind === 'read_result' && (
                 <pre>{JSON.stringify(lastOutcome.result, null, 2)}</pre>

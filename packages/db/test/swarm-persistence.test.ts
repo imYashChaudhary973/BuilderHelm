@@ -4,12 +4,12 @@ import {
   migrations,
   openDatabase,
   runMigrations,
-  type ZeroDatabase,
+  type BuilderHelmDatabase,
 } from '../src/index.js';
 
-const openDatabases: ZeroDatabase[] = [];
+const openDatabases: BuilderHelmDatabase[] = [];
 
-function setup(): ZeroDatabase {
+function setup(): BuilderHelmDatabase {
   const database = openDatabase(':memory:');
   openDatabases.push(database);
   runMigrations(database, migrations);
@@ -22,7 +22,7 @@ afterEach(() => {
   }
 });
 
-function seedRun(database: ZeroDatabase): string {
+function seedRun(database: BuilderHelmDatabase): string {
   const id = '00000000-0000-4000-8000-000000000001';
   database.run(
     `INSERT INTO swarm_runs (id, name, folder_path, mission, launch_mode, preset_id,
@@ -42,7 +42,7 @@ function seedRun(database: ZeroDatabase): string {
   return id;
 }
 
-function seedSeat(database: ZeroDatabase, runId: string): string {
+function seedSeat(database: BuilderHelmDatabase, runId: string): string {
   const id = '00000000-0000-4000-8000-000000000002';
   database.run(
     `INSERT INTO swarm_seats (id, run_id, role, agent_id, mode, pane_id,

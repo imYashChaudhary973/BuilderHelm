@@ -1,4 +1,4 @@
-import type { BoardAgentId } from '@zero/protocol/board';
+import type { BoardAgentId } from '@builderhelm/protocol/board';
 
 import ompMark from '../assets/omp.svg';
 import piMark from '../assets/pi.svg';

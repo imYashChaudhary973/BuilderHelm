@@ -1,4 +1,4 @@
-import type { ZeroDatabase } from './database.js';
+import type { BuilderHelmDatabase } from './database.js';
 
 export interface ChatThreadWrite {
   readonly id: string;
@@ -101,7 +101,7 @@ const usageColumns = `
 `;
 
 export class ChatRepository {
-  constructor(private readonly database: ZeroDatabase) {}
+  constructor(private readonly database: BuilderHelmDatabase) {}
 
   createThread(thread: ChatThreadWrite): StoredChatThread {
     this.database.run(

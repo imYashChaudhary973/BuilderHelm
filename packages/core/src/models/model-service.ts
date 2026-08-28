@@ -7,8 +7,8 @@ import {
   type GatewayFetch,
   type ProviderAdapter,
   type ProviderConnectionResult,
-} from '@zero/model-gateway';
-import type { Logger } from '@zero/observability';
+} from '@builderhelm/model-gateway';
+import type { Logger } from '@builderhelm/observability';
 import {
   modelCapabilitiesSchema,
   modelCapabilityOverridesSchema,
@@ -23,21 +23,21 @@ import {
   type ModelRecord,
   type ModelRequest,
   type ProviderHeader,
-} from '@zero/protocol';
+} from '@builderhelm/protocol';
 import {
   createId,
   normalizeError,
   utcNow,
-  ZeroError,
+  BuilderHelmError,
   type CorrelationId,
-} from '@zero/shared';
+} from '@builderhelm/shared';
 import type {
   ModelRepository,
   ModelWrite,
   ProviderRepository,
   StoredModel,
   StoredProvider,
-} from '@zero/db';
+} from '@builderhelm/db';
 
 import type { SecretStore } from '../secrets/secret-store.js';
 
@@ -105,7 +105,7 @@ function assertUniqueModels(models: readonly ModelRecord[]): void {
   const refs = new Set<string>();
   for (const model of models) {
     if (refs.has(model.ref)) {
-      throw new ZeroError(
+      throw new BuilderHelmError(
         'VALIDATION_FAILED',
         'Provider returned duplicate model identifiers',
       );
@@ -149,7 +149,9 @@ export class ModelService {
     try {
       return this.models.list(providerId).map(storedModelToRecord);
     } catch (cause) {
-      throw new ZeroError('DATABASE_FAILED', 'Failed to read stored models', { cause });
+      throw new BuilderHelmError('DATABASE_FAILED', 'Failed to read stored models', {
+        cause,
+      });
     }
   }
 
@@ -159,9 +161,13 @@ export class ModelService {
         .listCapabilityOverrides(providerId)
         .map((stored) => overrideRecord(stored.providerId, stored));
     } catch (cause) {
-      throw new ZeroError('DATABASE_FAILED', 'Failed to read capability overrides', {
-        cause,
-      });
+      throw new BuilderHelmError(
+        'DATABASE_FAILED',
+        'Failed to read capability overrides',
+        {
+          cause,
+        },
+      );
     }
   }
 
@@ -173,7 +179,7 @@ export class ModelService {
     const overrides = modelCapabilityOverridesSchema.parse(rawOverrides);
     const model = this.list().find((candidate) => candidate.ref === modelRef);
     if (model === undefined) {
-      throw new ZeroError('MODEL_UNAVAILABLE', 'The selected model is not stored');
+      throw new BuilderHelmError('MODEL_UNAVAILABLE', 'The selected model is not stored');
     }
     const storedOverride = this.models
       .listCapabilityOverrides(model.providerId)
@@ -219,9 +225,13 @@ export class ModelService {
         },
       });
     } catch (cause) {
-      throw new ZeroError('DATABASE_FAILED', 'Failed to persist capability override', {
-        cause,
-      });
+      throw new BuilderHelmError(
+        'DATABASE_FAILED',
+        'Failed to persist capability override',
+        {
+          cause,
+        },
+      );
     }
 
     this.logger.info({
@@ -337,9 +347,13 @@ export class ModelService {
           })),
       );
     } catch (cause) {
-      throw new ZeroError('DATABASE_FAILED', 'Failed to persist discovered models', {
-        cause,
-      });
+      throw new BuilderHelmError(
+        'DATABASE_FAILED',
+        'Failed to persist discovered models',
+        {
+          cause,
+        },
+      );
     }
 
     this.logger.info({
@@ -353,7 +367,7 @@ export class ModelService {
   private register(providerId: string): void {
     const provider = this.providers.findById(providerId);
     if (provider === undefined) {
-      throw new ZeroError('VALIDATION_FAILED', 'Provider was not found');
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Provider was not found');
     }
     this.gateway.registerProvider(this.gatewayConfig(provider), this.adapter(provider));
   }
@@ -383,7 +397,7 @@ export class ModelService {
     }
     if (provider.protocol === 'openai-compatible') {
       if (provider.baseUrl === null) {
-        throw new ZeroError(
+        throw new BuilderHelmError(
           'VALIDATION_FAILED',
           'OpenAI-compatible providers require an explicit base URL',
         );
@@ -393,7 +407,7 @@ export class ModelService {
     if (provider.protocol === 'ollama') {
       return new OllamaAdapter(this.fetcher);
     }
-    throw new ZeroError(
+    throw new BuilderHelmError(
       'MODEL_UNAVAILABLE',
       'This provider protocol is not available in the current phase',
     );

@@ -1,5 +1,5 @@
 {
-  "name": "@zero/desktop",
+  "name": "@builderhelm/desktop",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,9 +11,9 @@
     "@xterm/addon-fit": "0.10.0",
     "@xterm/addon-serialize": "0.13.0",
     "@xterm/xterm": "5.5.0",
-    "@zero/core": "workspace:*",
-    "@zero/protocol": "workspace:*",
-    "@zero/shared": "workspace:*",
+    "@builderhelm/core": "workspace:*",
+    "@builderhelm/protocol": "workspace:*",
+    "@builderhelm/shared": "workspace:*",
     "node-pty": "1.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -40,7 +40,7 @@
     "files": [
       "out"
     ],
-    "electronVersion": "39.8.10",
+    "electronVersion": "43.4.1",
     "electronDist": "../../node_modules/electron/dist",
     "mac": {
       "target": [

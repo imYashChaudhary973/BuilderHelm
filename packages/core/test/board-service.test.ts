@@ -3,9 +3,9 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 
-import { migrations, openDatabase, runMigrations } from '@zero/db';
-import type { Logger } from '@zero/observability';
-import { createCorrelationId } from '@zero/shared';
+import { migrations, openDatabase, runMigrations } from '@builderhelm/db';
+import type { Logger } from '@builderhelm/observability';
+import { createCorrelationId } from '@builderhelm/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { BoardService } from '../src/board/board-service.js';
@@ -25,7 +25,7 @@ afterEach(() => {
 });
 
 function createRepository(): string {
-  const root = mkdtempSync(join(tmpdir(), 'zero-board-git-'));
+  const root = mkdtempSync(join(tmpdir(), 'builderhelm-board-git-'));
   temporaryDirectories.push(root);
   execFileSync('git', ['init', '-b', 'main'], { cwd: root });
   execFileSync('git', ['config', 'user.name', 'Fixture User'], { cwd: root });
@@ -129,7 +129,7 @@ describe('BoardService worktrees', () => {
 
 describe('BoardService ensureRepository', () => {
   it('initializes a plain folder with an empty commit', async () => {
-    const folder = mkdtempSync(join(tmpdir(), 'zero-board-plain-'));
+    const folder = mkdtempSync(join(tmpdir(), 'builderhelm-board-plain-'));
     temporaryDirectories.push(folder);
     const database = openDatabase(':memory:');
     runMigrations(database, migrations);

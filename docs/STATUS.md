@@ -1,133 +1,57 @@
-# Implementation Status
+# Implementation status
 
-No feature freeze. Active work lands on the hybrid stack: Rust core engine +
-TypeScript platform ([STACK](STACK.md), [ADOPTION](ADOPTION.md)).
+Last reviewed: 2026-08-28.
 
-- Last reviewed: 2026-08-28
-- Baseline: ADOPTION phase A at `44f6985`, plus phase B step 1 (event frames)
-- Active work: phase B, PTY baseline then the terminal cutover ([ADOPTION](ADOPTION.md))
-- **Hybrid architecture** ([ADR 0006](adr/0006-hybrid-architecture.md), [ADOPTION](ADOPTION.md)): Rust core engine + TypeScript platform. The full-Rust migration was cancelled ([ADR 0005](adr/0005-rust-migration.md), superseded).
+This document distinguishes working code from planned product scope. A feature
+is not shipped merely because a route, mock, fixture, or documentation page exists.
 
-What the repository implements now. Product intent lives in
-[PRODUCT](PRODUCT.md), [UX](UX.md), [ROADMAP](ROADMAP.md), and [ADE](ADE.md).
+## Working in the repository
 
-## Shipped
+- Secure Electron main/preload/renderer boundary.
+- TypeScript application services and Zod-validated IPC.
+- SQLite migrations and repositories.
+- Keychain-backed provider settings.
+- Provider-independent model gateway and canonical chat history.
+- Permissioned actions, approvals, and receipts.
+- Project dashboard and Git continuity.
+- Space setup with real xterm.js terminals backed by node-pty.
+- Per-pane installed-agent selection and plain-shell mode.
+- Board project selection, persistence, stages, and drag-and-drop.
+- Memory vault selection, local Markdown indexing, answers, and citations.
+- Editor tree, tabs, save, save-all, autosave, and word wrap.
+- Git status, history, stage, unstage, and commit.
+- Swarm mission, roster, CLI seats, live state, directives, budgets, and worktree flow.
 
-| Surface       | Capability                                                                                                                                |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Foundation    | pnpm workspace, secure Electron boundary, SQLite migrations, typed IPC, observability                                                     |
-| Providers     | Keychain-backed settings, discovery, audit events                                                                                         |
-| Model gateway | Provider-independent adapters, streaming chat, canonical history                                                                          |
-| Memory        | Left-rail BuilderHelm Memory, local Obsidian indexing, cited answers and source previews                                                  |
-| Actions       | Schema-backed tools, permissions, approvals, receipts                                                                                     |
-| Projects      | Dashboard, Git status and history, Today summary                                                                                          |
-| Space         | BuilderHelm Space home, wizard, per-pane agents, live xterm grid                                                                          |
-| Brand         | BuilderHelm name, tagline, helm mark                                                                                                      |
-| Chrome        | Square plus opens home; workspace icons with rename/color/close; expanded name + terminal count; no build stamp                           |
-| Browser       | Localhost preview, recents, last tab, stage-clipped BrowserView                                                                           |
-| Editor        | Workspace-scoped tree, tabs, save / save-all / autosave, word wrap                                                                        |
-| Git           | Branch, staged vs worktree, history, stage, unstage, commit                                                                               |
-| Board         | Project chooser, independent persisted boards, drag-and-drop stages                                                                       |
-| Swarm         | Mission / roster / launch, helm presets, per-seat CLI, live graph, `@all`, Plan / Activity / Roster, mid-flight add/stop                  |
-| Swarm engine  | PATH CLIs in PTYs (Grok interactive; others headless argv), exclusive files, worktree per builder, verify + review + land, budget, resume |
-| Engine bridge | Rust `helm-app engine` sidecar behind the existing IPC shape: NDJSON over stdio, verified handshake, bounded restart, redacted stderr     |
+## Partial or needing hardening
 
-## Current application surfaces
+- Swarm verification, review, landing, stop/reconnect, and failure recovery.
+- Terminal throughput and renderer batching under sustained multi-pane output.
+- Consistent agent capability detection and structured-output adapters.
+- Cross-platform shell, path, credential, and PTY behavior.
+- The Node 24 and Electron 43 upgrade still needs packaged desktop verification.
 
-- BuilderHelm Space (home, workspace setup, agent pick, live terminals)
-- BuilderHelm Board (multi-project Kanban with isolated tasks and drag and drop)
-- BuilderHelm Memory (private Obsidian recall with inspectable citations)
-- BuilderHelm Swarm (wizard, helm-size presets, live graph and terminals)
-- App chrome (top bar + square plus rail of workspaces + tools panel)
-- Browser, editor, and Git tools tabs
-- Provider and model settings
-- Permissioned actions, tasks, and receipts
-- Projects and Git continuity
-- Today dashboard
+## Planned, not shipped
 
-## Engine status
+- Built-in browser interaction and UI-element handoff.
+- Unified diff, test, CI, conflict, commit, and pull-request review surface.
+- GitHub and Linear task integrations.
+- Global search across worktrees, files, agents, commands, and artifacts.
+- Rich development notes with slash commands and inline logs.
+- Usage, quota, rate-limit, and account-switching UI.
+- Optional encrypted relay and remote host pairing.
+- React Native iOS and Android companion.
+- Verified Windows and Linux desktop distributions.
+- Signed installers, auto-update, notarization, and release channels.
 
-The Rust engine (`crates/`) runs as a bundled **sidecar** child of Electron
-main, not an in-process addon: newline-delimited JSON over stdio, local-only,
-no TCP listener. Phase A of [ADOPTION](ADOPTION.md) landed on 2026-08-27. The
-preload API and every namespace are unchanged, so each channel still executes
-on its TypeScript handler; the bridge is stood up and verified ahead of the
-cutover. The renderer-cutover phases of the old migration plan are cancelled;
-the Electron renderer ships.
+## Current verification boundary
 
-| Surface            | Count                                               |
-| ------------------ | --------------------------------------------------- |
-| IPC channels       | 71 served by the engine, 69 known to the platform   |
-| Schema migrations  | 12                                                  |
-| Database tables    | 31                                                  |
-| UI routes          | 8 plus settings                                     |
-| TypeScript tests   | 225 in 46 files                                     |
-| Rust tests         | 304 in 63 suites                                    |
-| Conformance corpus | 218 fixtures, green in-process and over the sidecar |
+macOS is the only exercised desktop platform. Windows, Linux, mobile, relay,
+real hosted CI integration, and release signing require future evidence.
 
-Channel mismatch is asymmetric on purpose: a channel the platform calls but
-the engine does not serve is fatal, while a channel the engine serves ahead of
-its caller is a warning.
+## Architecture-reset compatibility
 
-The protocol carries unprompted `event` frames as of phase B step 1, and every
-frame leaves the engine through one writer thread so a response and an event
-cannot interleave mid-line. The source is still TypeScript: a production
-launch advertises no events, so `zero:board:event`, `zero:chat:stream-event`,
-and `zero:swarm:event` are emitted by the main process until phase B routes
-PTY output and phase C routes chat. A consumer reads the advertised list and
-drops anything outside it.
-
-Source: 15,566 lines of portable domain logic, 3,831 Electron-coupled,
-8,241 renderer. `src/` only.
-
-## Current architecture
-
-The Electron renderer is unprivileged and talks to the local core only
-through an explicit preload API and schema-validated IPC. The core owns
-SQLite, model policy, provider credentials, knowledge retrieval,
-permission decisions, and tool execution. Provider wire formats stay
-inside `@zero/model-gateway`.
-
-SQLite is at migration 12. Migration 11 rebuilds Kanban cards for the
-cancelled review stage. Migration 12 stores swarm runs, seats, tasks, and
-messages.
-
-Unsigned macOS `BuilderHelm.app`: `pnpm --filter @zero/desktop dist`.
-
-## Verification
-
-```bash
-pnpm verify
-pnpm smoke:desktop
-HELM_ENGINE_BIN=target/debug/helm-app pnpm smoke:desktop
-cargo fmt --check && cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
-cargo run -p helm-app -- --conformance
-cargo run -p helm-app -- --conformance-sidecar . target/debug/helm-app
-```
-
-## Known scope boundaries
-
-- macOS is the only verified desktop runtime today. Secret storage is
-  fail-closed on every platform.
-- Local Ollama may use loopback HTTP. Remote credentialed providers must
-  use HTTPS.
-- Models can propose actions. Application code validates permission and
-  executes them.
-- Ready work lands on `main`. Permission or security changes still use a PR.
-- Windows and Linux desktops are not verified yet; they are Phase D targets
-  of [ADOPTION](ADOPTION.md) (ConPTY, Credential Manager, DX12 on Windows).
-- Swarm runs on `main`. Bridge overlay is not built. Local MCP is not built.
-- Named Agents, Routines, the GitHub plugin row, migration 0013, and the
-  Agent / Code / Chat mode switch ([ADE](ADE.md)) are parked unmerged on
-  `wip/helm-platform`. They are not in the app today.
-- The packaged-build home for the sidecar binary (resources directory,
-  arch-specific naming, notarization) is still open. It blocks packaging, not
-  phases B through D.
-- Grok **planner/reviewer** still uses `grok -p` (Grok Build, 402 even when Super Grok chat has quota). Seats use interactive grok (no `-p`). kiro-cli cannot take a seat.
-- Worktrees stay serial; pane PTYs spawn concurrently after locate (P0-2). Login
-  shell is still `zsh -i`. Fixture: `conformance/board/createSession/`.
-- Electron `BrowserView` (browser panel) was **cut for v1** on 2026-08-27
-  (Gate 3 retro). The Browser sidebar tab stays a recorded placeholder; the
-  `browser.command` IPC method stays in the corpus with no UI. Revisit a
-  webview-based panel (wry or Electron-native) when the platform suite opens.
+This reset changes internal package names, IPC channel names, environment
+variables, the local database filename, and the Keychain service name. Existing
+development databases are not migrated automatically, and provider credentials
+must be entered again. Previous Keychain items are left untouched rather than
+deleted.

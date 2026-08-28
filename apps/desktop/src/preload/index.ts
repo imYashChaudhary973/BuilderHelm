@@ -8,7 +8,7 @@ import {
   approvalResolveIpcResponseSchema,
   permissionPolicyUpdateInputSchema,
   permissionPolicyUpdateIpcResponseSchema,
-} from '@zero/protocol/actions';
+} from '@builderhelm/protocol/actions';
 import {
   boardAddPaneInputSchema,
   boardAddPaneIpcResponseSchema,
@@ -35,7 +35,7 @@ import {
   boardLandIpcResponseSchema,
   boardLandPreviewIpcResponseSchema,
   type BoardPaneEventEnvelope,
-} from '@zero/protocol/board';
+} from '@builderhelm/protocol/board';
 import {
   swarmCreateIpcResponseSchema,
   swarmCreateRequestSchema,
@@ -49,7 +49,7 @@ import {
   swarmStopSeatRequestSchema,
   swarmLatestIpcResponseSchema,
   swarmLatestRequestSchema,
-} from '@zero/protocol/swarm';
+} from '@builderhelm/protocol/swarm';
 import {
   kanbanCreateInputSchema,
   kanbanCreateIpcResponseSchema,
@@ -65,16 +65,16 @@ import {
   kanbanProjectListIpcResponseSchema,
   kanbanUpdateInputSchema,
   kanbanUpdateIpcResponseSchema,
-} from '@zero/protocol/kanban';
+} from '@builderhelm/protocol/kanban';
 import {
   ipcChannels,
   systemHealthResponseSchema,
-  type ZeroDesktopApi,
-} from '@zero/protocol/ipc';
+  type BuilderHelmDesktopApi,
+} from '@builderhelm/protocol/ipc';
 import {
   browserCommandIpcResponseSchema,
   browserCommandInputSchema,
-} from '@zero/protocol/browser';
+} from '@builderhelm/protocol/browser';
 import {
   editorCreateInputSchema,
   editorCreateIpcResponseSchema,
@@ -93,7 +93,7 @@ import {
   editorSearchIpcResponseSchema,
   editorWriteInputSchema,
   editorWriteIpcResponseSchema,
-} from '@zero/protocol/editor';
+} from '@builderhelm/protocol/editor';
 import {
   createProviderInputSchema,
   deleteProviderInputSchema,
@@ -109,7 +109,7 @@ import {
   providerOperationInputSchema,
   providerTestConnectionIpcResponseSchema,
   updateProviderInputSchema,
-} from '@zero/protocol/providers';
+} from '@builderhelm/protocol/providers';
 import {
   chatStreamCancelInputSchema,
   chatStreamCancelIpcResponseSchema,
@@ -122,7 +122,7 @@ import {
   chatTranscriptIpcResponseSchema,
   createChatThreadInputSchema,
   type ChatClientStreamEvent,
-} from '@zero/protocol/chat';
+} from '@builderhelm/protocol/chat';
 import {
   knowledgeAnswerIpcResponseSchema,
   knowledgeQueryInputSchema,
@@ -133,14 +133,14 @@ import {
   knowledgeVaultMutationIpcResponseSchema,
   knowledgeVaultSelectIpcResponseSchema,
   knowledgeVaultSyncInputSchema,
-} from '@zero/protocol/knowledge';
+} from '@builderhelm/protocol/knowledge';
 import {
   projectDashboardIpcResponseSchema,
   projectRepositoryRefreshInputSchema,
   projectRepositoryRefreshIpcResponseSchema,
   projectRepositorySelectInputSchema,
   projectRepositorySelectIpcResponseSchema,
-} from '@zero/protocol/projects';
+} from '@builderhelm/protocol/projects';
 import { contextBridge, ipcRenderer } from 'electron';
 
 function unwrap<T>(result: {
@@ -175,7 +175,7 @@ ipcRenderer.on(ipcChannels.boardEvent, (_event, value: unknown) => {
   for (const listener of listeners) listener(parsed.data);
 });
 
-const api: ZeroDesktopApi = {
+const api: BuilderHelmDesktopApi = {
   system: {
     async health() {
       const response: unknown = await ipcRenderer.invoke(ipcChannels.systemHealth, {
@@ -701,4 +701,4 @@ const api: ZeroDesktopApi = {
   },
 };
 
-contextBridge.exposeInMainWorld('zero', api);
+contextBridge.exposeInMainWorld('builderHelm', api);

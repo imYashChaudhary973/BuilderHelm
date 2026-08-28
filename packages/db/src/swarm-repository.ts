@@ -1,4 +1,4 @@
-import type { ZeroDatabase } from './database.js';
+import type { BuilderHelmDatabase } from './database.js';
 
 export interface SwarmRunWrite {
   readonly id: string;
@@ -168,7 +168,7 @@ function toMessageWrite(row: StoredSwarmMessage): SwarmMessageWrite {
 }
 
 export class SwarmRepository {
-  constructor(private readonly database: ZeroDatabase) {}
+  constructor(private readonly database: BuilderHelmDatabase) {}
 
   createRun(run: SwarmRunWrite, seats: readonly SwarmSeatWrite[]): void {
     this.database.transaction(() => {

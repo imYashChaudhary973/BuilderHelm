@@ -8,8 +8,8 @@ import {
   type ModelResponse,
   type NormalizedToolCall,
   type TokenUsage,
-} from '@zero/protocol';
-import { ZeroError } from '@zero/shared';
+} from '@builderhelm/protocol';
+import { BuilderHelmError } from '@builderhelm/shared';
 import { z } from 'zod';
 
 import type {
@@ -88,7 +88,7 @@ function requestHeaders(context: ProviderInvocationContext): HeadersInit {
 }
 
 function invalidMessage(message: string): never {
-  throw new ZeroError('VALIDATION_FAILED', message);
+  throw new BuilderHelmError('VALIDATION_FAILED', message);
 }
 
 function toolNames(request: ModelRequest): Map<string, string> {
@@ -180,7 +180,7 @@ function parseArguments(value: unknown): JsonValue {
     const parsed = typeof value === 'string' ? JSON.parse(value) : value;
     return jsonValueSchema.parse(parsed);
   } catch (cause) {
-    throw new ZeroError(
+    throw new BuilderHelmError(
       'TOOL_SCHEMA_INVALID',
       'Provider returned invalid tool arguments',
       {
@@ -221,7 +221,10 @@ function finishReason(
 function normalizeResponse(raw: unknown): ModelResponse {
   const response = chatResponseSchema.parse(raw);
   if (!response.done) {
-    throw new ZeroError('MODEL_UNAVAILABLE', 'Ollama returned an incomplete response');
+    throw new BuilderHelmError(
+      'MODEL_UNAVAILABLE',
+      'Ollama returned an incomplete response',
+    );
   }
   const calls = toolCalls(response.message.tool_calls ?? []);
   const normalizedUsage = usage(response);
@@ -279,7 +282,10 @@ export class OllamaAdapter implements ProviderAdapter {
       if (chunk.done) final = chunk;
     }
     if (final === undefined) {
-      throw new ZeroError('MODEL_UNAVAILABLE', 'Ollama response stream ended early');
+      throw new BuilderHelmError(
+        'MODEL_UNAVAILABLE',
+        'Ollama response stream ended early',
+      );
     }
     const calls = toolCalls(pendingCalls);
     for (const call of calls) yield { type: 'tool.proposed', call };

@@ -1,9 +1,0 @@
-[package]
-name = "helm-ui"
-version.workspace = true
-edition.workspace = true
-publish.workspace = true
-
-[dependencies]
-iced.workspace = true
-helm-pty = { path = "../helm-pty" }

@@ -1,6 +1,6 @@
-import type { CoreRuntime } from '@zero/core';
-import { ipcChannels } from '@zero/protocol/ipc';
-import { createCorrelationId } from '@zero/shared';
+import type { CoreRuntime } from '@builderhelm/core';
+import { ipcChannels } from '@builderhelm/protocol/ipc';
+import { createCorrelationId } from '@builderhelm/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const handlers = new Map<

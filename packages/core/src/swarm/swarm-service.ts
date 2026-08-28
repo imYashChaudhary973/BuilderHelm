@@ -2,8 +2,8 @@ import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { promisify } from 'node:util';
 
-import { SwarmRepository, type ZeroDatabase } from '@zero/db';
-import type { Logger } from '@zero/observability';
+import { SwarmRepository, type BuilderHelmDatabase } from '@builderhelm/db';
+import type { Logger } from '@builderhelm/observability';
 import {
   SWARM_BUDGET_MS,
   SWARM_SKILLS,
@@ -18,14 +18,14 @@ import {
   type SwarmSeatRecord,
   type SwarmState,
   type SwarmTaskRecord,
-} from '@zero/protocol';
+} from '@builderhelm/protocol';
 import {
   createCorrelationId,
   normalizeError,
   utcNow,
-  ZeroError,
+  BuilderHelmError,
   type CorrelationId,
-} from '@zero/shared';
+} from '@builderhelm/shared';
 
 import type { BoardService } from '../board/board-service.js';
 import { buildRepoSnapshot, type SwarmPlanner } from './swarm-planning.js';
@@ -126,7 +126,7 @@ export class SwarmService {
   private readonly listeners = new Set<SwarmRunEventListener>();
 
   constructor(
-    database: ZeroDatabase,
+    database: BuilderHelmDatabase,
     private readonly logger: Logger,
     private readonly board: BoardService,
     private readonly runner: SwarmSeatRunner,
@@ -308,7 +308,7 @@ export class SwarmService {
     const known = new Set(this.repository.listSeats(runId).map((seat) => seat.id));
     for (const seatId of seatIds) {
       if (!known.has(seatId)) {
-        throw new ZeroError('VALIDATION_FAILED', 'Unknown swarm seat');
+        throw new BuilderHelmError('VALIDATION_FAILED', 'Unknown swarm seat');
       }
     }
     for (const seatId of seatIds) {
@@ -326,7 +326,7 @@ export class SwarmService {
     this.requireRun(runId);
     const seat = this.repository.getSeat(seatId);
     if (seat === undefined || seat.runId !== runId) {
-      throw new ZeroError('VALIDATION_FAILED', 'Unknown swarm seat');
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Unknown swarm seat');
     }
     this.repository.updateSeat({
       ...swarmSeatSchema.parse(seat),
@@ -350,7 +350,7 @@ export class SwarmService {
   async resume(runId: string, correlationId: CorrelationId): Promise<void> {
     const run = this.requireRun(runId);
     if (run.status !== 'stopped' && run.status !== 'budget') {
-      throw new ZeroError(
+      throw new BuilderHelmError(
         'VALIDATION_FAILED',
         'Only a stopped or budget-cut swarm can resume',
       );
@@ -490,7 +490,7 @@ export class SwarmService {
       const worktreePath = current.worktreePath;
       const branch = current.branch;
       if (worktreePath === null || branch === null) {
-        throw new ZeroError('VALIDATION_FAILED', 'Seat has no worktree');
+        throw new BuilderHelmError('VALIDATION_FAILED', 'Seat has no worktree');
       }
       current = { ...current, status: 'working' };
       this.repository.updateSeat(current);
@@ -647,7 +647,7 @@ export class SwarmService {
           await execFileAsync('git', ['merge', '--abort'], {
             cwd: seat.worktreePath,
           }).catch(() => undefined);
-          throw new ZeroError(
+          throw new BuilderHelmError(
             'TOOL_EXECUTION_FAILED',
             'Seat worktree conflicts with landed work',
             { cause: error },
@@ -837,7 +837,7 @@ export class SwarmService {
   private requireRun(runId: string): SwarmRunRecord {
     const run = this.repository.getRun(runId);
     if (run === undefined) {
-      throw new ZeroError('VALIDATION_FAILED', 'Unknown swarm run');
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Unknown swarm run');
     }
     return swarmRunSchema.parse(run);
   }

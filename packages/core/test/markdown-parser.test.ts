@@ -5,14 +5,14 @@ import { parseMarkdownDocument } from '../src/index.js';
 describe('Obsidian Markdown parser', () => {
   it('extracts frontmatter, headings, chunks, tags, and links with line provenance', () => {
     const document = parseMarkdownDocument({
-      relativePath: 'Projects/Zero.md',
+      relativePath: 'Projects/BuilderHelm.md',
       content: [
         '---',
-        'title: Zero Architecture',
+        'title: BuilderHelm Architecture',
         'status: active',
         'tags: [project, architecture]',
         '---',
-        '# Zero',
+        '# BuilderHelm',
         '',
         'We selected architecture B for offline operation. #decision',
         '',
@@ -23,7 +23,7 @@ describe('Obsidian Markdown parser', () => {
       sizeBytes: 200,
     });
 
-    expect(document.title).toBe('Zero Architecture');
+    expect(document.title).toBe('BuilderHelm Architecture');
     expect(JSON.parse(document.frontmatterJson)).toMatchObject({
       status: 'active',
       tags: ['project', 'architecture'],
@@ -34,7 +34,7 @@ describe('Obsidian Markdown parser', () => {
       'project',
     ]);
     expect(document.chunks).toMatchObject([
-      { heading: 'Zero', lineStart: 6, lineEnd: 8 },
+      { heading: 'BuilderHelm', lineStart: 6, lineEnd: 8 },
       { heading: 'Evidence', lineStart: 10, lineEnd: 11 },
     ]);
     expect(document.links).toMatchObject([

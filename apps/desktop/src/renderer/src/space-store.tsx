@@ -1,5 +1,5 @@
-import type { BoardSessionSummary } from '@zero/protocol/board';
-import type { CorrelationId } from '@zero/shared';
+import type { BoardSessionSummary } from '@builderhelm/protocol/board';
+import type { CorrelationId } from '@builderhelm/shared';
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 
 export const SPACE_COLORS = [
@@ -156,7 +156,7 @@ export function SpaceProvider({
         if (session === undefined) return;
         for (const pane of session.panes) {
           try {
-            await window.zero.board.closePane({
+            await window.builderHelm.board.closePane({
               correlationId: crypto.randomUUID() as CorrelationId,
               sessionId: session.sessionId,
               paneId: pane.paneId,

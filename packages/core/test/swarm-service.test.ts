@@ -3,10 +3,15 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { migrations, openDatabase, runMigrations, type ZeroDatabase } from '@zero/db';
-import type { Logger } from '@zero/observability';
-import type { SwarmCreateInput } from '@zero/protocol';
-import { createCorrelationId } from '@zero/shared';
+import {
+  migrations,
+  openDatabase,
+  runMigrations,
+  type BuilderHelmDatabase,
+} from '@builderhelm/db';
+import type { Logger } from '@builderhelm/observability';
+import type { SwarmCreateInput } from '@builderhelm/protocol';
+import { createCorrelationId } from '@builderhelm/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { BoardService } from '../src/board/board-service.js';
@@ -21,7 +26,7 @@ import {
 } from '../src/swarm/swarm-service.js';
 
 const temporaryDirectories: string[] = [];
-const databases: ZeroDatabase[] = [];
+const databases: BuilderHelmDatabase[] = [];
 const logger: Logger = {
   debug() {},
   info() {},
@@ -37,7 +42,7 @@ afterEach(() => {
 });
 
 function createRepository(): string {
-  const root = mkdtempSync(join(tmpdir(), 'zero-swarm-git-'));
+  const root = mkdtempSync(join(tmpdir(), 'builderhelm-swarm-git-'));
   temporaryDirectories.push(root, `${root}-worktrees`);
   execFileSync('git', ['init', '-b', 'main'], { cwd: root });
   execFileSync('git', ['config', 'user.name', 'Fixture User'], { cwd: root });
@@ -457,7 +462,7 @@ describe('SwarmService restart recovery', () => {
       cwd: repo,
       encoding: 'utf8',
     });
-    // The fixture repo itself is named zero-swarm-git-*, so assert on the
+    // The fixture repo itself is named builderhelm-swarm-git-*, so assert on the
     // sibling worktrees directory rather than the substring "swarm-".
     expect(worktrees).not.toContain('-worktrees/');
     expect(
@@ -473,7 +478,7 @@ describe('SwarmService failure containment', () => {
   it('fails a task whose worktree cannot be created instead of retrying forever', async () => {
     // A folder that is not a git repository: worktree creation throws before
     // the task ever runs, which used to loop because attempts never counted.
-    const root = mkdtempSync(join(tmpdir(), 'zero-swarm-plain-'));
+    const root = mkdtempSync(join(tmpdir(), 'builderhelm-swarm-plain-'));
     temporaryDirectories.push(root, `${root}-worktrees`);
     const database = openDatabase(':memory:');
     databases.push(database);

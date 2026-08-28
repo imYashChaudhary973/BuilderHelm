@@ -1,4 +1,4 @@
-import { createId, utcNow } from '@zero/shared';
+import { createId, utcNow } from '@builderhelm/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
@@ -8,10 +8,10 @@ import {
   runMigrations,
   type ChatTurnWrite,
   type ChatUsageWrite,
-  type ZeroDatabase,
+  type BuilderHelmDatabase,
 } from '../src/index.js';
 
-const databases: ZeroDatabase[] = [];
+const databases: BuilderHelmDatabase[] = [];
 
 function setup() {
   const database = openDatabase(':memory:');
@@ -142,7 +142,7 @@ describe('chat repository', () => {
         'Disposable provider',
         'openai',
         null,
-        `zero.provider.${providerId}.api-key`,
+        `builderhelm.provider.${providerId}.api-key`,
         '[]',
         1,
         0,

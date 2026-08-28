@@ -1,4 +1,4 @@
-import type { ZeroDesktopApi } from '@zero/protocol';
+import type { BuilderHelmDesktopApi } from '@builderhelm/protocol';
 
 declare module '*.png' {
   const src: string;
@@ -12,7 +12,7 @@ declare module '*.svg' {
 
 declare global {
   interface Window {
-    zero: ZeroDesktopApi;
+    builderHelm: BuilderHelmDesktopApi;
   }
 
   /** Branch and short SHA injected by electron-vite at build time. */

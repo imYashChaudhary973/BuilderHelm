@@ -3,7 +3,7 @@ import type {
   ProviderProtocol,
   ProviderSummary,
   UpdateProviderInput,
-} from '@zero/protocol/providers';
+} from '@builderhelm/protocol/providers';
 import { useEffect, useRef, useState } from 'react';
 
 const protocolOptions: ReadonlyArray<{ value: ProviderProtocol; label: string }> = [

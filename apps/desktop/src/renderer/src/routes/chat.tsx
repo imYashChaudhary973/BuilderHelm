@@ -4,8 +4,8 @@ import type {
   ChatThread,
   ChatTranscript,
   ChatTurn,
-} from '@zero/protocol/chat';
-import type { ModelRecord, TokenUsage } from '@zero/protocol/model';
+} from '@builderhelm/protocol/chat';
+import type { ModelRecord, TokenUsage } from '@builderhelm/protocol/model';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 function threadTitle(thread: ChatThread): string {
@@ -107,7 +107,7 @@ export function ChatPage(): React.JSX.Element {
 
   useEffect(() => {
     let active = true;
-    void Promise.all([window.zero.chat.list(), window.zero.models.list({})])
+    void Promise.all([window.builderHelm.chat.list(), window.builderHelm.models.list({})])
       .then(async ([storedThreads, storedModels]) => {
         if (!active) return;
         setThreads(storedThreads);
@@ -121,12 +121,13 @@ export function ChatPage(): React.JSX.Element {
         const first = storedThreads[0];
         if (first !== undefined) {
           setActiveThreadId(first.id);
-          setTranscript(await window.zero.chat.get({ threadId: first.id }));
+          setTranscript(await window.builderHelm.chat.get({ threadId: first.id }));
         }
       })
       .catch(
         () =>
-          active && setError('Chat history is unavailable. Restart Zero and try again.'),
+          active &&
+          setError('Chat history is unavailable. Restart BuilderHelm and try again.'),
       )
       .finally(() => active && setLoading(false));
     return () => {
@@ -140,8 +141,8 @@ export function ChatPage(): React.JSX.Element {
 
   async function refresh(threadId: string): Promise<void> {
     const [nextThreads, nextTranscript] = await Promise.all([
-      window.zero.chat.list(),
-      window.zero.chat.get({ threadId }),
+      window.builderHelm.chat.list(),
+      window.builderHelm.chat.get({ threadId }),
     ]);
     setThreads(nextThreads);
     setTranscript(nextTranscript);
@@ -153,7 +154,7 @@ export function ChatPage(): React.JSX.Element {
     setError(null);
     setActiveThreadId(threadId);
     try {
-      setTranscript(await window.zero.chat.get({ threadId }));
+      setTranscript(await window.builderHelm.chat.get({ threadId }));
     } catch {
       setError('This conversation could not be loaded.');
     }
@@ -200,7 +201,7 @@ export function ChatPage(): React.JSX.Element {
     let threadId = activeThreadId;
     try {
       if (threadId === null) {
-        const created = await window.zero.chat.create({ title: firstLine(text) });
+        const created = await window.builderHelm.chat.create({ title: firstLine(text) });
         threadId = created.id;
         setActiveThreadId(created.id);
         setThreads((current) => [created, ...current]);
@@ -214,7 +215,7 @@ export function ChatPage(): React.JSX.Element {
       setStreamUsage(null);
       setStreaming(true);
 
-      const started = await window.zero.chat.startStream(
+      const started = await window.builderHelm.chat.startStream(
         { threadId: targetThreadId, modelRef: selectedModelRef, text },
         (event) => {
           if (event.type === 'text.delta')
@@ -244,7 +245,7 @@ export function ChatPage(): React.JSX.Element {
   async function stopStream(): Promise<void> {
     if (runId === null) return;
     try {
-      await window.zero.chat.cancelStream({ runId });
+      await window.builderHelm.chat.cancelStream({ runId });
     } catch {
       setError('The running response could not be stopped.');
     }
@@ -386,7 +387,7 @@ export function ChatPage(): React.JSX.Element {
                 <h3>Ask once. Change models whenever the work changes.</h3>
                 <p>
                   Every answer records its model and usage while the conversation remains
-                  owned by Zero.
+                  owned by BuilderHelm.
                 </p>
               </div>
             )}
@@ -418,7 +419,7 @@ export function ChatPage(): React.JSX.Element {
             placeholder={
               models.length === 0
                 ? 'Discover a model in Settings to begin'
-                : 'Ask Zero anything…'
+                : 'Ask BuilderHelm anything…'
             }
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {

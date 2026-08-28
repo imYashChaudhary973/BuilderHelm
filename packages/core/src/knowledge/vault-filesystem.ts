@@ -9,7 +9,7 @@ import {
 import { createHash } from 'node:crypto';
 import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
-import { ZeroError } from '@zero/shared';
+import { BuilderHelmError } from '@builderhelm/shared';
 
 const maxNoteBytes = 2_000_000;
 const maxNotes = 10_000;
@@ -27,12 +27,12 @@ export function resolveVaultRoot(input: string): { rootPath: string; name: strin
   try {
     rootPath = realpathSync.native(input);
   } catch (cause) {
-    throw new ZeroError('VALIDATION_FAILED', 'The selected vault is unavailable', {
+    throw new BuilderHelmError('VALIDATION_FAILED', 'The selected vault is unavailable', {
       cause,
     });
   }
   if (!statSync(rootPath).isDirectory() || !existsSync(join(rootPath, '.obsidian'))) {
-    throw new ZeroError(
+    throw new BuilderHelmError(
       'VALIDATION_FAILED',
       'Select an Obsidian vault containing a .obsidian directory',
     );
@@ -60,7 +60,10 @@ function listVaultMarkdown(rootPath: string): VaultMarkdownMetadata[] {
   const walk = (directory: string) => {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       if (files.length >= maxNotes) {
-        throw new ZeroError('VALIDATION_FAILED', 'The vault exceeds the note limit');
+        throw new BuilderHelmError(
+          'VALIDATION_FAILED',
+          'The vault exceeds the note limit',
+        );
       }
       if (ignoredDirectories.has(entry.name)) continue;
       const candidate = join(directory, entry.name);
@@ -122,16 +125,19 @@ export function readVaultSource(rootPath: string, relativePath: string): string 
   try {
     resolved = realpathSync.native(candidate);
   } catch (cause) {
-    throw new ZeroError('INTEGRATION_OFFLINE', 'The cited note is unavailable', {
+    throw new BuilderHelmError('INTEGRATION_OFFLINE', 'The cited note is unavailable', {
       cause,
     });
   }
   if (!inside(trustedRoot, resolved) || !resolved.toLocaleLowerCase().endsWith('.md')) {
-    throw new ZeroError('PERMISSION_DENIED', 'The cited source is outside the vault');
+    throw new BuilderHelmError(
+      'PERMISSION_DENIED',
+      'The cited source is outside the vault',
+    );
   }
   const stats = statSync(resolved);
   if (!stats.isFile() || stats.size > maxNoteBytes) {
-    throw new ZeroError('VALIDATION_FAILED', 'The cited note cannot be displayed');
+    throw new BuilderHelmError('VALIDATION_FAILED', 'The cited note cannot be displayed');
   }
   return readFileSync(resolved, 'utf8').replaceAll('\r\n', '\n').replaceAll('\r', '\n');
 }

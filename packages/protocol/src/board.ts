@@ -1,4 +1,4 @@
-import type { CorrelationId } from '@zero/shared';
+import type { CorrelationId } from '@builderhelm/shared';
 import { z } from 'zod';
 
 import { modelErrorSchema } from './model.js';

@@ -1,8 +1,13 @@
-import { ActionRepository, migrations, openDatabase, runMigrations } from '@zero/db';
-import { createLogger } from '@zero/observability';
-import type { ModelRequest } from '@zero/protocol/model';
-import { createCorrelationId, createId } from '@zero/shared';
-import { createWorkToolRegistry, PermissionEngine } from '@zero/tools';
+import {
+  ActionRepository,
+  migrations,
+  openDatabase,
+  runMigrations,
+} from '@builderhelm/db';
+import { createLogger } from '@builderhelm/observability';
+import type { ModelRequest } from '@builderhelm/protocol/model';
+import { createCorrelationId, createId } from '@builderhelm/shared';
+import { createWorkToolRegistry, PermissionEngine } from '@builderhelm/tools';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { ActionService } from '../src/actions/action-service.js';

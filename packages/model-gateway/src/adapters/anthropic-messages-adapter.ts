@@ -10,8 +10,8 @@ import {
   type NormalizedToolCall,
   type TokenUsage,
   type ZeroMessage,
-} from '@zero/protocol';
-import { ZeroError } from '@zero/shared';
+} from '@builderhelm/protocol';
+import { BuilderHelmError } from '@builderhelm/shared';
 import { z } from 'zod';
 
 import type {
@@ -108,7 +108,7 @@ function endpoint(context: ProviderInvocationContext, path: string): URL {
 }
 
 function invalidMessage(message: string): never {
-  throw new ZeroError('VALIDATION_FAILED', message);
+  throw new BuilderHelmError('VALIDATION_FAILED', message);
 }
 
 function userContent(part: ModelContentPart): JsonValue {
@@ -174,7 +174,7 @@ function toolInputSchema(value: JsonValue): JsonValue {
     Array.isArray(value) ||
     value.type !== 'object'
   ) {
-    throw new ZeroError(
+    throw new BuilderHelmError(
       'VALIDATION_FAILED',
       'Anthropic tool input schemas must be JSON objects with type object',
     );
@@ -191,7 +191,7 @@ function requestBody(request: ModelRequest, stream: boolean): JsonValue {
       content: messageContent(message),
     }));
   if (messages.length === 0) {
-    throw new ZeroError(
+    throw new BuilderHelmError(
       'VALIDATION_FAILED',
       'Anthropic requests require at least one user or assistant message',
     );
@@ -260,7 +260,7 @@ function parseToolInput(value: unknown): JsonValue {
   try {
     return jsonValueSchema.parse(value);
   } catch (cause) {
-    throw new ZeroError(
+    throw new BuilderHelmError(
       'TOOL_SCHEMA_INVALID',
       'Provider returned invalid tool arguments',
       { cause },
@@ -272,8 +272,8 @@ function parsePartialToolInput(value: string): JsonValue {
   try {
     return parseToolInput(JSON.parse(value));
   } catch (cause) {
-    if (cause instanceof ZeroError) throw cause;
-    throw new ZeroError(
+    if (cause instanceof BuilderHelmError) throw cause;
+    throw new BuilderHelmError(
       'TOOL_SCHEMA_INVALID',
       'Provider returned invalid tool arguments',
       { cause },
@@ -314,15 +314,15 @@ function normalizeResponse(raw: unknown, providerId: string): ModelResponse {
   };
 }
 
-function streamFailure(raw: unknown): ZeroError {
+function streamFailure(raw: unknown): BuilderHelmError {
   const type = z
     .object({ error: z.object({ type: z.string() }).passthrough() })
     .safeParse(raw);
   if (!type.success) {
-    return new ZeroError('MODEL_UNAVAILABLE', 'Anthropic response stream failed');
+    return new BuilderHelmError('MODEL_UNAVAILABLE', 'Anthropic response stream failed');
   }
   if (type.data.error.type === 'rate_limit_error') {
-    return new ZeroError('RATE_LIMITED', 'Provider rate limit reached', {
+    return new BuilderHelmError('RATE_LIMITED', 'Provider rate limit reached', {
       retryable: true,
     });
   }
@@ -330,12 +330,12 @@ function streamFailure(raw: unknown): ZeroError {
     type.data.error.type === 'authentication_error' ||
     type.data.error.type === 'permission_error'
   ) {
-    return new ZeroError('AUTH_FAILED', 'Provider authentication failed');
+    return new BuilderHelmError('AUTH_FAILED', 'Provider authentication failed');
   }
   if (type.data.error.type === 'request_too_large') {
-    return new ZeroError('CONTEXT_TOO_LARGE', 'The model context is too large');
+    return new BuilderHelmError('CONTEXT_TOO_LARGE', 'The model context is too large');
   }
-  return new ZeroError('MODEL_UNAVAILABLE', 'Anthropic response stream failed', {
+  return new BuilderHelmError('MODEL_UNAVAILABLE', 'Anthropic response stream failed', {
     retryable:
       type.data.error.type === 'overloaded_error' || type.data.error.type === 'api_error',
   });
@@ -494,10 +494,13 @@ export class AnthropicMessagesAdapter implements ProviderAdapter {
         };
       } else if (event.type === 'message_stop') {
         if (messageId === undefined) {
-          throw new ZeroError('MODEL_UNAVAILABLE', 'Anthropic response stream failed');
+          throw new BuilderHelmError(
+            'MODEL_UNAVAILABLE',
+            'Anthropic response stream failed',
+          );
         }
         if (pendingTools.size > 0) {
-          throw new ZeroError(
+          throw new BuilderHelmError(
             'MODEL_UNAVAILABLE',
             'Anthropic response stream ended with incomplete tool input',
           );
@@ -518,7 +521,10 @@ export class AnthropicMessagesAdapter implements ProviderAdapter {
     }
 
     if (!completed) {
-      throw new ZeroError('MODEL_UNAVAILABLE', 'Anthropic response stream ended early');
+      throw new BuilderHelmError(
+        'MODEL_UNAVAILABLE',
+        'Anthropic response stream ended early',
+      );
     }
   }
 
@@ -538,7 +544,10 @@ export class AnthropicMessagesAdapter implements ProviderAdapter {
       });
       const page = anthropicModelsSchema.parse(await responseJson(response));
       if (discovered.length + page.data.length > modelDiscoveryLimit) {
-        throw new ZeroError('VALIDATION_FAILED', 'Provider returned too many models');
+        throw new BuilderHelmError(
+          'VALIDATION_FAILED',
+          'Provider returned too many models',
+        );
       }
       discovered.push(...page.data);
       if (!page.has_more) break;
@@ -547,7 +556,7 @@ export class AnthropicMessagesAdapter implements ProviderAdapter {
         page.last_id === undefined ||
         cursors.has(page.last_id)
       ) {
-        throw new ZeroError(
+        throw new BuilderHelmError(
           'VALIDATION_FAILED',
           'Provider returned an invalid model pagination cursor',
         );

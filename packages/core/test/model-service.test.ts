@@ -1,5 +1,5 @@
-import type { GatewayFetch } from '@zero/model-gateway';
-import { createCorrelationId } from '@zero/shared';
+import type { GatewayFetch } from '@builderhelm/model-gateway';
+import { createCorrelationId } from '@builderhelm/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {

@@ -8,13 +8,13 @@ import {
   migrations,
   openDatabase,
   runMigrations,
-  type ZeroDatabase,
+  type BuilderHelmDatabase,
 } from '../src/index.js';
 
-const openDatabases: ZeroDatabase[] = [];
+const openDatabases: BuilderHelmDatabase[] = [];
 const temporaryDirectories: string[] = [];
 
-function createTestDatabase(): ZeroDatabase {
+function createTestDatabase(): BuilderHelmDatabase {
   const database = openDatabase(':memory:');
   openDatabases.push(database);
   return database;
@@ -40,7 +40,7 @@ describe('migration runner', () => {
     });
     expect(
       database.queryOne<{ count: number }>(
-        "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'zero_metadata'",
+        "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'builderhelm_metadata'",
       ),
     ).toEqual({ count: 1 });
   });
@@ -106,7 +106,7 @@ describe('migration runner', () => {
   });
 
   it('migrates and reopens a clean database file', () => {
-    const directory = mkdtempSync(join(tmpdir(), 'zero-db-'));
+    const directory = mkdtempSync(join(tmpdir(), 'builderhelm-db-'));
     temporaryDirectories.push(directory);
     const path = join(directory, 'clean.sqlite');
     const first = openDatabase(path);

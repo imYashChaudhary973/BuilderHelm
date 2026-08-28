@@ -20,13 +20,16 @@ afterEach(() => {
 });
 
 function fixtureVault(): { root: string; outside: string } {
-  const base = mkdtempSync(join(tmpdir(), 'zero-vault-'));
+  const base = mkdtempSync(join(tmpdir(), 'builderhelm-vault-'));
   directories.push(base);
   const root = join(base, 'My Vault');
   const outside = join(base, 'outside.md');
   mkdirSync(join(root, '.obsidian'), { recursive: true });
   mkdirSync(join(root, 'Projects'), { recursive: true });
-  writeFileSync(join(root, 'Projects', 'Zero.md'), '# Zero\nPrivate notes.');
+  writeFileSync(
+    join(root, 'Projects', 'BuilderHelm.md'),
+    '# BuilderHelm\nPrivate notes.',
+  );
   writeFileSync(join(root, '.obsidian', 'workspace.json'), '{}');
   writeFileSync(outside, '# Outside\nMust not be indexed.');
   symlinkSync(outside, join(root, 'escaped.md'));
@@ -38,7 +41,7 @@ describe('vault filesystem sandbox', () => {
     const { root } = fixtureVault();
     expect(resolveVaultRoot(root)).toMatchObject({ name: 'My Vault' });
     expect(readVaultMarkdown(root).map((file) => file.relativePath)).toEqual([
-      'Projects/Zero.md',
+      'Projects/BuilderHelm.md',
     ]);
   });
 
@@ -55,7 +58,7 @@ describe('vault filesystem sandbox', () => {
   });
 
   it('rejects ordinary folders that are not Obsidian vaults', () => {
-    const base = mkdtempSync(join(tmpdir(), 'zero-folder-'));
+    const base = mkdtempSync(join(tmpdir(), 'builderhelm-folder-'));
     directories.push(base);
     expect(() => resolveVaultRoot(base)).toThrow('Select an Obsidian vault');
   });

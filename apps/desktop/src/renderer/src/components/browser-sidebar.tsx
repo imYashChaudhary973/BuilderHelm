@@ -74,7 +74,7 @@ export function BrowserSidebar({
   const syncBounds = useCallback(() => {
     const stage = stageRef.current;
     if (stage === null) return;
-    void window.zero?.browser
+    void window.builderHelm?.browser
       .command({ action: 'bounds', bounds: stageBounds(stage) })
       .catch(() => undefined);
   }, []);
@@ -94,12 +94,12 @@ export function BrowserSidebar({
 
   useEffect(() => {
     if (page !== null) return;
-    void window.zero?.browser.command({ action: 'hide' }).catch(() => undefined);
+    void window.builderHelm?.browser.command({ action: 'hide' }).catch(() => undefined);
   }, [page]);
 
   useEffect(() => {
     return () => {
-      void window.zero?.browser.command({ action: 'hide' }).catch(() => undefined);
+      void window.builderHelm?.browser.command({ action: 'hide' }).catch(() => undefined);
     };
   }, []);
 
@@ -119,7 +119,7 @@ export function BrowserSidebar({
     if (stage === null || url.length === 0) return;
     setError(null);
     try {
-      const state = await window.zero.browser.command({
+      const state = await window.builderHelm.browser.command({
         action: 'open',
         url,
         bounds: stageBounds(stage),
@@ -138,7 +138,7 @@ export function BrowserSidebar({
 
   async function run(action: 'back' | 'forward' | 'reload'): Promise<void> {
     try {
-      const state = await window.zero.browser.command({ action });
+      const state = await window.builderHelm.browser.command({ action });
       setCanGoBack(state.canGoBack);
       setCanGoForward(state.canGoForward);
       if (state.url.length > 0) {
@@ -154,7 +154,7 @@ export function BrowserSidebar({
     setPage(null);
     setDraft('');
     setError(null);
-    void window.zero?.browser.command({ action: 'hide' }).catch(() => undefined);
+    void window.builderHelm?.browser.command({ action: 'hide' }).catch(() => undefined);
   }
 
   return (

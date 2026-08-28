@@ -1,4 +1,4 @@
-import { phaseZeroMigration } from './0001-phase-zero.js';
+import { foundationMigration } from './0001-foundation.js';
 import { providerSettingsMigration } from './0002-provider-settings.js';
 import { chatPersistenceMigration } from './0003-chat-persistence.js';
 import { modelCapabilityOverridesMigration } from './0004-model-capability-overrides.js';
@@ -12,7 +12,7 @@ import { kanbanReviewCancelledMigration } from './0011-kanban-review-cancelled.j
 import { swarmPersistenceMigration } from './0012-swarm-persistence.js';
 
 export const migrations = [
-  phaseZeroMigration,
+  foundationMigration,
   providerSettingsMigration,
   chatPersistenceMigration,
   modelCapabilityOverridesMigration,
@@ -31,7 +31,7 @@ export {
   modelCapabilityOverridesMigration,
   obsidianKnowledgeMigration,
   toolsPermissionsActionsMigration,
-  phaseZeroMigration,
+  foundationMigration,
   providerSettingsMigration,
   projectContinuityMigration,
   boardPresetsMigration,

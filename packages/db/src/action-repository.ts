@@ -1,6 +1,6 @@
-import { ZeroError } from '@zero/shared';
+import { BuilderHelmError } from '@builderhelm/shared';
 
-import type { DatabaseValue, ZeroDatabase } from './database.js';
+import type { DatabaseValue, BuilderHelmDatabase } from './database.js';
 import type { AuditEventWrite } from './provider-repository.js';
 
 export interface ProjectWrite {
@@ -227,7 +227,7 @@ const receiptColumns = `
 `;
 
 export class ActionRepository {
-  constructor(private readonly database: ZeroDatabase) {}
+  constructor(private readonly database: BuilderHelmDatabase) {}
 
   listProjects(limit?: number): StoredProject[] {
     if (limit === undefined) {
@@ -413,10 +413,13 @@ export class ActionRepository {
     return this.database.transaction(() => {
       const current = this.findApprovalById(id);
       if (current === undefined) {
-        throw new ZeroError('VALIDATION_FAILED', 'The approval request was not found');
+        throw new BuilderHelmError(
+          'VALIDATION_FAILED',
+          'The approval request was not found',
+        );
       }
       if (current.status !== 'pending') {
-        throw new ZeroError(
+        throw new BuilderHelmError(
           'PERMISSION_DENIED',
           'The approval request is no longer pending',
         );
@@ -479,7 +482,10 @@ export class ActionRepository {
   ): StoredActionReceipt {
     return this.mutate(receipt, audit, () => {
       if (this.findProjectById(task.projectId) === undefined) {
-        throw new ZeroError('VALIDATION_FAILED', 'The target project was not found');
+        throw new BuilderHelmError(
+          'VALIDATION_FAILED',
+          'The target project was not found',
+        );
       }
       this.database.run(
         `INSERT INTO tasks (
@@ -510,7 +516,7 @@ export class ActionRepository {
   ): StoredActionReceipt {
     return this.mutate(receipt, audit, () => {
       if (this.findTaskById(task.id) === undefined) {
-        throw new ZeroError('VALIDATION_FAILED', 'The task was not found');
+        throw new BuilderHelmError('VALIDATION_FAILED', 'The task was not found');
       }
       this.database.run(
         `UPDATE tasks SET
@@ -539,7 +545,10 @@ export class ActionRepository {
   ): StoredActionReceipt {
     return this.mutate(receipt, audit, () => {
       if (this.findProjectById(decision.projectId) === undefined) {
-        throw new ZeroError('VALIDATION_FAILED', 'The target project was not found');
+        throw new BuilderHelmError(
+          'VALIDATION_FAILED',
+          'The target project was not found',
+        );
       }
       this.database.run(
         `INSERT INTO project_decisions (id, project_id, title, detail, created_at)
@@ -564,20 +573,26 @@ export class ActionRepository {
       if (audit.approvalId !== null) {
         const approval = this.findApprovalById(audit.approvalId);
         if (approval === undefined) {
-          throw new ZeroError('VALIDATION_FAILED', 'The approval request was not found');
+          throw new BuilderHelmError(
+            'VALIDATION_FAILED',
+            'The approval request was not found',
+          );
         }
         if (approval.status !== 'pending') {
-          throw new ZeroError('PERMISSION_DENIED', 'The approval was already resolved');
+          throw new BuilderHelmError(
+            'PERMISSION_DENIED',
+            'The approval was already resolved',
+          );
         }
         if (approval.expiresAt <= receipt.createdAt) {
-          throw new ZeroError('PERMISSION_DENIED', 'The approval request expired');
+          throw new BuilderHelmError('PERMISSION_DENIED', 'The approval request expired');
         }
         if (
           approval.toolId !== receipt.toolId ||
           approval.requestId !== receipt.requestId ||
           approval.argumentsJson !== receipt.argumentsJson
         ) {
-          throw new ZeroError(
+          throw new BuilderHelmError(
             'PERMISSION_DENIED',
             'The approved action does not match the requested execution',
           );

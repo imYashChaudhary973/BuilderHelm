@@ -1,6 +1,6 @@
-import type { ActionRepository, StoredProject, StoredTask } from '@zero/db';
-import type { JsonValue } from '@zero/protocol/json';
-import type { WorkToolId } from '@zero/protocol/actions';
+import type { ActionRepository, StoredProject, StoredTask } from '@builderhelm/db';
+import type { JsonValue } from '@builderhelm/protocol/json';
+import type { WorkToolId } from '@builderhelm/protocol/actions';
 
 export interface ParsedActionIntent {
   readonly toolId: WorkToolId;

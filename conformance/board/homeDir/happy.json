@@ -1,7 +1,0 @@
-{
-  "channel": "zero:board:home-dir",
-  "expected": {
-    "ok": true,
-    "value": "/Users/yashchaudhary"
-  }
-}

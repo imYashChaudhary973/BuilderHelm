@@ -1,4 +1,4 @@
-import type { EditorEntry, EditorFile } from '@zero/protocol/editor';
+import type { EditorEntry, EditorFile } from '@builderhelm/protocol/editor';
 import { useEffect, useMemo, useState } from 'react';
 
 import { useSpaces } from '../space-store.js';
@@ -128,7 +128,7 @@ function DirList({
 
   useEffect(() => {
     let alive = true;
-    void window.zero.editor
+    void window.builderHelm.editor
       .list({ root, path, hidden })
       .then((next) => {
         if (alive) setEntries(next);
@@ -220,7 +220,7 @@ export function EditorSidebar(): React.JSX.Element {
     }
     let alive = true;
     const handle = window.setTimeout(() => {
-      void window.zero.editor
+      void window.builderHelm.editor
         .search({ root, query: query.trim(), hidden })
         .then((next) => {
           if (alive) setHits(next);
@@ -244,7 +244,7 @@ export function EditorSidebar(): React.JSX.Element {
     }
     setError(null);
     try {
-      const file = await window.zero.editor.read({ root, path });
+      const file = await window.builderHelm.editor.read({ root, path });
       setDocs((current) => [...current, { file, draft: file.text }]);
       setActivePath(file.path);
     } catch (cause) {
@@ -256,7 +256,7 @@ export function EditorSidebar(): React.JSX.Element {
     if (root === null) return;
     const doc = docs.find((item) => item.file.path === path);
     if (doc === undefined || doc.draft === doc.file.text) return;
-    const next = await window.zero.editor.write({
+    const next = await window.builderHelm.editor.write({
       root,
       path: doc.file.path,
       text: doc.draft,
@@ -316,7 +316,7 @@ export function EditorSidebar(): React.JSX.Element {
     if (name.length === 0) return;
     setError(null);
     try {
-      const created = await window.zero.editor.create({
+      const created = await window.builderHelm.editor.create({
         root,
         path: joinPath(root, name),
         kind: creating,

@@ -7,7 +7,7 @@ import {
   swarmReviewSchema,
   type BoardAgentId,
   type SwarmReviewVerdict,
-} from '@zero/protocol';
+} from '@builderhelm/protocol';
 
 import {
   buildPlanPrompt,

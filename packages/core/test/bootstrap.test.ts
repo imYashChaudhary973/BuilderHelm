@@ -1,4 +1,4 @@
-import { createCorrelationId } from '@zero/shared';
+import { createCorrelationId } from '@builderhelm/shared';
 import { describe, expect, it } from 'vitest';
 
 import { bootstrapCore, MemorySecretStore } from '../src/index.js';

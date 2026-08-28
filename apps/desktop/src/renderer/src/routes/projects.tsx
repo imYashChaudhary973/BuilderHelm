@@ -1,5 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ProjectDashboard, ProjectTimelineItem } from '@zero/protocol/projects';
+import type {
+  ProjectDashboard,
+  ProjectTimelineItem,
+} from '@builderhelm/protocol/projects';
 import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
@@ -34,7 +37,7 @@ function ProjectDetail({ dashboard }: { readonly dashboard: ProjectDashboard }) 
   const [error, setError] = useState<string | null>(null);
   const register = useMutation({
     mutationFn: () =>
-      window.zero.projects.selectRepository({ projectId: dashboard.project.id }),
+      window.builderHelm.projects.selectRepository({ projectId: dashboard.project.id }),
     onMutate: () => setError(null),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['project-dashboard'] });
@@ -43,7 +46,9 @@ function ProjectDetail({ dashboard }: { readonly dashboard: ProjectDashboard }) 
   });
   const refresh = useMutation({
     mutationFn: () =>
-      window.zero.projects.refreshRepository({ repositoryId: dashboard.repository!.id }),
+      window.builderHelm.projects.refreshRepository({
+        repositoryId: dashboard.repository!.id,
+      }),
     onMutate: () => setError(null),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['project-dashboard'] });
@@ -85,7 +90,9 @@ function ProjectDetail({ dashboard }: { readonly dashboard: ProjectDashboard }) 
           <span aria-hidden="true">⌁</span>
           <div>
             <strong>No repository connected</strong>
-            <p>Select a local Git folder. Zero reads status and recent commits only.</p>
+            <p>
+              Select a local Git folder. BuilderHelm reads status and recent commits only.
+            </p>
           </div>
         </div>
       ) : (
@@ -183,7 +190,7 @@ export function ProjectsPage(): React.JSX.Element {
   const [selectedId, setSelectedId] = useState('');
   const dashboard = useQuery({
     queryKey: ['project-dashboard'],
-    queryFn: () => window.zero.projects.dashboard(),
+    queryFn: () => window.builderHelm.projects.dashboard(),
   });
   useEffect(() => {
     if (

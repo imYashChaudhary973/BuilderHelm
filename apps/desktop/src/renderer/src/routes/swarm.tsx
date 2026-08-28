@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { gridForCount, type BoardPaneSummary } from '@zero/protocol/board';
+import { gridForCount, type BoardPaneSummary } from '@builderhelm/protocol/board';
 import {
   assignSwarmPanes,
   availableSwarmAgents,
@@ -11,8 +11,8 @@ import {
   type SwarmPresetId,
   type SwarmRunRecord,
   type SwarmState,
-} from '@zero/protocol/swarm';
-import type { CorrelationId } from '@zero/shared';
+} from '@builderhelm/protocol/swarm';
+import type { CorrelationId } from '@builderhelm/shared';
 import { useEffect, useMemo, useState } from 'react';
 import { TerminalPane } from '../components/terminal-pane.js';
 import { SwarmLive, type SwarmLiveSeat } from '../swarm-live.js';
@@ -75,11 +75,11 @@ export function SwarmPage(): React.JSX.Element {
 
   const agents = useQuery({
     queryKey: ['board-agents'],
-    queryFn: () => window.zero.board.detectAgents(),
+    queryFn: () => window.builderHelm.board.detectAgents(),
   });
 
   useEffect(() => {
-    void window.zero.board
+    void window.builderHelm.board
       .homeDir()
       .then((home) => setHomeDir(home))
       .catch(() => undefined);
@@ -88,7 +88,7 @@ export function SwarmPage(): React.JSX.Element {
   // A swarm outlives this view: adopt one that is still in flight so leaving
   // and returning never orphans a running run behind the wizard.
   useEffect(() => {
-    void window.zero.swarm
+    void window.builderHelm.swarm
       .latest({ correlationId: crypto.randomUUID() as CorrelationId })
       .then((latest) => {
         if (latest !== null && latest.status === 'running') setRun(latest);
@@ -119,14 +119,14 @@ export function SwarmPage(): React.JSX.Element {
     enabled: run !== null,
     refetchInterval: 5_000,
     queryFn: (): Promise<SwarmState> =>
-      window.zero.swarm.state({
+      window.builderHelm.swarm.state({
         correlationId: crypto.randomUUID() as CorrelationId,
         runId: run!.id,
       }),
   });
 
   useEffect(() => {
-    return window.zero.swarm.onEvent(() => {
+    return window.builderHelm.swarm.onEvent(() => {
       void queryClient.invalidateQueries({ queryKey: ['swarm-state'] });
     });
   }, [queryClient]);
@@ -135,7 +135,7 @@ export function SwarmPage(): React.JSX.Element {
   useEffect(() => {
     const sessionId = run?.boardSessionId ?? null;
     if (sessionId === null) return;
-    return window.zero.board.onPaneEvent(sessionId, (envelope) => {
+    return window.builderHelm.board.onPaneEvent(sessionId, (envelope) => {
       if (envelope.event.type !== 'data') return;
       const text = atob(envelope.event.data);
       setPreviews((current) => ({
@@ -155,7 +155,7 @@ export function SwarmPage(): React.JSX.Element {
       const folder = folderPath.trim();
       if (folder.length === 0) throw new Error('Pick a folder first.');
       if (job.trim().length === 0) throw new Error('Write a mission first.');
-      return window.zero.swarm.create({
+      return window.builderHelm.swarm.create({
         correlationId: crypto.randomUUID() as CorrelationId,
         input: {
           name: swarmName.trim() || `Swarm · ${folderName(folder)}`,
@@ -180,7 +180,7 @@ export function SwarmPage(): React.JSX.Element {
 
   const stop = useMutation({
     mutationFn: (runId: string) =>
-      window.zero.swarm.stop({
+      window.builderHelm.swarm.stop({
         correlationId: crypto.randomUUID() as CorrelationId,
         runId,
       }),
@@ -189,7 +189,7 @@ export function SwarmPage(): React.JSX.Element {
 
   const stopSeat = useMutation({
     mutationFn: (seatId: string) =>
-      window.zero.swarm.stopSeat({
+      window.builderHelm.swarm.stopSeat({
         correlationId: crypto.randomUUID() as CorrelationId,
         runId: run!.id,
         seatId,
@@ -199,7 +199,7 @@ export function SwarmPage(): React.JSX.Element {
 
   const direct = useMutation({
     mutationFn: (input: { readonly seatIds: readonly string[]; readonly body: string }) =>
-      window.zero.swarm.direct({
+      window.builderHelm.swarm.direct({
         correlationId: crypto.randomUUID() as CorrelationId,
         input: { runId: run!.id, seatIds: [...input.seatIds], body: input.body },
       }),
@@ -222,7 +222,7 @@ export function SwarmPage(): React.JSX.Element {
 
   async function browse(): Promise<void> {
     setError(null);
-    const picked = await window.zero.board.selectFolder();
+    const picked = await window.builderHelm.board.selectFolder();
     if (picked !== null) setFolderPath(picked);
   }
 

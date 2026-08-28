@@ -5,8 +5,8 @@ import type {
   StoredProjectDecision,
   StoredProjectRepository,
   StoredTask,
-} from '@zero/db';
-import type { Logger } from '@zero/observability';
+} from '@builderhelm/db';
+import type { Logger } from '@builderhelm/observability';
 import {
   projectDashboardSchema,
   projectDashboardSnapshotSchema,
@@ -17,8 +17,13 @@ import {
   type ProjectDashboard,
   type ProjectDashboardSnapshot,
   type ProjectTimelineItem,
-} from '@zero/protocol';
-import { createId, utcNow, ZeroError, type CorrelationId } from '@zero/shared';
+} from '@builderhelm/protocol';
+import {
+  createId,
+  utcNow,
+  BuilderHelmError,
+  type CorrelationId,
+} from '@builderhelm/shared';
 
 import {
   LocalGitInspector,
@@ -95,7 +100,7 @@ export class ProjectService {
   project(projectId: string): ProjectDashboard {
     const project = this.actions.findProjectById(projectId);
     if (project === undefined) {
-      throw new ZeroError('VALIDATION_FAILED', 'The project was not found');
+      throw new BuilderHelmError('VALIDATION_FAILED', 'The project was not found');
     }
     const tasks = this.actions.listTasks(projectId, undefined, MAX_TASKS).map(toTask);
     const decisions = this.actions.listDecisions(projectId).map(toDecision);
@@ -146,12 +151,12 @@ export class ProjectService {
     correlationId: CorrelationId,
   ): ProjectDashboard {
     if (this.actions.findProjectById(projectId) === undefined) {
-      throw new ZeroError('VALIDATION_FAILED', 'The project was not found');
+      throw new BuilderHelmError('VALIDATION_FAILED', 'The project was not found');
     }
     const snapshot = this.git.inspect(selectedPath);
     const owner = this.repositories.findByRootPath(snapshot.rootPath);
     if (owner !== undefined && owner.projectId !== projectId) {
-      throw new ZeroError(
+      throw new BuilderHelmError(
         'VALIDATION_FAILED',
         'That repository is already registered to another project',
       );
@@ -172,11 +177,11 @@ export class ProjectService {
   ): ProjectDashboard {
     const repository = this.repositories.findById(repositoryId);
     if (repository === undefined) {
-      throw new ZeroError('VALIDATION_FAILED', 'The repository was not found');
+      throw new BuilderHelmError('VALIDATION_FAILED', 'The repository was not found');
     }
     const snapshot = this.git.inspect(repository.rootPath);
     if (snapshot.rootPath !== repository.rootPath) {
-      throw new ZeroError('PERMISSION_DENIED', 'The repository location changed');
+      throw new BuilderHelmError('PERMISSION_DENIED', 'The repository location changed');
     }
     this.persist(repository.projectId, repository.id, snapshot, repository.createdAt);
     this.logger.info({

@@ -3,8 +3,8 @@ import type {
   AuditEventWrite,
   ProviderWrite,
   StoredProvider,
-} from '@zero/db';
-import type { Logger } from '@zero/observability';
+} from '@builderhelm/db';
+import type { Logger } from '@builderhelm/observability';
 import {
   createProviderInputSchema,
   providerHeaderSchema,
@@ -14,10 +14,18 @@ import {
   type ProviderHeader,
   type ProviderSummary,
   type UpdateProviderInput,
-} from '@zero/protocol';
-import { createId, utcNow, ZeroError, type CorrelationId } from '@zero/shared';
+} from '@builderhelm/protocol';
+import {
+  createId,
+  utcNow,
+  BuilderHelmError,
+  type CorrelationId,
+} from '@builderhelm/shared';
 
-import { ZERO_KEYCHAIN_SERVICE, type SecretStore } from '../secrets/secret-store.js';
+import {
+  BUILDERHELM_KEYCHAIN_SERVICE,
+  type SecretStore,
+} from '../secrets/secret-store.js';
 
 function parseHeaders(value: string): ProviderHeader[] {
   const parsed: unknown = JSON.parse(value);
@@ -88,8 +96,8 @@ function auditEvent(
   };
 }
 
-function missingProvider(): ZeroError {
-  return new ZeroError('VALIDATION_FAILED', 'Provider was not found');
+function missingProvider(): BuilderHelmError {
+  return new BuilderHelmError('VALIDATION_FAILED', 'Provider was not found');
 }
 
 export class ProviderService {
@@ -109,7 +117,7 @@ export class ProviderService {
   ): Promise<ProviderSummary> {
     const input = createProviderInputSchema.parse(rawInput);
     const id = createId();
-    const secretRef = `zero.provider.${id}.api-key`;
+    const secretRef = `builderhelm.provider.${id}.api-key`;
     const now = utcNow();
     const write = providerWrite(input, id, secretRef, now, now);
     const summary = toSummary({
@@ -127,7 +135,7 @@ export class ProviderService {
         {
           ref: secretRef,
           providerId: id,
-          service: ZERO_KEYCHAIN_SERVICE,
+          service: BUILDERHELM_KEYCHAIN_SERVICE,
           createdAt: now,
           updatedAt: now,
         },
@@ -135,7 +143,7 @@ export class ProviderService {
       );
     } catch (cause) {
       await this.secrets.delete(secretRef);
-      throw new ZeroError('DATABASE_FAILED', 'Failed to save provider settings', {
+      throw new BuilderHelmError('DATABASE_FAILED', 'Failed to save provider settings', {
         cause,
       });
     }
@@ -188,9 +196,13 @@ export class ProviderService {
         if (previousSecret === null) await this.secrets.delete(current.secretRef);
         else await this.secrets.set(current.secretRef, previousSecret);
       }
-      throw new ZeroError('DATABASE_FAILED', 'Failed to update provider settings', {
-        cause,
-      });
+      throw new BuilderHelmError(
+        'DATABASE_FAILED',
+        'Failed to update provider settings',
+        {
+          cause,
+        },
+      );
     }
 
     this.logger.info({
@@ -207,7 +219,10 @@ export class ProviderService {
 
     const previousSecret = await this.secrets.get(current.secretRef);
     if (previousSecret === null) {
-      throw new ZeroError('INTEGRATION_OFFLINE', 'Provider credential is unavailable');
+      throw new BuilderHelmError(
+        'INTEGRATION_OFFLINE',
+        'Provider credential is unavailable',
+      );
     }
 
     await this.secrets.delete(current.secretRef);
@@ -224,9 +239,13 @@ export class ProviderService {
       );
     } catch (cause) {
       await this.secrets.set(current.secretRef, previousSecret);
-      throw new ZeroError('DATABASE_FAILED', 'Failed to delete provider settings', {
-        cause,
-      });
+      throw new BuilderHelmError(
+        'DATABASE_FAILED',
+        'Failed to delete provider settings',
+        {
+          cause,
+        },
+      );
     }
 
     this.logger.info({

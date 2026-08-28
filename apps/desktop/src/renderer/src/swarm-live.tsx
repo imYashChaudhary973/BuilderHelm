@@ -6,7 +6,7 @@ import {
   type SwarmRunRecordStatus,
   type SwarmSeatStatus,
   type SwarmState,
-} from '@zero/protocol/swarm';
+} from '@builderhelm/protocol/swarm';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
 export interface SwarmLiveSeat {

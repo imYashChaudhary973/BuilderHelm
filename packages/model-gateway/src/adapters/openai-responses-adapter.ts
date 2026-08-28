@@ -10,8 +10,8 @@ import {
   type NormalizedToolCall,
   type TokenUsage,
   type ZeroMessage,
-} from '@zero/protocol';
-import { ZeroError } from '@zero/shared';
+} from '@builderhelm/protocol';
+import { BuilderHelmError } from '@builderhelm/shared';
 import { z } from 'zod';
 
 import type {
@@ -113,7 +113,7 @@ function messageContent(
   }
   if (part.type === 'image') {
     if (part.source.kind !== 'url') {
-      throw new ZeroError(
+      throw new BuilderHelmError(
         'VALIDATION_FAILED',
         'Attachment images must be resolved before invocation',
       );
@@ -180,7 +180,7 @@ function requestBody(request: ModelRequest, stream: boolean): JsonValue {
           text: {
             format: {
               type: 'json_schema',
-              name: 'zero_response',
+              name: 'builderhelm_response',
               schema: request.responseSchema,
               strict: true,
             },
@@ -193,7 +193,7 @@ function parseArguments(value: string): JsonValue {
   try {
     return jsonValueSchema.parse(JSON.parse(value));
   } catch (cause) {
-    throw new ZeroError(
+    throw new BuilderHelmError(
       'TOOL_SCHEMA_INVALID',
       'Provider returned invalid tool arguments',
       {
@@ -348,7 +348,7 @@ export class OpenAIResponsesAdapter implements ProviderAdapter {
           },
         };
       } else if (event.type === 'error' || event.type === 'response.failed') {
-        throw new ZeroError('MODEL_UNAVAILABLE', 'OpenAI response stream failed');
+        throw new BuilderHelmError('MODEL_UNAVAILABLE', 'OpenAI response stream failed');
       }
     }
   }

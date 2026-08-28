@@ -2,8 +2,8 @@ import { execFileSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
 import { basename } from 'node:path';
 
-import { gitCommitSchema, type GitCommit } from '@zero/protocol/projects';
-import { ZeroError } from '@zero/shared';
+import { gitCommitSchema, type GitCommit } from '@builderhelm/protocol/projects';
+import { BuilderHelmError } from '@builderhelm/shared';
 
 export interface GitSnapshot {
   readonly rootPath: string;
@@ -31,7 +31,7 @@ function runGit(rootPath: string, args: readonly string[]): string {
   try {
     return execFileSync('git', [...args], { ...gitOptions, cwd: rootPath }).trim();
   } catch (cause) {
-    throw new ZeroError(
+    throw new BuilderHelmError(
       'VALIDATION_FAILED',
       'The selected folder is not an available Git repository',
       { cause },
@@ -79,9 +79,13 @@ export class LocalGitInspector implements GitInspector {
     try {
       selectedRoot = realpathSync.native(selectedPath);
     } catch (cause) {
-      throw new ZeroError('VALIDATION_FAILED', 'The selected folder is unavailable', {
-        cause,
-      });
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'The selected folder is unavailable',
+        {
+          cause,
+        },
+      );
     }
 
     const rootPath = realpathSync.native(
@@ -89,7 +93,7 @@ export class LocalGitInspector implements GitInspector {
     );
     const headSha = runGit(rootPath, ['rev-parse', 'HEAD']);
     if (!/^[0-9a-f]{40,64}$/.test(headSha)) {
-      throw new ZeroError(
+      throw new BuilderHelmError(
         'TOOL_EXECUTION_FAILED',
         'Git returned an invalid HEAD revision',
       );

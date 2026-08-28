@@ -1,4 +1,4 @@
-import type { ZeroDatabase } from './database.js';
+import type { BuilderHelmDatabase } from './database.js';
 import type { AuditEventWrite } from './provider-repository.js';
 
 export interface ModelCapabilitiesWrite {
@@ -91,7 +91,7 @@ const modelColumns = `
 `;
 
 export class ModelRepository {
-  constructor(private readonly database: ZeroDatabase) {}
+  constructor(private readonly database: BuilderHelmDatabase) {}
 
   list(providerId?: string): StoredModel[] {
     const filter = providerId === undefined ? '' : 'WHERE models.provider_id = ?';

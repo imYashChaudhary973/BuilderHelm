@@ -1,4 +1,9 @@
-import { createId, utcNow, type CorrelationId, type ZeroId } from '@zero/shared';
+import {
+  createId,
+  utcNow,
+  type CorrelationId,
+  type BuilderHelmId,
+} from '@builderhelm/shared';
 import { z } from 'zod';
 
 import { jsonValueSchema, type JsonValue } from './json.js';
@@ -26,7 +31,7 @@ export interface CreateEventInput {
   readonly correlationId: CorrelationId;
   readonly payload: JsonValue;
   readonly actor?: ActorRef;
-  readonly causationId?: ZeroId;
+  readonly causationId?: BuilderHelmId;
 }
 
 export function createEvent(input: CreateEventInput): ZeroEvent {

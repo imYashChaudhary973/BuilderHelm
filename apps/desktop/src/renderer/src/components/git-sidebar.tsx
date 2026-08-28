@@ -1,4 +1,4 @@
-import type { EditorGit } from '@zero/protocol/editor';
+import type { EditorGit } from '@builderhelm/protocol/editor';
 import { useEffect, useState } from 'react';
 
 import { useSpaces } from '../space-store.js';
@@ -36,7 +36,7 @@ export function GitSidebar(): React.JSX.Element {
       return;
     }
     let alive = true;
-    void window.zero.editor
+    void window.builderHelm.editor
       .git(root)
       .then((next) => {
         if (!alive) return;
@@ -58,7 +58,7 @@ export function GitSidebar(): React.JSX.Element {
     setBusy(true);
     setError(null);
     try {
-      setGit(await window.zero.editor.gitStage({ root, path, staged }));
+      setGit(await window.builderHelm.editor.gitStage({ root, path, staged }));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Stage failed');
     } finally {
@@ -71,7 +71,9 @@ export function GitSidebar(): React.JSX.Element {
     setBusy(true);
     setError(null);
     try {
-      setGit(await window.zero.editor.gitCommit({ root, message: message.trim() }));
+      setGit(
+        await window.builderHelm.editor.gitCommit({ root, message: message.trim() }),
+      );
       setMessage('');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Commit failed');

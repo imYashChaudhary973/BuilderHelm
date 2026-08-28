@@ -11,8 +11,8 @@ import type {
   ProjectDecisionWrite,
   ProjectWrite,
   TaskWrite,
-} from '@zero/db';
-import type { Logger } from '@zero/observability';
+} from '@builderhelm/db';
+import type { Logger } from '@builderhelm/observability';
 import {
   actionCommandInputSchema,
   actionCommandOutcomeSchema,
@@ -37,11 +37,16 @@ import {
   type ResourceRef,
   type Task,
   type WorkToolId,
-} from '@zero/protocol/actions';
-import type { JsonValue } from '@zero/protocol/json';
-import type { ModelRequest } from '@zero/protocol/model';
-import { createId, normalizeError, ZeroError, type CorrelationId } from '@zero/shared';
-import type { PermissionEngine, ToolRegistry } from '@zero/tools';
+} from '@builderhelm/protocol/actions';
+import type { JsonValue } from '@builderhelm/protocol/json';
+import type { ModelRequest } from '@builderhelm/protocol/model';
+import {
+  createId,
+  normalizeError,
+  BuilderHelmError,
+  type CorrelationId,
+} from '@builderhelm/shared';
+import type { PermissionEngine, ToolRegistry } from '@builderhelm/tools';
 
 import type { ModelService } from '../models/model-service.js';
 import {
@@ -173,7 +178,7 @@ function actorId(plan: PlannedAction): string {
 
 function object(value: JsonValue): Record<string, JsonValue> {
   if (value === null || Array.isArray(value) || typeof value !== 'object') {
-    throw new ZeroError('TOOL_SCHEMA_INVALID', 'Tool arguments must be an object');
+    throw new BuilderHelmError('TOOL_SCHEMA_INVALID', 'Tool arguments must be an object');
   }
   return value;
 }
@@ -224,7 +229,7 @@ export class ActionService {
     const priorApproval = this.repository.findApprovalByRequestId(input.requestId);
     if (priorApproval !== undefined) {
       if (priorApproval.status !== 'pending') {
-        throw new ZeroError(
+        throw new BuilderHelmError(
           'PERMISSION_DENIED',
           'This action request was already resolved',
         );
@@ -265,12 +270,15 @@ export class ActionService {
     void correlationId;
     const stored = this.repository.findApprovalById(approvalId);
     if (stored === undefined) {
-      throw new ZeroError('VALIDATION_FAILED', 'The approval request was not found');
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'The approval request was not found',
+      );
     }
     const approvalCorrelationId = stored.correlationId as CorrelationId;
     const now = utcNowFrom(this.clock());
     if (stored.status !== 'pending') {
-      throw new ZeroError(
+      throw new BuilderHelmError(
         'PERMISSION_DENIED',
         'The approval request is no longer pending',
       );
@@ -291,7 +299,7 @@ export class ActionService {
           createdAt: now,
         }),
       );
-      throw new ZeroError('PERMISSION_DENIED', 'The approval request expired');
+      throw new BuilderHelmError('PERMISSION_DENIED', 'The approval request expired');
     }
     const toolId = this.registry.resolve(stored.toolId);
     const descriptor = this.registry.descriptor(toolId);
@@ -303,7 +311,10 @@ export class ActionService {
       rollbackSupport: descriptor.rollbackSupport,
     });
     if (decision !== 'allow') {
-      throw new ZeroError('PERMISSION_DENIED', 'The current policy denies this tool');
+      throw new BuilderHelmError(
+        'PERMISSION_DENIED',
+        'The current policy denies this tool',
+      );
     }
     const plan: PlannedAction = {
       requestId: stored.requestId,
@@ -344,7 +355,10 @@ export class ActionService {
     void correlationId;
     const stored = this.repository.findApprovalById(approvalId);
     if (stored === undefined) {
-      throw new ZeroError('VALIDATION_FAILED', 'The approval request was not found');
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'The approval request was not found',
+      );
     }
     const approvalCorrelationId = stored.correlationId as CorrelationId;
     const now = utcNowFrom(this.clock());
@@ -405,7 +419,7 @@ export class ActionService {
     signal: AbortSignal,
   ): Promise<PlannedAction> {
     if (input.modelRef === null) {
-      throw new ZeroError(
+      throw new BuilderHelmError(
         'VALIDATION_FAILED',
         'Command not recognized. Try “Create project Project A” or “Add a high-priority task to Project A to benchmark sync tomorrow.”',
       );
@@ -446,7 +460,7 @@ export class ActionService {
               text: [
                 'Translate the user request into exactly one supplied tool call.',
                 'Never invent project or task IDs; use only the catalog.',
-                'Do not claim an action executed. Zero independently validates and authorizes it.',
+                'Do not claim an action executed. BuilderHelm independently validates and authorizes it.',
                 `Local catalog: ${JSON.stringify(catalog)}`,
               ].join(' '),
             },
@@ -473,7 +487,7 @@ export class ActionService {
         if (event.type === 'tool.proposed') {
           calls.push({ name: event.call.name, arguments: event.call.arguments });
         } else if (event.type === 'error') {
-          throw new ZeroError(event.error.code, event.error.message, {
+          throw new BuilderHelmError(event.error.code, event.error.message, {
             retryable: event.error.retryable,
           });
         } else if (event.type === 'done') {
@@ -481,10 +495,13 @@ export class ActionService {
         }
       }
       if (!completed) {
-        throw new ZeroError('MODEL_UNAVAILABLE', 'The action proposal ended early');
+        throw new BuilderHelmError(
+          'MODEL_UNAVAILABLE',
+          'The action proposal ended early',
+        );
       }
       if (calls.length !== 1) {
-        throw new ZeroError(
+        throw new BuilderHelmError(
           'TOOL_SCHEMA_INVALID',
           'The model must propose exactly one action at a time',
         );
@@ -569,7 +586,10 @@ export class ActionService {
           createdAt: now,
         }),
       );
-      throw new ZeroError('PERMISSION_DENIED', 'The permission policy denies this tool');
+      throw new BuilderHelmError(
+        'PERMISSION_DENIED',
+        'The permission policy denies this tool',
+      );
     }
     if (permission === 'require_approval') {
       const approval = approvalRequestSchema.parse({
@@ -660,7 +680,7 @@ export class ActionService {
       const projectId = String(args.projectId);
       const project = this.repository.findProjectById(projectId);
       if (project === undefined) {
-        throw new ZeroError('VALIDATION_FAILED', 'The project was not found');
+        throw new BuilderHelmError('VALIDATION_FAILED', 'The project was not found');
       }
       result = projectStatusResultSchema.parse({
         project: toProject(project),
@@ -671,7 +691,10 @@ export class ActionService {
         .taskCounts;
       message = `${project.name}: ${counts.todo} todo, ${counts.inProgress} in progress, ${counts.blocked} blocked, ${counts.done} done.`;
     } else {
-      throw new ZeroError('TOOL_EXECUTION_FAILED', 'This tool is not a read action');
+      throw new BuilderHelmError(
+        'TOOL_EXECUTION_FAILED',
+        'This tool is not a read action',
+      );
     }
     const output = this.registry.parseOutput(plan.toolId, result);
     const now = utcNowFrom(this.clock());
@@ -721,7 +744,7 @@ export class ActionService {
     if (plan.toolId === 'project.create') {
       const name = String(args.name);
       if (this.repository.findProjectByNormalizedName(normalizeWorkName(name))) {
-        throw new ZeroError(
+        throw new BuilderHelmError(
           'VALIDATION_FAILED',
           'A project with this name already exists',
         );
@@ -743,7 +766,10 @@ export class ActionService {
     } else if (plan.toolId === 'task.create') {
       const projectId = String(args.projectId);
       if (this.repository.findProjectById(projectId) === undefined) {
-        throw new ZeroError('VALIDATION_FAILED', 'The target project was not found');
+        throw new BuilderHelmError(
+          'VALIDATION_FAILED',
+          'The target project was not found',
+        );
       }
       const task = taskSchema.parse({
         id: plan.requestId,
@@ -766,7 +792,7 @@ export class ActionService {
     } else if (plan.toolId === 'task.update') {
       const current = this.repository.findTaskById(String(args.taskId));
       if (current === undefined) {
-        throw new ZeroError('VALIDATION_FAILED', 'The task was not found');
+        throw new BuilderHelmError('VALIDATION_FAILED', 'The task was not found');
       }
       before = toTask(current) as unknown as JsonValue;
       const task = taskSchema.parse({
@@ -797,7 +823,10 @@ export class ActionService {
     } else if (plan.toolId === 'project.add_decision') {
       const projectId = String(args.projectId);
       if (this.repository.findProjectById(projectId) === undefined) {
-        throw new ZeroError('VALIDATION_FAILED', 'The target project was not found');
+        throw new BuilderHelmError(
+          'VALIDATION_FAILED',
+          'The target project was not found',
+        );
       }
       const decision = projectDecisionSchema.parse({
         id: plan.requestId,
@@ -810,7 +839,10 @@ export class ActionService {
       mutation = { kind: 'decision', value: decision };
       rollback = null;
     } else {
-      throw new ZeroError('TOOL_EXECUTION_FAILED', 'This tool is not a write action');
+      throw new BuilderHelmError(
+        'TOOL_EXECUTION_FAILED',
+        'This tool is not a write action',
+      );
     }
 
     const receiptWrite: ActionReceiptWrite = {

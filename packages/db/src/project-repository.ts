@@ -1,4 +1,4 @@
-import type { ZeroDatabase } from './database.js';
+import type { BuilderHelmDatabase } from './database.js';
 
 export interface StoredProjectRepository extends Record<string, unknown> {
   id: string;
@@ -43,7 +43,7 @@ const repositoryColumns = `
 `;
 
 export class ProjectRepositoryStore {
-  constructor(private readonly database: ZeroDatabase) {}
+  constructor(private readonly database: BuilderHelmDatabase) {}
 
   list(): StoredProjectRepository[] {
     return this.database.queryAll<StoredProjectRepository>(

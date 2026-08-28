@@ -3,7 +3,7 @@ import type {
   CreateProviderInput,
   ProviderSummary,
   UpdateProviderInput,
-} from '@zero/protocol/providers';
+} from '@builderhelm/protocol/providers';
 import { useState } from 'react';
 
 import { ModelCapabilityEditor } from '../../features/providers/model-capability-editor.js';
@@ -17,15 +17,15 @@ export function ProvidersPage(): React.JSX.Element {
   const [notice, setNotice] = useState<string | null>(null);
   const providers = useQuery({
     queryKey: ['providers'],
-    queryFn: () => window.zero.providers.list(),
+    queryFn: () => window.builderHelm.providers.list(),
   });
   const models = useQuery({
     queryKey: ['models'],
-    queryFn: () => window.zero.models.list({}),
+    queryFn: () => window.builderHelm.models.list({}),
   });
   const capabilityOverrides = useQuery({
     queryKey: ['model-capability-overrides'],
-    queryFn: () => window.zero.models.listCapabilityOverrides({}),
+    queryFn: () => window.builderHelm.models.listCapabilityOverrides({}),
   });
 
   async function refresh(): Promise<void> {
@@ -36,19 +36,21 @@ export function ProvidersPage(): React.JSX.Element {
   }
 
   const createProvider = useMutation({
-    mutationFn: (input: CreateProviderInput) => window.zero.providers.create(input),
+    mutationFn: (input: CreateProviderInput) =>
+      window.builderHelm.providers.create(input),
     onSuccess: refresh,
     onError: () =>
       setError('Provider could not be saved. Check the fields and Keychain access.'),
   });
   const updateProvider = useMutation({
-    mutationFn: (input: UpdateProviderInput) => window.zero.providers.update(input),
+    mutationFn: (input: UpdateProviderInput) =>
+      window.builderHelm.providers.update(input),
     onSuccess: refresh,
     onError: () =>
       setError('Provider could not be updated. Your previous settings were preserved.'),
   });
   const deleteProvider = useMutation({
-    mutationFn: (id: string) => window.zero.providers.delete({ id }),
+    mutationFn: (id: string) => window.builderHelm.providers.delete({ id }),
     onSuccess: async () => {
       setDeleting(null);
       await refresh();
@@ -61,7 +63,7 @@ export function ProvidersPage(): React.JSX.Element {
   });
   const testProvider = useMutation({
     mutationFn: (provider: ProviderSummary) =>
-      window.zero.providers.testConnection({ providerId: provider.id }),
+      window.builderHelm.providers.testConnection({ providerId: provider.id }),
     onMutate: () => {
       setError(null);
       setNotice(null);
@@ -75,7 +77,7 @@ export function ProvidersPage(): React.JSX.Element {
   });
   const discoverModels = useMutation({
     mutationFn: (provider: ProviderSummary) =>
-      window.zero.models.discover({ providerId: provider.id }),
+      window.builderHelm.models.discover({ providerId: provider.id }),
     onMutate: () => {
       setError(null);
       setNotice(null);
@@ -95,9 +97,9 @@ export function ProvidersPage(): React.JSX.Element {
     mutationFn: (input: {
       modelRef: string;
       overrides: Parameters<
-        typeof window.zero.models.updateCapabilityOverride
+        typeof window.builderHelm.models.updateCapabilityOverride
       >[0]['overrides'];
-    }) => window.zero.models.updateCapabilityOverride(input),
+    }) => window.builderHelm.models.updateCapabilityOverride(input),
     onMutate: () => {
       setError(null);
       setNotice(null);

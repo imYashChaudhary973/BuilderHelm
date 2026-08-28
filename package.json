@@ -1,16 +1,17 @@
 {
-  "name": "zero-os",
+  "name": "builderhelm",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.16.0",
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=24.18.0 <25"
   },
   "scripts": {
-    "build": "pnpm --filter @zero/desktop build",
-    "dev": "pnpm --filter @zero/desktop dev",
-    "dist": "pnpm --filter @zero/desktop dist",
+    "build": "pnpm --filter @builderhelm/desktop build",
+    "dev": "pnpm --filter @builderhelm/desktop dev",
+    "dist": "pnpm --filter @builderhelm/desktop dist",
+    "check:architecture": "node scripts/check-architecture.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
@@ -18,16 +19,16 @@
     "test": "vitest run",
     "test:architecture": "vitest run tests/architecture",
     "test:migrations": "vitest run packages/db/test/migrations.test.ts",
-    "smoke:desktop": "pnpm --filter @zero/desktop smoke",
+    "smoke:desktop": "pnpm --filter @builderhelm/desktop smoke",
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
-    "@types/node": "^22.0.0",
+    "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.0.0",
-    "electron": "^39.8.10",
+    "electron": "43.4.1",
     "electron-vite": "^4.0.0",
     "eslint": "^9.0.0",
     "prettier": "^3.0.0",

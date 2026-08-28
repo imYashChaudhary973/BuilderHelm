@@ -7,13 +7,3 @@ pnpm-lock.yaml
 *.tsbuildinfo
 [0-9][0-9]_*.md
 assets/
-target/
-Cargo.toml
-Cargo.lock
-crates/
-rustfmt.toml
-clippy.toml
-
-# Corpus fixtures are recorded output, and the pty capture vendors xterm.
-# Reformatting either would rewrite the oracle rather than the source.
-conformance/

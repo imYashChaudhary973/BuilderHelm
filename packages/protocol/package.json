@@ -1,5 +1,5 @@
 {
-  "name": "@zero/protocol",
+  "name": "@builderhelm/protocol",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -62,7 +62,7 @@
     }
   },
   "dependencies": {
-    "@zero/shared": "workspace:*",
+    "@builderhelm/shared": "workspace:*",
     "zod": "^4.0.0"
   },
   "scripts": {

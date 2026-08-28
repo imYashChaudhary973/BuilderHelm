@@ -20,7 +20,7 @@ describe('preload bridge boundary', () => {
     expect(source).not.toContain('send(');
     expect(source).not.toContain('sendSync(');
     expect(source).not.toContain("from 'node:");
-    expect(source).not.toContain("from '@zero/shared'");
+    expect(source).not.toContain("from '@builderhelm/shared'");
   });
 
   it('builds the sandboxed preload as self-contained CommonJS', () => {
@@ -32,6 +32,6 @@ describe('preload bridge boundary', () => {
     expect(config).toContain("format: 'cjs'");
     expect(config).toContain("entryFileNames: '[name].cjs'");
     expect(config).toMatch(/exclude: \[[^\]]*'zod'[^\]]*\]/s);
-    expect(config).toContain("'@zero/shared/error'");
+    expect(config).toContain("'@builderhelm/shared/error'");
   });
 });

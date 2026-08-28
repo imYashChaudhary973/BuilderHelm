@@ -1,4 +1,8 @@
-export { openDatabase, type DatabaseValue, type ZeroDatabase } from './database.js';
+export {
+  openDatabase,
+  type DatabaseValue,
+  type BuilderHelmDatabase,
+} from './database.js';
 export {
   runMigrations,
   type Migration,
@@ -12,7 +16,7 @@ export {
   obsidianKnowledgeMigration,
   toolsPermissionsActionsMigration,
   projectContinuityMigration,
-  phaseZeroMigration,
+  foundationMigration,
   providerSettingsMigration,
 } from './migrations/index.js';
 export * from './chat-repository.js';

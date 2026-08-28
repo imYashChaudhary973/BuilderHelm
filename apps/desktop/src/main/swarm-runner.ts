@@ -3,9 +3,9 @@ import {
   type SwarmExecuteInput,
   type SwarmRunnerOutcome,
   type SwarmSeatRunner,
-} from '@zero/core';
-import { swarmSeatArgv, type BoardIsolation } from '@zero/protocol';
-import { createCorrelationId, normalizeError } from '@zero/shared';
+} from '@builderhelm/core';
+import { swarmSeatArgv, type BoardIsolation } from '@builderhelm/protocol';
+import { createCorrelationId, normalizeError } from '@builderhelm/shared';
 import type { WebContents } from 'electron';
 
 import type { BoardPtyManager } from './board-pty-manager.js';

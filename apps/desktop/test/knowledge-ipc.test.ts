@@ -1,4 +1,4 @@
-import { createCorrelationId } from '@zero/shared';
+import { createCorrelationId } from '@builderhelm/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -19,8 +19,8 @@ vi.mock('electron', async () => {
   };
 });
 
-import type { CoreRuntime } from '@zero/core';
-import { ipcChannels } from '@zero/protocol/ipc';
+import type { CoreRuntime } from '@builderhelm/core';
+import { ipcChannels } from '@builderhelm/protocol/ipc';
 
 import { registerIpcHandlers } from '../src/main/ipc.js';
 

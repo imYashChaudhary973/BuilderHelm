@@ -1,4 +1,4 @@
-import { createCorrelationId, ZeroError } from '@zero/shared';
+import { createCorrelationId, BuilderHelmError } from '@builderhelm/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const handlers = new Map<string, (_event: unknown, input: unknown) => unknown>();
@@ -15,8 +15,8 @@ vi.mock('electron', async () => {
   };
 });
 
-import type { CoreRuntime } from '@zero/core';
-import { ipcChannels } from '@zero/protocol/ipc';
+import type { CoreRuntime } from '@builderhelm/core';
+import { ipcChannels } from '@builderhelm/protocol/ipc';
 
 import { registerIpcHandlers } from '../src/main/ipc.js';
 
@@ -113,7 +113,7 @@ describe('provider IPC boundary', () => {
 
   it('preserves safe stable errors returned by the model boundary', async () => {
     const testConnection = vi.fn(async () => {
-      throw new ZeroError('AUTH_FAILED', 'Provider authentication failed');
+      throw new BuilderHelmError('AUTH_FAILED', 'Provider authentication failed');
     });
     registerIpcHandlers({ models: { testConnection } } as unknown as CoreRuntime);
 

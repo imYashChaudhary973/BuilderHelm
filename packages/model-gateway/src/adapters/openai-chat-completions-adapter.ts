@@ -10,8 +10,8 @@ import {
   type NormalizedToolCall,
   type TokenUsage,
   type ZeroMessage,
-} from '@zero/protocol';
-import { ZeroError } from '@zero/shared';
+} from '@builderhelm/protocol';
+import { BuilderHelmError } from '@builderhelm/shared';
 import { z } from 'zod';
 
 import type {
@@ -123,7 +123,7 @@ const streamChunkSchema = z
 
 function endpoint(context: ProviderInvocationContext, path: string): URL {
   if (context.baseUrl === null) {
-    throw new ZeroError(
+    throw new BuilderHelmError(
       'VALIDATION_FAILED',
       'OpenAI-compatible providers require an explicit base URL',
     );
@@ -140,7 +140,7 @@ function requestHeaders(context: ProviderInvocationContext): HeadersInit {
 }
 
 function invalidMessage(message: string): never {
-  throw new ZeroError('VALIDATION_FAILED', message);
+  throw new BuilderHelmError('VALIDATION_FAILED', message);
 }
 
 function contentPart(part: ModelContentPart, role: ZeroMessage['role']): JsonValue {
@@ -232,7 +232,7 @@ function requestBody(request: ModelRequest, stream: boolean): JsonValue {
           response_format: {
             type: 'json_schema',
             json_schema: {
-              name: 'zero_response',
+              name: 'builderhelm_response',
               strict: true,
               schema: request.responseSchema,
             },
@@ -245,7 +245,7 @@ function parseArguments(value: string): JsonValue {
   try {
     return jsonValueSchema.parse(JSON.parse(value));
   } catch (cause) {
-    throw new ZeroError(
+    throw new BuilderHelmError(
       'TOOL_SCHEMA_INVALID',
       'Provider returned invalid tool arguments',
       {
@@ -370,11 +370,14 @@ export class OpenAIChatCompletionsAdapter implements ProviderAdapter {
     }
 
     if (responseId === undefined || completed === undefined) {
-      throw new ZeroError('MODEL_UNAVAILABLE', 'Provider response stream ended early');
+      throw new BuilderHelmError(
+        'MODEL_UNAVAILABLE',
+        'Provider response stream ended early',
+      );
     }
     for (const [index, call] of [...pending].sort(([left], [right]) => left - right)) {
       if (call.id === undefined || call.name === undefined) {
-        throw new ZeroError(
+        throw new BuilderHelmError(
           'MODEL_UNAVAILABLE',
           'Provider returned an incomplete tool call',
         );

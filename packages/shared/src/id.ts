@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 
 const MAX_UUID_TIMESTAMP = 0xffffffffffff;
 
-export type ZeroId = string & { readonly __zeroId: unique symbol };
+export type BuilderHelmId = string & { readonly __builderHelmId: unique symbol };
 export type CorrelationId = string & { readonly __correlationId: unique symbol };
 
 function toUuidString(bytes: Uint8Array): string {
@@ -16,7 +16,7 @@ function toUuidString(bytes: Uint8Array): string {
   ].join('-');
 }
 
-export function createId(timestamp = Date.now()): ZeroId {
+export function createId(timestamp = Date.now()): BuilderHelmId {
   if (
     !Number.isSafeInteger(timestamp) ||
     timestamp < 0 ||
@@ -36,7 +36,7 @@ export function createId(timestamp = Date.now()): ZeroId {
   bytes[6] = 0x70 | (bytes[6]! & 0x0f);
   bytes[8] = 0x80 | (bytes[8]! & 0x3f);
 
-  return toUuidString(bytes) as ZeroId;
+  return toUuidString(bytes) as BuilderHelmId;
 }
 
 export function createCorrelationId(timestamp = Date.now()): CorrelationId {

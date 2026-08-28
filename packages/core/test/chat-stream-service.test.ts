@@ -1,6 +1,6 @@
-import type { GatewayFetch } from '@zero/model-gateway';
-import type { ChatClientStreamEvent } from '@zero/protocol';
-import { createCorrelationId } from '@zero/shared';
+import type { GatewayFetch } from '@builderhelm/model-gateway';
+import type { ChatClientStreamEvent } from '@builderhelm/protocol';
+import { createCorrelationId } from '@builderhelm/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { bootstrapCore, MemorySecretStore, type CoreRuntime } from '../src/index.js';

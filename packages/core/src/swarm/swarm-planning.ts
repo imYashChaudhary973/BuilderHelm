@@ -1,9 +1,9 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
-export { swarmPlanBudget } from '@zero/protocol';
+export { swarmPlanBudget } from '@builderhelm/protocol';
 
-import { swarmPlanSchema } from '@zero/protocol';
+import { swarmPlanSchema } from '@builderhelm/protocol';
 
 const execFileAsync = promisify(execFile);
 

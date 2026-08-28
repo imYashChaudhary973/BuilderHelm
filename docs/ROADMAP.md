@@ -1,83 +1,64 @@
 # Roadmap
 
-No feature freeze. New work lands on the hybrid stack: Rust engine +
-TypeScript platform ([STACK](STACK.md), [ADOPTION](ADOPTION.md)).
+BuilderHelm is delivered as complete vertical loops. A later phase does not
+start by creating empty implementation scaffolding; it starts when its entry
+conditions are met.
 
-Build the four-mode harness, one complete loop at a time. Do not revive the
-old Zero OS 12-phase personal-OS plan (health companion, content studio,
-life automations).
+## P0 — TypeScript architecture reset
 
-Code that already exists is reused, not rebuilt: Electron shell, Keychain
-providers, model gateway, chat, Obsidian retrieval, permissioned tools,
-Git snapshots, PTY grid, app chrome.
+- Remove the previous native-engine migration and duplicate runtime.
+- Establish Node.js 24, supported Electron, React, Vite, xterm.js, and node-pty.
+- Replace conflicting documents and add an architecture guard.
+- Keep the existing desktop product behavior compiling and tested.
 
-## Shipped
+## P1 — Reliable local agent workspaces
 
-- Space: home, folder/layout wizard, Open without AI, per-pane agents,
-  usable xterm grid, stacked Spaces.
-- Chrome: top bar, left rail, Browser / Editor / Git sidebars.
-- Git write: stage, unstage, commit.
-- Board: named project boards, isolated tasks, left-rail tabs, and persisted drag and drop.
-- Memory: private Obsidian retrieval, cited answers, source previews, and recent questions.
+- Harden terminal stream batching, backpressure, reconnect, and cleanup.
+- Make worktree creation transactional and recover orphaned runs.
+- Normalize installed CLI detection and capability metadata.
+- Verify 1, 2, 4, 8, and 12 panes on macOS.
 
-## Shipped on `main` (not "next")
+## P2 — Review and ship loop
 
-Swarm: Mission / Roster / Launch, helm presets, live graph, mid-flight
-add/remove, Plan / Activity tabs, worktree per builder, verify + review + land
-queue, 20-minute budget. Engine bridge: the Rust sidecar behind the existing
-IPC shape ([ADOPTION](ADOPTION.md) phase A). Mix with BridgeMind + Conductor:
-[ADE](ADE.md), parked unmerged on `wip/helm-platform`.
+- Unified diff and file review.
+- Test and check results with exact command evidence.
+- Feedback routed to the correct run or seat.
+- Commit and pull-request drafting from selected changes.
+- CI status, conflict detection, and human-controlled landing.
 
-Still open on Swarm itself: context-file UI (only `@path` in the mission),
-Agent-tab tool transcript, Claude-only structured plan/review (no `grok -p`).
+## P3 — Browser verification
 
-## Next — P0 then Agent / Code / Chat
+- Sandboxed preview panel with port mapping.
+- Navigation, click, fill, screenshot, console, and network evidence.
+- Select a visible UI element and send sanitized context to an agent.
+- Record verification artifacts against the run.
 
-Do not start routines, voice, or plugins until P0 is green.
+## P4 — Planning, context, and integrations
 
-### P0 Swarm usable
+- GitHub and Linear task intake and status sync.
+- Global command/search surface.
+- Rich development notes, slash commands, inline logs, and autosave.
+- Memory citations connected to runs, decisions, and review.
+- Usage, quota, rate-limit, and provider account visibility.
 
-- Claude-only JSON plan/review. Banner: Grok Build CLI ≠ Super Grok chat.
-- Agent inspector shows active task + PTY tail.
-- Stop and terminals stay attached (`boardSessionId` on create).
+## P5 — Remote control and mobile
 
-### P1 Title-bar Agent | Code | Chat
+- Host identity, QR pairing, revocation, and encrypted sessions.
+- Local-network and private-network connection modes first.
+- Optional relay only after direct remote value is proven.
+- React Native iOS and Android clients for observe, instruct, approve, pause, and cancel.
+- No provider credentials, raw shell, or unrestricted filesystem API on mobile.
 
-- Agent: named teammate + tool-call transcript ([docs](https://docs.bridgemind.ai/docs/agent-mode)).
-- Code: folder + PTY grid + Claude/Codex thread pane ([docs](https://docs.bridgemind.ai/docs/code-mode)).
-- Chat: unmounted threads — put `/chat` in chrome.
+## P6 — Desktop platform expansion
 
-### P2 Conductor review
+- Windows PTY, paths, credential storage, packaging, and smoke tests.
+- Linux PTY, Secret Service, Wayland/X11 behavior, packaging, and smoke tests.
+- Signed release channels and auto-update after platform parity.
 
-- Diff + comment-to-seat + Checks before land-to-main
-  ([parallel agents](https://www.conductor.build/docs/concepts/parallel-agents)).
-- Worktree setup/run + port map.
+## Not now
 
-### P3 Local MCP board
-
-- `claim` / `in-review` / human `complete` over `swarm_*`. Not a PTY host.
-  Not `api.conductor.build`.
-
-### Later (unchanged intent)
-
-- Scheduled routines, hold-to-talk voice, Keychain plugin catalog.
-- Settings shell, usage HUD, auto-update, mobile companion.
-
-## Hybrid architecture adoption
-
-Accepted 2026-08-27. Rust core engine (engine, settings, agent workflows,
-performance-critical operations) + TypeScript platform (development
-environment, UI, cross-platform capability). Decision:
-[ADR 0006](adr/0006-hybrid-architecture.md). Plan of record:
-[ADOPTION](ADOPTION.md). Phase A (engine embedding) starts after the current
-`feat/swarm-v2` work lands.
-
-## Explicitly not on this roadmap
-
-- HealthKit / iOS health dashboard
-- Content studio / social drafts
-- Wake word
-- Cloud multi-user “life OS”
-- Fancy 3D knowledge graph as a v1 goal
-- Microsoft Conductor YAML as a second orchestrator
-- Conductor Cloud / BridgeMind Cloud as a dependency
+- Bundling a proprietary model.
+- A second product runtime or UI framework.
+- Containers or VMs as the default local mode.
+- Unrestricted computer control from mobile.
+- Automatic merge without review evidence.

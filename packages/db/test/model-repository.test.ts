@@ -1,4 +1,4 @@
-import { createCorrelationId, createId, utcNow } from '@zero/shared';
+import { createCorrelationId, createId, utcNow } from '@builderhelm/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
@@ -7,13 +7,13 @@ import {
   openDatabase,
   runMigrations,
   type ModelWrite,
-  type ZeroDatabase,
+  type BuilderHelmDatabase,
 } from '../src/index.js';
 
-const databases: ZeroDatabase[] = [];
+const databases: BuilderHelmDatabase[] = [];
 
 function setup(): {
-  database: ZeroDatabase;
+  database: BuilderHelmDatabase;
   repository: ModelRepository;
   providerId: string;
 } {
@@ -32,7 +32,7 @@ function setup(): {
       'OpenAI',
       'openai',
       null,
-      `zero.provider.${providerId}.api-key`,
+      `builderhelm.provider.${providerId}.api-key`,
       '[]',
       1,
       0,

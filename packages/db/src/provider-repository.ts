@@ -1,4 +1,4 @@
-import type { ZeroDatabase } from './database.js';
+import type { BuilderHelmDatabase } from './database.js';
 
 export interface StoredProvider extends Record<string, unknown> {
   id: string;
@@ -76,7 +76,7 @@ const providerColumns = `
 `;
 
 export class ProviderRepository {
-  constructor(private readonly database: ZeroDatabase) {}
+  constructor(private readonly database: BuilderHelmDatabase) {}
 
   list(): StoredProvider[] {
     return this.database.queryAll<StoredProvider>(

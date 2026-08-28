@@ -22,8 +22,8 @@ import {
   type BoardPaneWriteInput,
   type BoardPaneResizeInput,
   type BoardSessionSummary,
-} from '@zero/protocol';
-import { ZeroError } from '@zero/shared';
+} from '@builderhelm/protocol';
+import { BuilderHelmError } from '@builderhelm/shared';
 import { Notification, type WebContents } from 'electron';
 import { spawn, type IPty } from 'node-pty';
 
@@ -63,7 +63,7 @@ function resolveCommand(agentId: BoardAgentId, override: string | undefined): st
   if (agentId === 'shell') return '';
   const command = override ?? agentCommandById[agentId] ?? '';
   if (command.length === 0) {
-    throw new ZeroError('VALIDATION_FAILED', `Unknown board agent ${agentId}`);
+    throw new BuilderHelmError('VALIDATION_FAILED', `Unknown board agent ${agentId}`);
   }
   if (agentId === 'gemini') return `${command} --skip-trust`;
   return command;
@@ -153,7 +153,7 @@ function spawnPty(cwd: string, command: string, cols: number, rows: number): IPt
     }
   }
   const detail = last instanceof Error ? last.message : 'unknown spawn error';
-  throw new ZeroError(
+  throw new BuilderHelmError(
     'TOOL_EXECUTION_FAILED',
     `Could not start a terminal in ${workdir} (${detail}; helper=${helper} exists=${existsSync(helper)})`,
     { cause: last },
@@ -265,7 +265,7 @@ export class BoardPtyManager {
   } {
     const session = this.sessions.get(sessionId);
     if (session === undefined) {
-      throw new ZeroError('VALIDATION_FAILED', 'Unknown pane session or pane');
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Unknown pane session or pane');
     }
     return {
       folderPath: session.folderPath,
@@ -283,10 +283,13 @@ export class BoardPtyManager {
   ): Promise<BoardPaneSummary> {
     const session = this.sessions.get(sessionId);
     if (session === undefined) {
-      throw new ZeroError('VALIDATION_FAILED', 'Unknown pane session or pane');
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Unknown pane session or pane');
     }
     if (session.panes.size >= 12) {
-      throw new ZeroError('VALIDATION_FAILED', 'This Space is already at 12 terminals');
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'This Space is already at 12 terminals',
+      );
     }
     return this.attachPane(
       sessionId,
@@ -392,7 +395,7 @@ export class BoardPtyManager {
     const session = this.sessions.get(input.sessionId);
     const pane = session?.panes.get(input.paneId);
     if (session === undefined || pane === undefined) {
-      throw new ZeroError('VALIDATION_FAILED', 'Unknown pane session or pane');
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Unknown pane session or pane');
     }
     this.closing.add(input.paneId);
     pane.pty?.kill();
@@ -429,7 +432,7 @@ export class BoardPtyManager {
   private requirePane(sessionId: string, paneId: string): PaneMeta {
     const pane = this.sessions.get(sessionId)?.panes.get(paneId);
     if (pane === undefined) {
-      throw new ZeroError('VALIDATION_FAILED', 'Unknown pane session or pane');
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Unknown pane session or pane');
     }
     return pane;
   }

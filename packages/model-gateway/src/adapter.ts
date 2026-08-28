@@ -4,7 +4,7 @@ import type {
   ModelRequest,
   ModelResponse,
   ProviderProtocol,
-} from '@zero/protocol';
+} from '@builderhelm/protocol';
 
 export interface ProviderInvocationContext {
   readonly providerId: string;

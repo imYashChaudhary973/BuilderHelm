@@ -1,5 +1,5 @@
 {
-  "name": "@zero/model-gateway",
+  "name": "@builderhelm/model-gateway",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,8 +10,8 @@
     }
   },
   "dependencies": {
-    "@zero/protocol": "workspace:*",
-    "@zero/shared": "workspace:*",
+    "@builderhelm/protocol": "workspace:*",
+    "@builderhelm/shared": "workspace:*",
     "zod": "^4.0.0"
   },
   "scripts": {

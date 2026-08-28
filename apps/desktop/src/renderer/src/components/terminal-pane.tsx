@@ -2,8 +2,8 @@ import { FitAddon } from '@xterm/addon-fit';
 import { SerializeAddon } from '@xterm/addon-serialize';
 import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
-import type { BoardPaneStatus, BoardPaneSummary } from '@zero/protocol/board';
-import type { CorrelationId } from '@zero/shared';
+import type { BoardPaneStatus, BoardPaneSummary } from '@builderhelm/protocol/board';
+import type { CorrelationId } from '@builderhelm/shared';
 import { useEffect, useRef, useState } from 'react';
 
 const MIN_COLS = 2;
@@ -74,7 +74,7 @@ export function TerminalPane({
       } catch {
         return;
       }
-      void window.zero.board.resize({
+      void window.builderHelm.board.resize({
         correlationId: crypto.randomUUID() as CorrelationId,
         sessionId,
         paneId: pane.paneId,
@@ -90,7 +90,7 @@ export function TerminalPane({
     observer.observe(host);
 
     const dataDisposable = term.onData((data) => {
-      void window.zero.board.write({
+      void window.builderHelm.board.write({
         correlationId: crypto.randomUUID() as CorrelationId,
         sessionId,
         paneId: pane.paneId,
@@ -104,7 +104,7 @@ export function TerminalPane({
     textarea?.addEventListener('focus', handleFocus);
     textarea?.addEventListener('blur', handleBlur);
 
-    const unsubscribe = window.zero.board.onPaneEvent(sessionId, (envelope) => {
+    const unsubscribe = window.builderHelm.board.onPaneEvent(sessionId, (envelope) => {
       if (envelope.paneId !== pane.paneId) return;
       if (envelope.event.type === 'data') {
         const bytes = Uint8Array.from(atob(envelope.event.data), (c) => c.charCodeAt(0));
@@ -114,7 +114,7 @@ export function TerminalPane({
       }
     });
 
-    void window.zero.board
+    void window.builderHelm.board
       .drainPane({
         correlationId: crypto.randomUUID() as CorrelationId,
         sessionId,

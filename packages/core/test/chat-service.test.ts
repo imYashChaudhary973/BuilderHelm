@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createCorrelationId, createId } from '@zero/shared';
+import { createCorrelationId, createId } from '@builderhelm/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { bootstrapCore, MemorySecretStore, type CoreRuntime } from '../src/index.js';
@@ -19,9 +19,9 @@ afterEach(() => {
 
 describe('chat service', () => {
   it('persists canonical turns and usage across restarts and model switches', () => {
-    const directory = mkdtempSync(join(tmpdir(), 'zero-chat-'));
+    const directory = mkdtempSync(join(tmpdir(), 'builderhelm-chat-'));
     temporaryDirectories.push(directory);
-    const databasePath = join(directory, 'zero.sqlite');
+    const databasePath = join(directory, 'builderhelm.sqlite');
     const logs: string[] = [];
     const first = bootstrapCore({
       databasePath,

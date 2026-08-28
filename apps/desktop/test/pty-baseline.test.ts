@@ -1,20 +1,17 @@
-// The 12-pane Electron PTY baseline, recorded before phase B routes panes to
-// `helm-pty` (ADOPTION phase B).
+// The 12-pane Electron PTY baseline for the TypeScript runtime.
 //
 // This drives the real `BoardPtyManager` with the real `node-pty`, which loads
 // under plain Node because it ships an N-API prebuild. What it does not use is
 // Electron itself: the manager runs in the main process, and the only piece of
-// Electron on this path is the final `webContents.send`, which the cutover
-// does not change. Everything the cutover replaces - spawn, the per-chunk
-// base64 and envelope parse, write, resize, kill - is exercised for real.
+// Electron on this path is the final `webContents.send`. Spawn, per-chunk
+// encoding and envelope parsing, write, resize, and kill are exercised for real.
 //
 // Skipped unless `HELM_PTY_BASELINE=1`, because it starts twelve interactive
 // login shells and takes seconds. Run it with:
 //
-//     pnpm --filter @zero/desktop baseline:pty
+//     pnpm --filter @builderhelm/desktop baseline:pty
 //
-// After the cutover, run the identical workload against the engine-backed path
-// and compare against the numbers recorded in ADOPTION.
+// Use this workload to catch terminal throughput and process-lifecycle regressions.
 
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -39,7 +36,7 @@ vi.mock('electron', async () => {
   };
 });
 
-import type { BoardPaneEventEnvelope } from '@zero/protocol';
+import type { BoardPaneEventEnvelope } from '@builderhelm/protocol';
 import type { WebContents } from 'electron';
 
 import { BoardPtyManager } from '../src/main/board-pty-manager.js';

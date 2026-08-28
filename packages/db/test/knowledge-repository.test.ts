@@ -1,4 +1,4 @@
-import { createId, utcNow } from '@zero/shared';
+import { createId, utcNow } from '@builderhelm/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
@@ -7,10 +7,10 @@ import {
   openDatabase,
   runMigrations,
   type KnowledgeDocumentWrite,
-  type ZeroDatabase,
+  type BuilderHelmDatabase,
 } from '../src/index.js';
 
-const databases: ZeroDatabase[] = [];
+const databases: BuilderHelmDatabase[] = [];
 
 afterEach(() => {
   while (databases.length > 0) databases.pop()?.close();

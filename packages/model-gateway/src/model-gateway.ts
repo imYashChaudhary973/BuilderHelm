@@ -11,8 +11,8 @@ import {
   type ProviderHeader,
   type ProviderPrivacy,
   type ProviderProtocol,
-} from '@zero/protocol';
-import { ZeroError } from '@zero/shared';
+} from '@builderhelm/protocol';
+import { BuilderHelmError } from '@builderhelm/shared';
 
 import type {
   CredentialResolver,
@@ -103,7 +103,7 @@ function assertCapabilities(request: ModelRequest, model: ModelRecord): void {
   }
 
   if (missing.length > 0) {
-    throw new ZeroError(
+    throw new BuilderHelmError(
       'MODEL_CAPABILITY_MISMATCH',
       'The selected model does not support this request',
       { metadata: { modelRef: model.ref, missing } },
@@ -116,7 +116,7 @@ function assertSecureBaseUrl(baseUrl: string | null): void {
   const parsed = new URL(baseUrl);
   const loopback = ['localhost', '127.0.0.1', '[::1]', '::1'].includes(parsed.hostname);
   if (parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && loopback)) {
-    throw new ZeroError(
+    throw new BuilderHelmError(
       'PERMISSION_DENIED',
       'Provider credentials require HTTPS or a loopback URL',
     );
@@ -135,7 +135,10 @@ async function resolvedHeaders(
     }
     const value = await credentials.resolve(header.secretRef);
     if (value === null) {
-      throw new ZeroError('AUTH_FAILED', 'Provider header credential is unavailable');
+      throw new BuilderHelmError(
+        'AUTH_FAILED',
+        'Provider header credential is unavailable',
+      );
     }
     result[header.name] = value;
   }
@@ -150,7 +153,7 @@ export class ModelGateway {
 
   registerProvider(config: GatewayProviderConfig, adapter: ProviderAdapter): void {
     if (config.protocol !== adapter.protocol) {
-      throw new ZeroError(
+      throw new BuilderHelmError(
         'VALIDATION_FAILED',
         'Provider protocol does not match adapter',
       );
@@ -168,11 +171,14 @@ export class ModelGateway {
   replaceModels(providerId: string, rawModels: readonly ModelRecord[]): ModelRecord[] {
     const provider = this.providers.get(providerId);
     if (provider === undefined) {
-      throw new ZeroError('VALIDATION_FAILED', 'Provider is not registered');
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Provider is not registered');
     }
     const models = rawModels.map((model) => modelRecordSchema.parse(model));
     if (models.some((model) => model.providerId !== providerId)) {
-      throw new ZeroError('VALIDATION_FAILED', 'Model belongs to a different provider');
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'Model belongs to a different provider',
+      );
     }
     for (const [ref, model] of this.models) {
       if (model.providerId === providerId) this.models.delete(ref);
@@ -246,10 +252,16 @@ export class ModelGateway {
     const registered = this.providers.get(providerId);
     const model = this.models.get(request.modelRef);
     if (registered === undefined || model === undefined) {
-      throw new ZeroError('MODEL_UNAVAILABLE', 'The selected model is not registered');
+      throw new BuilderHelmError(
+        'MODEL_UNAVAILABLE',
+        'The selected model is not registered',
+      );
     }
     if (!registered.config.enabled) {
-      throw new ZeroError('MODEL_UNAVAILABLE', 'The selected provider is disabled');
+      throw new BuilderHelmError(
+        'MODEL_UNAVAILABLE',
+        'The selected provider is disabled',
+      );
     }
     const denied = request.dataClassifications.filter(
       (classification) =>
@@ -260,7 +272,7 @@ export class ModelGateway {
         ),
     );
     if (denied.length > 0) {
-      throw new ZeroError(
+      throw new BuilderHelmError(
         'PERMISSION_DENIED',
         'Provider privacy policy blocks this request',
         {
@@ -277,15 +289,16 @@ export class ModelGateway {
     providerId: string,
     signal: AbortSignal,
   ): Promise<{ registered: RegisteredProvider; context: ProviderInvocationContext }> {
-    if (signal.aborted) throw new ZeroError('CANCELLED', 'Model request was cancelled');
+    if (signal.aborted)
+      throw new BuilderHelmError('CANCELLED', 'Model request was cancelled');
     const registered = this.providers.get(providerId);
     if (registered === undefined || !registered.config.enabled) {
-      throw new ZeroError('MODEL_UNAVAILABLE', 'Provider is unavailable');
+      throw new BuilderHelmError('MODEL_UNAVAILABLE', 'Provider is unavailable');
     }
     assertSecureBaseUrl(registered.config.baseUrl);
     const credential = await this.credentials.resolve(registered.config.secretRef);
     if (credential === null) {
-      throw new ZeroError('AUTH_FAILED', 'Provider credential is unavailable');
+      throw new BuilderHelmError('AUTH_FAILED', 'Provider credential is unavailable');
     }
     return {
       registered,

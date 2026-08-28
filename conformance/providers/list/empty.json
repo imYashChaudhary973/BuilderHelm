@@ -1,7 +1,0 @@
-{
-  "channel": "zero:provider:list",
-  "input": {
-    "correlationId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
-  },
-  "expected": []
-}

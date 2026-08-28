@@ -1,4 +1,4 @@
-export const ZERO_KEYCHAIN_SERVICE = 'app.zero-os.credentials';
+export const BUILDERHELM_KEYCHAIN_SERVICE = 'app.builderhelm.credentials';
 
 export interface SecretStore {
   set(ref: string, secret: string): Promise<void>;

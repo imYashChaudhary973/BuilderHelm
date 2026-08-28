@@ -1,5 +1,5 @@
-import type { KnowledgeRepository, KnowledgeSearchRow } from '@zero/db';
-import type { Logger } from '@zero/observability';
+import type { KnowledgeRepository, KnowledgeSearchRow } from '@builderhelm/db';
+import type { Logger } from '@builderhelm/observability';
 import {
   knowledgeAnswerSchema,
   knowledgeCitationSchema,
@@ -11,15 +11,15 @@ import {
   type KnowledgeQueryInput,
   type KnowledgeSourceView,
   type KnowledgeVault,
-} from '@zero/protocol';
+} from '@builderhelm/protocol';
 import {
   createCorrelationId,
   createId,
   normalizeError,
   utcNow,
-  ZeroError,
+  BuilderHelmError,
   type CorrelationId,
-} from '@zero/shared';
+} from '@builderhelm/shared';
 
 import type { ModelService } from '../models/model-service.js';
 import { parseMarkdownDocument, sha256 } from './markdown-parser.js';
@@ -53,7 +53,10 @@ function ftsQuery(value: string): string {
       .match(/[\p{L}\p{N}_-]+/gu)
       ?.slice(0, 32) ?? [];
   if (tokens.length === 0) {
-    throw new ZeroError('VALIDATION_FAILED', 'The question has no searchable words');
+    throw new BuilderHelmError(
+      'VALIDATION_FAILED',
+      'The question has no searchable words',
+    );
   }
   return tokens.map((token) => `"${token.replaceAll('"', '""')}"*`).join(' OR ');
 }
@@ -101,7 +104,7 @@ export class KnowledgeService {
     try {
       return this.repository.listVaults().map(toVault);
     } catch (cause) {
-      throw new ZeroError('DATABASE_FAILED', 'Failed to read registered vaults', {
+      throw new BuilderHelmError('DATABASE_FAILED', 'Failed to read registered vaults', {
         cause,
       });
     }
@@ -122,7 +125,7 @@ export class KnowledgeService {
           updatedAt: now,
         });
       } catch (cause) {
-        throw new ZeroError('DATABASE_FAILED', 'Failed to register the vault', {
+        throw new BuilderHelmError('DATABASE_FAILED', 'Failed to register the vault', {
           cause,
         });
       }
@@ -135,7 +138,10 @@ export class KnowledgeService {
   syncVault(vaultId: string, correlationId: CorrelationId): KnowledgeVault {
     const vault = this.repository.findVaultById(vaultId);
     if (vault === undefined) {
-      throw new ZeroError('VALIDATION_FAILED', 'The selected vault is not registered');
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'The selected vault is not registered',
+      );
     }
     const root = resolveVaultRoot(vault.rootPath);
     this.startWatcher(vaultId, root.rootPath);
@@ -158,14 +164,21 @@ export class KnowledgeService {
       });
       this.repository.syncVault(vaultId, documents, utcNow());
     } catch (cause) {
-      if (cause instanceof ZeroError) throw cause;
-      throw new ZeroError('INTEGRATION_OFFLINE', 'Failed to index the selected vault', {
-        cause,
-      });
+      if (cause instanceof BuilderHelmError) throw cause;
+      throw new BuilderHelmError(
+        'INTEGRATION_OFFLINE',
+        'Failed to index the selected vault',
+        {
+          cause,
+        },
+      );
     }
     const updated = this.repository.findVaultById(vaultId);
     if (updated === undefined) {
-      throw new ZeroError('DATABASE_FAILED', 'The indexed vault could not be reloaded');
+      throw new BuilderHelmError(
+        'DATABASE_FAILED',
+        'The indexed vault could not be reloaded',
+      );
     }
     this.logger.info({
       event: 'knowledge.vault_indexed',
@@ -183,7 +196,10 @@ export class KnowledgeService {
     const input = knowledgeQueryInputSchema.parse(rawInput);
     const vault = this.repository.findVaultById(input.vaultId);
     if (vault === undefined) {
-      throw new ZeroError('VALIDATION_FAILED', 'The selected vault is not registered');
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'The selected vault is not registered',
+      );
     }
     const graphSlots = input.maxSources > 2 ? 2 : 0;
     const lexicalRows = this.repository.search(
@@ -263,7 +279,7 @@ export class KnowledgeService {
         else if (event.type === 'usage') usage = event.usage;
         else if (event.type === 'done') finishReason = event.finishReason;
         else if (event.type === 'error') {
-          throw new ZeroError(event.error.code, event.error.message, {
+          throw new BuilderHelmError(event.error.code, event.error.message, {
             retryable: event.error.retryable,
           });
         }
@@ -272,7 +288,7 @@ export class KnowledgeService {
       throw normalizeError(error);
     }
     if (finishReason === undefined) {
-      throw new ZeroError(
+      throw new BuilderHelmError(
         'MODEL_UNAVAILABLE',
         'The cited answer ended before completion',
       );
@@ -280,7 +296,7 @@ export class KnowledgeService {
     for (const match of answer.matchAll(/\[S(\d+)\]/g)) {
       const index = Number(match[1]);
       if (!Number.isInteger(index) || index < 1 || index > citations.length) {
-        throw new ZeroError(
+        throw new BuilderHelmError(
           'MODEL_UNAVAILABLE',
           'The answer contained a citation that did not resolve to a vault source',
         );
@@ -308,11 +324,11 @@ export class KnowledgeService {
   getSource(sourceId: string, chunkId: string): KnowledgeSourceView {
     const chunk = this.repository.findChunk(sourceId, chunkId);
     if (chunk === undefined) {
-      throw new ZeroError('VALIDATION_FAILED', 'The cited source was not found');
+      throw new BuilderHelmError('VALIDATION_FAILED', 'The cited source was not found');
     }
     const content = readVaultSource(chunk.rootPath, chunk.relativePath);
     if (sha256(content) !== chunk.sourceContentHash) {
-      throw new ZeroError(
+      throw new BuilderHelmError(
         'INTEGRATION_OFFLINE',
         'The cited note changed after this answer. Refresh the vault and ask again.',
       );

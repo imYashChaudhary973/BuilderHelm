@@ -1,4 +1,4 @@
-import type { SwarmRole } from '@zero/protocol';
+import type { SwarmRole } from '@builderhelm/protocol';
 
 /** Everything after this marker varies per task; everything before it caches. */
 export const SWARM_PROMPT_TASK_MARKER = '--- task ---';

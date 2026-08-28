@@ -3,8 +3,8 @@ import type {
   ModelRecord,
   ModelRequest,
   ModelResponse,
-} from '@zero/protocol';
-import { createId, utcNow } from '@zero/shared';
+} from '@builderhelm/protocol';
+import { createId, utcNow } from '@builderhelm/shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -84,7 +84,7 @@ function register(
       id: values.providerId,
       protocol: 'openai',
       baseUrl: 'https://api.example.test/v1',
-      secretRef: `zero.provider.${values.providerId}.api-key`,
+      secretRef: `builderhelm.provider.${values.providerId}.api-key`,
       headers: [],
       privacy: { allowPersonal: true, allowSensitive: false, allowHealth: false },
       enabled: true,
@@ -177,7 +177,7 @@ describe('model gateway', () => {
         id: values.providerId,
         protocol: 'openai',
         baseUrl: 'http://api.example.test/v1',
-        secretRef: `zero.provider.${values.providerId}.api-key`,
+        secretRef: `builderhelm.provider.${values.providerId}.api-key`,
         headers: [],
         privacy: { allowPersonal: true, allowSensitive: false, allowHealth: false },
         enabled: true,

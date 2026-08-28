@@ -4,7 +4,7 @@ import {
   type BoardAgentId,
   type BoardPaneStatus,
 } from './board.js';
-import type { CorrelationId } from '@zero/shared';
+import type { CorrelationId } from '@builderhelm/shared';
 
 import { modelErrorSchema } from './model.js';
 import { z } from 'zod';

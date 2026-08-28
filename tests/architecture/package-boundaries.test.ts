@@ -23,14 +23,14 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe('foundation package boundaries', () => {
-  it('allows only declared downward @zero dependencies', () => {
+  it('allows only declared downward @builderhelm dependencies', () => {
     const violations: string[] = [];
 
     for (const [packageName, allowed] of Object.entries(allowedDependencies)) {
       const sourceRoot = resolve(packagesRoot, packageName, 'src');
       for (const path of sourceFiles(sourceRoot)) {
         const imports = [
-          ...readFileSync(path, 'utf8').matchAll(/from ['"]@zero\/([^'"]+)['"]/g),
+          ...readFileSync(path, 'utf8').matchAll(/from ['"]@builderhelm\/([^'"]+)['"]/g),
         ];
         for (const match of imports) {
           const dependency = match[1];

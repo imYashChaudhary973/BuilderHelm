@@ -1,6 +1,6 @@
-import { utcNow, ZeroError } from '@zero/shared';
+import { utcNow, BuilderHelmError } from '@builderhelm/shared';
 
-import type { ZeroDatabase } from './database.js';
+import type { BuilderHelmDatabase } from './database.js';
 
 export interface MigrationDatabase {
   execute(sql: string): void;
@@ -26,7 +26,7 @@ function validateMigrations(migrations: readonly Migration[]): void {
   for (const [index, migration] of migrations.entries()) {
     const expectedVersion = index + 1;
     if (migration.version !== expectedVersion || migration.name.trim().length === 0) {
-      throw new ZeroError(
+      throw new BuilderHelmError(
         'MIGRATION_FAILED',
         `Migration sequence is invalid at version ${migration.version}`,
       );
@@ -35,7 +35,7 @@ function validateMigrations(migrations: readonly Migration[]): void {
 }
 
 export function runMigrations(
-  database: ZeroDatabase,
+  database: BuilderHelmDatabase,
   migrations: readonly Migration[],
 ): MigrationResult {
   validateMigrations(migrations);
@@ -54,7 +54,7 @@ export function runMigrations(
   for (const row of existing) {
     const expected = migrations[row.version - 1];
     if (expected === undefined || expected.name !== row.name) {
-      throw new ZeroError(
+      throw new BuilderHelmError(
         'MIGRATION_FAILED',
         `Applied migration ${row.version} does not match the repository migration history`,
       );
@@ -73,7 +73,7 @@ export function runMigrations(
       });
       applied.push(migration.version);
     } catch (cause) {
-      throw new ZeroError(
+      throw new BuilderHelmError(
         'MIGRATION_FAILED',
         `Failed to apply migration ${migration.version}: ${migration.name}`,
         { cause, metadata: { version: migration.version, name: migration.name } },

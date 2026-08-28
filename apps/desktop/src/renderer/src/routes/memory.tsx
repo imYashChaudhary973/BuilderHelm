@@ -4,7 +4,7 @@ import type {
   KnowledgeAnswer,
   KnowledgeCitation,
   KnowledgeSourceView,
-} from '@zero/protocol/knowledge';
+} from '@builderhelm/protocol/knowledge';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 const RECENTS_KEY = 'builderhelm.memory.recents';
@@ -120,11 +120,11 @@ export function MemoryPage(): React.JSX.Element {
   const [recentQueries, setRecentQueries] = useState<string[]>(readRecentQueries);
   const vaults = useQuery({
     queryKey: ['knowledge-vaults'],
-    queryFn: () => window.zero.knowledge.listVaults({}),
+    queryFn: () => window.builderHelm.knowledge.listVaults({}),
   });
   const models = useQuery({
     queryKey: ['models'],
-    queryFn: () => window.zero.models.list({}),
+    queryFn: () => window.builderHelm.models.list({}),
   });
   const usableModels = useMemo(
     () =>
@@ -146,7 +146,7 @@ export function MemoryPage(): React.JSX.Element {
   }, [modelRef, usableModels]);
 
   const selectVault = useMutation({
-    mutationFn: () => window.zero.knowledge.selectVault(),
+    mutationFn: () => window.builderHelm.knowledge.selectVault(),
     onMutate: () => setError(null),
     onSuccess: async (vault) => {
       if (vault !== null) {
@@ -160,7 +160,7 @@ export function MemoryPage(): React.JSX.Element {
   });
   const syncVault = useMutation({
     mutationFn: (selectedVaultId: string) =>
-      window.zero.knowledge.syncVault({ vaultId: selectedVaultId }),
+      window.builderHelm.knowledge.syncVault({ vaultId: selectedVaultId }),
     onMutate: () => setError(null),
     onSuccess: async () => {
       setAnswer(null);
@@ -171,7 +171,7 @@ export function MemoryPage(): React.JSX.Element {
   });
   const ask = useMutation({
     mutationFn: (askedQuestion: string) =>
-      window.zero.knowledge.answer({
+      window.builderHelm.knowledge.answer({
         vaultId,
         modelRef,
         query: askedQuestion,
@@ -193,7 +193,7 @@ export function MemoryPage(): React.JSX.Element {
   });
   const openCitation = useMutation({
     mutationFn: (citation: KnowledgeCitation) =>
-      window.zero.knowledge.getSource({
+      window.builderHelm.knowledge.getSource({
         sourceId: citation.sourceId,
         chunkId: citation.chunkId,
       }),

@@ -1,4 +1,4 @@
-import { zeroErrorCodes } from '@zero/shared/error';
+import { builderHelmErrorCodes } from '@builderhelm/shared/error';
 import { z } from 'zod';
 
 import { jsonValueSchema } from './json.js';
@@ -172,7 +172,7 @@ export const modelResponseSchema = z
 
 export const modelErrorSchema = z
   .object({
-    code: z.enum(zeroErrorCodes),
+    code: z.enum(builderHelmErrorCodes),
     message: z.string(),
     retryable: z.boolean(),
   })

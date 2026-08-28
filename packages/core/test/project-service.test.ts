@@ -9,9 +9,9 @@ import {
   openDatabase,
   ProjectRepositoryStore,
   runMigrations,
-} from '@zero/db';
-import type { Logger } from '@zero/observability';
-import { createCorrelationId, utcNow } from '@zero/shared';
+} from '@builderhelm/db';
+import type { Logger } from '@builderhelm/observability';
+import { createCorrelationId, utcNow } from '@builderhelm/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { LocalGitInspector } from '../src/projects/git-inspector.js';
@@ -32,7 +32,7 @@ afterEach(() => {
 });
 
 function createRepository(): string {
-  const root = mkdtempSync(join(tmpdir(), 'zero-project-git-'));
+  const root = mkdtempSync(join(tmpdir(), 'builderhelm-project-git-'));
   temporaryDirectories.push(root);
   execFileSync('git', ['init', '-b', 'main'], { cwd: root });
   execFileSync('git', ['config', 'user.name', 'Fixture User'], { cwd: root });

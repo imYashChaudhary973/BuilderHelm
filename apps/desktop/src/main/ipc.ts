@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 
-import type { CoreRuntime } from '@zero/core';
+import type { CoreRuntime } from '@builderhelm/core';
 import {
   actionCommandIpcResponseSchema,
   actionCommandRequestSchema,
@@ -12,7 +12,7 @@ import {
   approvalResolveRequestSchema,
   permissionPolicyUpdateIpcResponseSchema,
   permissionPolicyUpdateRequestSchema,
-} from '@zero/protocol/actions';
+} from '@builderhelm/protocol/actions';
 import {
   boardAddPaneInputSchema,
   boardAddPaneIpcResponseSchema,
@@ -39,7 +39,7 @@ import {
   boardSelectFolderInputSchema,
   boardSelectFolderIpcResponseSchema,
   boardWriteIpcResponseSchema,
-} from '@zero/protocol/board';
+} from '@builderhelm/protocol/board';
 import {
   swarmCreateIpcResponseSchema,
   swarmCreateRequestSchema,
@@ -53,7 +53,7 @@ import {
   swarmStopSeatRequestSchema,
   swarmLatestIpcResponseSchema,
   swarmLatestRequestSchema,
-} from '@zero/protocol/swarm';
+} from '@builderhelm/protocol/swarm';
 import {
   kanbanCreateIpcResponseSchema,
   kanbanCreateRequestSchema,
@@ -69,7 +69,7 @@ import {
   kanbanProjectListRequestSchema,
   kanbanUpdateIpcResponseSchema,
   kanbanUpdateRequestSchema,
-} from '@zero/protocol/kanban';
+} from '@builderhelm/protocol/kanban';
 import {
   chatCreateRequestSchema,
   chatGetRequestSchema,
@@ -83,11 +83,11 @@ import {
   chatThreadListIpcResponseSchema,
   chatTranscriptIpcResponseSchema,
   type ChatClientStreamEvent,
-} from '@zero/protocol/chat';
+} from '@builderhelm/protocol/chat';
 import {
   browserCommandIpcResponseSchema,
   browserCommandRequestSchema,
-} from '@zero/protocol/browser';
+} from '@builderhelm/protocol/browser';
 import {
   editorCreateIpcResponseSchema,
   editorCreateRequestSchema,
@@ -107,8 +107,8 @@ import {
   editorSearchRequestSchema,
   editorWriteIpcResponseSchema,
   editorWriteRequestSchema,
-} from '@zero/protocol/editor';
-import { ipcChannels, systemHealthRequestSchema } from '@zero/protocol/ipc';
+} from '@builderhelm/protocol/editor';
+import { ipcChannels, systemHealthRequestSchema } from '@builderhelm/protocol/ipc';
 import {
   knowledgeAnswerIpcResponseSchema,
   knowledgeQueryRequestSchema,
@@ -120,7 +120,7 @@ import {
   knowledgeVaultSelectIpcResponseSchema,
   knowledgeVaultSelectRequestSchema,
   knowledgeVaultSyncRequestSchema,
-} from '@zero/protocol/knowledge';
+} from '@builderhelm/protocol/knowledge';
 import {
   modelListIpcResponseSchema,
   modelListRequestSchema,
@@ -136,7 +136,7 @@ import {
   providerTestConnectionIpcResponseSchema,
   providerTestConnectionRequestSchema,
   providerUpdateRequestSchema,
-} from '@zero/protocol/providers';
+} from '@builderhelm/protocol/providers';
 import {
   projectDashboardIpcResponseSchema,
   projectDashboardRequestSchema,
@@ -144,9 +144,13 @@ import {
   projectRepositoryRefreshRequestSchema,
   projectRepositorySelectIpcResponseSchema,
   projectRepositorySelectRequestSchema,
-} from '@zero/protocol/projects';
-import { createCorrelationId, normalizeError, ZeroError } from '@zero/shared';
-import { CliSwarmPlanner, LocalGitInspector, type SwarmPlanner } from '@zero/core';
+} from '@builderhelm/protocol/projects';
+import {
+  createCorrelationId,
+  normalizeError,
+  BuilderHelmError,
+} from '@builderhelm/shared';
+import { CliSwarmPlanner, LocalGitInspector, type SwarmPlanner } from '@builderhelm/core';
 import type { BoardPtyManager } from './board-pty-manager.js';
 import type { PtySwarmRunner } from './swarm-runner.js';
 import { PreviewBrowser } from './preview-browser.js';
@@ -180,7 +184,7 @@ function ipcError(error: unknown): {
   return {
     code: normalized.code,
     message:
-      error instanceof ZeroError
+      error instanceof BuilderHelmError
         ? normalized.message
         : 'The request could not be completed',
     retryable: normalized.retryable,
@@ -419,7 +423,10 @@ export function registerIpcHandlers(
         .snapshot(request.correlationId)
         .pendingApprovals.find((candidate) => candidate.id === request.input.approvalId);
       if (approval === undefined) {
-        throw new ZeroError('VALIDATION_FAILED', 'The approval request was not found');
+        throw new BuilderHelmError(
+          'VALIDATION_FAILED',
+          'The approval request was not found',
+        );
       }
       const confirmation = await dialog.showMessageBox({
         type: 'warning',
@@ -443,7 +450,7 @@ export function registerIpcHandlers(
         noLink: true,
       });
       if (confirmation.response !== 1) {
-        throw new ZeroError('PERMISSION_DENIED', 'Action approval was cancelled');
+        throw new BuilderHelmError('PERMISSION_DENIED', 'Action approval was cancelled');
       }
       const value = await core.actions.approve(
         request.input.approvalId,
@@ -488,7 +495,10 @@ export function registerIpcHandlers(
         noLink: true,
       });
       if (confirmation.response !== 1) {
-        throw new ZeroError('PERMISSION_DENIED', 'Permission change was cancelled');
+        throw new BuilderHelmError(
+          'PERMISSION_DENIED',
+          'Permission change was cancelled',
+        );
       }
       return permissionPolicyUpdateIpcResponseSchema.parse({
         ok: true,
@@ -593,7 +603,7 @@ export function registerIpcHandlers(
     try {
       const request = chatStreamStartRequestSchema.parse(input);
       if (activeStreams.has(request.runId)) {
-        throw new ZeroError('VALIDATION_FAILED', 'Chat stream is already active');
+        throw new BuilderHelmError('VALIDATION_FAILED', 'Chat stream is already active');
       }
       const controller = new AbortController();
       const sender = event.sender;
@@ -634,7 +644,7 @@ export function registerIpcHandlers(
       const request = chatStreamCancelRequestSchema.parse(input);
       const active = activeStreams.get(request.input.runId);
       if (active !== undefined && active.senderId !== event.sender.id) {
-        throw new ZeroError(
+        throw new BuilderHelmError(
           'PERMISSION_DENIED',
           'Chat stream belongs to another renderer',
         );
@@ -664,7 +674,7 @@ export function registerIpcHandlers(
 
   function requireSwarmRunner(): PtySwarmRunner {
     if (swarmRunner === undefined) {
-      throw new ZeroError('VALIDATION_FAILED', 'Swarm host is not available');
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Swarm host is not available');
     }
     return swarmRunner;
   }
@@ -697,7 +707,10 @@ export function registerIpcHandlers(
 
   function requireBoard(): BoardPtyManager {
     if (board === undefined) {
-      throw new ZeroError('INTEGRATION_OFFLINE', 'Board terminal host is not available');
+      throw new BuilderHelmError(
+        'INTEGRATION_OFFLINE',
+        'Board terminal host is not available',
+      );
     }
     return board;
   }
@@ -828,7 +841,7 @@ export function registerIpcHandlers(
             } catch (error) {
               const branch = await core.board.readBranch(request.folderPath);
               if (branch === null) {
-                throw new ZeroError(
+                throw new BuilderHelmError(
                   'VALIDATION_FAILED',
                   'Worktree per pane needs a git repository. Use Shared folder, or pick a repo.',
                 );

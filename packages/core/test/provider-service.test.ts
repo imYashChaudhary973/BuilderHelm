@@ -1,6 +1,11 @@
-import { migrations, openDatabase, ProviderRepository, runMigrations } from '@zero/db';
-import { createLogger } from '@zero/observability';
-import { createCorrelationId } from '@zero/shared';
+import {
+  migrations,
+  openDatabase,
+  ProviderRepository,
+  runMigrations,
+} from '@builderhelm/db';
+import { createLogger } from '@builderhelm/observability';
+import { createCorrelationId } from '@builderhelm/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { MemorySecretStore, ProviderService } from '../src/index.js';
@@ -101,7 +106,7 @@ describe('provider service', () => {
       code: 'DATABASE_FAILED',
     });
     expect(repository.list()).toEqual([]);
-    expect(await secrets.get(`zero.provider.unavailable.api-key`)).toBeNull();
+    expect(await secrets.get(`builderhelm.provider.unavailable.api-key`)).toBeNull();
   });
 
   it('restores the previous secret when a database update fails', async () => {

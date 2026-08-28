@@ -2,7 +2,7 @@ import type {
   ModelCapabilities,
   ModelCapabilityOverrides,
   ModelRecord,
-} from '@zero/protocol/model';
+} from '@builderhelm/protocol/model';
 
 const booleanCapabilities: ReadonlyArray<{
   key: Exclude<keyof ModelCapabilities, 'contextWindow' | 'maxOutputTokens'>;

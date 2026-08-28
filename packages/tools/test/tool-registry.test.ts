@@ -1,4 +1,4 @@
-import { createId } from '@zero/shared';
+import { createId } from '@builderhelm/shared';
 import { describe, expect, it } from 'vitest';
 
 import { createWorkToolRegistry, PermissionEngine } from '../src/index.js';

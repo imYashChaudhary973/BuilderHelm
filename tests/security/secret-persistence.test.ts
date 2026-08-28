@@ -16,8 +16,8 @@ import { createCorrelationId } from '../../packages/shared/src/index.js';
 
 describe('provider secret persistence boundary', () => {
   it('keeps a credential sentinel out of SQLite, logs, and renderer-safe serialization', async () => {
-    const directory = mkdtempSync(join(tmpdir(), 'zero-secret-boundary-'));
-    const databasePath = join(directory, 'zero.sqlite');
+    const directory = mkdtempSync(join(tmpdir(), 'builderhelm-secret-boundary-'));
+    const databasePath = join(directory, 'builderhelm.sqlite');
     const database = openDatabase(databasePath);
     const logs: string[] = [];
     const service = new ProviderService(

@@ -11,9 +11,6 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/*.tsbuildinfo',
       'assets/**',
-      // Recorded fixtures, a node-side capture script, and vendored xterm.
-      // Not product source; linting it would rewrite the oracle.
-      'conformance/**',
     ],
   },
   eslint.configs.recommended,

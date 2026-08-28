@@ -1,4 +1,4 @@
-import { createCorrelationId, createId, utcNow } from '@zero/shared';
+import { createCorrelationId, createId, utcNow } from '@builderhelm/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
@@ -6,12 +6,12 @@ import {
   openDatabase,
   ProviderRepository,
   runMigrations,
-  type ZeroDatabase,
+  type BuilderHelmDatabase,
 } from '../src/index.js';
 
-const databases: ZeroDatabase[] = [];
+const databases: BuilderHelmDatabase[] = [];
 
-function setup(): { database: ZeroDatabase; repository: ProviderRepository } {
+function setup(): { database: BuilderHelmDatabase; repository: ProviderRepository } {
   const database = openDatabase(':memory:');
   databases.push(database);
   runMigrations(database, migrations);
@@ -27,7 +27,7 @@ describe('provider repository', () => {
     const { database, repository } = setup();
     const now = utcNow();
     const id = createId();
-    const secretRef = `zero.provider.${id}.api-key`;
+    const secretRef = `builderhelm.provider.${id}.api-key`;
     repository.create(
       {
         id,

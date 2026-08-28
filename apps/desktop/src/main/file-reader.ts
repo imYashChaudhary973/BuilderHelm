@@ -11,8 +11,8 @@ import {
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, relative, resolve, sep } from 'node:path';
-import type { EditorEntry, EditorFile } from '@zero/protocol/editor';
-import { ZeroError } from '@zero/shared';
+import type { EditorEntry, EditorFile } from '@builderhelm/protocol/editor';
+import { BuilderHelmError } from '@builderhelm/shared';
 import { dialog } from 'electron';
 
 const maxBytes = 1_000_000;
@@ -41,7 +41,9 @@ function resolveWorkspace(
     resolvedRoot = realpathSync(resolve(root));
     resolved = realpathSync(resolve(path));
   } catch (cause) {
-    throw new ZeroError('VALIDATION_FAILED', 'The folder does not exist', { cause });
+    throw new BuilderHelmError('VALIDATION_FAILED', 'The folder does not exist', {
+      cause,
+    });
   }
   if (
     resolvedRoot === '/' ||
@@ -49,13 +51,13 @@ function resolveWorkspace(
     resolvedRoot === '/System' ||
     resolvedRoot === homedir()
   ) {
-    throw new ZeroError(
+    throw new BuilderHelmError(
       'PERMISSION_DENIED',
       'Pick a project folder, not your home directory',
     );
   }
   if (!insideWorkspace(resolvedRoot, resolved)) {
-    throw new ZeroError('PERMISSION_DENIED', 'Path is outside the workspace');
+    throw new BuilderHelmError('PERMISSION_DENIED', 'Path is outside the workspace');
   }
   return { root: resolvedRoot, path: resolved };
 }
@@ -66,13 +68,13 @@ export function readEditorFile(root: string, path: string): EditorFile {
   try {
     stats = statSync(resolved.path);
   } catch (cause) {
-    throw new ZeroError('VALIDATION_FAILED', 'The file does not exist', { cause });
+    throw new BuilderHelmError('VALIDATION_FAILED', 'The file does not exist', { cause });
   }
   if (!stats.isFile()) {
-    throw new ZeroError('VALIDATION_FAILED', 'The path is not a file');
+    throw new BuilderHelmError('VALIDATION_FAILED', 'The path is not a file');
   }
   if (stats.size > maxBytes) {
-    throw new ZeroError('VALIDATION_FAILED', 'The file is larger than 1 MB');
+    throw new BuilderHelmError('VALIDATION_FAILED', 'The file is larger than 1 MB');
   }
   return {
     path: resolved.path,
@@ -83,17 +85,17 @@ export function readEditorFile(root: string, path: string): EditorFile {
 
 export function writeEditorFile(root: string, path: string, text: string): EditorFile {
   if (Buffer.byteLength(text, 'utf8') > maxBytes) {
-    throw new ZeroError('VALIDATION_FAILED', 'The file is larger than 1 MB');
+    throw new BuilderHelmError('VALIDATION_FAILED', 'The file is larger than 1 MB');
   }
   const resolved = resolveWorkspace(root, path);
   let stats: Stats;
   try {
     stats = statSync(resolved.path);
   } catch (cause) {
-    throw new ZeroError('VALIDATION_FAILED', 'The file does not exist', { cause });
+    throw new BuilderHelmError('VALIDATION_FAILED', 'The file does not exist', { cause });
   }
   if (!stats.isFile()) {
-    throw new ZeroError('VALIDATION_FAILED', 'The path is not a file');
+    throw new BuilderHelmError('VALIDATION_FAILED', 'The path is not a file');
   }
   writeFileSync(resolved.path, text, 'utf8');
   return {
@@ -109,10 +111,12 @@ export function listEditorDir(root: string, path = root, hidden = false): Editor
   try {
     stats = statSync(resolved.path);
   } catch (cause) {
-    throw new ZeroError('VALIDATION_FAILED', 'The folder does not exist', { cause });
+    throw new BuilderHelmError('VALIDATION_FAILED', 'The folder does not exist', {
+      cause,
+    });
   }
   if (!stats.isDirectory()) {
-    throw new ZeroError('VALIDATION_FAILED', 'The path is not a folder');
+    throw new BuilderHelmError('VALIDATION_FAILED', 'The path is not a folder');
   }
   return readdirSync(resolved.path, { withFileTypes: true })
     .filter((entry) => {
@@ -139,15 +143,15 @@ export function createEditorEntry(
 ): EditorEntry {
   const name = basename(path);
   if (!/^[A-Za-z0-9._-]+$/.test(name) || name === '.' || name === '..') {
-    throw new ZeroError('VALIDATION_FAILED', 'Use a simple file name');
+    throw new BuilderHelmError('VALIDATION_FAILED', 'Use a simple file name');
   }
   const parent = resolveWorkspace(root, dirname(resolve(path)));
   const target = resolve(parent.path, name);
   if (!insideWorkspace(parent.root, target)) {
-    throw new ZeroError('PERMISSION_DENIED', 'Path is outside the workspace');
+    throw new BuilderHelmError('PERMISSION_DENIED', 'Path is outside the workspace');
   }
   if (existsSync(target)) {
-    throw new ZeroError('VALIDATION_FAILED', 'That name already exists');
+    throw new BuilderHelmError('VALIDATION_FAILED', 'That name already exists');
   }
   if (kind === 'dir') mkdirSync(target);
   else writeFileSync(target, '', 'utf8');
@@ -223,7 +227,7 @@ function runGit(root: string, args: readonly string[]): void {
         : cause instanceof Error
           ? cause.message
           : 'Git failed';
-    throw new ZeroError('TOOL_EXECUTION_FAILED', detail.slice(0, 300), { cause });
+    throw new BuilderHelmError('TOOL_EXECUTION_FAILED', detail.slice(0, 300), { cause });
   }
 }
 
@@ -241,7 +245,7 @@ export function stageGitPath(
   const target = resolveWorkspace(root, path);
   const rel = relative(workspace.root, target.path);
   if (rel.startsWith('..') || rel.length === 0) {
-    throw new ZeroError('PERMISSION_DENIED', 'Path is outside the workspace');
+    throw new BuilderHelmError('PERMISSION_DENIED', 'Path is outside the workspace');
   }
   if (staged) runGit(workspace.root, ['add', '--', rel]);
   else runGit(workspace.root, ['restore', '--staged', '--', rel]);

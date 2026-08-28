@@ -8,18 +8,18 @@ import {
   ProviderRepository,
   ProjectRepositoryStore,
   runMigrations,
-} from '@zero/db';
-import type { GatewayFetch } from '@zero/model-gateway';
-import { createLogger, type LogSink, type Logger } from '@zero/observability';
-import type { SystemHealthResponse } from '@zero/protocol';
-import { createCorrelationId, utcNow, type CorrelationId } from '@zero/shared';
+} from '@builderhelm/db';
+import type { GatewayFetch } from '@builderhelm/model-gateway';
+import { createLogger, type LogSink, type Logger } from '@builderhelm/observability';
+import type { SystemHealthResponse } from '@builderhelm/protocol';
+import { createCorrelationId, utcNow, type CorrelationId } from '@builderhelm/shared';
 
 import { ProviderService } from './providers/provider-service.js';
 import { ChatService } from './chat/chat-service.js';
 import { ModelService } from './models/model-service.js';
 import { KnowledgeService } from './knowledge/knowledge-service.js';
 import { ActionService } from './actions/action-service.js';
-import { createWorkToolRegistry, PermissionEngine } from '@zero/tools';
+import { createWorkToolRegistry, PermissionEngine } from '@builderhelm/tools';
 import { ProjectService } from './projects/project-service.js';
 import { BoardService } from './board/board-service.js';
 import { PnpmTaskVerifier } from './swarm/pnpm-verifier.js';

@@ -5,8 +5,8 @@ import type {
   StoredChatThread,
   StoredChatTurn,
   StoredChatUsage,
-} from '@zero/db';
-import type { Logger } from '@zero/observability';
+} from '@builderhelm/db';
+import type { Logger } from '@builderhelm/observability';
 import {
   appendChatTurnInputSchema,
   appendedChatTurnSchema,
@@ -31,14 +31,14 @@ import {
   type NormalizedToolCall,
   type ProviderContinuation,
   type TokenUsage,
-} from '@zero/protocol';
+} from '@builderhelm/protocol';
 import {
   createId,
   normalizeError,
   utcNow,
-  ZeroError,
+  BuilderHelmError,
   type CorrelationId,
-} from '@zero/shared';
+} from '@builderhelm/shared';
 
 export interface ChatModelStreamer {
   stream(
@@ -104,7 +104,9 @@ export class ChatService {
     try {
       return this.repository.listThreads().map(toThread);
     } catch (cause) {
-      throw new ZeroError('DATABASE_FAILED', 'Failed to list chat threads', { cause });
+      throw new BuilderHelmError('DATABASE_FAILED', 'Failed to list chat threads', {
+        cause,
+      });
     }
   }
 
@@ -127,7 +129,9 @@ export class ChatService {
       });
       return stored;
     } catch (cause) {
-      throw new ZeroError('DATABASE_FAILED', 'Failed to create chat thread', { cause });
+      throw new BuilderHelmError('DATABASE_FAILED', 'Failed to create chat thread', {
+        cause,
+      });
     }
   }
 
@@ -136,7 +140,7 @@ export class ChatService {
     try {
       const thread = this.repository.findThreadById(id);
       if (thread === undefined) {
-        throw new ZeroError('VALIDATION_FAILED', 'Chat thread was not found');
+        throw new BuilderHelmError('VALIDATION_FAILED', 'Chat thread was not found');
       }
       return chatTranscriptSchema.parse({
         thread: toThread(thread),
@@ -144,8 +148,10 @@ export class ChatService {
         usage: this.repository.listUsage(id).map(toUsage),
       });
     } catch (cause) {
-      if (cause instanceof ZeroError) throw cause;
-      throw new ZeroError('DATABASE_FAILED', 'Failed to read chat thread', { cause });
+      if (cause instanceof BuilderHelmError) throw cause;
+      throw new BuilderHelmError('DATABASE_FAILED', 'Failed to read chat thread', {
+        cause,
+      });
     }
   }
 
@@ -155,10 +161,12 @@ export class ChatService {
     try {
       threadExists = this.repository.findThreadById(input.threadId) !== undefined;
     } catch (cause) {
-      throw new ZeroError('DATABASE_FAILED', 'Failed to read chat thread', { cause });
+      throw new BuilderHelmError('DATABASE_FAILED', 'Failed to read chat thread', {
+        cause,
+      });
     }
     if (!threadExists) {
-      throw new ZeroError('VALIDATION_FAILED', 'Chat thread was not found');
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Chat thread was not found');
     }
     const now = utcNow();
     const turn: ChatTurnWrite = {
@@ -209,7 +217,9 @@ export class ChatService {
       });
       return result;
     } catch (cause) {
-      throw new ZeroError('DATABASE_FAILED', 'Failed to append chat turn', { cause });
+      throw new BuilderHelmError('DATABASE_FAILED', 'Failed to append chat turn', {
+        cause,
+      });
     }
   }
 
@@ -244,7 +254,7 @@ export class ChatService {
     let usage: TokenUsage | null = null;
     let finishReason: FinishReason | null = null;
     let continuation: ProviderContinuation | null = null;
-    let failure: ZeroError | null = null;
+    let failure: BuilderHelmError | null = null;
 
     try {
       for await (const event of this.models.stream(request, correlationId, signal)) {
@@ -252,7 +262,7 @@ export class ChatService {
         if (event.type === 'tool.proposed') toolCalls.push(event.call);
         if (event.type === 'usage') usage = event.usage;
         if (event.type === 'error') {
-          throw new ZeroError(event.error.code, event.error.message, {
+          throw new BuilderHelmError(event.error.code, event.error.message, {
             retryable: event.error.retryable,
           });
         }
@@ -292,7 +302,7 @@ export class ChatService {
     }
 
     if (finishReason === null) {
-      const ended = new ZeroError(
+      const ended = new BuilderHelmError(
         'MODEL_UNAVAILABLE',
         'Provider stream ended without completion',
       );

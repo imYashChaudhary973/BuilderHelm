@@ -15,10 +15,10 @@ import {
   type ResourceRef,
   type ToolDescriptor,
   type WorkToolId,
-} from '@zero/protocol/actions';
-import type { JsonValue } from '@zero/protocol/json';
-import type { ToolDefinition as ModelToolDefinition } from '@zero/protocol/model';
-import { ZeroError } from '@zero/shared';
+} from '@builderhelm/protocol/actions';
+import type { JsonValue } from '@builderhelm/protocol/json';
+import type { ToolDefinition as ModelToolDefinition } from '@builderhelm/protocol/model';
+import { BuilderHelmError } from '@builderhelm/shared';
 import { z } from 'zod';
 
 interface ToolContract {
@@ -182,7 +182,10 @@ export class ToolRegistry {
   resolve(name: string): WorkToolId {
     const value = this.byModelName.get(name) ?? this.byId.get(name as WorkToolId);
     if (value === undefined) {
-      throw new ZeroError('TOOL_SCHEMA_INVALID', 'The proposed tool is not registered');
+      throw new BuilderHelmError(
+        'TOOL_SCHEMA_INVALID',
+        'The proposed tool is not registered',
+      );
     }
     return value.descriptor.id;
   }
@@ -194,7 +197,7 @@ export class ToolRegistry {
   parseInput(id: WorkToolId, input: unknown): JsonValue {
     const parsed = this.require(id).inputSchema.safeParse(input);
     if (!parsed.success) {
-      throw new ZeroError(
+      throw new BuilderHelmError(
         'TOOL_SCHEMA_INVALID',
         'The proposed tool arguments are invalid',
       );
@@ -205,7 +208,10 @@ export class ToolRegistry {
   parseOutput(id: WorkToolId, output: unknown): JsonValue {
     const parsed = this.require(id).outputSchema.safeParse(output);
     if (!parsed.success) {
-      throw new ZeroError('TOOL_EXECUTION_FAILED', 'The tool returned an invalid result');
+      throw new BuilderHelmError(
+        'TOOL_EXECUTION_FAILED',
+        'The tool returned an invalid result',
+      );
     }
     return JSON.parse(JSON.stringify(parsed.data)) as JsonValue;
   }
@@ -231,7 +237,10 @@ export class ToolRegistry {
   private require(id: WorkToolId): ToolContract {
     const value = this.byId.get(id);
     if (value === undefined) {
-      throw new ZeroError('TOOL_SCHEMA_INVALID', 'The requested tool is not registered');
+      throw new BuilderHelmError(
+        'TOOL_SCHEMA_INVALID',
+        'The requested tool is not registered',
+      );
     }
     return value;
   }
@@ -270,7 +279,10 @@ export class PermissionEngine {
         risk === 'destructive_sensitive' ||
         rollbackSupport === 'none')
     ) {
-      throw new ZeroError('PERMISSION_DENIED', 'This tool cannot be auto-approved');
+      throw new BuilderHelmError(
+        'PERMISSION_DENIED',
+        'This tool cannot be auto-approved',
+      );
     }
   }
 }

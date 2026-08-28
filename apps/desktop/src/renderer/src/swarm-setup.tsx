@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BOARD_AGENT_CATALOG, type BoardAgentId } from '@zero/protocol/board';
+import { BOARD_AGENT_CATALOG, type BoardAgentId } from '@builderhelm/protocol/board';
 import {
   swarmPlanBudget,
   SWARM_PRESETS,
@@ -8,7 +8,7 @@ import {
   type SwarmLaunchMode,
   type SwarmPresetId,
   type SwarmRole,
-} from '@zero/protocol/swarm';
+} from '@builderhelm/protocol/swarm';
 
 type Step = 'mission' | 'roster' | 'launch';
 

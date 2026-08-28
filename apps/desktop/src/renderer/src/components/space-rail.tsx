@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
-import type { BoardSessionSummary } from '@zero/protocol/board';
+import type { BoardSessionSummary } from '@builderhelm/protocol/board';
 
 import { useBoards } from '../board-store.js';
 import { SPACE_COLORS, useSpaces } from '../space-store.js';
@@ -145,7 +145,7 @@ export function SpaceRail({
   const boards = useBoards();
   const boardProjects = useQuery({
     queryKey: ['kanban-projects'],
-    queryFn: () => window.zero.board.listProjects({}),
+    queryFn: () => window.builderHelm.board.listProjects({}),
   });
   const spaces = useSpaces();
   const [menuId, setMenuId] = useState<string | null>(null);

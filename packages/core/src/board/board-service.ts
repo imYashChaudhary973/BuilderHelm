@@ -3,8 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { basename, dirname, join } from 'node:path';
 import { copyFile, mkdir, readdir } from 'node:fs/promises';
 import { promisify } from 'node:util';
-import type { ZeroDatabase } from '@zero/db';
-import type { Logger } from '@zero/observability';
+import type { BuilderHelmDatabase } from '@builderhelm/db';
+import type { Logger } from '@builderhelm/observability';
 import {
   BOARD_AGENT_CATALOG,
   boardPresetRecordSchema,
@@ -20,8 +20,13 @@ import {
   type KanbanCard,
   type KanbanColumn,
   type KanbanProject,
-} from '@zero/protocol';
-import { normalizeError, utcNow, ZeroError, type CorrelationId } from '@zero/shared';
+} from '@builderhelm/protocol';
+import {
+  normalizeError,
+  utcNow,
+  BuilderHelmError,
+  type CorrelationId,
+} from '@builderhelm/shared';
 
 const execFileAsync = promisify(execFile);
 
@@ -69,13 +74,16 @@ function isUniqueViolation(error: unknown): boolean {
 
 function assertExeumBranch(branch: string): void {
   if (!/^exeum\/[A-Za-z0-9._-]+$/.test(branch)) {
-    throw new ZeroError('VALIDATION_FAILED', 'Only exeum/* pane branches can be landed');
+    throw new BuilderHelmError(
+      'VALIDATION_FAILED',
+      'Only exeum/* pane branches can be landed',
+    );
   }
 }
 
 export class BoardService {
   constructor(
-    private readonly database: ZeroDatabase,
+    private readonly database: BuilderHelmDatabase,
     private readonly logger: Logger,
   ) {}
 
@@ -110,13 +118,13 @@ export class BoardService {
       );
     } catch (error) {
       if (isUniqueViolation(error)) {
-        throw new ZeroError(
+        throw new BuilderHelmError(
           'VALIDATION_FAILED',
           'A preset with this name already exists',
           { cause: error },
         );
       }
-      throw new ZeroError('DATABASE_FAILED', 'The preset could not be saved', {
+      throw new BuilderHelmError('DATABASE_FAILED', 'The preset could not be saved', {
         cause: error,
       });
     }
@@ -176,10 +184,14 @@ export class BoardService {
         timeout: 30_000,
       });
     } catch (error) {
-      throw new ZeroError('TOOL_EXECUTION_FAILED', 'Git could not create the worktree', {
-        cause: error,
-        retryable: true,
-      });
+      throw new BuilderHelmError(
+        'TOOL_EXECUTION_FAILED',
+        'Git could not create the worktree',
+        {
+          cause: error,
+          retryable: true,
+        },
+      );
     }
     // Best-effort: local env files are untracked so git does not carry them over.
     try {
@@ -246,7 +258,7 @@ export class BoardService {
     );
     const branch = await this.readBranch(cwd);
     if (branch === null) {
-      throw new ZeroError(
+      throw new BuilderHelmError(
         'VALIDATION_FAILED',
         'Could not initialize a git repository in this folder',
       );
@@ -268,10 +280,13 @@ export class BoardService {
     assertExeumBranch(branch);
     const current = await this.readBranch(repoPath);
     if (current === null) {
-      throw new ZeroError('VALIDATION_FAILED', 'The folder is not a git repository');
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'The folder is not a git repository',
+      );
     }
     if (current === branch) {
-      throw new ZeroError('VALIDATION_FAILED', 'Cannot land a branch into itself');
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Cannot land a branch into itself');
     }
     const range = `${current}...${branch}`;
     const [{ stdout: countOut }, { stdout: namesOut }, { stdout: statOut }] =
@@ -291,7 +306,10 @@ export class BoardService {
       ]);
     const ahead = Number.parseInt(countOut.trim(), 10);
     if (!Number.isFinite(ahead)) {
-      throw new ZeroError('TOOL_EXECUTION_FAILED', 'Could not count commits to land');
+      throw new BuilderHelmError(
+        'TOOL_EXECUTION_FAILED',
+        'Could not count commits to land',
+      );
     }
     const files = namesOut.trim() === '' ? [] : namesOut.trim().split('\n');
     this.logger.info({
@@ -310,10 +328,13 @@ export class BoardService {
     assertExeumBranch(branch);
     const current = await this.readBranch(repoPath);
     if (current === null) {
-      throw new ZeroError('VALIDATION_FAILED', 'The folder is not a git repository');
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'The folder is not a git repository',
+      );
     }
     if (current === branch) {
-      throw new ZeroError('VALIDATION_FAILED', 'Cannot land a branch into itself');
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Cannot land a branch into itself');
     }
     try {
       await execFileAsync(
@@ -325,7 +346,7 @@ export class BoardService {
       await execFileAsync('git', ['merge', '--abort'], { cwd: repoPath }).catch(
         () => undefined,
       );
-      throw new ZeroError(
+      throw new BuilderHelmError(
         'TOOL_EXECUTION_FAILED',
         'Land failed; the repository was left clean',
         {
@@ -384,7 +405,7 @@ export class BoardService {
       [input.name],
     );
     if (duplicate !== undefined) {
-      throw new ZeroError(
+      throw new BuilderHelmError(
         'VALIDATION_FAILED',
         'A Board project with that name already exists',
       );
@@ -448,7 +469,7 @@ export class BoardService {
         [workspace],
       ) === undefined
     ) {
-      throw new ZeroError(
+      throw new BuilderHelmError(
         'VALIDATION_FAILED',
         'Select a Board project before adding tasks',
       );
@@ -497,7 +518,7 @@ export class BoardService {
         [id],
       );
       if (found === undefined) {
-        throw new ZeroError('VALIDATION_FAILED', 'That card is gone');
+        throw new BuilderHelmError('VALIDATION_FAILED', 'That card is gone');
       }
       this.database.run(`UPDATE kanban_projects SET updated_at = ? WHERE id = ?`, [
         updatedAt,
@@ -537,7 +558,7 @@ export class BoardService {
         [input.id],
       );
       if (found === undefined) {
-        throw new ZeroError('VALIDATION_FAILED', 'That card is gone');
+        throw new BuilderHelmError('VALIDATION_FAILED', 'That card is gone');
       }
       this.database.run(`UPDATE kanban_projects SET updated_at = ? WHERE id = ?`, [
         updatedAt,
@@ -568,7 +589,7 @@ export class BoardService {
         [input.id],
       );
       if (found === undefined) {
-        throw new ZeroError('VALIDATION_FAILED', 'That card is gone');
+        throw new BuilderHelmError('VALIDATION_FAILED', 'That card is gone');
       }
       this.database.run(`DELETE FROM kanban_cards WHERE id = ?`, [input.id]);
       this.database.run(`UPDATE kanban_projects SET updated_at = ? WHERE id = ?`, [

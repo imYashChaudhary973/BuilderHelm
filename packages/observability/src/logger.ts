@@ -1,4 +1,4 @@
-import { utcNow, type CorrelationId } from '@zero/shared';
+import { utcNow, type CorrelationId } from '@builderhelm/shared';
 
 import { redact } from './redact.js';
 

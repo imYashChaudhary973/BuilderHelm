@@ -8,13 +8,13 @@ import type {
   BoardLandPreview,
   BoardPaneCount,
   BoardPaneSpec,
-} from '@zero/protocol/board';
+} from '@builderhelm/protocol/board';
 import {
   BOARD_AGENT_CATALOG,
   boardGridLayouts,
   gridForCount,
-} from '@zero/protocol/board';
-import type { CorrelationId } from '@zero/shared';
+} from '@builderhelm/protocol/board';
+import type { CorrelationId } from '@builderhelm/shared';
 import { useEffect, useState } from 'react';
 import { TerminalPane } from '../components/terminal-pane.js';
 import { SignalField } from '../components/signal-field.js';
@@ -359,15 +359,15 @@ export function BoardPage(): React.JSX.Element {
 
   const projects = useQuery({
     queryKey: ['projects-dashboard'],
-    queryFn: () => window.zero.projects.dashboard(),
+    queryFn: () => window.builderHelm.projects.dashboard(),
   });
   const agents = useQuery({
     queryKey: ['board-agents'],
-    queryFn: () => window.zero.board.detectAgents(),
+    queryFn: () => window.builderHelm.board.detectAgents(),
   });
 
   useEffect(() => {
-    void window.zero.board
+    void window.builderHelm.board
       .homeDir()
       .then((home) => {
         setHomeDir(home);
@@ -416,7 +416,8 @@ export function BoardPage(): React.JSX.Element {
   const folderReady = folderPath.trim().length > 0 || cdInput.trim().length > 0;
 
   const launch = useMutation({
-    mutationFn: (input: BoardCreateInput) => window.zero.board.createSession(input),
+    mutationFn: (input: BoardCreateInput) =>
+      window.builderHelm.board.createSession(input),
     onMutate: () => setError(null),
     onSuccess: (summary) => {
       setRecents(writeRecents(summary.folderPath));
@@ -462,7 +463,7 @@ export function BoardPage(): React.JSX.Element {
   const previewLand = useMutation({
     mutationFn: (branch: string) => {
       if (session === null) throw new Error('No live Space session');
-      return window.zero.board.previewLand({
+      return window.builderHelm.board.previewLand({
         correlationId: crypto.randomUUID() as CorrelationId,
         repoPath: session.folderPath,
         branch,
@@ -488,7 +489,7 @@ export function BoardPage(): React.JSX.Element {
   const land = useMutation({
     mutationFn: (branch: string) => {
       if (session === null) throw new Error('No live Space session');
-      return window.zero.board.land({
+      return window.builderHelm.board.land({
         correlationId: crypto.randomUUID() as CorrelationId,
         repoPath: session.folderPath,
         branch,
@@ -504,7 +505,7 @@ export function BoardPage(): React.JSX.Element {
 
   async function browse(): Promise<void> {
     setError(null);
-    const picked = await window.zero.board.selectFolder();
+    const picked = await window.builderHelm.board.selectFolder();
     if (picked !== null) setFolderPath(picked);
   }
 
@@ -512,7 +513,7 @@ export function BoardPage(): React.JSX.Element {
     if (session === null) return;
     const sessionId = session.sessionId;
     try {
-      await window.zero.board.closePane({
+      await window.builderHelm.board.closePane({
         correlationId: crypto.randomUUID() as CorrelationId,
         sessionId,
         paneId,
@@ -541,7 +542,7 @@ export function BoardPage(): React.JSX.Element {
   async function addTerminal(afterPaneId: string): Promise<void> {
     if (session === null || session.panes.length >= 12) return;
     try {
-      const pane = await window.zero.board.addPane({
+      const pane = await window.builderHelm.board.addPane({
         correlationId: crypto.randomUUID() as CorrelationId,
         sessionId: session.sessionId,
         agentId: 'shell',

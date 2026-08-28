@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import type { ProjectDashboard } from '@zero/protocol/projects';
+import type { ProjectDashboard } from '@builderhelm/protocol/projects';
 
 import { CountUp, SplitText, useSpotlight } from '../components/fx.js';
 
@@ -78,7 +78,7 @@ function ProjectRow({ item }: { readonly item: ProjectDashboard }): React.JSX.El
 export function TodayPage(): React.JSX.Element {
   const dashboard = useQuery({
     queryKey: ['project-dashboard'],
-    queryFn: () => window.zero.projects.dashboard(),
+    queryFn: () => window.builderHelm.projects.dashboard(),
   });
   const projects = dashboard.data?.projects ?? [];
   const blocked = projects.flatMap((item) =>
