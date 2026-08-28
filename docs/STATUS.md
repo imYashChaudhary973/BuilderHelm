@@ -26,7 +26,8 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 
 - Swarm verification, review, landing, stop/reconnect, and failure recovery.
 - Terminal throughput and renderer batching under sustained multi-pane output.
-- Consistent agent capability detection and structured-output adapters.
+- Installed CLI detection resolves every catalogued command in one login shell.
+  Structured-output adapters and capability metadata are still inconsistent.
 - Cross-platform shell, path, credential, and PTY behavior.
 - The Node 24 and Electron 43 upgrade still needs packaged desktop verification.
 
