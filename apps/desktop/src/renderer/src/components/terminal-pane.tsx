@@ -19,7 +19,7 @@ const MIN_ROWS = 2;
 // is 4.2px but U+2500 is 16px, so box borders and padding drift apart and every
 // bordered CLI panel tears. The terminal buffer stays correct either way; only
 // the drawing is wrong, which makes it look like a CLI bug rather than a font one.
-const TERMINAL_FONT_FAMILY = 'ui-monospace, SFMono-Regular, Menlo, monospace';
+const TERMINAL_FONT_FAMILY = 'SFMono-Regular, Menlo, monospace';
 interface TerminalPaneProps {
   readonly sessionId: string;
   readonly pane: BoardPaneSummary;

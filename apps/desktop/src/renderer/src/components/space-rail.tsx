@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import type { BoardSessionSummary } from '@builderhelm/protocol/board';
+import type { CorrelationId } from '@builderhelm/shared';
 
 import { useBoards } from '../board-store.js';
 import { SPACE_COLORS, useSpaces } from '../space-store.js';
@@ -147,6 +148,20 @@ export function SpaceRail({
     queryKey: ['kanban-projects'],
     queryFn: () => window.builderHelm.board.listProjects({}),
   });
+  // A rail entry earns its place by being in use, so these say what each
+  // feature is currently doing rather than that it exists.
+  const swarmRun = useQuery({
+    queryKey: ['rail-swarm-latest'],
+    refetchInterval: 5_000,
+    queryFn: () =>
+      window.builderHelm.swarm.latest({
+        correlationId: crypto.randomUUID() as CorrelationId,
+      }),
+  });
+  const vaults = useQuery({
+    queryKey: ['rail-memory-vaults'],
+    queryFn: () => window.builderHelm.knowledge.listVaults({}),
+  });
   const spaces = useSpaces();
   const [menuId, setMenuId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -165,81 +180,23 @@ export function SpaceRail({
     spaces.activate(session.sessionId);
     void navigate({ to: '/space' });
   }
+
+  const activeBoard =
+    (boardProjects.data ?? []).find((project) => project.id === boards.activeId) ?? null;
+  const run = swarmRun.data ?? null;
+  const liveVault = (vaults.data ?? [])[0] ?? null;
+  // A Board or a vault is stored data, not running work, so those rows belong to
+  // the open route only. A swarm run and a Space keep working while you look
+  // elsewhere, so they stay pinned until they end.
+  const showBoard = pathname === '/board';
+  const showSwarm = pathname === '/swarm' || (run !== null && run.status === 'running');
+  const showMemory = pathname === '/memory';
+
   return (
     <aside
       className={collapsed ? 'rail railCollapsed' : 'rail'}
       aria-label="BuilderHelm navigation"
     >
-      <div
-        className={
-          pathname === '/board' && boards.activeId === null
-            ? 'railRow railItemOn'
-            : 'railRow'
-        }
-        style={{ '--tile': '#b6d475' } as React.CSSProperties}
-      >
-        <button
-          type="button"
-          className={collapsed ? 'railTile' : 'railItem'}
-          title="BuilderHelm Board"
-          aria-current={
-            pathname === '/board' && boards.activeId === null ? 'page' : undefined
-          }
-          onClick={() => {
-            boards.choose();
-            void navigate({ to: '/board' });
-          }}
-        >
-          <BoardGlyph />
-          {collapsed ? null : (
-            <span className="railCopy">
-              <strong>BuilderHelm Board</strong>
-              <small>Choose project</small>
-            </span>
-          )}
-        </button>
-      </div>
-      <div
-        className={pathname === '/memory' ? 'railRow railItemOn' : 'railRow'}
-        style={{ '--tile': '#c9a0ff' } as React.CSSProperties}
-      >
-        <button
-          type="button"
-          className={collapsed ? 'railTile' : 'railItem'}
-          title="BuilderHelm Memory"
-          aria-current={pathname === '/memory' ? 'page' : undefined}
-          onClick={() => void navigate({ to: '/memory' })}
-        >
-          <MemoryGlyph />
-          {collapsed ? null : (
-            <span className="railCopy">
-              <strong>BuilderHelm Memory</strong>
-              <small>Private recall</small>
-            </span>
-          )}
-        </button>
-      </div>
-      <div
-        className={pathname === '/swarm' ? 'railRow railItemOn' : 'railRow'}
-        style={{ '--tile': '#7ec8e3' } as React.CSSProperties}
-      >
-        <button
-          type="button"
-          className={collapsed ? 'railTile' : 'railItem'}
-          title="BuilderHelm Swarm"
-          aria-current={pathname === '/swarm' ? 'page' : undefined}
-          onClick={() => void navigate({ to: '/swarm' })}
-        >
-          <SwarmGlyph />
-          {collapsed ? null : (
-            <span className="railCopy">
-              <strong>BuilderHelm Swarm</strong>
-              <small>Many agents, one job</small>
-            </span>
-          )}
-        </button>
-      </div>
-      <div className="railModeDivider" />
       <button
         type="button"
         className={spaces.draft && !featureOpen ? 'railNew railItemOn' : 'railNew'}
@@ -250,46 +207,114 @@ export function SpaceRail({
           setMenuId(null);
         }}
       >
-        {collapsed ? '+' : '+ New Space'}
+        <span className="railNewMark" aria-hidden="true">
+          {/* Geometric cross: a text `+` centres its line box, not its ink, so
+              asymmetric font ascent and descent left it below the middle. */}
+          <svg viewBox="0 0 24 24" width="15" height="15">
+            <path
+              d="M12 5.5v13M5.5 12h13"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.9"
+              strokeLinecap="round"
+            />
+          </svg>
+        </span>
+        {collapsed ? null : <span className="railNewCopy">New Space</span>}
       </button>
+      <div className="railDivider" role="presentation" />
       <div className="railList">
-        {(boardProjects.data ?? []).map((project) => {
-          const on = pathname === '/board' && boards.activeId === project.id;
-          return (
-            <div
-              key={project.id}
-              className={on ? 'railRow railItemOn' : 'railRow'}
-              style={{ '--tile': '#b6d475' } as React.CSSProperties}
+        {showBoard && (
+          <div
+            className={pathname === '/board' ? 'railRow railItemOn' : 'railRow'}
+            style={{ '--tile': '#b6d475' } as React.CSSProperties}
+          >
+            <button
+              type="button"
+              className={collapsed ? 'railTile' : 'railItem'}
+              title={activeBoard?.name ?? 'BuilderHelm Board'}
+              aria-current={pathname === '/board' ? 'page' : undefined}
+              onClick={() => {
+                if (activeBoard === null) boards.choose();
+                void navigate({ to: '/board' });
+              }}
             >
-              <button
-                type="button"
-                className={collapsed ? 'railTile' : 'railItem'}
-                title={project.name}
-                aria-label={`${project.name} Board, ${project.taskCount} ${
-                  project.taskCount === 1 ? 'task' : 'tasks'
-                }`}
-                aria-current={on ? 'page' : undefined}
-                onClick={() => {
-                  boards.open(project.id);
-                  void navigate({ to: '/board' });
-                }}
-              >
-                <BoardGlyph />
-                {collapsed ? (
-                  <span className="railBadge">{project.taskCount}</span>
-                ) : (
-                  <span className="railCopy">
-                    <strong>{project.name}</strong>
-                    <small>
-                      Board · {project.taskCount}{' '}
-                      {project.taskCount === 1 ? 'task' : 'tasks'}
-                    </small>
-                  </span>
-                )}
-              </button>
-            </div>
-          );
-        })}
+              <BoardGlyph />
+              {collapsed ? (
+                activeBoard === null ? null : (
+                  <span className="railBadge">{activeBoard.taskCount}</span>
+                )
+              ) : (
+                <span className="railCopy">
+                  <strong>{activeBoard?.name ?? 'BuilderHelm Board'}</strong>
+                  <small>
+                    {activeBoard === null
+                      ? 'Choosing a project'
+                      : `Board · ${activeBoard.taskCount} ${
+                          activeBoard.taskCount === 1 ? 'task' : 'tasks'
+                        }`}
+                  </small>
+                </span>
+              )}
+            </button>
+          </div>
+        )}
+        {showSwarm && (
+          <div
+            className={pathname === '/swarm' ? 'railRow railItemOn' : 'railRow'}
+            style={{ '--tile': '#7ec8e3' } as React.CSSProperties}
+          >
+            <button
+              type="button"
+              className={collapsed ? 'railTile' : 'railItem'}
+              title={run?.name ?? 'BuilderHelm Swarm'}
+              aria-current={pathname === '/swarm' ? 'page' : undefined}
+              onClick={() => void navigate({ to: '/swarm' })}
+            >
+              <SwarmGlyph />
+              {collapsed ? null : (
+                <span className="railCopy">
+                  <strong>{run?.name ?? 'BuilderHelm Swarm'}</strong>
+                  <small>
+                    {run === null ? 'Planning a mission' : `Swarm · ${run.status}`}
+                  </small>
+                </span>
+              )}
+            </button>
+          </div>
+        )}
+        {showMemory && (
+          <div
+            className={pathname === '/memory' ? 'railRow railItemOn' : 'railRow'}
+            style={{ '--tile': '#c9a0ff' } as React.CSSProperties}
+          >
+            <button
+              type="button"
+              className={collapsed ? 'railTile' : 'railItem'}
+              title={liveVault?.name ?? 'BuilderHelm Memory'}
+              aria-current={pathname === '/memory' ? 'page' : undefined}
+              onClick={() => void navigate({ to: '/memory' })}
+            >
+              <MemoryGlyph />
+              {collapsed ? (
+                liveVault === null ? null : (
+                  <span className="railBadge">{liveVault.noteCount}</span>
+                )
+              ) : (
+                <span className="railCopy">
+                  <strong>{liveVault?.name ?? 'BuilderHelm Memory'}</strong>
+                  <small>
+                    {liveVault === null
+                      ? 'No vault connected'
+                      : `Memory · ${liveVault.noteCount} ${
+                          liveVault.noteCount === 1 ? 'note' : 'notes'
+                        }`}
+                  </small>
+                </span>
+              )}
+            </button>
+          </div>
+        )}
         {spaces.spaces.map((space) => {
           const on = !featureOpen && !spaces.draft && spaces.activeId === space.sessionId;
           const meta = spaces.meta(space);

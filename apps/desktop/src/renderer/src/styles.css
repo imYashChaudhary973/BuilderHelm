@@ -1,6 +1,8 @@
 :root {
   --bg: #080a07;
   --bg-1: #0d100a;
+  /* Neutral chrome surface shared by the topbar and the rail. */
+  --chrome: #121212;
   --panel: #11150d;
   --glass: rgba(20, 24, 16, 0.55);
   --glass-strong: rgba(26, 30, 20, 0.78);
@@ -23,7 +25,7 @@
     0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 24px 48px -24px rgba(0, 0, 0, 0.55);
   --shadow-float: 0 20px 60px -20px rgba(0, 0, 0, 0.65);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono: SFMono-Regular, Menlo, monospace;
   color: var(--text);
   background: var(--bg);
   font-family:
@@ -402,7 +404,7 @@ html.is-fullscreen .shell {
   gap: 10px;
   padding: 0 10px 0 78px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: #050505;
+  background: var(--chrome);
   -webkit-app-region: drag;
 }
 
@@ -488,17 +490,54 @@ html.is-fullscreen .shell {
   overflow: visible;
   padding: 12px 10px;
   border-right: 1px solid rgba(255, 255, 255, 0.06);
-  background: #050505;
+  background: var(--chrome);
 }
 
 .railCollapsed {
   padding: 12px 6px;
 }
 
-.railModeDivider {
+/* Hairline under the New Space button, bled past the rail padding so it spans
+   the full width in both the collapsed and the expanded rail. */
+.railDivider {
   height: 1px;
-  margin: 2px 4px;
+  margin: 4px -10px 2px;
   background: var(--line);
+}
+
+.railCollapsed .railDivider {
+  margin-right: -6px;
+  margin-left: -6px;
+}
+
+/* The rail starts empty: only this square card until a Space, Board, Swarm or
+   Memory is actually in use. */
+.railNew {
+  --tile: var(--accent);
+  gap: 10px;
+  color: var(--text-2);
+}
+
+.railNewMark {
+  display: grid;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--tile) 45%, transparent);
+  border-radius: 11px;
+  background: transparent;
+  color: var(--tile);
+}
+
+.railNew:hover .railNewMark,
+.railNew.railItemOn .railNewMark {
+  border-color: var(--tile);
+}
+
+.railNewCopy {
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .railList {
@@ -573,17 +612,20 @@ html.is-fullscreen .shell {
   padding: 8px 0;
 }
 
-.railItem:hover,
-.railNew:hover {
+.railItem:hover {
   color: var(--text);
   background: rgba(255, 255, 255, 0.04);
+}
+
+.railNew:hover {
+  color: var(--text);
 }
 
 .railItemOn .railItem {
   color: var(--text);
 }
 
-.railItemOn:not(:has(.railTile)) {
+.railItemOn:not(:has(.railTile)):not(.railNew) {
   background: var(--accent-dim);
   border-radius: var(--radius-s);
 }
@@ -927,12 +969,10 @@ html.is-fullscreen .shell {
 
 .topbarIcon:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
 }
 
 .topbarIconOn {
   color: var(--accent-bright);
-  background: var(--accent-dim);
 }
 
 /* ---------- TYPOGRAPHY PRIMITIVES ---------- */
@@ -3997,8 +4037,16 @@ fieldset legend {
 
   .spaceModeHint,
   .spaceModeOpen,
-  .spaceMode {
+  .spaceModeIcon,
+  .spaceMode,
+  .spaceMode::after {
     transition: none;
+  }
+
+  /* The hover glow still lands; only the travelling beam stops. */
+  .spaceMode::before {
+    animation: none;
+    opacity: 0.5;
   }
 
   .chatTurn,
@@ -4123,6 +4171,7 @@ html.is-fullscreen .spaceHome {
 }
 
 .spaceMode {
+  --mode-glow: var(--accent);
   position: relative;
   width: 100%;
   display: flex;
@@ -4140,7 +4189,21 @@ html.is-fullscreen .spaceHome {
   transition:
     min-height 220ms var(--ease-out),
     background 180ms ease,
-    border-color 180ms ease;
+    border-color 180ms ease,
+    box-shadow 220ms var(--ease-out);
+}
+
+/* Each card sweeps and glows in its own hue, matching its rail tile. */
+.spaceModes li:nth-child(2) .spaceMode {
+  --mode-glow: #7ec8e3;
+}
+
+.spaceModes li:nth-child(3) .spaceMode {
+  --mode-glow: #b6d475;
+}
+
+.spaceModes li:nth-child(4) .spaceMode {
+  --mode-glow: #c9a0ff;
 }
 
 @property --mode-edge-angle {
@@ -4172,18 +4235,19 @@ html.is-fullscreen .spaceHome {
 .spaceMode::before {
   position: absolute;
   inset: 0;
+  z-index: 2;
   padding: 1px;
   border-radius: inherit;
   background: conic-gradient(
     from var(--mode-edge-angle),
     transparent 0deg 306deg,
-    rgba(201, 160, 255, 0.35) 320deg,
-    #6ff4af 332deg,
+    color-mix(in srgb, var(--mode-glow) 35%, transparent) 320deg,
+    var(--mode-glow) 332deg,
     #ffffff 340deg,
-    #e8ff6a 347deg,
+    color-mix(in srgb, var(--mode-glow) 70%, #ffffff) 347deg,
     transparent 360deg
   );
-  filter: drop-shadow(0 0 4px rgba(111, 244, 175, 0.7));
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--mode-glow) 70%, transparent));
   pointer-events: none;
   content: '';
   -webkit-mask:
@@ -4192,6 +4256,38 @@ html.is-fullscreen .spaceHome {
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   animation: modeEdgeSweep 8s linear infinite;
+}
+
+/* Inner haze that rises from the icon corner on hover, behind the content. */
+.spaceMode::after {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(
+      130% 170% at 8% 135%,
+      color-mix(in srgb, var(--mode-glow) 30%, transparent),
+      transparent 64%
+    ),
+    radial-gradient(
+      100% 140% at 50% -35%,
+      color-mix(in srgb, var(--mode-glow) 14%, transparent),
+      transparent 62%
+    );
+  opacity: 0;
+  pointer-events: none;
+  content: '';
+  transition: opacity 240ms var(--ease-out);
+}
+
+.spaceModeIcon,
+.spaceModeText,
+.spaceMode kbd,
+.spaceModeOpen,
+.spaceModeSoon {
+  position: relative;
+  z-index: 1;
 }
 
 .spaceModes li:nth-child(2) .spaceMode::before {
@@ -4208,8 +4304,29 @@ html.is-fullscreen .spaceHome {
 
 .spaceMode:hover:not(:disabled),
 .spaceMode:focus-visible:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: color-mix(in srgb, var(--mode-glow) 40%, transparent);
   background: #101010;
+  box-shadow: 0 18px 44px -30px color-mix(in srgb, var(--mode-glow) 65%, transparent);
+}
+
+/* Hover takes the ambient sweep and drives it faster and brighter. */
+.spaceMode:hover:not(:disabled)::before,
+.spaceMode:focus-visible:not(:disabled)::before {
+  animation-duration: 2.6s;
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--mode-glow) 85%, transparent))
+    brightness(1.15);
+}
+
+.spaceMode:hover:not(:disabled)::after,
+.spaceMode:focus-visible:not(:disabled)::after {
+  opacity: 1;
+}
+
+.spaceMode:hover:not(:disabled) .spaceModeIcon,
+.spaceMode:focus-visible:not(:disabled) .spaceModeIcon {
+  border-color: color-mix(in srgb, var(--mode-glow) 55%, transparent);
+  color: var(--mode-glow);
+  box-shadow: 0 0 18px -6px color-mix(in srgb, var(--mode-glow) 70%, transparent);
 }
 
 .spaceMode:disabled {
@@ -4227,6 +4344,10 @@ html.is-fullscreen .spaceHome {
   border-radius: 12px;
   background: #141414;
   color: #f2f2f2;
+  transition:
+    border-color 200ms ease,
+    color 200ms ease,
+    box-shadow 240ms var(--ease-out);
 }
 
 .spaceModeText {
@@ -4367,10 +4488,8 @@ html.is-fullscreen .spaceHome {
 
 .layoutTiles {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(8, 1fr);
   gap: clamp(8px, 1vw, 12px);
-  flex: 1 1 auto;
-  align-content: stretch;
 }
 
 .layoutTile {
@@ -4395,13 +4514,17 @@ html.is-fullscreen .spaceHome {
 
 .layoutPreview {
   display: grid;
-  gap: 3px;
-  width: clamp(28px, 3.4vw, 48px);
-  height: clamp(20px, 2.6vw, 34px);
+  grid-auto-rows: 8px;
+  gap: 2px;
+  justify-content: center;
+  align-content: center;
 }
 
+/* Fixed cell size: the box is sized by its cells, so no count can overflow the
+   tile, and every layout shows the same square unit. */
 .layoutPreview i {
-  display: block;
+  width: 8px;
+  height: 8px;
   border-radius: 1px;
   background: currentColor;
   opacity: 0.55;
@@ -4771,18 +4894,39 @@ html.is-fullscreen .spaceHome {
   border: 1px solid var(--line);
   background: var(--bg-1);
   color: var(--text);
+  font-family: var(--font-mono);
   transition:
     border-color 0.15s var(--ease-out),
     background 0.15s var(--ease-out);
 }
 
-.folderRow .secondaryButton {
+.folderRow .folderBrowseButton {
   flex-shrink: 0;
-  white-space: nowrap;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--line);
+  background: var(--bg-1);
+  color: var(--text-3);
+}
+
+.folderRow .folderBrowseButton:hover {
+  color: var(--text);
 }
 
 .folderRow input:focus {
   border-color: var(--accent-line);
+}
+
+.folderRow input.inputInvalid {
+  border-color: #e06c5b;
+}
+
+.cdError {
+  margin: 8px 2px 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #e06c5b;
 }
 
 .recentChips {
@@ -5670,6 +5814,20 @@ html.is-fullscreen .spaceHome {
 .paneTerminalHost .xterm-viewport,
 .paneTerminalHost .xterm-screen {
   overflow-x: hidden !important;
+}
+
+/* Every pane showed two vertical bars: this native viewport scrollbar plus the
+   one the agent CLI draws inside its own TUI. xterm.js ships
+   `overflow-y: scroll`, so the 8px gutter was reserved and painted even with
+   nothing to scroll, and it also made the render canvas wider than the
+   viewport's client box. Wheel and keyboard scrolling are unaffected. */
+.paneTerminalHost .xterm-viewport {
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.paneTerminalHost .xterm-viewport::-webkit-scrollbar {
+  display: none;
 }
 
 /* xterm.js configures its cell measurement from the Terminal fontFamily option

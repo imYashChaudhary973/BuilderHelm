@@ -57,6 +57,13 @@ interface PaneMeta {
   paused: boolean;
   pendingData: string;
   flushTimer: NodeJS.Timeout | null;
+  /**
+   * Agent command waiting for the pane size to settle. Launching at the spawn
+   * size makes a CLI paint its banner, take SIGWINCH from the renderer's first
+   * fit, and paint it again, leaving two banners in the scrollback.
+   */
+  pendingCommand: string | null;
+  commandTimer: NodeJS.Timeout | null;
   acked: Set<string>;
   pty: IPty | null;
 }
@@ -81,6 +88,11 @@ const inFlightLowWaterChars = 512 * 1024;
 // so a single oversized PTY chunk would otherwise fail validation mid-stream.
 const maxEventChars = 700_000;
 const maxPendingDataChars = 64 * 1024;
+// The renderer fits a pane on mount and again once layout and fonts settle, so
+// the agent launches after the size has been quiet for one beat. The fallback
+// covers consumers that never resize, such as the throughput benchmark.
+const commandQuietMs = 180;
+const commandFallbackMs = 900;
 
 function resolveCommand(agentId: BoardAgentId, override: string | undefined): string {
   if (agentId === 'shell') return '';
@@ -155,38 +167,25 @@ function spawnArgvPty(
   });
 }
 
-function spawnPty(cwd: string, command: string, cols: number, rows: number): IPty {
-  const helper = ensureHelper();
+function spawnPty(cwd: string, cols: number, rows: number): IPty {
   const shell = existsSync('/bin/zsh') ? '/bin/zsh' : '/bin/bash';
   const workdir = resolveWorkdir(cwd);
-  const extra = command.trim().length === 0 ? [] : ['-c', command];
-  const attempts = [['-i', ...extra], extra];
-  let last: unknown;
-  for (const args of attempts) {
-    try {
-      return spawn(shell, args, {
-        name: 'xterm-256color',
-        cols,
-        rows,
-        cwd: workdir,
-        env: { ...terminalEnv(), PWD: workdir },
-      });
-    } catch (error) {
-      last = error;
-    }
-  }
-  const detail = last instanceof Error ? last.message : 'unknown spawn error';
-  throw new BuilderHelmError(
-    'TOOL_EXECUTION_FAILED',
-    `Could not start a terminal in ${workdir} (${detail}; helper=${helper} exists=${existsSync(helper)})`,
-    { cause: last },
-  );
+  // Agent panes are a real interactive shell that the command is typed into,
+  // not `zsh -c <agent>`: the shell must survive the agent exiting so the user
+  // drops to a usable prompt. The manager types it once the size settles.
+  return spawn(shell, ['-i'], {
+    name: 'xterm-256color',
+    cols,
+    rows,
+    cwd: workdir,
+    env: { ...terminalEnv(), PWD: workdir },
+  });
 }
 
 export function probePty(cwd: string): string {
   const helper = spawnHelperPath();
   try {
-    const pty = spawnPty(cwd, '', 80, 24);
+    const pty = spawnPty(cwd, 80, 24);
     const pid = pty.pid;
     pty.kill();
     return `ok pid=${pid} helper=${helper}`;
@@ -318,10 +317,10 @@ export class BoardPtyManager {
     if (session === undefined) {
       throw new BuilderHelmError('VALIDATION_FAILED', 'Unknown pane session or pane');
     }
-    if (session.panes.size >= 12) {
+    if (session.panes.size >= 16) {
       throw new BuilderHelmError(
         'VALIDATION_FAILED',
-        'This Space is already at 12 terminals',
+        'This Space is already at 16 terminals',
       );
     }
     return this.attachPane(
@@ -356,7 +355,7 @@ export class BoardPtyManager {
       pty =
         argv !== undefined
           ? spawnArgvPty(location.cwd, argv, 120, 30)
-          : spawnPty(location.cwd, command, 120, 30);
+          : spawnPty(location.cwd, 120, 30);
     } catch (error) {
       // The worktree exists but this pane never joined the session, so the
       // caller's rollback cannot see it. Undo it here or it leaks silently.
@@ -381,10 +380,18 @@ export class BoardPtyManager {
       paused: false,
       pendingData: '',
       flushTimer: null,
+      pendingCommand:
+        argv === undefined && command.trim().length > 0 ? command.trim() : null,
+      commandTimer: null,
       acked: new Set(),
       pty,
     };
     session.panes.set(paneId, meta);
+    if (meta.pendingCommand !== null) {
+      meta.commandTimer = setTimeout(() => {
+        this.runPendingCommand(meta);
+      }, commandFallbackMs);
+    }
     pty.onData((chunk) => {
       const text =
         typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8');
@@ -392,7 +399,7 @@ export class BoardPtyManager {
       const next = meta.output + text;
       meta.output =
         next.length <= maxBufferedChars ? next : next.slice(-maxBufferedChars);
-      const startup = scanStartupChunk(meta.startupTail, text, meta.acked);
+      const startup = scanStartupChunk(meta.startupTail, text, meta.acked, meta.agentId);
       meta.startupTail = startup.tail;
       if (startup.ack !== null) {
         meta.acked.add(startup.ack.id);
@@ -440,6 +447,24 @@ export class BoardPtyManager {
   async resize(input: BoardPaneResizeInput): Promise<void> {
     const pane = this.requirePane(input.sessionId, input.paneId);
     pane.pty?.resize(input.cols, input.rows);
+    // Every fit restarts the quiet window, so the agent only ever sees the size
+    // the pane settled on and paints its banner once.
+    if (pane.pendingCommand !== null) {
+      clearTimeout(pane.commandTimer ?? undefined);
+      pane.commandTimer = setTimeout(() => {
+        this.runPendingCommand(pane);
+      }, commandQuietMs);
+    }
+  }
+
+  /** Types the held agent command once, at the pane's settled size. */
+  private runPendingCommand(pane: PaneMeta): void {
+    clearTimeout(pane.commandTimer ?? undefined);
+    pane.commandTimer = null;
+    const command = pane.pendingCommand;
+    pane.pendingCommand = null;
+    if (command === null || pane.pty === null) return;
+    pane.pty.write(`${command}\r`);
   }
 
   async closePane(input: BoardPaneCloseInput): Promise<void> {
@@ -449,6 +474,8 @@ export class BoardPtyManager {
       throw new BuilderHelmError('VALIDATION_FAILED', 'Unknown pane session or pane');
     }
     this.flushData(input.sessionId, input.paneId, pane);
+    clearTimeout(pane.commandTimer ?? undefined);
+    pane.pendingCommand = null;
     this.closing.add(input.paneId);
     pane.pty?.kill();
     pane.pty = null;
@@ -506,6 +533,8 @@ export class BoardPtyManager {
     for (const session of this.sessions.values()) {
       for (const [paneId, pane] of session.panes) {
         this.cancelDataFlush(pane);
+        clearTimeout(pane.commandTimer ?? undefined);
+        pane.pendingCommand = null;
         this.closing.add(paneId);
         pane.pty?.kill();
         pane.pty = null;

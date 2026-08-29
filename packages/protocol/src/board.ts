@@ -218,11 +218,12 @@ export const boardPaneCountSchema = z.union([
   z.literal(8),
   z.literal(10),
   z.literal(12),
+  z.literal(16),
 ]);
 
 /** Terminal counts that have a shipped grid layout. Single source for guards. */
 export const boardPaneCounts = [
-  1, 2, 3, 4, 5, 6, 8, 10, 12,
+  1, 2, 3, 4, 5, 6, 8, 10, 12, 16,
 ] as const satisfies readonly BoardPaneCount[];
 
 /** Direct argv launch: no shell, no quoting, no length cap beyond ARG_MAX headroom. */
@@ -246,12 +247,13 @@ export const boardGridLayouts = {
   8: { cols: 4, rows: 2 },
   10: { cols: 5, rows: 2 },
   12: { cols: 4, rows: 3 },
+  16: { cols: 4, rows: 4 },
 } as const satisfies Record<BoardPaneCount, { cols: number; rows: number }>;
 
 export function gridForCount(count: number): { cols: number; rows: number } {
   const n = Math.max(1, count);
   if (n <= 3) return { cols: n, rows: 1 };
-  const rows = n <= 8 ? 2 : 3;
+  const rows = n <= 8 ? 2 : n <= 12 ? 3 : 4;
   return { cols: Math.ceil(n / rows), rows };
 }
 
@@ -265,7 +267,7 @@ export const boardCorrelationSchema = z
 
 export const boardPaneSpecSchema = z
   .object({
-    slot: z.number().int().min(0).max(11),
+    slot: z.number().int().min(0).max(15),
     agentId: boardAgentIdSchema,
     command: z.string().trim().min(1).max(4_000).optional(),
     argv: boardPaneArgvSchema.optional(),
@@ -285,7 +287,7 @@ export const boardCreateInputSchema = z
     folderPath: z.string().min(1).max(4096),
     paneCount: boardPaneCountSchema,
     isolation: boardIsolationSchema,
-    panes: z.array(boardPaneSpecSchema).min(1).max(12),
+    panes: z.array(boardPaneSpecSchema).min(1).max(16),
   })
   .strict()
   .superRefine((input, ctx) => {
@@ -313,7 +315,7 @@ export type BoardPaneStatus = z.infer<typeof boardPaneStatusSchema>;
 export const boardPaneSummarySchema = z
   .object({
     paneId: z.string().uuid(),
-    slot: z.number().int().min(0).max(11),
+    slot: z.number().int().min(0).max(15),
     agentId: boardAgentIdSchema,
     title: z.string().min(1).max(160),
     status: boardPaneStatusSchema,
@@ -327,9 +329,9 @@ export const boardSessionSummarySchema = z
   .object({
     sessionId: z.string().uuid(),
     folderPath: z.string().min(1).max(4096),
-    paneCount: z.number().int().min(1).max(12),
+    paneCount: z.number().int().min(1).max(16),
     isolation: boardIsolationSchema,
-    panes: z.array(boardPaneSummarySchema).min(1).max(12),
+    panes: z.array(boardPaneSummarySchema).min(1).max(16),
   })
   .strict();
 export type BoardSessionSummary = z.infer<typeof boardSessionSummarySchema>;
@@ -462,7 +464,7 @@ export const boardPresetSpecSchema = z
     folderPath: z.string().min(1).max(4096),
     paneCount: boardPaneCountSchema,
     isolation: boardIsolationSchema,
-    panes: z.array(boardPaneSpecSchema).min(1).max(12),
+    panes: z.array(boardPaneSpecSchema).min(1).max(16),
   })
   .strict()
   .superRefine((preset, ctx) => {
