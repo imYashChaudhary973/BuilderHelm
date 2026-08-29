@@ -3767,6 +3767,8 @@ fieldset legend {
   gap: 4px;
   padding: 12px 10px;
   overflow: auto;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--chrome);
 }
 
 .settingsNavLabel {
@@ -3812,10 +3814,6 @@ fieldset legend {
 .shellSettingsOn,
 .shellSettingsOn.shellRailOff {
   grid-template-columns: 200px 1fr;
-}
-
-.shellSettingsOn .rail {
-  background: var(--chrome);
 }
 
 .providerList {
@@ -4051,7 +4049,9 @@ fieldset legend {
   border: 1px solid var(--line-strong);
   border-radius: 999px;
   background: var(--bg-1);
-  transition: background 180ms ease, border-color 180ms ease;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease;
 }
 
 .voiceSwitch span {
@@ -4062,7 +4062,9 @@ fieldset legend {
   height: 20px;
   border-radius: 999px;
   background: var(--text-3);
-  transition: transform 180ms var(--ease-out), background 180ms ease;
+  transition:
+    transform 180ms var(--ease-out),
+    background 180ms ease;
 }
 
 .voiceSwitchOn {
@@ -4113,7 +4115,10 @@ fieldset legend {
   background: var(--bg-1);
   color: var(--text-2);
   text-align: left;
-  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
 }
 
 .voiceModel:hover:not(:disabled) {

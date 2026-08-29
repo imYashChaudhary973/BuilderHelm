@@ -12,7 +12,7 @@ const KEY_MODAL_COPY = {
   notice:
     'Audio is sent to OpenAI only when an OpenAI speech model is selected. Local models never leave this device.',
   storageNote:
-    'The key is stored in the macOS Keychain. It is never written to disk by BuilderHelm or included in logs.',
+    'Stored securely on this device. It is never written to disk by BuilderHelm or included in logs.',
 } as const;
 
 export function VoicePage(): React.JSX.Element {
@@ -73,7 +73,6 @@ export function VoicePage(): React.JSX.Element {
             require an API key.
           </p>
         </div>
-        <div className="securePill">macOS Keychain</div>
       </header>
       {error !== null && (
         <p className="errorBanner" role="alert">
@@ -243,7 +242,7 @@ export function VoicePage(): React.JSX.Element {
               <strong>OpenAI API key</strong>
               <p className="voiceHint">
                 {voice.data?.openAiKeyPresent === true
-                  ? 'A key is stored in the macOS Keychain.'
+                  ? 'A key is stored securely on this device.'
                   : 'No key stored. Cloud models stay locked until one is saved.'}
               </p>
             </div>

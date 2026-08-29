@@ -6,13 +6,11 @@ const SECTIONS = [
   {
     to: '/settings/providers',
     title: 'Models & Providers',
-    hint: 'Secure connections',
     active: (path: string) => path === '/settings/providers',
   },
   {
     to: '/settings/voice',
     title: 'Voice',
-    hint: 'Dictation and speech models',
     active: (path: string) => path === '/settings/voice',
   },
 ] as const;
@@ -37,7 +35,6 @@ export function SettingsNav({ active }: { readonly active: string }): React.JSX.
             aria-current={on ? 'page' : undefined}
           >
             <strong>{section.title}</strong>
-            <small>{section.hint}</small>
           </Link>
         );
       })}

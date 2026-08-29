@@ -130,13 +130,13 @@ export function ProviderForm(props: ProviderFormProps): React.JSX.Element {
               existing === null
                 ? protocol === 'ollama'
                   ? 'Optional for local Ollama'
-                  : 'Stored in macOS Keychain'
+                  : 'Stored securely'
                 : 'Leave blank to keep current key'
             }
           />
           <small>
             {protocol === 'ollama'
-              ? 'Leave blank for local Ollama. Remote tokens are stored in macOS Keychain.'
+              ? 'Leave blank for local Ollama. Remote tokens are stored securely on this device.'
               : 'This value is sent directly to secure storage and is never shown again.'}
           </small>
         </label>

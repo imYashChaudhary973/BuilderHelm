@@ -126,7 +126,6 @@ export function ProvidersPage(): React.JSX.Element {
           <h1>Models &amp; Providers</h1>
           <p className="lede">Connect providers and manage discovered models.</p>
         </div>
-        <div className="securePill">macOS Keychain</div>
       </header>
       {error !== null && (
         <p className="errorBanner" role="alert">
@@ -307,9 +306,7 @@ export function ProvidersPage(): React.JSX.Element {
           >
             <p className="eyebrow">Permanent action</p>
             <h2 id="delete-title">Delete {deleting.label}?</h2>
-            <p>
-              This removes its local configuration and credential from macOS Keychain.
-            </p>
+            <p>This removes its local configuration and stored credential.</p>
             <div className="formActions">
               <button
                 className="secondaryButton"
