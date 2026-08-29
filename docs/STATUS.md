@@ -30,9 +30,8 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
   renderer-side write coalescing, backpressure when a pane outruns the
   renderer, and reconnect that reconciles the drain snapshot against live
   events without duplicating output.
-- Installed CLI detection spawns one login shell per catalogued agent, so a
-  single probe starts twelve of them and inherits whatever the user's shell
-  profile launches. Needs one probe per call and structured-output adapters.
+- Installed CLI detection resolves every catalogued command in one login shell.
+  Structured-output adapters and capability metadata are still inconsistent.
 - Cross-platform shell, path, credential, and PTY behavior.
 - The Node 24 and Electron 43 upgrade still needs packaged desktop verification.
 

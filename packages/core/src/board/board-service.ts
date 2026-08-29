@@ -30,6 +30,45 @@ import {
 
 const execFileAsync = promisify(execFile);
 
+/**
+ * Resolves every command in one login shell.
+ *
+ * A GUI-launched app inherits a stripped PATH, so the probe has to go through a
+ * login shell. Doing that per command meant one shell per catalogued agent,
+ * twelve per call, each sourcing the user's shell profile and inheriting
+ * whatever that profile starts in the background.
+ *
+ * Names are passed as positional arguments rather than interpolated into the
+ * script, so nothing reaches the shell as code.
+ */
+const commandProbeScript =
+  'for name in "$@"; do printf \'%s\\t%s\\n\' "$name" "$(command -v "$name" 2>/dev/null)"; done';
+
+async function resolveCommandPaths(
+  commands: readonly string[],
+): Promise<Map<string, string>> {
+  const resolved = new Map<string, string>();
+  if (commands.length === 0) return resolved;
+  let stdout: string;
+  try {
+    ({ stdout } = await execFileAsync(
+      process.env.SHELL ?? '/bin/zsh',
+      ['-lc', commandProbeScript, 'builderhelm-detect', ...commands],
+      { timeout: 10_000 },
+    ));
+  } catch {
+    // Probe failed as a whole: report nothing found rather than guessing.
+    return resolved;
+  }
+  for (const line of stdout.split('\n')) {
+    const separator = line.indexOf('\t');
+    if (separator <= 0) continue;
+    const path = line.slice(separator + 1).trim();
+    if (path.length > 0) resolved.set(line.slice(0, separator), path);
+  }
+  return resolved;
+}
+
 interface StoredBoardPreset extends Record<string, unknown> {
   id: string;
   name: string;
@@ -146,28 +185,20 @@ export class BoardService {
   }
 
   async detectAgents(): Promise<BoardAgentDetection[]> {
-    const detections = await Promise.all(
-      BOARD_AGENT_CATALOG.map(async (entry): Promise<BoardAgentDetection> => {
-        if (entry.id === 'custom' || entry.id === 'shell' || entry.command.length === 0) {
-          return { id: entry.id, label: entry.label, available: true, path: null };
-        }
-        // GUI-launched apps inherit a stripped PATH, so probe through a login shell.
-        try {
-          const { stdout } = await execFileAsync(
-            process.env.SHELL ?? '/bin/zsh',
-            ['-lc', `command -v ${entry.command}`],
-            { timeout: 5000 },
-          );
-          const path = stdout.trim();
-          return path.length > 0
-            ? { id: entry.id, label: entry.label, available: true, path }
-            : { id: entry.id, label: entry.label, available: false, path: null };
-        } catch {
-          return { id: entry.id, label: entry.label, available: false, path: null };
-        }
-      }),
+    const probed = BOARD_AGENT_CATALOG.filter(
+      (entry) =>
+        entry.id !== 'custom' && entry.id !== 'shell' && entry.command.length > 0,
     );
-    return detections;
+    const paths = await resolveCommandPaths(probed.map((entry) => entry.command));
+    return BOARD_AGENT_CATALOG.map((entry): BoardAgentDetection => {
+      if (entry.id === 'custom' || entry.id === 'shell' || entry.command.length === 0) {
+        return { id: entry.id, label: entry.label, available: true, path: null };
+      }
+      const path = paths.get(entry.command) ?? '';
+      return path.length > 0
+        ? { id: entry.id, label: entry.label, available: true, path }
+        : { id: entry.id, label: entry.label, available: false, path: null };
+    });
   }
 
   async createWorktree(
