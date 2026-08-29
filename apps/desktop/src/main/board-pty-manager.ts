@@ -39,6 +39,12 @@ interface PaneMeta {
   branch: string | null;
   cwd: string;
   output: string;
+  /**
+   * Total characters this pane has ever produced. Monotonic, so it keeps
+   * meaning after `output` is trimmed, and lets a reconnecting renderer line
+   * live chunks up against the drain snapshot.
+   */
+  emitted: number;
   startupTail: string;
   pendingData: string;
   flushTimer: NodeJS.Timeout | null;
@@ -339,6 +345,7 @@ export class BoardPtyManager {
       branch: location.branch,
       cwd: location.cwd,
       output: '',
+      emitted: 0,
       startupTail: '',
       pendingData: '',
       flushTimer: null,
@@ -349,6 +356,7 @@ export class BoardPtyManager {
     pty.onData((chunk) => {
       const text =
         typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8');
+      meta.emitted += text.length;
       const next = meta.output + text;
       meta.output =
         next.length <= maxBufferedChars ? next : next.slice(-maxBufferedChars);
@@ -426,8 +434,12 @@ export class BoardPtyManager {
       });
   }
 
-  drainPane(input: BoardPaneDrainInput): { data: string } {
-    return { data: this.requirePane(input.sessionId, input.paneId).output };
+  drainPane(input: BoardPaneDrainInput): { data: string; offset: number } {
+    const pane = this.requirePane(input.sessionId, input.paneId);
+    // Anything still batched is already counted in `emitted` but not in the
+    // snapshot, so send it now and let the snapshot end at a clean boundary.
+    this.flushData(input.sessionId, input.paneId, pane);
+    return { data: pane.output, offset: pane.emitted };
   }
 
   dispose(): void {
@@ -467,6 +479,7 @@ export class BoardPtyManager {
     this.forward(sessionId, paneId, {
       type: 'data',
       data: Buffer.from(data, 'utf8').toString('base64'),
+      offset: pane.emitted,
     });
   }
 

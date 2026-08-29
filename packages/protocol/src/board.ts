@@ -179,6 +179,10 @@ export const boardPaneEventSchema = z.discriminatedUnion('type', [
     .object({
       type: z.literal('data'),
       data: z.string().min(1).max(1_000_000),
+      // Total decoded characters this pane had emitted once this chunk was
+      // appended. Lets a reconnecting renderer tell which buffered chunks the
+      // drain snapshot already contains instead of writing them twice.
+      offset: z.number().int().nonnegative(),
     })
     .strict(),
   z
@@ -243,7 +247,12 @@ export type BoardAddPaneInput = z.infer<typeof boardAddPaneInputSchema>;
 export const boardPaneDrainInputSchema = boardPaneCloseInputSchema;
 export type BoardPaneDrainInput = z.infer<typeof boardPaneDrainInputSchema>;
 export const boardPaneDrainResultSchema = z
-  .object({ data: z.string().max(200_000) })
+  .object({
+    data: z.string().max(200_000),
+    // Stream offset the snapshot ends at. Chunks at or below this are already
+    // in `data`.
+    offset: z.number().int().nonnegative(),
+  })
   .strict();
 export type BoardPaneDrainResult = z.infer<typeof boardPaneDrainResultSchema>;
 

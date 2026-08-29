@@ -9,6 +9,8 @@ import type { BoardPaneStatus, BoardPaneSummary } from '@builderhelm/protocol/bo
 import type { CorrelationId } from '@builderhelm/shared';
 import { useEffect, useRef, useState } from 'react';
 
+import { chunkTailAfter } from '../pane-stream.js';
+
 const MIN_COLS = 2;
 const MIN_ROWS = 2;
 // Must stay a monospace stack, and must match `--font-mono` in styles.css.
@@ -138,14 +140,35 @@ export function TerminalPane({
     textarea?.addEventListener('focus', handleFocus);
     textarea?.addEventListener('blur', handleBlur);
 
+    // Subscribing before the snapshot arrives is deliberate: unsubscribing
+    // would drop output produced while the drain is in flight. But the snapshot
+    // is the pane's whole history, so anything written before it lands would be
+    // repeated by it. Buffer live chunks until the snapshot is on screen, then
+    // replay only the part of each chunk the snapshot does not already cover.
+    let snapshotOffset: number | null = null;
+    let buffered: { text: string; offset: number }[] = [];
+
+    const decode = (data: string): string =>
+      new TextDecoder().decode(Uint8Array.from(atob(data), (c) => c.charCodeAt(0)));
+
+    /** Writes the tail of a chunk that the snapshot does not already cover. */
+    const writeAfter = (text: string, offset: number, from: number): void => {
+      const tail = chunkTailAfter(text, offset, from);
+      if (tail.length > 0) term.write(tail);
+    };
+
     const unsubscribe = window.builderHelm.board.onPaneEvent(sessionId, (envelope) => {
       if (envelope.paneId !== pane.paneId) return;
-      if (envelope.event.type === 'data') {
-        const bytes = Uint8Array.from(atob(envelope.event.data), (c) => c.charCodeAt(0));
-        term.write(bytes);
-      } else {
+      if (envelope.event.type !== 'data') {
         setStatus(envelope.event.status);
+        return;
       }
+      const text = decode(envelope.event.data);
+      if (snapshotOffset === null) {
+        buffered.push({ text, offset: envelope.event.offset });
+        return;
+      }
+      writeAfter(text, envelope.event.offset, snapshotOffset);
     });
 
     void window.builderHelm.board
@@ -156,8 +179,19 @@ export function TerminalPane({
       })
       .then((snapshot) => {
         if (snapshot.data.length > 0) term.write(snapshot.data);
+        snapshotOffset = snapshot.offset;
+        for (const chunk of buffered) {
+          writeAfter(chunk.text, chunk.offset, snapshot.offset);
+        }
+        buffered = [];
       })
-      .catch(() => undefined);
+      .catch(() => {
+        // Without a snapshot the buffered chunks are all we have; show them
+        // rather than stranding the pane blank.
+        snapshotOffset = 0;
+        for (const chunk of buffered) term.write(chunk.text);
+        buffered = [];
+      });
 
     term.focus();
 

@@ -89,6 +89,18 @@ describe('BoardPtyManager output batching', () => {
     expect(Buffer.from(events[1]!.event.data, 'base64').toString('utf8')).toBe('-final');
     expect(events[2]!.event).toMatchObject({ status: 'exited', exitCode: 0 });
 
+    // Offsets are the contract the renderer reconciles against on reconnect:
+    // each data event ends at the pane's total emitted character count.
+    expect(events[0]!.event).toMatchObject({ offset: 'one-two'.length });
+    expect(events[1]!.event).toMatchObject({ offset: 'one-two-final'.length });
+
+    const drained = manager.drainPane({
+      correlationId,
+      sessionId: session.sessionId,
+      paneId: session.panes[0]!.paneId,
+    });
+    expect(drained).toEqual({ data: 'one-two-final', offset: 'one-two-final'.length });
+
     manager.dispose();
     expect(session.panes).toHaveLength(1);
   });
