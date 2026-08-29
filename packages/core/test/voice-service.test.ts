@@ -5,9 +5,13 @@ import {
   VoiceRepository,
   type BuilderHelmDatabase,
 } from '@builderhelm/db';
+import {
+  OpenAITranscriptionAdapter,
+  type GatewayFetch,
+} from '@builderhelm/model-gateway';
 import { createLogger } from '@builderhelm/observability';
 import { createCorrelationId } from '@builderhelm/shared';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   MemorySecretStore,
@@ -16,8 +20,7 @@ import {
 } from '../src/index.js';
 
 const open = new Set<BuilderHelmDatabase>();
-
-function setup(): {
+function setup(fetcher?: GatewayFetch): {
   repository: VoiceRepository;
   secrets: MemorySecretStore;
   service: VoiceService;
@@ -36,6 +39,8 @@ function setup(): {
       repository,
       secrets,
       createLogger((line) => logs.push(line)),
+      null,
+      fetcher === undefined ? null : new OpenAITranscriptionAdapter(fetcher),
     ),
     logs,
   };
@@ -216,5 +221,92 @@ describe('voice model availability', () => {
     // Local engines arrive with the model installer; nothing may claim to be
     // installed before then.
     expect(status.models.some((model) => model.installed)).toBe(false);
+  });
+});
+
+function pcmWav(): Uint8Array {
+  const bytes = new Uint8Array(44);
+  const view = new DataView(bytes.buffer);
+  const write = (offset: number, text: string): void => {
+    for (let i = 0; i < text.length; i += 1) bytes[offset + i] = text.charCodeAt(i);
+  };
+  write(0, 'RIFF');
+  view.setUint32(4, 36, true);
+  write(8, 'WAVE');
+  write(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, 16_000, true);
+  view.setUint32(28, 32_000, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  write(36, 'data');
+  view.setUint32(40, 2, true);
+  return bytes;
+}
+
+describe('voice cloud transcription', () => {
+  it('transcribes a fixture with a stored key', async () => {
+    const fetcher = vi.fn<GatewayFetch>(async (_input, init) => {
+      const body = init?.body as FormData;
+      expect(body.get('model')).toBe('gpt-4o-transcribe');
+      return new Response(JSON.stringify({ text: 'hello from gpt-4o' }), { status: 200 });
+    });
+    const { service } = setup(fetcher);
+    await service.saveOpenAiKey(
+      { apiKey: 'sk-phase-four-voice-sentinel-key' },
+      createCorrelationId(),
+    );
+    await service.updateSettings({ modelId: 'gpt-4o-transcribe' }, createCorrelationId());
+
+    const result = await service.transcribe(
+      { bytes: pcmWav(), filename: 'clip.wav' },
+      createCorrelationId(),
+    );
+
+    expect(result.text).toBe('hello from gpt-4o');
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  it('blocks transcription without a key and makes no audio request', async () => {
+    const fetcher = vi.fn<GatewayFetch>(async () => new Response('{}'));
+    const { service } = setup(fetcher);
+    await expect(
+      service.updateSettings(
+        { modelId: 'gpt-4o-mini-transcribe' },
+        createCorrelationId(),
+      ),
+    ).rejects.toThrow(/API key/i);
+    await expect(
+      service.transcribe(
+        { bytes: pcmWav(), filename: 'clip.wav' },
+        createCorrelationId(),
+      ),
+    ).rejects.toThrow(/Select a speech model/i);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('does not send audio when the stored key is removed before transcribe', async () => {
+    const fetcher = vi.fn<GatewayFetch>(async () => new Response('{}'));
+    const { service, logs } = setup(fetcher);
+    await service.saveOpenAiKey(
+      { apiKey: 'sk-phase-four-voice-sentinel-key' },
+      createCorrelationId(),
+    );
+    await service.updateSettings(
+      { modelId: 'gpt-4o-mini-transcribe' },
+      createCorrelationId(),
+    );
+    await service.deleteOpenAiKey(createCorrelationId());
+
+    await expect(
+      service.transcribe(
+        { bytes: pcmWav(), filename: 'clip.wav' },
+        createCorrelationId(),
+      ),
+    ).rejects.toThrow(/Select a speech model/i);
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(logs.join('\n')).not.toContain('sk-phase-four-voice-sentinel-key');
   });
 });

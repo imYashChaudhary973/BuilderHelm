@@ -1,4 +1,5 @@
 import type { VoiceRepository, StoredVoiceSettings } from '@builderhelm/db';
+import type { OpenAITranscriptionAdapter } from '@builderhelm/model-gateway';
 import type { Logger } from '@builderhelm/observability';
 import {
   VOICE_DEFAULT_HOTKEY,
@@ -17,7 +18,6 @@ import {
 import { BuilderHelmError, utcNow, type CorrelationId } from '@builderhelm/shared';
 
 import type { SecretStore } from '../secrets/secret-store.js';
-
 /** Disk facts the desktop host owns; core never downloads or loads models. */
 export interface VoiceModelInventory {
   installed(id: VoiceModelId): boolean;
@@ -61,6 +61,7 @@ export class VoiceService {
     private readonly secrets: SecretStore,
     private readonly logger: Logger,
     private readonly inventory: VoiceModelInventory | null = null,
+    private readonly transcription: OpenAITranscriptionAdapter | null = null,
   ) {}
 
   async status(): Promise<VoiceStatus> {
@@ -140,6 +141,61 @@ export class VoiceService {
       data: { clearedModelSelection: cleared },
     });
     return this.status();
+  }
+
+  /**
+   * Cloud path only. Resolves the stored OpenAI key and never sends audio when
+   * the key or a cloud model is missing.
+   */
+  async transcribe(
+    input: { readonly bytes: Uint8Array; readonly filename: string },
+    correlationId: CorrelationId,
+  ): Promise<{ text: string }> {
+    const settings = toSettings(this.repository.read());
+    if (settings.modelId === null) {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Select a speech model first.');
+    }
+    const entry = voiceModelCatalogEntry(settings.modelId);
+    if (entry.runtime !== 'cloud') {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        `${entry.label} runs on this device, not OpenAI.`,
+      );
+    }
+    const apiKey = await this.secrets.get(VOICE_OPENAI_SECRET_REF);
+    if (apiKey === null) {
+      this.logger.warn({
+        event: 'voice.transcribe_blocked',
+        correlationId,
+        data: { modelId: entry.id, reason: 'missing_key' },
+      });
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        `${entry.label} sends audio to OpenAI. Add an API key first.`,
+      );
+    }
+    if (this.transcription === null) {
+      throw new BuilderHelmError(
+        'INTEGRATION_OFFLINE',
+        'Cloud transcription is not attached to this host.',
+      );
+    }
+    const model =
+      entry.id === 'gpt-4o-mini-transcribe'
+        ? 'gpt-4o-mini-transcribe'
+        : 'gpt-4o-transcribe';
+    const result = await this.transcription.transcribe({
+      model,
+      apiKey,
+      filename: input.filename,
+      bytes: input.bytes,
+    });
+    this.logger.info({
+      event: 'voice.transcribed',
+      correlationId,
+      data: { modelId: entry.id, bytes: input.bytes.byteLength },
+    });
+    return result;
   }
 
   private persist(settings: VoiceSettings): void {

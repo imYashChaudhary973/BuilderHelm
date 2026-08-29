@@ -10,7 +10,10 @@ import {
   runMigrations,
   VoiceRepository,
 } from '@builderhelm/db';
-import type { GatewayFetch } from '@builderhelm/model-gateway';
+import {
+  OpenAITranscriptionAdapter,
+  type GatewayFetch,
+} from '@builderhelm/model-gateway';
 import { createLogger, type LogSink, type Logger } from '@builderhelm/observability';
 import type { SystemHealthResponse } from '@builderhelm/protocol';
 import { createCorrelationId, utcNow, type CorrelationId } from '@builderhelm/shared';
@@ -115,6 +118,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     options.secretStore,
     logger,
     options.voiceInventory,
+    new OpenAITranscriptionAdapter(options.modelGatewayFetch ?? fetch),
   );
   const swarmRunner: SwarmSeatRunner = options.swarmRunner ?? {
     async execute() {
