@@ -3831,26 +3831,48 @@ fieldset legend {
 .settingsSearch {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 10px 0 6px;
-  padding: 6px 2px;
-  border: 0;
-  background: transparent;
+  gap: 6px;
+  margin: 10px 0;
+  padding: 6px 6px 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
   color: var(--text-3);
 }
 
 .settingsSearch input {
+  flex: 1;
+  min-width: 0;
   border: 0;
   padding: 0;
   background: transparent;
   color: var(--text);
   font-size: 12px;
-  width: 100%;
 }
 
 .settingsSearch input:focus {
   outline: none;
   border: 0;
+}
+
+.settingsSearch input::-webkit-search-decoration,
+.settingsSearch input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.settingsSearchKey {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 500;
 }
 
 .settingsNavLink strong {
@@ -3870,7 +3892,7 @@ fieldset legend {
 }
 
 .shellSettingsOn {
-  grid-template-columns: 200px 1fr;
+  grid-template-columns: 220px 1fr;
 }
 
 .providerList {

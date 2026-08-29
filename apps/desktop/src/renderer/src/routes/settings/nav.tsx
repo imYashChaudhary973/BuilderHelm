@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 
 const SECTIONS = [
@@ -20,6 +20,20 @@ export function SettingsNav({ active }: { readonly active: string }): React.JSX.
   const path = useRouterState({ select: (s) => s.location.pathname }) || active;
   const navigate = useNavigate();
   const [filter, setFilter] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'f') {
+        return;
+      }
+      event.preventDefault();
+      searchRef.current?.focus();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   return (
     <nav className="settingsNav" aria-label="Settings sections">
       <button
@@ -62,12 +76,16 @@ export function SettingsNav({ active }: { readonly active: string }): React.JSX.
           />
         </svg>
         <input
+          ref={searchRef}
           type="search"
           placeholder="Search settings"
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
         />
+        <kbd className="settingsSearchKey">⌘</kbd>
+        <kbd className="settingsSearchKey">F</kbd>
       </div>
+      <div className="settingsNavDivider" role="presentation" />
       {SECTIONS.filter((section) =>
         section.title.toLowerCase().includes(filter.toLowerCase()),
       ).map((section) => {
