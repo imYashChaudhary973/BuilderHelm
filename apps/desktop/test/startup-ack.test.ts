@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { nextStartupAck, startupFailure, visibleText } from '../src/main/startup-ack.js';
+import {
+  nextStartupAck,
+  scanStartupChunk,
+  startupFailure,
+  visibleText,
+} from '../src/main/startup-ack.js';
 
 describe('startup acks', () => {
   it('acks Claude trust and Codex update once each', () => {
@@ -23,6 +28,18 @@ describe('startup acks', () => {
     expect(visibleText('\u001b[1mI trust this folder\u001b[0m')).toBe(
       'I trust this folder',
     );
+  });
+
+  it('matches ANSI-wrapped prompts split across PTY chunks', () => {
+    const first = scanStartupChunk('', '\u001b[33mI trust this work', new Set());
+    expect(first.ack).toBeNull();
+
+    const second = scanStartupChunk(first.tail, 'space\u001b[0m', new Set());
+    expect(second.ack).toEqual({ id: 'workspace-trust', reply: '\r' });
+
+    const third = scanStartupChunk(second.tail, ' Please sig', new Set());
+    expect(third.failure).toBeNull();
+    expect(scanStartupChunk(third.tail, 'n in', new Set()).failure).toBe('auth');
   });
 });
 

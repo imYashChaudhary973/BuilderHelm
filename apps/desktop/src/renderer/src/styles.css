@@ -5672,6 +5672,16 @@ html.is-fullscreen .spaceHome {
   overflow-x: hidden !important;
 }
 
+/* xterm.js configures its cell measurement from the Terminal fontFamily option
+   but does not put that family on the row container, so the application
+   sans-serif is inherited and every glyph is drawn off the measured grid. Must
+   stay the same stack the terminal is constructed with. */
+.paneTerminalHost .xterm,
+.paneTerminalHost .xterm-rows,
+.paneTerminalHost .xterm-screen {
+  font-family: var(--font-mono);
+}
+
 .paneHeader {
   cursor: grab;
 }

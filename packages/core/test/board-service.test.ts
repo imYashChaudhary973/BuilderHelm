@@ -224,3 +224,79 @@ describe('BoardService kanban', () => {
     database.close();
   });
 });
+
+describe('BoardService agent detection', () => {
+  it('probes every catalogued command in a single login shell', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'builderhelm-detect-'));
+    temporaryDirectories.push(root);
+    const invocations = join(root, 'invocations');
+    const shell = join(root, 'fake-shell');
+    // Records each invocation, then answers for the names it was handed. Args
+    // arrive as: -lc <script> <argv0> <command...>, so three are dropped.
+    writeFileSync(
+      shell,
+      [
+        '#!/bin/sh',
+        `echo invoked >> ${invocations}`,
+        'shift 3',
+        'for name in "$@"; do',
+        '  case "$name" in',
+        '    claude) printf \'%s\\t/usr/local/bin/claude\\n\' "$name" ;;',
+        '    codex) printf \'%s\\t/opt/homebrew/bin/codex\\n\' "$name" ;;',
+        '    *) printf \'%s\\t\\n\' "$name" ;;',
+        '  esac',
+        'done',
+      ].join('\n'),
+      { mode: 0o755 },
+    );
+
+    const database = openDatabase(':memory:');
+    runMigrations(database, migrations);
+    const service = new BoardService(database, logger);
+    const previousShell = process.env.SHELL;
+    process.env.SHELL = shell;
+    let detections;
+    try {
+      detections = await service.detectAgents();
+    } finally {
+      if (previousShell === undefined) delete process.env.SHELL;
+      else process.env.SHELL = previousShell;
+    }
+
+    // The point of the change: twelve catalogued commands, one login shell.
+    expect(readFileSync(invocations, 'utf8').trim().split('\n')).toHaveLength(1);
+
+    const byId = new Map(detections.map((entry) => [entry.id, entry]));
+    expect(byId.get('claude')).toMatchObject({
+      available: true,
+      path: '/usr/local/bin/claude',
+    });
+    expect(byId.get('codex')).toMatchObject({
+      available: true,
+      path: '/opt/homebrew/bin/codex',
+    });
+    expect(byId.get('grok')).toMatchObject({ available: false, path: null });
+    // Terminal and custom panes need no binary on PATH.
+    expect(byId.get('shell')).toMatchObject({ available: true, path: null });
+    expect(byId.get('custom')).toMatchObject({ available: true, path: null });
+    database.close();
+  });
+
+  it('reports nothing available when the probe shell fails', async () => {
+    const database = openDatabase(':memory:');
+    runMigrations(database, migrations);
+    const service = new BoardService(database, logger);
+    const previousShell = process.env.SHELL;
+    process.env.SHELL = join(tmpdir(), 'builderhelm-missing-shell');
+    try {
+      const detections = await service.detectAgents();
+      expect(
+        detections.filter((entry) => entry.available).map((entry) => entry.id),
+      ).toEqual(['shell', 'custom']);
+    } finally {
+      if (previousShell === undefined) delete process.env.SHELL;
+      else process.env.SHELL = previousShell;
+    }
+    database.close();
+  });
+});

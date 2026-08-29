@@ -27,8 +27,13 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 ## Partial or needing hardening
 
 - Swarm verification, review, landing, stop/reconnect, and failure recovery.
-- Terminal throughput and renderer batching under sustained multi-pane output.
-- Consistent agent capability detection and structured-output adapters.
+- Terminal output is batched in Electron main and startup scanning is
+  incremental. Verified on macOS at 1, 2, 4, 8, and 12 panes. Still missing:
+  renderer-side write coalescing, backpressure when a pane outruns the
+  renderer, and reconnect that reconciles the drain snapshot against live
+  events without duplicating output.
+- Installed CLI detection resolves every catalogued command in one login shell.
+  Structured-output adapters and capability metadata are still inconsistent.
 - Cross-platform shell, path, credential, and PTY behavior.
 - Packaged desktop verification is thin: the packaged arm64 app starts, reports
   renderer ready, and exits cleanly, but it is unsigned, unnotarized, and has
