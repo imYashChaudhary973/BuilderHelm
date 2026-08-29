@@ -168,25 +168,6 @@ export function VoicePage(): React.JSX.Element {
             </div>
           </div>
 
-          <div className="voiceRow">
-            <div>
-              <strong>Hotkey</strong>
-              <p className="voiceHint">Set inside BuilderHelm. Example: Alt+Space.</p>
-            </div>
-            <input
-              className="hotkeyField"
-              defaultValue={settings?.hotkey ?? ''}
-              disabled={update.isPending}
-              onKeyDown={(event) => {
-                if (event.key !== 'Enter') return;
-                const next = event.currentTarget.value.trim();
-                if (next.length > 0 && next !== settings?.hotkey) {
-                  update.mutate({ hotkey: next });
-                }
-              }}
-            />
-          </div>
-
           <MicrophoneRow
             selected={settings?.microphoneId ?? null}
             onSave={(microphoneId) => update.mutate({ microphoneId })}
@@ -414,7 +395,7 @@ function MicrophoneRow(props: {
         <p className="voiceHint">
           {denied
             ? 'Microphone access was declined. Allow it in System Settings to pick a device.'
-            : 'System default follows your input device; a named mic pins this list.'}
+            : 'Input device used for voice dictation. System default follows the OS microphone setting.'}
         </p>
       </div>
       <div className="voiceMicCol">

@@ -3803,23 +3803,28 @@ fieldset legend {
 .settingsNavBack {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: 10px;
+  margin: 2px 0 10px;
+  padding: 4px 2px;
   border: 0;
-  border-radius: var(--radius-s);
+  border-radius: 0;
+  background: transparent;
   color: var(--text-2);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 500;
   text-align: left;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .settingsNavBack:hover {
   color: var(--text);
+  background: transparent;
 }
 
-.railDivider {
+.settingsNavDivider {
   height: 1px;
-  margin: 6px -10px 8px;
+  margin: 0 -10px;
   background: var(--line);
 }
 
@@ -3827,12 +3832,11 @@ fieldset legend {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-s);
-  background: var(--bg-1);
+  margin: 10px 0 6px;
+  padding: 6px 2px;
+  border: 0;
+  background: transparent;
   color: var(--text-3);
-  margin-bottom: 10px;
 }
 
 .settingsSearch input {
@@ -3847,10 +3851,6 @@ fieldset legend {
 .settingsSearch input:focus {
   outline: none;
   border: 0;
-}
-
-.settingsSearch:focus-within {
-  border-color: var(--accent-line);
 }
 
 .settingsNavLink strong {
@@ -3871,16 +3871,6 @@ fieldset legend {
 
 .shellSettingsOn {
   grid-template-columns: 200px 1fr;
-}
-
-/* The toggle on the far right must fully hide the settings sidebar, the same
-   way it collapses the feature rail: the column goes away, not just narrower. */
-.shellSettingsOn.shellRailOff {
-  grid-template-columns: 0 1fr;
-}
-
-.shellSettingsOn.shellRailOff .settingsNav {
-  display: none;
 }
 
 .providerList {
@@ -4083,8 +4073,8 @@ fieldset legend {
 }
 
 .voiceCard {
-  padding: 8px 24px;
-  border-radius: var(--radius-l);
+  padding: 4px 28px;
+  border-radius: 16px;
   background: #0c0c0c;
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -4094,11 +4084,10 @@ fieldset legend {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding: 18px 0;
+  padding: 20px 0;
 }
 
-.voiceRow + .voiceRow,
-.voiceSeparator {
+.voiceRow + .voiceRow {
   border-top: 1px solid var(--line);
 }
 

@@ -28,19 +28,19 @@ export function SettingsNav({ active }: { readonly active: string }): React.JSX.
         title="Back to app (Esc)"
         onClick={() => void navigate({ to: '/' })}
       >
-        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
           <path
-            d="M14.5 5.5 8 12l6.5 6.5"
+            d="M15 5 8 12l7 7"
             fill="none"
             stroke="currentColor"
-            strokeWidth="1.8"
+            strokeWidth="1.7"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
         </svg>
         Back to app
       </button>
-      <div className="railDivider" role="presentation" />
+      <div className="settingsNavDivider" role="presentation" />
       <div className="settingsSearch">
         <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
           <circle
@@ -68,7 +68,6 @@ export function SettingsNav({ active }: { readonly active: string }): React.JSX.
           onChange={(event) => setFilter(event.target.value)}
         />
       </div>
-      <div className="railDivider" role="presentation" />
       {SECTIONS.filter((section) =>
         section.title.toLowerCase().includes(filter.toLowerCase()),
       ).map((section) => {

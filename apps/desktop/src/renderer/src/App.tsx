@@ -51,9 +51,9 @@ function Shell(): React.JSX.Element {
 
   const shellClass = [
     'shell',
-    pathname.startsWith('/settings') ? 'shellSettingsOn' : '',
+    settingsActive ? 'shellSettingsOn' : '',
     preview.open ? 'shellBrowserOn' : '',
-    railCollapsed ? 'shellRailOff' : '',
+    !settingsActive && railCollapsed ? 'shellRailOff' : '',
   ]
     .filter((item) => item.length > 0)
     .join(' ');
