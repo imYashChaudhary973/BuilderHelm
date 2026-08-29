@@ -96,6 +96,11 @@ import type {
   ProjectRepositoryRefreshInput,
   ProjectRepositorySelectInput,
 } from './projects.js';
+import type {
+  VoiceKeySaveInput,
+  VoiceSettingsUpdateInput,
+  VoiceStatus,
+} from './voice.js';
 
 export const ipcChannels = {
   systemHealth: 'builderhelm:system:health',
@@ -168,6 +173,10 @@ export const ipcChannels = {
   editorSearch: 'builderhelm:editor:search',
   editorGitStage: 'builderhelm:editor:git-stage',
   editorGitCommit: 'builderhelm:editor:git-commit',
+  voiceStatus: 'builderhelm:voice:status',
+  voiceSettingsUpdate: 'builderhelm:voice:settings-update',
+  voiceKeySave: 'builderhelm:voice:key-save',
+  voiceKeyDelete: 'builderhelm:voice:key-delete',
 } as const;
 
 export const systemHealthRequestSchema = z
@@ -317,5 +326,11 @@ export interface BuilderHelmDesktopApi {
     search(input: EditorSearchInput): Promise<EditorEntry[]>;
     gitStage(input: EditorGitStageInput): Promise<EditorGit>;
     gitCommit(input: EditorGitCommitInput): Promise<EditorGit>;
+  };
+  readonly voice: {
+    status(): Promise<VoiceStatus>;
+    updateSettings(input: VoiceSettingsUpdateInput): Promise<VoiceStatus>;
+    saveOpenAiKey(input: VoiceKeySaveInput): Promise<VoiceStatus>;
+    deleteOpenAiKey(): Promise<VoiceStatus>;
   };
 }

@@ -35,8 +35,8 @@ describe('migration runner', () => {
     const result = runMigrations(database, migrations);
 
     expect(result).toEqual({
-      applied: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-      currentVersion: 12,
+      applied: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+      currentVersion: 13,
     });
     expect(
       database.queryOne<{ count: number }>(
@@ -61,8 +61,8 @@ describe('migration runner', () => {
     );
 
     expect(runMigrations(database, migrations)).toEqual({
-      applied: [10, 11, 12],
-      currentVersion: 12,
+      applied: [10, 11, 12, 13],
+      currentVersion: 13,
     });
     expect(
       database.queryOne<{ id: string; name: string }>(
@@ -101,7 +101,7 @@ describe('migration runner', () => {
 
     expect(runMigrations(database, migrations)).toEqual({
       applied: [],
-      currentVersion: 12,
+      currentVersion: 13,
     });
   });
 
@@ -117,7 +117,7 @@ describe('migration runner', () => {
     openDatabases.push(reopened);
     expect(runMigrations(reopened, migrations)).toEqual({
       applied: [],
-      currentVersion: 12,
+      currentVersion: 13,
     });
   });
 
@@ -157,5 +157,34 @@ describe('migration runner', () => {
         "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'transient_record'",
       ),
     ).toEqual({ count: 0 });
+  });
+
+  it('keeps voice settings to one row with a known model', () => {
+    const database = createTestDatabase();
+    runMigrations(database, migrations);
+
+    database.run(
+      `INSERT INTO voice_settings (
+        id, enabled, dictation_mode, hotkey, microphone_id, model_id, updated_at
+      ) VALUES (1, 1, 'hold', 'Alt+Space', NULL, 'parakeet-tdt-v3', ?)`,
+      ['2026-08-29T00:00:00.000Z'],
+    );
+
+    // A second row would let two installs of the settings disagree.
+    expect(() =>
+      database.run(
+        `INSERT INTO voice_settings (
+          id, enabled, dictation_mode, hotkey, updated_at
+        ) VALUES (2, 0, 'toggle', 'F5', ?)`,
+        ['2026-08-29T00:00:00.000Z'],
+      ),
+    ).toThrow();
+    // An unknown model id would survive to the engine host and fail there.
+    expect(() =>
+      database.run(`UPDATE voice_settings SET model_id = 'whisper-huge' WHERE id = 1`),
+    ).toThrow();
+    expect(() =>
+      database.run(`UPDATE voice_settings SET dictation_mode = 'wave' WHERE id = 1`),
+    ).toThrow();
   });
 });

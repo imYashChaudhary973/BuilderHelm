@@ -97,6 +97,12 @@ import {
   editorWriteIpcResponseSchema,
 } from '@builderhelm/protocol/editor';
 import {
+  voiceKeyDeleteIpcResponseSchema,
+  voiceKeySaveInputSchema,
+  voiceSettingsUpdateInputSchema,
+  voiceStatusIpcResponseSchema,
+} from '@builderhelm/protocol/voice';
+import {
   createProviderInputSchema,
   deleteProviderInputSchema,
   modelListInputSchema,
@@ -706,6 +712,37 @@ const api: BuilderHelmDesktopApi = {
         input: editorGitCommitInputSchema.parse(input),
       });
       return unwrap(editorGitCommitIpcResponseSchema.parse(response));
+    },
+  },
+  voice: {
+    async status() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.voiceStatus, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(voiceStatusIpcResponseSchema.parse(response));
+    },
+    async updateSettings(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.voiceSettingsUpdate,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          input: voiceSettingsUpdateInputSchema.parse(input),
+        },
+      );
+      return unwrap(voiceStatusIpcResponseSchema.parse(response));
+    },
+    async saveOpenAiKey(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.voiceKeySave, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: voiceKeySaveInputSchema.parse(input),
+      });
+      return unwrap(voiceStatusIpcResponseSchema.parse(response));
+    },
+    async deleteOpenAiKey() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.voiceKeyDelete, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(voiceKeyDeleteIpcResponseSchema.parse(response));
     },
   },
 };

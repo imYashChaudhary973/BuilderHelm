@@ -148,6 +148,14 @@ import {
   projectRepositorySelectRequestSchema,
 } from '@builderhelm/protocol/projects';
 import {
+  voiceKeyDeleteIpcResponseSchema,
+  voiceKeyDeleteRequestSchema,
+  voiceKeySaveRequestSchema,
+  voiceSettingsUpdateRequestSchema,
+  voiceStatusIpcResponseSchema,
+  voiceStatusRequestSchema,
+} from '@builderhelm/protocol/voice';
+import {
   createCorrelationId,
   normalizeError,
   BuilderHelmError,
@@ -1337,6 +1345,49 @@ export function registerIpcHandlers(
     }
   });
 
+  ipcMain.handle(ipcChannels.voiceStatus, async (_event, input: unknown) => {
+    try {
+      voiceStatusRequestSchema.parse(input);
+      const value = await core.voice.status();
+      return voiceStatusIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return voiceStatusIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.voiceSettingsUpdate, async (_event, input: unknown) => {
+    try {
+      const request = voiceSettingsUpdateRequestSchema.parse(input);
+      const value = await core.voice.updateSettings(request.input, request.correlationId);
+      return voiceStatusIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return voiceStatusIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.voiceKeySave, async (_event, input: unknown) => {
+    try {
+      const request = voiceKeySaveRequestSchema.parse(input);
+      const value = await core.voice.saveOpenAiKey(request.input, request.correlationId);
+      return voiceStatusIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return voiceStatusIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.voiceKeyDelete, async (_event, input: unknown) => {
+    try {
+      const request = voiceKeyDeleteRequestSchema.parse(input);
+      const value = await core.voice.deleteOpenAiKey(request.correlationId);
+      return voiceKeyDeleteIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return voiceKeyDeleteIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
   return () => {
     for (const active of activeStreams.values()) active.controller.abort();
     activeStreams.clear();
@@ -1407,5 +1458,9 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.editorSearch);
     ipcMain.removeHandler(ipcChannels.editorGitStage);
     ipcMain.removeHandler(ipcChannels.editorGitCommit);
+    ipcMain.removeHandler(ipcChannels.voiceStatus);
+    ipcMain.removeHandler(ipcChannels.voiceSettingsUpdate);
+    ipcMain.removeHandler(ipcChannels.voiceKeySave);
+    ipcMain.removeHandler(ipcChannels.voiceKeyDelete);
   };
 }

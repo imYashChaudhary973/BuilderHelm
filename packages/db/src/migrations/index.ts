@@ -10,6 +10,7 @@ import { kanbanCardsMigration } from './0009-kanban-cards.js';
 import { kanbanProjectsMigration } from './0010-kanban-projects.js';
 import { kanbanReviewCancelledMigration } from './0011-kanban-review-cancelled.js';
 import { swarmPersistenceMigration } from './0012-swarm-persistence.js';
+import { voiceSettingsMigration } from './0013-voice-settings.js';
 
 export const migrations = [
   foundationMigration,
@@ -24,6 +25,7 @@ export const migrations = [
   kanbanProjectsMigration,
   kanbanReviewCancelledMigration,
   swarmPersistenceMigration,
+  voiceSettingsMigration,
 ] as const;
 
 export {
@@ -39,4 +41,5 @@ export {
   kanbanProjectsMigration,
   kanbanReviewCancelledMigration,
   swarmPersistenceMigration,
+  voiceSettingsMigration,
 };

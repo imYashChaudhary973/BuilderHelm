@@ -17,3 +17,4 @@ export * from './swarm/swarm-planning.js';
 export * from './swarm/swarm-prompt.js';
 export * from './swarm/swarm-reviewer.js';
 export * from './swarm/cli-adapters.js';
+export * from './voice/voice-service.js';

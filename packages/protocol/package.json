@@ -59,6 +59,10 @@
     "./swarm": {
       "types": "./dist/swarm.d.ts",
       "import": "./src/swarm.ts"
+    },
+    "./voice": {
+      "types": "./dist/voice.d.ts",
+      "import": "./src/voice.ts"
     }
   },
   "dependencies": {

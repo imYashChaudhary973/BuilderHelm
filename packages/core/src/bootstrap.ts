@@ -8,6 +8,7 @@ import {
   ProviderRepository,
   ProjectRepositoryStore,
   runMigrations,
+  VoiceRepository,
 } from '@builderhelm/db';
 import type { GatewayFetch } from '@builderhelm/model-gateway';
 import { createLogger, type LogSink, type Logger } from '@builderhelm/observability';
@@ -30,6 +31,7 @@ import {
 } from './swarm/swarm-service.js';
 import type { SwarmReviewer } from './swarm/swarm-reviewer.js';
 import type { SecretStore } from './secrets/secret-store.js';
+import { VoiceService } from './voice/voice-service.js';
 
 export interface CoreOptions {
   readonly databasePath: string;
@@ -52,6 +54,7 @@ export interface CoreRuntime {
   readonly projects: ProjectService;
   readonly board: BoardService;
   readonly swarm: SwarmService;
+  readonly voice: VoiceService;
   health(correlationId: CorrelationId): SystemHealthResponse;
   close(): void;
 }
@@ -106,6 +109,11 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     logger,
   );
   const board = new BoardService(database, logger);
+  const voice = new VoiceService(
+    new VoiceRepository(database),
+    options.secretStore,
+    logger,
+  );
   const swarmRunner: SwarmSeatRunner = options.swarmRunner ?? {
     async execute() {
       return {
@@ -143,6 +151,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     projects,
     board,
     swarm,
+    voice,
     health(correlationId) {
       return {
         status: 'ok',
