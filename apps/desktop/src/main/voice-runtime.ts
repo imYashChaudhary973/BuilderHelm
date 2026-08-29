@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 
-import type { VoiceModelId } from '@builderhelm/protocol/voice';
+import { voiceModelPackage, type VoiceModelId } from '@builderhelm/protocol/voice';
 import { BuilderHelmError } from '@builderhelm/shared';
 
 import type { VoiceModelManager, VoiceModelPaths } from './voice-models.js';
@@ -19,11 +19,13 @@ interface SherpaStream {
 interface SherpaRecognizer {
   createStream(): SherpaStream;
   decode(stream: SherpaStream): void;
+  isReady?(stream: SherpaStream): boolean;
   getResult(stream: SherpaStream): { text?: string };
 }
 
 interface SherpaAddon {
   OfflineRecognizer: new (config: unknown) => SherpaRecognizer;
+  OnlineRecognizer: new (config: unknown) => SherpaRecognizer;
   readWave(path: string): SherpaWave;
 }
 
@@ -50,7 +52,14 @@ export class VoiceRuntime {
     const stream = recognizer.createStream();
     const wave = sherpa.readWave(wavPath);
     stream.acceptWaveform({ sampleRate: wave.sampleRate, samples: wave.samples });
-    recognizer.decode(stream);
+    const pack = voiceModelPackage(id);
+    if (pack?.kind === 'zipformer') {
+      const tail = new Float32Array(Math.floor(wave.sampleRate * 0.4));
+      stream.acceptWaveform({ sampleRate: wave.sampleRate, samples: tail });
+      while (recognizer.isReady?.(stream) === true) recognizer.decode(stream);
+    } else {
+      recognizer.decode(stream);
+    }
     return (recognizer.getResult(stream).text ?? '').trim();
   }
 
@@ -72,7 +81,10 @@ export class VoiceRuntime {
     });
     try {
       const sherpa = loadSherpa();
-      const recognizer = new sherpa.OfflineRecognizer(recognizerConfig(id, paths));
+      const pack = voiceModelPackage(id);
+      const Ctor =
+        pack?.kind === 'zipformer' ? sherpa.OnlineRecognizer : sherpa.OfflineRecognizer;
+      const recognizer = new Ctor(recognizerConfig(id, paths));
       this.loaded = { id, recognizer };
       return recognizer;
     } finally {
@@ -81,17 +93,58 @@ export class VoiceRuntime {
     }
   }
 }
+
 function loadSherpa(): SherpaAddon {
   return require('sherpa-onnx-node') as SherpaAddon;
 }
 
 function recognizerConfig(id: VoiceModelId, paths: VoiceModelPaths): unknown {
   const featConfig = { sampleRate: 16000, featureDim: 80 };
-  if (id === 'whisper-tiny') {
+  const pack = voiceModelPackage(id);
+  if (pack?.kind === 'whisper') {
     return {
       featConfig,
       modelConfig: {
         whisper: { encoder: paths.encoder, decoder: paths.decoder },
+        tokens: paths.tokens,
+        numThreads: 2,
+        provider: 'cpu',
+        debug: 0,
+      },
+    };
+  }
+  if (pack?.kind === 'nemo') {
+    if (paths.joiner === null) {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Parakeet models need a joiner.');
+    }
+    return {
+      featConfig,
+      modelConfig: {
+        transducer: {
+          encoder: paths.encoder,
+          decoder: paths.decoder,
+          joiner: paths.joiner,
+        },
+        tokens: paths.tokens,
+        modelType: 'nemo_transducer',
+        numThreads: 2,
+        provider: 'cpu',
+        debug: 0,
+      },
+    };
+  }
+  if (pack?.kind === 'zipformer') {
+    if (paths.joiner === null) {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Zipformer models need a joiner.');
+    }
+    return {
+      featConfig,
+      modelConfig: {
+        transducer: {
+          encoder: paths.encoder,
+          decoder: paths.decoder,
+          joiner: paths.joiner,
+        },
         tokens: paths.tokens,
         numThreads: 2,
         provider: 'cpu',

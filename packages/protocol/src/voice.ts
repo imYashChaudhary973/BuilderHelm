@@ -220,6 +220,7 @@ export const VOICE_MODEL_PACKAGES: Partial<
       readonly sha256: string;
       readonly bytes: number;
       readonly archiveRoot: string;
+      readonly kind: 'whisper' | 'nemo' | 'zipformer';
       readonly files: {
         readonly encoder: string;
         readonly decoder: string;
@@ -234,10 +235,50 @@ export const VOICE_MODEL_PACKAGES: Partial<
     sha256: '2bd6cf965c8bb3e068ef9fa2191387ee63a9dfa2a4e37582a8109641c20005dd',
     bytes: 118_071_777,
     archiveRoot: 'sherpa-onnx-whisper-tiny.en',
+    kind: 'whisper',
     files: {
       encoder: 'tiny.en-encoder.int8.onnx',
       decoder: 'tiny.en-decoder.int8.onnx',
       tokens: 'tiny.en-tokens.txt',
+    },
+  },
+  'parakeet-tdt-v3': {
+    url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2',
+    sha256: '5793d0fd397c5778d2cf2126994d58e9d56b1be7c04d13c7a15bb1b4eafb16bf',
+    bytes: 487_170_055,
+    archiveRoot: 'sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8',
+    kind: 'nemo',
+    files: {
+      encoder: 'encoder.int8.onnx',
+      decoder: 'decoder.int8.onnx',
+      joiner: 'joiner.int8.onnx',
+      tokens: 'tokens.txt',
+    },
+  },
+  'parakeet-tdt-v2': {
+    url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2',
+    sha256: '157c157bc51155e03e37d2466522a3a737dd9c72bb25f36eb18912964161e1ad',
+    bytes: 482_468_385,
+    archiveRoot: 'sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8',
+    kind: 'nemo',
+    files: {
+      encoder: 'encoder.int8.onnx',
+      decoder: 'decoder.int8.onnx',
+      joiner: 'joiner.int8.onnx',
+      tokens: 'tokens.txt',
+    },
+  },
+  'zipformer-bilingual': {
+    url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20.tar.bz2',
+    sha256: '27ffbd9ee24ad186d99acc2f6354d7992b27bcab490812510665fa8f9389c5f8',
+    bytes: 511_274_346,
+    archiveRoot: 'sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20',
+    kind: 'zipformer',
+    files: {
+      encoder: 'encoder-epoch-99-avg-1.int8.onnx',
+      decoder: 'decoder-epoch-99-avg-1.onnx',
+      joiner: 'joiner-epoch-99-avg-1.int8.onnx',
+      tokens: 'tokens.txt',
     },
   },
 };

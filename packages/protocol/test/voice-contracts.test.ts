@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   VOICE_DEFAULT_HOTKEY,
   VOICE_MODEL_CATALOG,
+  VOICE_MODEL_PACKAGES,
   voiceHotkeySchema,
   voiceModelCatalogEntry,
   voiceModelIds,
@@ -29,12 +30,18 @@ describe('voice model catalog', () => {
     expect(VOICE_MODEL_CATALOG.filter((entry) => entry.recommended)).toHaveLength(1);
     expect(voiceModelCatalogEntry('parakeet-tdt-v3').recommended).toBe(true);
   });
-
   it('rejects an unknown model id', () => {
     // @ts-expect-error the catalog lookup is exhaustive over VoiceModelId
     expect(() => voiceModelCatalogEntry('parakeet-tdt-v9')).toThrow(
       /Unknown voice model/,
     );
+  });
+
+  it('records an install package for every local catalog model', () => {
+    const local = VOICE_MODEL_CATALOG.filter((entry) => entry.runtime === 'local').map(
+      (entry) => entry.id,
+    );
+    expect(Object.keys(VOICE_MODEL_PACKAGES).sort()).toEqual([...local].sort());
   });
 });
 
