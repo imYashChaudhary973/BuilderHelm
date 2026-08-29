@@ -174,6 +174,12 @@ export const voiceModelStateSchema = z
     downloadBytes: z.number().int().nonnegative().nullable(),
     /** Local models are installed on demand; cloud models are never installed. */
     installed: z.boolean(),
+    /** True when this host can fetch the model archive. */
+    downloadable: z.boolean(),
+    /** Actual bytes on disk after install; null when missing. */
+    bytesOnDisk: z.number().int().nonnegative().nullable(),
+    /** True while a download for this model is in flight. */
+    downloading: z.boolean(),
     /** False when a cloud model has no stored credential yet. */
     selectable: z.boolean(),
   })
@@ -200,6 +206,100 @@ export const voiceStatusRequestSchema = z
 export const voiceSettingsUpdateRequestSchema = z
   .object({ correlationId: correlationIdSchema, input: voiceSettingsUpdateInputSchema })
   .strict();
+
+/**
+ * Installable archives for local engines. Only models listed here can be
+ * downloaded; the rest of the catalog is still shown, but cannot be fetched
+ * until a package is recorded.
+ */
+export const VOICE_MODEL_PACKAGES: Partial<
+  Record<
+    VoiceModelId,
+    {
+      readonly url: string;
+      readonly sha256: string;
+      readonly bytes: number;
+      readonly archiveRoot: string;
+      readonly files: {
+        readonly encoder: string;
+        readonly decoder: string;
+        readonly tokens: string;
+        readonly joiner?: string;
+      };
+    }
+  >
+> = {
+  'whisper-tiny': {
+    url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-tiny.en.tar.bz2',
+    sha256: '2bd6cf965c8bb3e068ef9fa2191387ee63a9dfa2a4e37582a8109641c20005dd',
+    bytes: 118_071_777,
+    archiveRoot: 'sherpa-onnx-whisper-tiny.en',
+    files: {
+      encoder: 'tiny.en-encoder.int8.onnx',
+      decoder: 'tiny.en-decoder.int8.onnx',
+      tokens: 'tiny.en-tokens.txt',
+    },
+  },
+};
+
+export function voiceModelPackage(id: VoiceModelId) {
+  return VOICE_MODEL_PACKAGES[id];
+}
+
+export const voiceModelEventSchema = z.discriminatedUnion('type', [
+  z
+    .object({
+      type: z.literal('download.progress'),
+      modelId: voiceModelIdSchema,
+      receivedBytes: z.number().int().nonnegative(),
+      totalBytes: z.number().int().nonnegative(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal('download.done'),
+      modelId: voiceModelIdSchema,
+      bytesOnDisk: z.number().int().nonnegative(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal('download.error'),
+      modelId: voiceModelIdSchema,
+      message: z.string().min(1).max(400),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal('download.cancelled'),
+      modelId: voiceModelIdSchema,
+    })
+    .strict(),
+]);
+export type VoiceModelEvent = z.infer<typeof voiceModelEventSchema>;
+
+export const voiceModelIdInputSchema = z.object({ modelId: voiceModelIdSchema }).strict();
+export type VoiceModelIdInput = z.infer<typeof voiceModelIdInputSchema>;
+
+export const voiceTranscribeInputSchema = z
+  .object({
+    modelId: voiceModelIdSchema,
+    wavPath: z.string().trim().min(1).max(1024),
+  })
+  .strict();
+export type VoiceTranscribeInput = z.infer<typeof voiceTranscribeInputSchema>;
+
+export const voiceTranscribeResultSchema = z.object({ text: z.string() }).strict();
+export type VoiceTranscribeResult = z.infer<typeof voiceTranscribeResultSchema>;
+
+export const voiceModelDownloadRequestSchema = z
+  .object({ correlationId: correlationIdSchema, input: voiceModelIdInputSchema })
+  .strict();
+export const voiceModelCancelRequestSchema = voiceModelDownloadRequestSchema;
+export const voiceModelDeleteRequestSchema = voiceModelDownloadRequestSchema;
+export const voiceTranscribeRequestSchema = z
+  .object({ correlationId: correlationIdSchema, input: voiceTranscribeInputSchema })
+  .strict();
 export const voiceKeySaveRequestSchema = z
   .object({ correlationId: correlationIdSchema, input: voiceKeySaveInputSchema })
   .strict();
@@ -216,3 +316,4 @@ function ipcResult<T extends z.ZodType>(value: T) {
 
 export const voiceStatusIpcResponseSchema = ipcResult(voiceStatusSchema);
 export const voiceKeyDeleteIpcResponseSchema = ipcResult(voiceStatusSchema);
+export const voiceTranscribeIpcResponseSchema = ipcResult(voiceTranscribeResultSchema);

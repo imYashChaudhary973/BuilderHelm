@@ -9,6 +9,8 @@ import { registerIpcHandlers } from './ipc.js';
 import { BoardPtyManager, probePty } from './board-pty-manager.js';
 import { PtySwarmRunner } from './swarm-runner.js';
 import { KeyringSecretStore } from './keyring-secret-store.js';
+import { VoiceModelManager } from './voice-models.js';
+import { VoiceRuntime } from './voice-runtime.js';
 import { installApplicationMenu } from './legal-menu.js';
 import { buildContentSecurityPolicy, secureWebPreferences } from './security.js';
 
@@ -230,10 +232,15 @@ app
       process.env.BUILDERHELM_SMOKE_TEST === '1' ? databasePath : undefined;
     boardPty = new BoardPtyManager();
     swarmRunner = new PtySwarmRunner(boardPty);
+    const voiceModels = new VoiceModelManager(
+      join(app.getPath('userData'), 'voice-models'),
+    );
+    const voiceRuntime = new VoiceRuntime(voiceModels);
     core = bootstrapCore({
       databasePath,
       secretStore: new KeyringSecretStore(),
       swarmRunner,
+      voiceInventory: voiceModels,
     });
     if (
       process.env.BUILDERHELM_PTY_PROBE !== undefined &&
@@ -245,7 +252,10 @@ app
         data: { result: probePty(process.env.BUILDERHELM_PTY_PROBE) },
       });
     }
-    unregisterIpc = registerIpcHandlers(core, boardPty, swarmRunner);
+    unregisterIpc = registerIpcHandlers(core, boardPty, swarmRunner, {
+      models: voiceModels,
+      runtime: voiceRuntime,
+    });
     installApplicationMenu();
     createWindow();
     // No session is live yet, so any pane worktree still on disk was left by a

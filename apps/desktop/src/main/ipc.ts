@@ -151,6 +151,10 @@ import {
   voiceKeyDeleteIpcResponseSchema,
   voiceKeyDeleteRequestSchema,
   voiceKeySaveRequestSchema,
+  voiceModelCancelRequestSchema,
+  voiceModelDeleteRequestSchema,
+  voiceModelDownloadRequestSchema,
+  voiceModelEventSchema,
   voiceSettingsUpdateRequestSchema,
   voiceStatusIpcResponseSchema,
   voiceStatusRequestSchema,
@@ -163,6 +167,8 @@ import {
 import { CliSwarmPlanner, LocalGitInspector, type SwarmPlanner } from '@builderhelm/core';
 import type { BoardPtyManager } from './board-pty-manager.js';
 import type { PtySwarmRunner } from './swarm-runner.js';
+import type { VoiceModelManager } from './voice-models.js';
+import type { VoiceRuntime } from './voice-runtime.js';
 import { PreviewBrowser } from './preview-browser.js';
 import {
   commitGit,
@@ -217,6 +223,7 @@ export function registerIpcHandlers(
   core: CoreRuntime,
   board?: BoardPtyManager,
   swarmRunner?: PtySwarmRunner,
+  voice?: { models: VoiceModelManager; runtime: VoiceRuntime },
 ): () => void {
   const preview = new PreviewBrowser();
   const activeStreams = new Map<
@@ -1388,6 +1395,64 @@ export function registerIpcHandlers(
     }
   });
 
+  function requireVoice(): { models: VoiceModelManager; runtime: VoiceRuntime } {
+    if (voice === undefined) {
+      throw new BuilderHelmError(
+        'INTEGRATION_OFFLINE',
+        'Voice models are not available.',
+      );
+    }
+    return voice;
+  }
+
+  ipcMain.handle(ipcChannels.voiceModelDownload, async (event, input: unknown) => {
+    try {
+      const request = voiceModelDownloadRequestSchema.parse(input);
+      const host = requireVoice();
+      const sender = event.sender;
+      await host.models.download(request.input.modelId, (modelEvent) => {
+        if (!sender.isDestroyed()) {
+          sender.send(
+            ipcChannels.voiceModelEvent,
+            voiceModelEventSchema.parse(modelEvent),
+          );
+        }
+      });
+      const value = await core.voice.status();
+      return voiceStatusIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return voiceStatusIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.voiceModelCancel, async (_event, input: unknown) => {
+    try {
+      const request = voiceModelCancelRequestSchema.parse(input);
+      requireVoice().models.cancel(request.input.modelId);
+      const value = await core.voice.status();
+      return voiceStatusIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return voiceStatusIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.voiceModelDelete, async (_event, input: unknown) => {
+    try {
+      const request = voiceModelDeleteRequestSchema.parse(input);
+      const host = requireVoice();
+      if (host.models.installed(request.input.modelId)) host.runtime.unload();
+      host.models.delete(request.input.modelId);
+      const current = await core.voice.status();
+      if (current.settings.modelId === request.input.modelId) {
+        await core.voice.updateSettings({ modelId: null }, request.correlationId);
+      }
+      const value = await core.voice.status();
+      return voiceStatusIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return voiceStatusIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
   return () => {
     for (const active of activeStreams.values()) active.controller.abort();
     activeStreams.clear();
@@ -1462,5 +1527,8 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.voiceSettingsUpdate);
     ipcMain.removeHandler(ipcChannels.voiceKeySave);
     ipcMain.removeHandler(ipcChannels.voiceKeyDelete);
+    ipcMain.removeHandler(ipcChannels.voiceModelDownload);
+    ipcMain.removeHandler(ipcChannels.voiceModelCancel);
+    ipcMain.removeHandler(ipcChannels.voiceModelDelete);
   };
 }

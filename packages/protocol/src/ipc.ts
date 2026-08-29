@@ -98,6 +98,8 @@ import type {
 } from './projects.js';
 import type {
   VoiceKeySaveInput,
+  VoiceModelEvent,
+  VoiceModelIdInput,
   VoiceSettingsUpdateInput,
   VoiceStatus,
 } from './voice.js';
@@ -177,6 +179,10 @@ export const ipcChannels = {
   voiceSettingsUpdate: 'builderhelm:voice:settings-update',
   voiceKeySave: 'builderhelm:voice:key-save',
   voiceKeyDelete: 'builderhelm:voice:key-delete',
+  voiceModelDownload: 'builderhelm:voice:model-download',
+  voiceModelCancel: 'builderhelm:voice:model-cancel',
+  voiceModelDelete: 'builderhelm:voice:model-delete',
+  voiceModelEvent: 'builderhelm:voice:model-event',
 } as const;
 
 export const systemHealthRequestSchema = z
@@ -332,5 +338,9 @@ export interface BuilderHelmDesktopApi {
     updateSettings(input: VoiceSettingsUpdateInput): Promise<VoiceStatus>;
     saveOpenAiKey(input: VoiceKeySaveInput): Promise<VoiceStatus>;
     deleteOpenAiKey(): Promise<VoiceStatus>;
+    downloadModel(input: VoiceModelIdInput): Promise<VoiceStatus>;
+    cancelDownload(input: VoiceModelIdInput): Promise<VoiceStatus>;
+    deleteModel(input: VoiceModelIdInput): Promise<VoiceStatus>;
+    onModelEvent(listener: (event: VoiceModelEvent) => void): () => void;
   };
 }

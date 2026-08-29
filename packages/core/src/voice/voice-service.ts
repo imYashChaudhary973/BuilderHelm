@@ -9,6 +9,7 @@ import {
   voiceStatusSchema,
   voiceKeySaveInputSchema,
   type VoiceKeySaveInput,
+  type VoiceModelId,
   type VoiceSettings,
   type VoiceSettingsUpdateInput,
   type VoiceStatus,
@@ -17,7 +18,14 @@ import { BuilderHelmError, utcNow, type CorrelationId } from '@builderhelm/share
 
 import type { SecretStore } from '../secrets/secret-store.js';
 
-/** Single credential for the OpenAI transcription models. */
+/** Disk facts the desktop host owns; core never downloads or loads models. */
+export interface VoiceModelInventory {
+  installed(id: VoiceModelId): boolean;
+  bytesOnDisk(id: VoiceModelId): number | null;
+  downloading(id: VoiceModelId): boolean;
+  downloadable(id: VoiceModelId): boolean;
+}
+
 export const VOICE_OPENAI_SECRET_REF = 'builderhelm.voice.openai.api-key';
 
 const defaultSettings: VoiceSettings = {
@@ -52,6 +60,7 @@ export class VoiceService {
     private readonly repository: VoiceRepository,
     private readonly secrets: SecretStore,
     private readonly logger: Logger,
+    private readonly inventory: VoiceModelInventory | null = null,
   ) {}
 
   async status(): Promise<VoiceStatus> {
@@ -65,13 +74,22 @@ export class VoiceService {
     const patch = voiceSettingsUpdateInputSchema.parse(input);
     const current = toSettings(this.repository.read());
     const next = voiceSettingsSchema.parse({ ...current, ...patch });
-
     if (next.modelId !== null) {
       const entry = voiceModelCatalogEntry(next.modelId);
       if (entry.requiresApiKey && !(await this.hasOpenAiKey())) {
         throw new BuilderHelmError(
           'VALIDATION_FAILED',
           `${entry.label} sends audio to OpenAI. Add an API key before selecting it.`,
+        );
+      }
+      if (
+        entry.runtime === 'local' &&
+        this.inventory !== null &&
+        !this.inventory.installed(entry.id)
+      ) {
+        throw new BuilderHelmError(
+          'VALIDATION_FAILED',
+          `Install ${entry.label} before selecting it.`,
         );
       }
     }
@@ -144,21 +162,29 @@ export class VoiceService {
     return voiceStatusSchema.parse({
       settings,
       openAiKeyPresent,
-      models: VOICE_MODEL_CATALOG.map((entry) => ({
-        id: entry.id,
-        label: entry.label,
-        engine: entry.engine,
-        runtime: entry.runtime,
-        languages: entry.languages,
-        detail: entry.detail,
-        recommended: entry.recommended,
-        requiresApiKey: entry.requiresApiKey,
-        downloadBytes: entry.downloadBytes,
-        // Local model installation lands with the engine host; until then no
-        // local model claims to be installed.
-        installed: false,
-        selectable: entry.requiresApiKey ? openAiKeyPresent : true,
-      })),
+      models: VOICE_MODEL_CATALOG.map((entry) => {
+        const installed = this.inventory?.installed(entry.id) ?? false;
+        return {
+          id: entry.id,
+          label: entry.label,
+          engine: entry.engine,
+          runtime: entry.runtime,
+          languages: entry.languages,
+          detail: entry.detail,
+          recommended: entry.recommended,
+          requiresApiKey: entry.requiresApiKey,
+          downloadBytes: entry.downloadBytes,
+          installed,
+          downloadable: this.inventory?.downloadable(entry.id) ?? false,
+          bytesOnDisk: this.inventory?.bytesOnDisk(entry.id) ?? null,
+          downloading: this.inventory?.downloading(entry.id) ?? false,
+          selectable: entry.requiresApiKey
+            ? openAiKeyPresent
+            : this.inventory === null
+              ? true
+              : installed,
+        };
+      }),
     });
   }
 }

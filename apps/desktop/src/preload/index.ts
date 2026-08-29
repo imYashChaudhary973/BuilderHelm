@@ -99,6 +99,8 @@ import {
 import {
   voiceKeyDeleteIpcResponseSchema,
   voiceKeySaveInputSchema,
+  voiceModelEventSchema,
+  voiceModelIdInputSchema,
   voiceSettingsUpdateInputSchema,
   voiceStatusIpcResponseSchema,
 } from '@builderhelm/protocol/voice';
@@ -743,6 +745,38 @@ const api: BuilderHelmDesktopApi = {
         correlationId: globalThis.crypto.randomUUID(),
       });
       return unwrap(voiceKeyDeleteIpcResponseSchema.parse(response));
+    },
+    async downloadModel(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.voiceModelDownload, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: voiceModelIdInputSchema.parse(input),
+      });
+      return unwrap(voiceStatusIpcResponseSchema.parse(response));
+    },
+    async cancelDownload(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.voiceModelCancel, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: voiceModelIdInputSchema.parse(input),
+      });
+      return unwrap(voiceStatusIpcResponseSchema.parse(response));
+    },
+    async deleteModel(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.voiceModelDelete, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: voiceModelIdInputSchema.parse(input),
+      });
+      return unwrap(voiceStatusIpcResponseSchema.parse(response));
+    },
+    onModelEvent(listener) {
+      const subscription = (
+        _event: Electron.IpcRendererEvent,
+        payload: unknown,
+      ): void => {
+        const parsed = voiceModelEventSchema.safeParse(payload);
+        if (parsed.success) listener(parsed.data);
+      };
+      ipcRenderer.on(ipcChannels.voiceModelEvent, subscription);
+      return () => ipcRenderer.removeListener(ipcChannels.voiceModelEvent, subscription);
     },
   },
 };

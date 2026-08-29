@@ -98,6 +98,9 @@ describe('voice status contract', () => {
         requiresApiKey: entry.requiresApiKey,
         downloadBytes: entry.downloadBytes,
         installed: false,
+        downloadable: false,
+        bytesOnDisk: null,
+        downloading: false,
         selectable: entry.runtime === 'local',
       })),
     });

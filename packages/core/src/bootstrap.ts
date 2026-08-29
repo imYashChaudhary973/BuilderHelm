@@ -31,7 +31,7 @@ import {
 } from './swarm/swarm-service.js';
 import type { SwarmReviewer } from './swarm/swarm-reviewer.js';
 import type { SecretStore } from './secrets/secret-store.js';
-import { VoiceService } from './voice/voice-service.js';
+import { VoiceService, type VoiceModelInventory } from './voice/voice-service.js';
 
 export interface CoreOptions {
   readonly databasePath: string;
@@ -42,6 +42,7 @@ export interface CoreOptions {
   readonly swarmRunner?: SwarmSeatRunner;
   readonly swarmVerifier?: SwarmTaskVerifier;
   readonly swarmReviewer?: SwarmReviewer;
+  readonly voiceInventory?: VoiceModelInventory;
 }
 
 export interface CoreRuntime {
@@ -113,6 +114,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     new VoiceRepository(database),
     options.secretStore,
     logger,
+    options.voiceInventory,
   );
   const swarmRunner: SwarmSeatRunner = options.swarmRunner ?? {
     async execute() {

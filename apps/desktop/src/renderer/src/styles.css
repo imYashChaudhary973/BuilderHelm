@@ -4261,6 +4261,7 @@ fieldset legend {
   background: transparent;
   color: var(--text);
   text-align: left;
+  cursor: pointer;
 }
 
 .voiceModelOption:hover {
@@ -4313,6 +4314,13 @@ fieldset legend {
   color: var(--text-3);
   font-size: 11px;
   line-height: 1.45;
+}
+
+.voiceModelActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
 }
 
 .hotkeyField {
