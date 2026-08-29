@@ -800,7 +800,7 @@ export function BoardPage(): React.JSX.Element {
             <span>
               <kbd>⌘S</kbd> BuilderHelm Swarm
             </span>
-            <Link to="/settings/providers">
+            <Link to="/settings/voice">
               <kbd>⌘,</kbd> Settings
             </Link>
           </p>

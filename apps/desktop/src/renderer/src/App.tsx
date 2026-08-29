@@ -1,4 +1,4 @@
-import { Link, Outlet, useRouterState } from '@tanstack/react-router';
+import { Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
 import { BoardProvider } from './board-store.js';
@@ -21,6 +21,20 @@ function Shell(): React.JSX.Element {
     }
   });
   const settingsActive = pathname.startsWith('/settings');
+  const navigate = useNavigate();
+
+  // Escape leaves Settings, mirroring the visible back control. The router has
+  // nowhere back when a deep link opened the app, so it goes home instead.
+  useEffect(() => {
+    if (!settingsActive) return;
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      void navigate({ to: '/' });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [settingsActive, navigate]);
 
   useEffect(() => {
     if (preview.open && preview.tab === 'browser') return;
@@ -74,13 +88,17 @@ function Shell(): React.JSX.Element {
           </span>
         </div>
         <div className="topbarEnd">
-          <Link
+          <button
+            type="button"
             className={settingsActive ? 'topbarIcon topbarIconOn' : 'topbarIcon'}
-            to="/settings/providers"
-            title="Settings"
+            title={settingsActive ? 'Leave settings (Esc)' : 'Settings'}
+            aria-pressed={settingsActive}
+            onClick={() =>
+              void navigate({ to: settingsActive ? '/' : '/settings/voice' })
+            }
           >
             <GearIcon />
-          </Link>
+          </button>
           <button
             type="button"
             className={preview.open ? 'topbarIcon topbarIconOn' : 'topbarIcon'}

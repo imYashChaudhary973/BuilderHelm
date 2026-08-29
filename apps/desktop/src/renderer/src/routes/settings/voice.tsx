@@ -32,7 +32,7 @@ export function VoicePage(): React.JSX.Element {
   const update = useMutation({
     mutationFn: (input: VoiceSettingsUpdateInput) =>
       window.builderHelm.voice.updateSettings(input),
-    onSuccess: async (_status) => {
+    onSuccess: async () => {
       setError(null);
       await refresh();
     },

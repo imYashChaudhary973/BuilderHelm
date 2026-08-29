@@ -3811,9 +3811,37 @@ fieldset legend {
   background: var(--accent-dim);
 }
 
-.shellSettingsOn,
-.shellSettingsOn.shellRailOff {
+.settingsNavBack {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-s);
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.settingsNavBack:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.shellSettingsOn {
   grid-template-columns: 200px 1fr;
+}
+
+/* The toggle on the far right must fully hide the settings sidebar, the same
+   way it collapses the feature rail: the column goes away, not just narrower. */
+.shellSettingsOn.shellRailOff {
+  grid-template-columns: 0 1fr;
+}
+
+.shellSettingsOn.shellRailOff .settingsNav {
+  display: none;
 }
 
 .providerList {
