@@ -4151,13 +4151,55 @@ fieldset legend {
 }
 
 .segmented {
-  display: flex;
-  gap: 4px;
+  display: inline-flex;
+  gap: 0;
   flex-shrink: 0;
   padding: 3px;
   border: 1px solid var(--line);
   border-radius: var(--radius-s);
   background: var(--bg-1);
+}
+
+.voiceCard .segmented {
+  position: relative;
+  display: inline-flex;
+  gap: 0;
+  padding: 3px;
+  min-width: 148px;
+}
+.voiceCard .segmented::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+  border-radius: calc(var(--radius-s) - 3px);
+  background: var(--accent-dim);
+  transition: left 220ms var(--ease-out);
+  pointer-events: none;
+}
+
+.voiceCard .segmentedHold::before {
+  left: 50%;
+}
+
+.voiceCard .segmentBtn {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  justify-content: center;
+  border: none;
+  border-radius: calc(var(--radius-s) - 3px);
+  padding: 7px 16px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  transition: color 180ms var(--ease-out);
+}
+
+.voiceCard .segmentBtnOn {
+  color: var(--accent-bright);
 }
 
 .voiceModelPicker {
@@ -4383,26 +4425,59 @@ fieldset legend {
 
 .voiceKeyDialog {
   position: relative;
-  max-width: 560px;
+  width: 100%;
+  max-width: 640px;
+  padding: 28px 32px 24px;
+  border-radius: 16px;
+  background: #1c1c1c;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: var(--shadow-float);
 }
 
 .voiceKeyDialog h2 {
-  margin-bottom: 10px;
+  margin: 0 36px 10px 0;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
 }
 
 .voiceKeyDialog p {
   color: var(--text-2);
+  margin: 0 0 22px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.voiceKeyDialog .wizardLabel {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .voiceKeyDialog input {
   width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  background: #161616;
+  color: var(--text);
   font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+.voiceKeyDialog input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 .voiceKeyClose {
   position: absolute;
-  top: 14px;
-  right: 14px;
+  top: 16px;
+  right: 16px;
+  color: var(--text-3);
 }
 
 .voiceKeyStorage {
@@ -4411,15 +4486,38 @@ fieldset legend {
   gap: 8px;
   margin: 14px 0 0;
   color: var(--text-3);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.5;
+}
+
+.voiceKeyStorage svg {
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .voiceKeyDialog .formActions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 20px;
+  margin-top: 22px;
+}
+
+.voiceKeySave {
+  min-width: 108px;
+  padding: 9px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: #cfcfcf;
+  color: #111;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.voiceKeySave:hover:not(:disabled) {
+  background: #ddd;
+}
+
+.voiceKeySave:disabled {
+  opacity: 0.55;
 }
 
 .confirmDialog {
