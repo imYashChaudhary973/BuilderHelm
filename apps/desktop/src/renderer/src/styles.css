@@ -3800,6 +3800,64 @@ fieldset legend {
   font-weight: 600;
 }
 
+.settingsNavBack {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-s);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.settingsNavBack:hover {
+  color: var(--text);
+}
+
+.railDivider {
+  height: 1px;
+  margin: 6px -10px 8px;
+  background: var(--line);
+}
+
+.settingsSearch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--bg-1);
+  color: var(--text-3);
+  margin-bottom: 10px;
+}
+
+.settingsSearch input {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  width: 100%;
+}
+
+.settingsSearch input:focus {
+  outline: none;
+  border: 0;
+}
+
+.settingsSearch:focus-within {
+  border-color: var(--accent-line);
+}
+
+.settingsNavLink strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .settingsNavLink small {
   color: var(--text-3);
   font-size: 11px;
@@ -3809,25 +3867,6 @@ fieldset legend {
 .settingsNavLinkOn:hover {
   color: var(--text);
   background: var(--accent-dim);
-}
-
-.settingsNavBack {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  padding: 8px 10px;
-  border: 0;
-  border-radius: var(--radius-s);
-  color: var(--text-3);
-  font-size: 12px;
-  font-weight: 600;
-  text-align: left;
-}
-
-.settingsNavBack:hover {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
 }
 
 .shellSettingsOn {
@@ -4028,44 +4067,50 @@ fieldset legend {
 
 /* ---------- VOICE SETTINGS ---------- */
 
-.voiceSection {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 18px;
-  border-radius: var(--radius-l);
-  background: var(--glass);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-card);
+.voiceHeader {
+  margin-bottom: 14px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
 }
 
-.voiceSection .sectionTitle span {
-  display: block;
-  max-width: 420px;
-  color: var(--text-3);
+.voiceLede {
+  margin-top: -6px;
+  color: var(--text-2);
+}
+
+.voiceLayout {
+  grid-template-columns: 1fr;
+}
+
+.voiceCard {
+  padding: 8px 24px;
+  border-radius: var(--radius-l);
+  background: #0c0c0c;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .voiceRow {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  padding: 14px 2px;
+  gap: 24px;
+  padding: 18px 0;
 }
 
-.voiceRow + .voiceRow {
+.voiceRow + .voiceRow,
+.voiceSeparator {
   border-top: 1px solid var(--line);
 }
 
 .voiceRow strong {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
 }
 
 .voiceHint {
-  margin: 2px 0 0;
+  margin: 3px 0 0;
   color: var(--text-3);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -4113,6 +4158,108 @@ fieldset legend {
   border: 1px solid var(--line);
   border-radius: var(--radius-s);
   background: var(--bg-1);
+}
+
+.voiceModelPicker {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.voiceModelTrigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 200px;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--bg-1);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.voiceModelTrigger:hover {
+  border-color: var(--line-strong);
+}
+
+.voiceModelMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  width: 440px;
+  max-height: 420px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-m);
+  background: #0c0c0c;
+  box-shadow: var(--shadow-float);
+}
+
+.voiceModelOption {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.voiceModelOption:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.voiceModelOptionOn {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.voiceModelOptionHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.voiceModelOptionHead strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.voiceModelOptionOn .voiceModelOptionHead strong {
+  color: var(--text);
+}
+
+.voiceModelOption:not(.voiceModelOptionOn) .voiceModelOptionHead strong {
+  color: var(--text-2);
+}
+
+.voiceTag {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-2);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.voiceSize {
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.voiceModelOptionCopy {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .hotkeyField {

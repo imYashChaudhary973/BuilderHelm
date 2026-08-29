@@ -6,7 +6,6 @@ import type {
 import { useState } from 'react';
 
 type Microphone = { readonly id: string; readonly label: string };
-
 const KEY_MODAL_COPY = {
   title: 'OpenAI Transcription',
   notice:
@@ -14,6 +13,30 @@ const KEY_MODAL_COPY = {
   storageNote:
     'Stored securely on this device. It is never written to disk by BuilderHelm or included in logs.',
 } as const;
+
+/** Renders an accelerator the way a Mac menu shows it, e.g. ⌘E. */
+function hotkeyLabel(hotkey: string | undefined): string {
+  if (hotkey === undefined) return 'the hotkey';
+  return hotkey
+    .split('+')
+    .map((part) => {
+      switch (part.toLowerCase()) {
+        case 'commandorcontrol':
+        case 'command':
+          return '⌘';
+        case 'option':
+        case 'alt':
+          return '⌥';
+        case 'control':
+          return '⌃';
+        case 'shift':
+          return '⇧';
+        default:
+          return part;
+      }
+    })
+    .join('');
+}
 
 export function VoicePage(): React.JSX.Element {
   const queryClient = useQueryClient();
@@ -59,18 +82,18 @@ export function VoicePage(): React.JSX.Element {
     onError: (cause: Error) => setError(cause.message),
   });
 
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const settings = voice.data?.settings ?? null;
   const models = voice.data?.models ?? [];
+  const selectedModel = models.find((model) => model.id === settings?.modelId) ?? null;
 
   return (
     <>
-      <header className="settingsHeader">
+      <header className="settingsHeader voiceHeader">
         <div>
-          <p className="eyebrow">Settings</p>
           <h1>Voice</h1>
-          <p className="lede">
-            Dictate into any field or terminal. Local models run offline; cloud models
-            require an API key.
+          <p className="voiceLede">
+            Local speech-to-text dictation with on-device models.
           </p>
         </div>
       </header>
@@ -79,18 +102,14 @@ export function VoicePage(): React.JSX.Element {
           {error}
         </p>
       )}
-      <div className="settingsLayout">
-        <section className="voiceSection" aria-labelledby="voice-general-title">
-          <div className="sectionTitle">
-            <h2 id="voice-general-title">Dictation</h2>
-          </div>
+      <div className="settingsLayout voiceLayout">
+        <section className="voiceCard" aria-labelledby="voice-general-title">
           <div className="voiceRow">
             <div>
-              <strong>Voice dictation</strong>
+              <strong>Enable Voice Dictation</strong>
               <p className="voiceHint">
-                {settings?.enabled === true
-                  ? 'On. The hotkey works inside BuilderHelm.'
-                  : 'Off. Turn on to dictate.'}
+                Press {hotkeyLabel(settings?.hotkey)} to dictate text into any focused
+                pane.
               </p>
             </div>
             <button
@@ -107,12 +126,12 @@ export function VoicePage(): React.JSX.Element {
             </button>
           </div>
 
-          <div className="voiceRow">
+          <div className="voiceRow voiceSeparator">
             <div>
-              <strong>Dictation mode</strong>
+              <strong>Dictation Mode</strong>
               <p className="voiceHint">
-                Toggle presses the hotkey once to start and again to stop. Hold dictates
-                while the hotkey is held.
+                Toggle: press {hotkeyLabel(settings?.hotkey)} once to start, again to
+                stop. Hold: dictate while {hotkeyLabel(settings?.hotkey)} is held.
               </p>
             </div>
             <div className="segmented" role="radiogroup" aria-label="Dictation mode">
@@ -174,104 +193,126 @@ export function VoicePage(): React.JSX.Element {
           />
         </section>
 
-        <section className="voiceSection" aria-labelledby="voice-model-title">
-          <div className="sectionTitle">
-            <h2 id="voice-model-title">Speech model</h2>
-            <span>
+        <div className="voiceRow voiceSeparator" id="voice-model-row">
+          <div>
+            <strong>Speech Model</strong>
+            <p className="voiceHint">
               Select a speech model. Local models run offline; cloud models require an API
               key.
-            </span>
+            </p>
           </div>
-          {voice.isLoading && <p className="emptyState">Loading models…</p>}
-          <div className="voiceModels">
-            {models.map((model) => {
-              const selected = settings?.modelId === model.id;
-              return (
-                <button
-                  key={model.id}
-                  type="button"
-                  className={selected ? 'voiceModel voiceModelSelected' : 'voiceModel'}
-                  aria-pressed={selected}
-                  disabled={update.isPending}
-                  onClick={() => {
-                    // A cloud model without a stored key opens the key dialog
-                    // instead of mutating settings: picking it *means* the user
-                    // intends to provide one.
-                    if (model.requiresApiKey && voice.data?.openAiKeyPresent === false) {
-                      setError(null);
-                      setKeyModal(true);
-                      return;
-                    }
-                    if (settings !== null) update.mutate({ modelId: model.id });
-                  }}
-                >
-                  <span
-                    className={
-                      selected ? 'voiceModelDot voiceModelDotOn' : 'voiceModelDot'
-                    }
-                    aria-hidden="true"
-                  />
-                  <span className="voiceModelCopy">
-                    <strong>
-                      {model.label}
-                      {model.recommended && <em className="voiceTag">Recommended</em>}
-                      {model.runtime === 'cloud' && <em className="voiceTag">Cloud</em>}
-                      {model.runtime === 'local' && <em className="voiceTag">Local</em>}
-                    </strong>
-                    <small>
-                      {model.detail}
-                      {model.downloadBytes !== null &&
-                        ` · ~${Math.max(1, Math.round(model.downloadBytes / 1_000_000))} MB`}
-                      {model.requiresApiKey && voice.data?.openAiKeyPresent === false
-                        ? ' · Add an API key to use'
-                        : model.requiresApiKey && ' · API key stored'}
-                    </small>
-                  </span>
-                  {selected && (
-                    <span className="voiceModelCheck" aria-hidden="true">
-                      ✓
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+          <div className="voiceModelPicker">
+            <button
+              type="button"
+              className="voiceModelTrigger"
+              aria-haspopup="listbox"
+              aria-expanded={modelMenuOpen}
+              onClick={() => setModelMenuOpen((open) => !open)}
+            >
+              {selectedModel?.label ?? 'Select Model'}
+              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                <path
+                  d="m7 10 5 5 5-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+            {modelMenuOpen && (
+              <div className="voiceModelMenu" role="listbox">
+                {models.map((model) => {
+                  const selected = settings?.modelId === model.id;
+                  return (
+                    <button
+                      key={model.id}
+                      type="button"
+                      role="option"
+                      aria-selected={selected}
+                      className={
+                        selected
+                          ? 'voiceModelOption voiceModelOptionOn'
+                          : 'voiceModelOption'
+                      }
+                      onClick={() => {
+                        setModelMenuOpen(false);
+                        // A cloud model without a stored key opens the key
+                        // dialog instead of mutating settings: picking it
+                        // *means* the user intends to provide one.
+                        if (
+                          model.requiresApiKey &&
+                          voice.data?.openAiKeyPresent === false
+                        ) {
+                          setError(null);
+                          setKeyModal(true);
+                          return;
+                        }
+                        if (settings !== null) update.mutate({ modelId: model.id });
+                      }}
+                    >
+                      <span className="voiceModelOptionHead">
+                        <strong>{model.label}</strong>
+                        {!model.recommended && !model.requiresApiKey && (
+                          <em className="voiceTag">
+                            {model.runtime === 'cloud' ? 'cloud' : 'offline'}
+                          </em>
+                        )}
+                        {model.engine === 'zipformer' && (
+                          <em className="voiceTag">streaming</em>
+                        )}
+                        {model.recommended && <em className="voiceTag">recommended</em>}
+                        {model.requiresApiKey && <em className="voiceTag">cloud</em>}
+                        {model.downloadBytes !== null && (
+                          <span className="voiceSize">
+                            {Math.round(model.downloadBytes / 1_000_000)}{' '}
+                            {model.downloadBytes >= 100_000_000 ? 'MB' : 'MB'}
+                          </span>
+                        )}
+                      </span>
+                      <span className="voiceModelOptionCopy">{model.detail}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
+        </div>
 
-          <div className="voiceRow voiceKeyRow">
-            <div>
-              <strong>OpenAI API key</strong>
-              <p className="voiceHint">
-                {voice.data?.openAiKeyPresent === true
-                  ? 'A key is stored securely on this device.'
-                  : 'No key stored. Cloud models stay locked until one is saved.'}
-              </p>
-            </div>
-            <div className="voiceKeyActions">
-              {!voice.data?.openAiKeyPresent && (
-                <button
-                  type="button"
-                  className="secondaryButton"
-                  disabled={saveKey.isPending}
-                  onClick={() => setKeyModal(true)}
-                >
-                  Add key
-                </button>
-              )}
-              {voice.data?.openAiKeyPresent === true && (
-                <button
-                  type="button"
-                  className="dangerText"
-                  disabled={deleteKey.isPending}
-                  onClick={() => deleteKey.mutate()}
-                >
-                  {deleteKey.isPending ? 'Removing…' : 'Remove key'}
-                </button>
-              )}
-            </div>
+        <div className="voiceRow voiceSeparator voiceKeyRow">
+          <div>
+            <strong>OpenAI API Key</strong>
+            <p className="voiceHint">
+              {voice.data?.openAiKeyPresent === true
+                ? 'A key is stored securely on this device.'
+                : 'No key stored. Cloud models stay locked until one is saved.'}
+            </p>
           </div>
-        </section>
+          <div className="voiceKeyActions">
+            {!voice.data?.openAiKeyPresent && (
+              <button
+                type="button"
+                className="secondaryButton"
+                disabled={saveKey.isPending}
+                onClick={() => setKeyModal(true)}
+              >
+                Add key
+              </button>
+            )}
+            {voice.data?.openAiKeyPresent === true && (
+              <button
+                type="button"
+                className="dangerText"
+                disabled={deleteKey.isPending}
+                onClick={() => deleteKey.mutate()}
+              >
+                {deleteKey.isPending ? 'Removing…' : 'Remove key'}
+              </button>
+            )}
+          </div>
+        </div>
       </div>
-
       {keyModal && (
         <div className="dialogBackdrop" role="presentation">
           <section

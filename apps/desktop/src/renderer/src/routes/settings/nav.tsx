@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 
 const SECTIONS = [
@@ -18,12 +19,13 @@ const SECTIONS = [
 export function SettingsNav({ active }: { readonly active: string }): React.JSX.Element {
   const path = useRouterState({ select: (s) => s.location.pathname }) || active;
   const navigate = useNavigate();
+  const [filter, setFilter] = useState('');
   return (
     <nav className="settingsNav" aria-label="Settings sections">
       <button
         type="button"
         className="settingsNavBack"
-        title="Back (Esc)"
+        title="Back to app (Esc)"
         onClick={() => void navigate({ to: '/' })}
       >
         <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
@@ -36,10 +38,40 @@ export function SettingsNav({ active }: { readonly active: string }): React.JSX.
             strokeLinejoin="round"
           />
         </svg>
-        Back
+        Back to app
       </button>
-      <p className="settingsNavLabel">Settings</p>
-      {SECTIONS.map((section) => {
+      <div className="railDivider" role="presentation" />
+      <div className="settingsSearch">
+        <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+          <circle
+            cx="10.5"
+            cy="10.5"
+            r="6.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          />
+          <line
+            x1="15.5"
+            y1="15.5"
+            x2="20"
+            y2="20"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+        </svg>
+        <input
+          type="search"
+          placeholder="Search settings"
+          value={filter}
+          onChange={(event) => setFilter(event.target.value)}
+        />
+      </div>
+      <div className="railDivider" role="presentation" />
+      {SECTIONS.filter((section) =>
+        section.title.toLowerCase().includes(filter.toLowerCase()),
+      ).map((section) => {
         const on = section.active(path);
         return (
           <Link
