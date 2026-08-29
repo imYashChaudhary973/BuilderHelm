@@ -1,5 +1,8 @@
+import { CanvasAddon } from '@xterm/addon-canvas';
 import { FitAddon } from '@xterm/addon-fit';
 import { SerializeAddon } from '@xterm/addon-serialize';
+import { Unicode11Addon } from '@xterm/addon-unicode11';
+import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import type { BoardPaneStatus, BoardPaneSummary } from '@builderhelm/protocol/board';
@@ -8,6 +11,13 @@ import { useEffect, useRef, useState } from 'react';
 
 const MIN_COLS = 2;
 const MIN_ROWS = 2;
+// Must stay a monospace stack, and must match `--font-mono` in styles.css.
+// xterm.js measures one cell from this family and then positions every glyph on
+// that grid. Left unset it inherits the application sans-serif, where a space
+// is 4.2px but U+2500 is 16px, so box borders and padding drift apart and every
+// bordered CLI panel tears. The terminal buffer stays correct either way; only
+// the drawing is wrong, which makes it look like a CLI bug rather than a font one.
+const TERMINAL_FONT_FAMILY = 'ui-monospace, SFMono-Regular, Menlo, monospace';
 interface TerminalPaneProps {
   readonly sessionId: string;
   readonly pane: BoardPaneSummary;
@@ -50,6 +60,7 @@ export function TerminalPane({
 
     const term = new Terminal({
       convertEol: false,
+      fontFamily: TERMINAL_FONT_FAMILY,
       fontSize: 13,
       cursorBlink: true,
       allowProposedApi: true,
@@ -64,9 +75,32 @@ export function TerminalPane({
     const serialize = new SerializeAddon();
     term.loadAddon(fit);
     term.loadAddon(serialize);
+    term.loadAddon(new Unicode11Addon());
+    // xterm defaults to Unicode 6 widths, which disagree with what modern CLIs
+    // assume when they pad a line to the terminal width.
+    term.unicode.activeVersion = '11';
     serializeRef.current = serialize;
     termRef.current = term;
     term.open(host);
+
+    // A cell-accurate renderer is required, not an optimisation. The DOM
+    // renderer lays each row out as flowing text, so any glyph the font does not
+    // cover falls back to a wider face and shifts everything after it. Grok
+    // draws its logo from ~1900 Braille characters, which no installed
+    // monospace font covers, so its rows sheared away from the box borders.
+    // WebGL and canvas both draw every cell at an absolute position, so a
+    // fallback glyph can never move its neighbours.
+    try {
+      const webgl = new WebglAddon();
+      // A lost GPU context would otherwise leave the pane blank.
+      webgl.onContextLoss(() => {
+        webgl.dispose();
+        term.loadAddon(new CanvasAddon());
+      });
+      term.loadAddon(webgl);
+    } catch {
+      term.loadAddon(new CanvasAddon());
+    }
 
     const applySize = (): void => {
       try {
