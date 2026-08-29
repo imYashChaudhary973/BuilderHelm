@@ -5,6 +5,7 @@ import { BoardProvider } from './board-store.js';
 import logo from './assets/logo.png';
 import { SidePanel } from './components/side-panel.js';
 import { SpaceRail } from './components/space-rail.js';
+import { SettingsNav } from './routes/settings/nav.js';
 import { PreviewProvider, usePreview } from './preview-store.js';
 import { SpaceProvider } from './space-store.js';
 
@@ -36,6 +37,7 @@ function Shell(): React.JSX.Element {
 
   const shellClass = [
     'shell',
+    pathname.startsWith('/settings') ? 'shellSettingsOn' : '',
     preview.open ? 'shellBrowserOn' : '',
     railCollapsed ? 'shellRailOff' : '',
   ]
@@ -90,7 +92,11 @@ function Shell(): React.JSX.Element {
           </button>
         </div>
       </header>
-      <SpaceRail collapsed={railCollapsed} />
+      {pathname.startsWith('/settings') ? (
+        <SettingsNav active={pathname} />
+      ) : (
+        <SpaceRail collapsed={railCollapsed} />
+      )}
       <main className="content" role="main">
         <Outlet />
       </main>

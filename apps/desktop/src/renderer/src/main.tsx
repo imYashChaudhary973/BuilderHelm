@@ -16,6 +16,7 @@ import { BoardPage } from './routes/board.js';
 import { ChatPage } from './routes/chat.js';
 import { MemoryPage } from './routes/memory.js';
 import { ProvidersPage } from './routes/settings/providers.js';
+import { VoicePage } from './routes/settings/voice.js';
 import { SwarmPage } from './routes/swarm.js';
 import { TodayPage } from './routes/today.js';
 import { ProjectsPage } from './routes/projects.js';
@@ -36,6 +37,11 @@ const providersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings/providers',
   component: ProvidersPage,
+});
+const voiceRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/voice',
+  component: VoicePage,
 });
 const chatRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -83,6 +89,7 @@ const routeTree = rootRoute.addChildren([
   boardRoute,
   swarmRoute,
   providersRoute,
+  voiceRoute,
 ]);
 const router = createRouter({
   routeTree,

@@ -3761,6 +3761,63 @@ fieldset legend {
   align-items: flex-start;
 }
 
+.settingsNav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 10px;
+  overflow: auto;
+}
+
+.settingsNavLabel {
+  margin: 4px 4px 8px;
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settingsNavLink {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-s);
+  color: var(--text-2);
+  text-decoration: none;
+}
+
+.settingsNavLink:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.settingsNavLink strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settingsNavLink small {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.settingsNavLinkOn,
+.settingsNavLinkOn:hover {
+  color: var(--text);
+  background: var(--accent-dim);
+}
+
+.shellSettingsOn,
+.shellSettingsOn.shellRailOff {
+  grid-template-columns: 200px 1fr;
+}
+
+.shellSettingsOn .rail {
+  background: var(--chrome);
+}
+
 .providerList {
   display: flex;
   flex-direction: column;
@@ -3941,6 +3998,248 @@ fieldset legend {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   padding: 24px;
+}
+
+/* ---------- VOICE SETTINGS ---------- */
+
+.voiceSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px;
+  border-radius: var(--radius-l);
+  background: var(--glass);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-card);
+}
+
+.voiceSection .sectionTitle span {
+  display: block;
+  max-width: 420px;
+  color: var(--text-3);
+}
+
+.voiceRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 2px;
+}
+
+.voiceRow + .voiceRow {
+  border-top: 1px solid var(--line);
+}
+
+.voiceRow strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.voiceHint {
+  margin: 2px 0 0;
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.voiceSwitch {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  flex-shrink: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--bg-1);
+  transition: background 180ms ease, border-color 180ms ease;
+}
+
+.voiceSwitch span {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--text-3);
+  transition: transform 180ms var(--ease-out), background 180ms ease;
+}
+
+.voiceSwitchOn {
+  background: var(--accent-dim);
+  border-color: var(--accent-line);
+}
+
+.voiceSwitchOn span {
+  transform: translateX(18px);
+  background: var(--accent);
+}
+
+.segmented {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--bg-1);
+}
+
+.hotkeyField {
+  width: 200px;
+  font-family: var(--font-mono);
+  text-align: center;
+}
+
+.voiceMicCol select {
+  min-width: 220px;
+}
+
+.voiceModels {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.voiceModel {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--bg-1);
+  color: var(--text-2);
+  text-align: left;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.voiceModel:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.voiceModel:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.voiceModelSelected {
+  border-color: var(--accent-line);
+  background: var(--accent-dim);
+  color: var(--text);
+}
+
+.voiceModelDot {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+}
+
+.voiceModelDotOn {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.voiceModelCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.voiceModelCopy strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.voiceModelCopy small {
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.voiceTag {
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  color: var(--text-3);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.voiceModelSelected .voiceTag {
+  color: var(--accent-bright);
+  border-color: var(--accent-line);
+}
+
+.voiceModelCheck {
+  margin-left: auto;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.voiceKeyRow {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.voiceKeyActions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.voiceKeyDialog {
+  position: relative;
+  max-width: 560px;
+}
+
+.voiceKeyDialog h2 {
+  margin-bottom: 10px;
+}
+
+.voiceKeyDialog p {
+  color: var(--text-2);
+}
+
+.voiceKeyDialog input {
+  width: 100%;
+  font-family: var(--font-mono);
+}
+
+.voiceKeyClose {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+}
+
+.voiceKeyStorage {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 14px 0 0;
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.voiceKeyDialog .formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
 }
 
 .confirmDialog {
