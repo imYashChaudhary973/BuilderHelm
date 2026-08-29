@@ -270,6 +270,11 @@ describe('BoardService agent detection', () => {
     expect(byId.get('claude')).toMatchObject({
       available: true,
       path: '/usr/local/bin/claude',
+      capabilities: {
+        headless: true,
+        structuredOutput: 'json-schema',
+        swarmModes: ['safe', 'auto', 'full'],
+      },
     });
     expect(byId.get('codex')).toMatchObject({
       available: true,

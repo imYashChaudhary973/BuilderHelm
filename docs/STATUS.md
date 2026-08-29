@@ -28,6 +28,10 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
   holding unlanded commits, are both preserved.
 - Terminal output is bounded end to end: the renderer reports what it has
   drained and the host pauses the PTY when a pane outruns it.
+- Installed CLI detection resolves the catalog in one login shell and returns
+  canonical interactive, headless, structured-output, resume, usage, and Swarm
+  permission capabilities. Provider-specific launch, schema-output, and usage
+  behavior is isolated in the core CLI adapters.
 
 ## Partial or needing hardening
 
@@ -38,8 +42,6 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
   coalescing is deliberately not implemented: batching already cut host sends
   by 95% and the cell-accurate renderer replaced the DOM renderer it was meant
   to protect, so there is no measured headroom left to reclaim.
-- Installed CLI detection resolves every catalogued command in one login shell.
-  Structured-output adapters and capability metadata are still inconsistent.
 - Cross-platform shell, path, credential, and PTY behavior.
 - Packaged desktop verification is thin: the packaged arm64 app starts, reports
   renderer ready, and exits cleanly, but it is unsigned, unnotarized, and has

@@ -1,6 +1,6 @@
 # Agent runtime
 
-Status: working locally, capability normalization needs hardening.
+Status: working locally on macOS with normalized capability metadata.
 
 ## Goal
 
@@ -14,6 +14,18 @@ credentials into BuilderHelm.
 - Record the exact executable, arguments, cwd, branch, worktree, start time, exit, and usage when available.
 - Support interactive and structured/headless adapters where the provider exposes them.
 - Stop the complete process tree and preserve the run record.
+
+## Capability model
+
+Every catalogued CLI publishes one immutable record covering interactive and
+headless support, structured-output level, session resume, usage reporting, and
+supported Swarm permission modes. Detection adds only host availability and the
+resolved executable path; it does not mistake installation for authentication.
+
+Runtime behavior stays out of the protocol. Core adapters own fixed argument
+arrays, schema-constrained output parsing, and provider usage parsing. Claude,
+Codex, and Grok advertise JSON Schema output; Codex uses its schema and final
+message files behind the same planner interface used by inline-schema CLIs.
 
 ## Boundaries
 

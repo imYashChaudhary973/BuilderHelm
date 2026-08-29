@@ -96,7 +96,7 @@ export function SwarmPage(): React.JSX.Element {
       .catch(() => undefined);
   }, []);
 
-  const detected = availableSwarmAgents(agents.data ?? []);
+  const detected = availableSwarmAgents(agents.data ?? [], mode);
   useEffect(() => {
     const fill = detected[0];
     if (fill === undefined) {
@@ -104,7 +104,7 @@ export function SwarmPage(): React.JSX.Element {
       return;
     }
     setRoster(assignSwarmPanes([fill], swarmPresetRoles(preset)));
-  }, [detected[0], preset]);
+  }, [detected[0], mode, preset]);
 
   useEffect(() => {
     if (run === null) return;

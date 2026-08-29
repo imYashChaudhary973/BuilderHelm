@@ -215,6 +215,28 @@ describe('board pane specs', () => {
     );
   });
 
+  it('publishes one honest capability record for every catalogued CLI', () => {
+    const byId = new Map(BOARD_AGENT_CATALOG.map((entry) => [entry.id, entry]));
+    expect(byId.get('codex')?.capabilities).toMatchObject({
+      headless: true,
+      structuredOutput: 'json-schema',
+      sessionResume: true,
+      usageReporting: true,
+      swarmModes: ['safe', 'auto', 'full'],
+    });
+    expect(byId.get('kiro')?.capabilities).toMatchObject({
+      headless: true,
+      structuredOutput: 'json',
+      swarmModes: [],
+    });
+    expect(byId.get('custom')?.capabilities).toMatchObject({
+      interactive: true,
+      headless: false,
+      structuredOutput: 'none',
+      swarmModes: [],
+    });
+  });
+
   it('lays out extra terminals across a row instead of a leftover column', () => {
     expect(gridForCount(2)).toEqual({ cols: 2, rows: 1 });
     expect(gridForCount(6)).toEqual({ cols: 3, rows: 2 });

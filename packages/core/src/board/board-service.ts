@@ -201,13 +201,18 @@ export class BoardService {
     );
     const paths = await resolveCommandPaths(probed.map((entry) => entry.command));
     return BOARD_AGENT_CATALOG.map((entry): BoardAgentDetection => {
+      const metadata = {
+        id: entry.id,
+        label: entry.label,
+        capabilities: entry.capabilities,
+      };
       if (entry.id === 'custom' || entry.id === 'shell' || entry.command.length === 0) {
-        return { id: entry.id, label: entry.label, available: true, path: null };
+        return { ...metadata, available: true, path: null };
       }
       const path = paths.get(entry.command) ?? '';
       return path.length > 0
-        ? { id: entry.id, label: entry.label, available: true, path }
-        : { id: entry.id, label: entry.label, available: false, path: null };
+        ? { ...metadata, available: true, path }
+        : { ...metadata, available: false, path: null };
     });
   }
 

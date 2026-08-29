@@ -1,10 +1,11 @@
 import {
   parseAgentUsage,
+  swarmSeatArgv,
   type SwarmExecuteInput,
   type SwarmRunnerOutcome,
   type SwarmSeatRunner,
 } from '@builderhelm/core';
-import { swarmSeatArgv, type BoardIsolation } from '@builderhelm/protocol';
+import type { BoardIsolation } from '@builderhelm/protocol';
 import { createCorrelationId, normalizeError } from '@builderhelm/shared';
 import type { WebContents } from 'electron';
 
@@ -82,7 +83,7 @@ export class PtySwarmRunner implements SwarmSeatRunner {
       );
       this.paneBySeat.set(input.seat.id, pane.paneId);
       const exit = await this.manager.waitForPaneExit(sessionId, pane.paneId);
-      const usage = parseAgentUsage(exit.output);
+      const usage = parseAgentUsage(input.seat.agentId, exit.output);
       return {
         status: exit.exitCode === 0 ? 'landed' : 'failed',
         summary:

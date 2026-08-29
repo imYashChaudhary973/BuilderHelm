@@ -688,7 +688,7 @@ export function registerIpcHandlers(
   async function pickSwarmPlanner(folderPath: string): Promise<SwarmPlanner> {
     const detections = await core.board.detectAgents();
     const structured = detections.find(
-      (item) => item.available && (item.id === 'claude' || item.id === 'grok'),
+      (item) => item.available && item.capabilities.structuredOutput === 'json-schema',
     );
     if (structured === undefined) {
       return {
@@ -704,7 +704,11 @@ export function registerIpcHandlers(
         },
       };
     }
-    return new CliSwarmPlanner({ agentId: structured.id, cwd: folderPath });
+    return new CliSwarmPlanner({
+      agentId: structured.id,
+      cwd: folderPath,
+      ...(structured.path === null ? {} : { executable: structured.path }),
+    });
   }
 
   function requireBoard(): BoardPtyManager {

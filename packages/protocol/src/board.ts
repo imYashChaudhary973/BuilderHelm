@@ -23,29 +23,181 @@ export const boardAgentIds = [
 export const boardAgentIdSchema = z.enum(boardAgentIds);
 export type BoardAgentId = (typeof boardAgentIds)[number];
 
+export const boardAgentLaunchModes = ['safe', 'auto', 'full'] as const;
+export const boardAgentLaunchModeSchema = z.enum(boardAgentLaunchModes);
+export type BoardAgentLaunchMode = (typeof boardAgentLaunchModes)[number];
+
+export const boardAgentStructuredOutputModes = ['none', 'json', 'json-schema'] as const;
+export const boardAgentStructuredOutputModeSchema = z.enum(
+  boardAgentStructuredOutputModes,
+);
+export type BoardAgentStructuredOutputMode =
+  (typeof boardAgentStructuredOutputModes)[number];
+
+export const boardAgentCapabilitiesSchema = z
+  .object({
+    interactive: z.boolean(),
+    headless: z.boolean(),
+    structuredOutput: boardAgentStructuredOutputModeSchema,
+    sessionResume: z.boolean(),
+    usageReporting: z.boolean(),
+    swarmModes: z.array(boardAgentLaunchModeSchema).readonly(),
+  })
+  .strict()
+  .readonly();
+export type BoardAgentCapabilities = z.infer<typeof boardAgentCapabilitiesSchema>;
+
 export interface BoardAgentCatalogEntry {
   readonly id: BoardAgentId;
   readonly label: string;
   readonly command: string;
+  readonly capabilities: BoardAgentCapabilities;
 }
 
-/** Known launchers. `shell` is a login shell. `custom` always needs a command. */
+const interactiveOnly: BoardAgentCapabilities = {
+  interactive: true,
+  headless: false,
+  structuredOutput: 'none',
+  sessionResume: false,
+  usageReporting: false,
+  swarmModes: [],
+};
+
+function capabilities(values: Partial<BoardAgentCapabilities>): BoardAgentCapabilities {
+  return { ...interactiveOnly, ...values };
+}
+
+/** Canonical executable and capability metadata for every supported CLI. */
 export const BOARD_AGENT_CATALOG: readonly BoardAgentCatalogEntry[] = [
-  { id: 'shell', label: 'Terminal', command: '' },
-  { id: 'claude', label: 'Claude', command: 'claude' },
-  { id: 'codex', label: 'Codex', command: 'codex' },
-  { id: 'grok', label: 'Grok', command: 'grok' },
-  { id: 'gemini', label: 'Gemini', command: 'gemini' },
-  { id: 'antigravity', label: 'Antigravity', command: 'antigravity' },
-  { id: 'opencode', label: 'OpenCode', command: 'opencode' },
-  { id: 'cursor', label: 'Cursor', command: 'cursor' },
-  { id: 'copilot', label: 'Copilot', command: 'copilot' },
-  { id: 'omp', label: 'Oh My Pi', command: 'omp' },
-  { id: 'pi', label: 'Pi', command: 'pi' },
-  { id: 'kimi', label: 'Kimi', command: 'kimi' },
-  { id: 'kiro', label: 'Kiro', command: 'kiro-cli' },
-  { id: 'custom', label: 'Custom command', command: '' },
+  { id: 'shell', label: 'Terminal', command: '', capabilities: interactiveOnly },
+  {
+    id: 'claude',
+    label: 'Claude',
+    command: 'claude',
+    capabilities: capabilities({
+      headless: true,
+      structuredOutput: 'json-schema',
+      sessionResume: true,
+      usageReporting: true,
+      swarmModes: [...boardAgentLaunchModes],
+    }),
+  },
+  {
+    id: 'codex',
+    label: 'Codex',
+    command: 'codex',
+    capabilities: capabilities({
+      headless: true,
+      structuredOutput: 'json-schema',
+      sessionResume: true,
+      usageReporting: true,
+      swarmModes: [...boardAgentLaunchModes],
+    }),
+  },
+  {
+    id: 'grok',
+    label: 'Grok',
+    command: 'grok',
+    capabilities: capabilities({
+      headless: true,
+      structuredOutput: 'json-schema',
+      swarmModes: [...boardAgentLaunchModes],
+    }),
+  },
+  {
+    id: 'gemini',
+    label: 'Gemini',
+    command: 'gemini',
+    capabilities: capabilities({
+      headless: true,
+      structuredOutput: 'json',
+      sessionResume: true,
+      swarmModes: [...boardAgentLaunchModes],
+    }),
+  },
+  {
+    id: 'antigravity',
+    label: 'Antigravity',
+    command: 'antigravity',
+    capabilities: interactiveOnly,
+  },
+  {
+    id: 'opencode',
+    label: 'OpenCode',
+    command: 'opencode',
+    capabilities: capabilities({
+      headless: true,
+      structuredOutput: 'json',
+      sessionResume: true,
+      swarmModes: ['auto', 'full'],
+    }),
+  },
+  {
+    id: 'cursor',
+    label: 'Cursor',
+    command: 'cursor',
+    capabilities: interactiveOnly,
+  },
+  {
+    id: 'copilot',
+    label: 'Copilot',
+    command: 'copilot',
+    capabilities: interactiveOnly,
+  },
+  {
+    id: 'omp',
+    label: 'Oh My Pi',
+    command: 'omp',
+    capabilities: capabilities({
+      headless: true,
+      structuredOutput: 'json',
+      sessionResume: true,
+      swarmModes: [...boardAgentLaunchModes],
+    }),
+  },
+  {
+    id: 'pi',
+    label: 'Pi',
+    command: 'pi',
+    capabilities: capabilities({
+      headless: true,
+      structuredOutput: 'json',
+      sessionResume: true,
+      swarmModes: ['safe', 'auto'],
+    }),
+  },
+  {
+    id: 'kimi',
+    label: 'Kimi',
+    command: 'kimi',
+    capabilities: capabilities({
+      headless: true,
+      swarmModes: [...boardAgentLaunchModes],
+    }),
+  },
+  {
+    id: 'kiro',
+    label: 'Kiro',
+    command: 'kiro-cli',
+    capabilities: capabilities({
+      headless: true,
+      structuredOutput: 'json',
+      sessionResume: true,
+    }),
+  },
+  {
+    id: 'custom',
+    label: 'Custom command',
+    command: '',
+    capabilities: interactiveOnly,
+  },
 ];
+
+export function boardAgentCatalogEntry(id: BoardAgentId): BoardAgentCatalogEntry {
+  const entry = BOARD_AGENT_CATALOG.find((candidate) => candidate.id === id);
+  if (entry === undefined) throw new Error(`Unknown board agent ${id}`);
+  return entry;
+}
 
 /**
  * Marks a branch as one BuilderHelm created for a pane worktree.
@@ -294,6 +446,7 @@ export const boardAgentDetectionSchema = z
     label: z.string().min(1).max(80),
     available: z.boolean(),
     path: z.string().max(4096).nullable(),
+    capabilities: boardAgentCapabilitiesSchema,
   })
   .strict();
 export type BoardAgentDetection = z.infer<typeof boardAgentDetectionSchema>;

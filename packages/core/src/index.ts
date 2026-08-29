@@ -16,5 +16,4 @@ export * from './swarm/pnpm-verifier.js';
 export * from './swarm/swarm-planning.js';
 export * from './swarm/swarm-prompt.js';
 export * from './swarm/swarm-reviewer.js';
-export * from './swarm/agent-usage.js';
-export * from './swarm/cli-structured.js';
+export * from './swarm/cli-adapters.js';

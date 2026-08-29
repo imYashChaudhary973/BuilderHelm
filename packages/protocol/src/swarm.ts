@@ -1,7 +1,9 @@
 import {
   boardAgentIdSchema,
+  boardAgentLaunchModes,
   type BoardAgentDetection,
   type BoardAgentId,
+  type BoardAgentLaunchMode,
   type BoardPaneStatus,
 } from './board.js';
 import type { CorrelationId } from '@builderhelm/shared';
@@ -35,8 +37,6 @@ const DUTY: Record<SwarmRole, string> = {
   reviewer:
     'Review the Builder work. Name bugs and missing tests. Do not rewrite everything.',
 };
-
-export const SWARM_OPENCODE_MODEL = 'openrouter/stealth/ox-alpha';
 
 export const SWARM_PRESETS = [
   {
@@ -209,12 +209,8 @@ export const SWARM_SKILLS = [
   },
 ] as const;
 export type SwarmSkillId = (typeof SWARM_SKILLS)[number]['id'];
-export type SwarmLaunchMode = 'safe' | 'auto' | 'full';
-export const SWARM_LAUNCH_MODES = [
-  'safe',
-  'auto',
-  'full',
-] as const satisfies readonly SwarmLaunchMode[];
+export type SwarmLaunchMode = BoardAgentLaunchMode;
+export const SWARM_LAUNCH_MODES = boardAgentLaunchModes;
 
 export function swarmPresetRoles(id: SwarmPresetId): SwarmRole[] {
   const preset = SWARM_PRESETS.find((item) => item.id === id)!;
@@ -254,9 +250,10 @@ export function swarmRemoveSeat(
 
 export function availableSwarmAgents(
   detections: readonly BoardAgentDetection[],
+  mode: SwarmLaunchMode = 'auto',
 ): BoardAgentId[] {
   return detections
-    .filter((item) => item.available && item.id !== 'shell' && item.id !== 'custom')
+    .filter((item) => item.available && item.capabilities.swarmModes.includes(mode))
     .map((item) => item.id);
 }
 
@@ -290,122 +287,6 @@ export function swarmRoleTasks(job: string): Record<SwarmRole, string> {
 export interface SwarmSeatArgv {
   readonly binary: string;
   readonly args: string[];
-}
-
-interface SwarmCliLauncher {
-  readonly binary: string;
-  readonly modes: readonly SwarmLaunchMode[];
-  readonly args: (prompt: string, mode: SwarmLaunchMode) => string[];
-}
-
-/**
- * Headless launch table. Flags verified against each installed CLI
- * (`<cli> --help`, 2026-08-25). Modes:
- * - safe: read/analyze only; unapproved actions fail closed
- * - auto: file edits approved, commands still gated
- * - full: bypass every approval (worktree isolation strongly advised)
- */
-const SWARM_CLI_LAUNCHERS: Readonly<Partial<Record<BoardAgentId, SwarmCliLauncher>>> = {
-  claude: {
-    binary: 'claude',
-    modes: SWARM_LAUNCH_MODES,
-    args: (prompt, mode) =>
-      mode === 'full'
-        ? ['-p', prompt, '--dangerously-skip-permissions']
-        : [
-            '-p',
-            prompt,
-            '--permission-mode',
-            mode === 'auto' ? 'acceptEdits' : 'dontAsk',
-          ],
-  },
-  codex: {
-    binary: 'codex',
-    modes: SWARM_LAUNCH_MODES,
-    args: (prompt, mode) =>
-      mode === 'full'
-        ? ['exec', '--dangerously-bypass-approvals-and-sandbox', prompt]
-        : mode === 'auto'
-          ? ['exec', '--sandbox', 'workspace-write', '--approve-for-me', prompt]
-          : ['exec', '--sandbox', 'read-only', prompt],
-  },
-  gemini: {
-    binary: 'gemini',
-    modes: SWARM_LAUNCH_MODES,
-    args: (prompt, mode) => [
-      '-p',
-      prompt,
-      '--skip-trust',
-      '--approval-mode',
-      mode === 'full' ? 'yolo' : mode === 'auto' ? 'auto_edit' : 'plan',
-    ],
-  },
-  grok: {
-    binary: 'grok',
-    modes: SWARM_LAUNCH_MODES,
-    args: (prompt, mode) => [
-      '-p',
-      prompt,
-      '--permission-mode',
-      mode === 'full' ? 'bypassPermissions' : mode === 'auto' ? 'acceptEdits' : 'dontAsk',
-    ],
-  },
-  opencode: {
-    binary: 'opencode',
-    modes: ['auto', 'full'],
-    args: (prompt, mode) =>
-      mode === 'full'
-        ? ['run', '-m', SWARM_OPENCODE_MODEL, '--auto', prompt]
-        : ['run', '-m', SWARM_OPENCODE_MODEL, prompt],
-  },
-  kimi: {
-    binary: 'kimi',
-    modes: SWARM_LAUNCH_MODES,
-    args: (prompt, mode) =>
-      mode === 'full'
-        ? ['-p', prompt, '--auto']
-        : mode === 'auto'
-          ? ['-p', prompt, '-y']
-          : ['-p', prompt],
-  },
-  omp: {
-    binary: 'omp',
-    modes: SWARM_LAUNCH_MODES,
-    args: (prompt, mode) => [
-      '-p',
-      prompt,
-      '--approval-mode',
-      mode === 'full' ? 'yolo' : mode === 'auto' ? 'write' : 'always-ask',
-    ],
-  },
-  pi: {
-    binary: 'pi',
-    modes: ['safe', 'auto'],
-    args: (prompt, mode) =>
-      mode === 'auto' ? ['-p', prompt, '--approve'] : ['-p', prompt],
-  },
-};
-
-/** Prompt cap: generous headroom under the 1 MB ARG_MAX while staying sane. */
-export const SWARM_PROMPT_MAX = 100_000;
-
-export function swarmSeatArgv(
-  agentId: BoardAgentId,
-  prompt: string,
-  mode: SwarmLaunchMode = 'auto',
-): SwarmSeatArgv {
-  const launcher = SWARM_CLI_LAUNCHERS[agentId];
-  if (launcher === undefined) {
-    throw new Error(`${agentId} cannot take a swarm seat: no verified headless command`);
-  }
-  if (!launcher.modes.includes(mode)) {
-    throw new Error(`${agentId} does not support ${mode} launch mode`);
-  }
-  const body = prompt.trim().slice(0, SWARM_PROMPT_MAX);
-  if (body.length === 0) {
-    throw new Error('swarm prompt must not be empty');
-  }
-  return { binary: launcher.binary, args: launcher.args(body, mode) };
 }
 
 export const SWARM_NUDGE =

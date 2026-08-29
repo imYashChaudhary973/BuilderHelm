@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { BoardAgentDetection } from '../src/board.js';
+import { boardAgentCatalogEntry, type BoardAgentDetection } from '../src/board.js';
 import {
   swarmCreateRequestSchema,
   swarmDirectRequestSchema,
@@ -17,7 +17,6 @@ import {
   swarmBrief,
   swarmGraphHub,
   swarmGraphPoints,
-  swarmSeatArgv,
   swarmPresetRoles,
   swarmRemoveSeat,
   swarmRoleTasks,
@@ -31,7 +30,13 @@ function detection(
   id: BoardAgentDetection['id'],
   available: boolean,
 ): BoardAgentDetection {
-  return { id, label: id, available, path: available ? `/bin/${id}` : null };
+  return {
+    id,
+    label: id,
+    available,
+    path: available ? `/bin/${id}` : null,
+    capabilities: boardAgentCatalogEntry(id).capabilities,
+  };
 }
 
 describe('swarm assignment', () => {
@@ -54,6 +59,16 @@ describe('swarm assignment', () => {
     expect(assignSwarmPanes(availableSwarmAgents([detection('shell', true)]))).toEqual(
       [],
     );
+  });
+
+  it('filters installed agents by the selected permission mode', () => {
+    const agents = [
+      detection('claude', true),
+      detection('opencode', true),
+      detection('pi', true),
+    ];
+    expect(availableSwarmAgents(agents, 'safe')).toEqual(['claude', 'pi']);
+    expect(availableSwarmAgents(agents, 'full')).toEqual(['claude', 'opencode']);
   });
 
   it('adds and removes seats without going past 12', () => {
@@ -206,57 +221,6 @@ describe('swarmRoleTasks', () => {
       expect(task).toContain(clipped);
       expect(task).not.toContain('x'.repeat(201));
     }
-  });
-});
-
-describe('swarmSeatArgv', () => {
-  it('maps every mode to verified claude flags', () => {
-    expect(swarmSeatArgv('claude', 'fix the login form', 'safe')).toEqual({
-      binary: 'claude',
-      args: ['-p', 'fix the login form', '--permission-mode', 'dontAsk'],
-    });
-    expect(swarmSeatArgv('claude', 'fix it', 'auto')).toEqual({
-      binary: 'claude',
-      args: ['-p', 'fix it', '--permission-mode', 'acceptEdits'],
-    });
-    expect(swarmSeatArgv('claude', 'fix it', 'full')).toEqual({
-      binary: 'claude',
-      args: ['-p', 'fix it', '--dangerously-skip-permissions'],
-    });
-  });
-
-  it('maps codex exec sandbox and gemini approval modes', () => {
-    expect(swarmSeatArgv('codex', 'ship', 'auto')).toEqual({
-      binary: 'codex',
-      args: ['exec', '--sandbox', 'workspace-write', '--approve-for-me', 'ship'],
-    });
-    expect(swarmSeatArgv('gemini', 'ship', 'full')).toEqual({
-      binary: 'gemini',
-      args: ['-p', 'ship', '--skip-trust', '--approval-mode', 'yolo'],
-    });
-    expect(
-      swarmSeatArgv('gemini', 'ship', 'auto').args.filter(
-        (arg) => arg === '--skip-trust',
-      ),
-    ).toHaveLength(1);
-  });
-
-  it('passes long prompts through argv without shell quoting', () => {
-    const prompt = `${'x'.repeat(8_000)} 'quoted' "double" $HOME \\n`;
-    const { binary, args } = swarmSeatArgv('grok', prompt, 'auto');
-    expect(binary).toBe('grok');
-    expect(args).toEqual(['-p', prompt.trim(), '--permission-mode', 'acceptEdits']);
-  });
-
-  it('fails closed for CLIs without a verified headless command or mode', () => {
-    expect(() => swarmSeatArgv('kiro', 'job', 'auto')).toThrow(/no verified headless/);
-    expect(() => swarmSeatArgv('cursor', 'job', 'auto')).toThrow(/no verified headless/);
-    expect(() => swarmSeatArgv('custom', 'job', 'auto')).toThrow(/no verified headless/);
-    expect(() => swarmSeatArgv('opencode', 'job', 'safe')).toThrow(
-      /does not support safe/,
-    );
-    expect(() => swarmSeatArgv('pi', 'job', 'full')).toThrow(/does not support full/);
-    expect(() => swarmSeatArgv('claude', '   ', 'auto')).toThrow(/must not be empty/);
   });
 });
 

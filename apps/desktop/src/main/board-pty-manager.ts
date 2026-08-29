@@ -7,8 +7,8 @@ import { basename, dirname, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
 import {
-  BOARD_AGENT_CATALOG,
   BOARD_WORKTREE_BRANCH_PREFIX,
+  boardAgentCatalogEntry,
   boardPaneEventEnvelopeSchema,
   ipcChannels,
   type BoardAgentId,
@@ -69,12 +69,6 @@ interface SessionRecord {
   panes: Map<string, PaneMeta>;
 }
 
-const agentCommandById: Record<string, string> = Object.fromEntries(
-  BOARD_AGENT_CATALOG.map((entry) => [entry.id, entry.command]),
-);
-const agentLabelById: Record<string, string> = Object.fromEntries(
-  BOARD_AGENT_CATALOG.map((entry) => [entry.id, entry.label]),
-);
 const maxBufferedChars = 80_000;
 
 const outputBatchDelayMs = 8;
@@ -90,7 +84,7 @@ const maxPendingDataChars = 64 * 1024;
 
 function resolveCommand(agentId: BoardAgentId, override: string | undefined): string {
   if (agentId === 'shell') return '';
-  const command = override ?? agentCommandById[agentId] ?? '';
+  const command = override ?? boardAgentCatalogEntry(agentId).command;
   if (command.length === 0) {
     throw new BuilderHelmError('VALIDATION_FAILED', `Unknown board agent ${agentId}`);
   }
@@ -352,7 +346,7 @@ export class BoardPtyManager {
     const command = resolveCommand(agentId, commandOverride);
     const paneId = randomUUID();
     const location = await locate(slot);
-    const label = agentLabelById[agentId] ?? agentId;
+    const label = boardAgentCatalogEntry(agentId).label;
     const title =
       location.branch === null
         ? `${label} · ${basename(location.cwd)} #${slot + 1}`

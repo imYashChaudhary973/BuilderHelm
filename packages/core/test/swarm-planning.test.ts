@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseAgentUsage } from '../src/swarm/agent-usage.js';
 import {
   buildPlanPrompt,
   normalizeSwarmPlan,
@@ -144,40 +143,5 @@ describe('buildSeatPrompt', () => {
     expect(prefix).toContain('Alpha');
     expect(tail).not.toContain('Swarm roster');
     expect(tail).toContain('Beta');
-  });
-});
-
-describe('parseAgentUsage', () => {
-  it('reads claude json output', () => {
-    const usage = parseAgentUsage(
-      JSON.stringify({
-        type: 'result',
-        total_cost_usd: 0.0342,
-        usage: { input_tokens: 1200, output_tokens: 300, cache_read_input_tokens: 500 },
-      }),
-    );
-
-    expect(usage.tokensUsed).toBe(2000);
-    expect(usage.costUsd).toBeCloseTo(0.0342);
-  });
-
-  it('reads streamed jsonl usage events and keeps the highest totals', () => {
-    const usage = parseAgentUsage(
-      [
-        '{"type":"token_count","usage":{"total_tokens":800}}',
-        'not json at all',
-        '{"type":"token_count","usage":{"total_tokens":1500},"cost_usd":0.01}',
-      ].join('\n'),
-    );
-
-    expect(usage.tokensUsed).toBe(1500);
-    expect(usage.costUsd).toBeCloseTo(0.01);
-  });
-
-  it('meters unparseable output as zero instead of throwing', () => {
-    expect(parseAgentUsage('plain terminal noise')).toEqual({
-      tokensUsed: 0,
-      costUsd: 0,
-    });
   });
 });
