@@ -10,6 +10,7 @@ import type { CorrelationId } from '@builderhelm/shared';
 import { useEffect, useRef, useState } from 'react';
 
 import { chunkTailAfter } from '../pane-stream.js';
+import { setTerminalFocus } from '../voice/insert.js';
 
 const MIN_COLS = 2;
 const MIN_ROWS = 2;
@@ -135,7 +136,10 @@ export function TerminalPane({
     });
 
     const textarea = term.textarea;
-    const handleFocus = (): void => setFocused(true);
+    const handleFocus = (): void => {
+      setFocused(true);
+      setTerminalFocus(sessionId, pane.paneId);
+    };
     const handleBlur = (): void => setFocused(false);
     textarea?.addEventListener('focus', handleFocus);
     textarea?.addEventListener('blur', handleBlur);

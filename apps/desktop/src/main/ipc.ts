@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { homedir } from 'node:os';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { homedir, tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import type { CoreRuntime } from '@builderhelm/core';
 import {
@@ -158,6 +160,9 @@ import {
   voiceSettingsUpdateRequestSchema,
   voiceStatusIpcResponseSchema,
   voiceStatusRequestSchema,
+  voiceTranscribeIpcResponseSchema,
+  voiceTranscribeRequestSchema,
+  type VoiceSettings,
 } from '@builderhelm/protocol/voice';
 import {
   createCorrelationId,
@@ -223,7 +228,11 @@ export function registerIpcHandlers(
   core: CoreRuntime,
   board?: BoardPtyManager,
   swarmRunner?: PtySwarmRunner,
-  voice?: { models: VoiceModelManager; runtime: VoiceRuntime },
+  voice?: {
+    models: VoiceModelManager;
+    runtime: VoiceRuntime;
+    onSettings?: (settings: VoiceSettings) => void;
+  },
 ): () => void {
   const preview = new PreviewBrowser();
   const activeStreams = new Map<
@@ -1352,11 +1361,15 @@ export function registerIpcHandlers(
     }
   });
 
+  function presentVoice(value: Awaited<ReturnType<CoreRuntime['voice']['status']>>) {
+    voice?.onSettings?.(value.settings);
+    return voiceStatusIpcResponseSchema.parse({ ok: true, value });
+  }
+
   ipcMain.handle(ipcChannels.voiceStatus, async (_event, input: unknown) => {
     try {
       voiceStatusRequestSchema.parse(input);
-      const value = await core.voice.status();
-      return voiceStatusIpcResponseSchema.parse({ ok: true, value });
+      return presentVoice(await core.voice.status());
     } catch (error) {
       return voiceStatusIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
     }
@@ -1365,8 +1378,9 @@ export function registerIpcHandlers(
   ipcMain.handle(ipcChannels.voiceSettingsUpdate, async (_event, input: unknown) => {
     try {
       const request = voiceSettingsUpdateRequestSchema.parse(input);
-      const value = await core.voice.updateSettings(request.input, request.correlationId);
-      return voiceStatusIpcResponseSchema.parse({ ok: true, value });
+      return presentVoice(
+        await core.voice.updateSettings(request.input, request.correlationId),
+      );
     } catch (error) {
       return voiceStatusIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
     }
@@ -1375,8 +1389,9 @@ export function registerIpcHandlers(
   ipcMain.handle(ipcChannels.voiceKeySave, async (_event, input: unknown) => {
     try {
       const request = voiceKeySaveRequestSchema.parse(input);
-      const value = await core.voice.saveOpenAiKey(request.input, request.correlationId);
-      return voiceStatusIpcResponseSchema.parse({ ok: true, value });
+      return presentVoice(
+        await core.voice.saveOpenAiKey(request.input, request.correlationId),
+      );
     } catch (error) {
       return voiceStatusIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
     }
@@ -1386,6 +1401,7 @@ export function registerIpcHandlers(
     try {
       const request = voiceKeyDeleteRequestSchema.parse(input);
       const value = await core.voice.deleteOpenAiKey(request.correlationId);
+      voice?.onSettings?.(value.settings);
       return voiceKeyDeleteIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
       return voiceKeyDeleteIpcResponseSchema.parse({
@@ -1418,8 +1434,7 @@ export function registerIpcHandlers(
           );
         }
       });
-      const value = await core.voice.status();
-      return voiceStatusIpcResponseSchema.parse({ ok: true, value });
+      return presentVoice(await core.voice.status());
     } catch (error) {
       return voiceStatusIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
     }
@@ -1429,8 +1444,7 @@ export function registerIpcHandlers(
     try {
       const request = voiceModelCancelRequestSchema.parse(input);
       requireVoice().models.cancel(request.input.modelId);
-      const value = await core.voice.status();
-      return voiceStatusIpcResponseSchema.parse({ ok: true, value });
+      return presentVoice(await core.voice.status());
     } catch (error) {
       return voiceStatusIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
     }
@@ -1446,12 +1460,72 @@ export function registerIpcHandlers(
       if (current.settings.modelId === request.input.modelId) {
         await core.voice.updateSettings({ modelId: null }, request.correlationId);
       }
-      const value = await core.voice.status();
-      return voiceStatusIpcResponseSchema.parse({ ok: true, value });
+      return presentVoice(await core.voice.status());
     } catch (error) {
       return voiceStatusIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
     }
   });
+
+  ipcMain.handle(ipcChannels.voiceTranscribe, async (_event, input: unknown) => {
+    try {
+      const request = voiceTranscribeRequestSchema.parse(input);
+      const status = await core.voice.status();
+      if (!status.settings.enabled) {
+        throw new BuilderHelmError('VALIDATION_FAILED', 'Voice dictation is off.');
+      }
+      const modelId = status.settings.modelId;
+      if (modelId === null) {
+        throw new BuilderHelmError('VALIDATION_FAILED', 'Select a speech model.');
+      }
+      const model = status.models.find((entry) => entry.id === modelId);
+      if (model === undefined) {
+        throw new BuilderHelmError('VALIDATION_FAILED', 'Select a speech model.');
+      }
+      const bytes = Buffer.from(request.input.audioBase64, 'base64');
+      if (bytes.byteLength < 44) {
+        throw new BuilderHelmError('VALIDATION_FAILED', 'Audio is empty.');
+      }
+      if (model.runtime === 'cloud') {
+        const result = await core.voice.transcribe(
+          { bytes: new Uint8Array(bytes), filename: request.input.filename },
+          request.correlationId,
+        );
+        return voiceTranscribeIpcResponseSchema.parse({ ok: true, value: result });
+      }
+      if (!model.installed) {
+        throw new BuilderHelmError(
+          'MODEL_UNAVAILABLE',
+          'The speech model is not installed.',
+        );
+      }
+      const dir = await mkdtemp(join(tmpdir(), 'builderhelm-voice-'));
+      const wavPath = join(dir, 'clip.wav');
+      try {
+        await writeFile(wavPath, bytes);
+        const text = await requireVoice().runtime.transcribeWav(modelId, wavPath);
+        return voiceTranscribeIpcResponseSchema.parse({
+          ok: true,
+          value: { text },
+        });
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    } catch (error) {
+      return voiceTranscribeIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  if (typeof core.voice?.status === 'function') {
+    void core.voice
+      .status()
+      .then((value) => voice?.onSettings?.(value.settings))
+      .catch(() => {
+        // Hotkeys register on the next successful voice status call.
+      });
+  }
 
   return () => {
     for (const active of activeStreams.values()) active.controller.abort();
@@ -1461,7 +1535,6 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.providerList);
     ipcMain.removeHandler(ipcChannels.providerCreate);
     ipcMain.removeHandler(ipcChannels.providerUpdate);
-    ipcMain.removeHandler(ipcChannels.providerDelete);
     ipcMain.removeHandler(ipcChannels.providerTestConnection);
     ipcMain.removeHandler(ipcChannels.modelDiscover);
     ipcMain.removeHandler(ipcChannels.modelList);
@@ -1530,5 +1603,6 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.voiceModelDownload);
     ipcMain.removeHandler(ipcChannels.voiceModelCancel);
     ipcMain.removeHandler(ipcChannels.voiceModelDelete);
+    ipcMain.removeHandler(ipcChannels.voiceTranscribe);
   };
 }

@@ -2,8 +2,9 @@ import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { bootstrapCore, type CoreRuntime } from '@builderhelm/core';
+import { ipcChannels } from '@builderhelm/protocol/ipc';
 import { createCorrelationId, normalizeError } from '@builderhelm/shared';
-import { app, BrowserWindow, dialog, session } from 'electron';
+import { app, BrowserWindow, dialog, globalShortcut, session } from 'electron';
 
 import { registerIpcHandlers } from './ipc.js';
 import { BoardPtyManager, probePty } from './board-pty-manager.js';
@@ -11,6 +12,7 @@ import { PtySwarmRunner } from './swarm-runner.js';
 import { KeyringSecretStore } from './keyring-secret-store.js';
 import { VoiceModelManager } from './voice-models.js';
 import { VoiceRuntime } from './voice-runtime.js';
+import { VoiceHotkeys } from './voice-hotkeys.js';
 import { installApplicationMenu } from './legal-menu.js';
 import { buildContentSecurityPolicy, secureWebPreferences } from './security.js';
 
@@ -18,6 +20,7 @@ let core: CoreRuntime | undefined;
 let unregisterIpc: (() => void) | undefined;
 let boardPty: BoardPtyManager | undefined;
 let swarmRunner: PtySwarmRunner | undefined;
+let voiceHotkeys: VoiceHotkeys | undefined;
 let smokeDatabasePath: string | undefined;
 
 function isAllowedNavigation(currentUrl: string, destinationUrl: string): boolean {
@@ -205,9 +208,12 @@ app
   .whenReady()
   .then(() => {
     session.defaultSession.setPermissionRequestHandler(
-      (_webContents, _permission, callback) => {
-        callback(false);
+      (_webContents, permission, callback) => {
+        callback(permission === 'media');
       },
+    );
+    session.defaultSession.setPermissionCheckHandler(
+      (_webContents, permission) => permission === 'media',
     );
 
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
@@ -236,6 +242,19 @@ app
       join(app.getPath('userData'), 'voice-models'),
     );
     const voiceRuntime = new VoiceRuntime(voiceModels);
+    voiceHotkeys = new VoiceHotkeys({
+      register: (accelerator, callback) => globalShortcut.register(accelerator, callback),
+      unregister: (accelerator) => {
+        globalShortcut.unregister(accelerator);
+      },
+      broadcastPress: () => {
+        for (const window of BrowserWindow.getAllWindows()) {
+          if (!window.isDestroyed()) {
+            window.webContents.send(ipcChannels.voiceHotkey, { type: 'press' });
+          }
+        }
+      },
+    });
     core = bootstrapCore({
       databasePath,
       secretStore: new KeyringSecretStore(),
@@ -255,6 +274,7 @@ app
     unregisterIpc = registerIpcHandlers(core, boardPty, swarmRunner, {
       models: voiceModels,
       runtime: voiceRuntime,
+      onSettings: (settings) => voiceHotkeys?.sync(settings),
     });
     installApplicationMenu();
     createWindow();
@@ -278,6 +298,8 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  voiceHotkeys?.dispose();
+  voiceHotkeys = undefined;
   unregisterIpc?.();
   unregisterIpc = undefined;
   boardPty?.dispose();

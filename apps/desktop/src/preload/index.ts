@@ -97,12 +97,15 @@ import {
   editorWriteIpcResponseSchema,
 } from '@builderhelm/protocol/editor';
 import {
+  voiceHotkeyEventSchema,
   voiceKeyDeleteIpcResponseSchema,
   voiceKeySaveInputSchema,
   voiceModelEventSchema,
   voiceModelIdInputSchema,
   voiceSettingsUpdateInputSchema,
   voiceStatusIpcResponseSchema,
+  voiceTranscribeInputSchema,
+  voiceTranscribeIpcResponseSchema,
 } from '@builderhelm/protocol/voice';
 import {
   createProviderInputSchema,
@@ -777,6 +780,24 @@ const api: BuilderHelmDesktopApi = {
       };
       ipcRenderer.on(ipcChannels.voiceModelEvent, subscription);
       return () => ipcRenderer.removeListener(ipcChannels.voiceModelEvent, subscription);
+    },
+    async transcribe(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.voiceTranscribe, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: voiceTranscribeInputSchema.parse(input),
+      });
+      return unwrap(voiceTranscribeIpcResponseSchema.parse(response));
+    },
+    onHotkey(listener) {
+      const subscription = (
+        _event: Electron.IpcRendererEvent,
+        payload: unknown,
+      ): void => {
+        const parsed = voiceHotkeyEventSchema.safeParse(payload);
+        if (parsed.success) listener(parsed.data);
+      };
+      ipcRenderer.on(ipcChannels.voiceHotkey, subscription);
+      return () => ipcRenderer.removeListener(ipcChannels.voiceHotkey, subscription);
     },
   },
 };

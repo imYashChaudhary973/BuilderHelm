@@ -69,7 +69,10 @@
         "dir"
       ],
       "icon": "resources/icon.icns",
-      "identity": null
+      "identity": null,
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "BuilderHelm uses the microphone for voice dictation."
+      }
     }
   },
   "devDependencies": {

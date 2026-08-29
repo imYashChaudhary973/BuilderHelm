@@ -97,11 +97,14 @@ import type {
   ProjectRepositorySelectInput,
 } from './projects.js';
 import type {
+  VoiceHotkeyEvent,
   VoiceKeySaveInput,
   VoiceModelEvent,
   VoiceModelIdInput,
   VoiceSettingsUpdateInput,
   VoiceStatus,
+  VoiceTranscribeInput,
+  VoiceTranscribeResult,
 } from './voice.js';
 
 export const ipcChannels = {
@@ -183,6 +186,8 @@ export const ipcChannels = {
   voiceModelCancel: 'builderhelm:voice:model-cancel',
   voiceModelDelete: 'builderhelm:voice:model-delete',
   voiceModelEvent: 'builderhelm:voice:model-event',
+  voiceTranscribe: 'builderhelm:voice:transcribe',
+  voiceHotkey: 'builderhelm:voice:hotkey',
 } as const;
 
 export const systemHealthRequestSchema = z
@@ -341,6 +346,8 @@ export interface BuilderHelmDesktopApi {
     downloadModel(input: VoiceModelIdInput): Promise<VoiceStatus>;
     cancelDownload(input: VoiceModelIdInput): Promise<VoiceStatus>;
     deleteModel(input: VoiceModelIdInput): Promise<VoiceStatus>;
+    transcribe(input: VoiceTranscribeInput): Promise<VoiceTranscribeResult>;
     onModelEvent(listener: (event: VoiceModelEvent) => void): () => void;
+    onHotkey(listener: (event: VoiceHotkeyEvent) => void): () => void;
   };
 }

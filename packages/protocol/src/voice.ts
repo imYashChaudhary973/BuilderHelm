@@ -131,9 +131,9 @@ export const voiceDictationModeSchema = z.enum(voiceDictationModes);
 export type VoiceDictationMode = z.infer<typeof voiceDictationModeSchema>;
 
 /**
- * Accelerator in Electron's form, e.g. `CommandOrControl+Shift+V`. Dictation is
- * in-app only, so this is matched against key events in the focused window
- * rather than registered as a system-wide shortcut.
+ * Accelerator in Electron's form, e.g. `CommandOrControl+Shift+V`.
+ * Toggle mode registers it with `globalShortcut`. Hold mode matches
+ * keydown/keyup on the focused window.
  */
 export const voiceHotkeySchema = z
   .string()
@@ -324,11 +324,19 @@ export type VoiceModelIdInput = z.infer<typeof voiceModelIdInputSchema>;
 
 export const voiceTranscribeInputSchema = z
   .object({
-    modelId: voiceModelIdSchema,
-    wavPath: z.string().trim().min(1).max(1024),
+    filename: z
+      .string()
+      .trim()
+      .min(1)
+      .max(200)
+      .regex(/^[A-Za-z0-9._-]+$/),
+    audioBase64: z.string().min(1).max(34_000_000),
   })
   .strict();
 export type VoiceTranscribeInput = z.infer<typeof voiceTranscribeInputSchema>;
+
+export const voiceHotkeyEventSchema = z.object({ type: z.literal('press') }).strict();
+export type VoiceHotkeyEvent = z.infer<typeof voiceHotkeyEventSchema>;
 
 export const voiceTranscribeResultSchema = z.object({ text: z.string() }).strict();
 export type VoiceTranscribeResult = z.infer<typeof voiceTranscribeResultSchema>;
