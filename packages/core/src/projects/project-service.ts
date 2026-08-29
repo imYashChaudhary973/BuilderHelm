@@ -88,6 +88,16 @@ export class ProjectService {
     private readonly git: GitInspector = new LocalGitInspector(),
   ) {}
 
+  /**
+   * Root paths of every registered repository.
+   *
+   * Startup worktree recovery needs to know which repositories to inspect, and
+   * the repository store is owned here.
+   */
+  listRepositoryRoots(): string[] {
+    return [...new Set(this.repositories.list().map((entry) => entry.rootPath))];
+  }
+
   dashboard(): ProjectDashboardSnapshot {
     return projectDashboardSnapshotSchema.parse({
       generatedAt: utcNow(),

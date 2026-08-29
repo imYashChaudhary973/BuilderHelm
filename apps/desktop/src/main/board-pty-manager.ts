@@ -8,12 +8,14 @@ import { promisify } from 'node:util';
 
 import {
   BOARD_AGENT_CATALOG,
+  BOARD_WORKTREE_BRANCH_PREFIX,
   boardPaneEventEnvelopeSchema,
   ipcChannels,
   type BoardAgentId,
   type BoardCreateInput,
   type BoardIsolation,
   type BoardPaneArgv,
+  type BoardPaneAckInput,
   type BoardPaneCloseInput,
   type BoardPaneDrainInput,
   type BoardPaneEvent,
@@ -46,6 +48,13 @@ interface PaneMeta {
    */
   emitted: number;
   startupTail: string;
+  /** Stream offset already handed to the renderer. */
+  sent: number;
+  /** Stream offset the renderer reports it has finished writing. */
+  ackedOffset: number;
+  /** Whether this renderer acknowledges at all; benchmarks and probes do not. */
+  ackSeen: boolean;
+  paused: boolean;
   pendingData: string;
   flushTimer: NodeJS.Timeout | null;
   acked: Set<string>;
@@ -69,6 +78,14 @@ const agentLabelById: Record<string, string> = Object.fromEntries(
 const maxBufferedChars = 80_000;
 
 const outputBatchDelayMs = 8;
+// A single `yes` measured about 85 MiB/s at the renderer, which no terminal can
+// parse in real time. Above the high mark the PTY is paused so the writing
+// process blocks on its tty; nothing is dropped and no escape sequence is torn.
+const inFlightHighWaterChars = 2 * 1024 * 1024;
+const inFlightLowWaterChars = 512 * 1024;
+// The data event caps `data` at 1,000,000 characters and base64 inflates by 4/3,
+// so a single oversized PTY chunk would otherwise fail validation mid-stream.
+const maxEventChars = 700_000;
 const maxPendingDataChars = 64 * 1024;
 
 function resolveCommand(agentId: BoardAgentId, override: string | undefined): string {
@@ -261,6 +278,13 @@ export class BoardPtyManager {
         this.cancelDataFlush(pane);
         pane.pty?.kill();
       }
+      // Creation is transactional: a session that never opened must not leave
+      // worktrees and branches behind for the panes that did succeed.
+      if (session.isolation === 'worktree') {
+        for (const pane of session.panes.values()) {
+          await this.discardWorktree(session.folderPath, pane.cwd, pane.branch);
+        }
+      }
       this.sessions.delete(sessionId);
       throw error;
     }
@@ -333,10 +357,20 @@ export class BoardPtyManager {
       location.branch === null
         ? `${label} · ${basename(location.cwd)} #${slot + 1}`
         : `${label} · ${location.branch}`;
-    const pty =
-      argv !== undefined
-        ? spawnArgvPty(location.cwd, argv, 120, 30)
-        : spawnPty(location.cwd, command, 120, 30);
+    let pty: IPty;
+    try {
+      pty =
+        argv !== undefined
+          ? spawnArgvPty(location.cwd, argv, 120, 30)
+          : spawnPty(location.cwd, command, 120, 30);
+    } catch (error) {
+      // The worktree exists but this pane never joined the session, so the
+      // caller's rollback cannot see it. Undo it here or it leaks silently.
+      if (session.isolation === 'worktree') {
+        await this.discardWorktree(session.folderPath, location.cwd, location.branch);
+      }
+      throw error;
+    }
     const meta: PaneMeta = {
       slot,
       agentId,
@@ -347,6 +381,10 @@ export class BoardPtyManager {
       output: '',
       emitted: 0,
       startupTail: '',
+      sent: 0,
+      ackedOffset: 0,
+      ackSeen: false,
+      paused: false,
       pendingData: '',
       flushTimer: null,
       acked: new Set(),
@@ -420,11 +458,8 @@ export class BoardPtyManager {
     this.closing.add(input.paneId);
     pane.pty?.kill();
     pane.pty = null;
-    if (session.isolation === 'worktree' && pane.cwd !== session.folderPath) {
-      await execFileAsync('git', ['worktree', 'remove', '--force', pane.cwd], {
-        cwd: session.folderPath,
-        timeout: 15_000,
-      }).catch(() => undefined);
+    if (session.isolation === 'worktree') {
+      await this.discardWorktree(session.folderPath, pane.cwd, pane.branch);
     }
     session.panes.delete(input.paneId);
     [...session.panes.values()]
@@ -432,6 +467,37 @@ export class BoardPtyManager {
       .forEach((item, index) => {
         item.slot = index;
       });
+  }
+
+  /**
+   * Reclaims one pane worktree and, when safe, its branch.
+   *
+   * `git branch -d` refuses a branch holding unmerged commits, so agent work
+   * that was committed but never landed survives losing its directory. The
+   * prefix check is what proves the branch is ours: pane worktrees share a
+   * parent directory with a developer's own checkouts.
+   */
+  private async discardWorktree(
+    repoPath: string,
+    worktreePath: string,
+    branch: string | null,
+  ): Promise<void> {
+    if (worktreePath === repoPath) return;
+    await execFileAsync('git', ['worktree', 'remove', '--force', worktreePath], {
+      cwd: repoPath,
+      timeout: 15_000,
+    }).catch(() => undefined);
+    // A stale administrative entry would otherwise block the branch delete.
+    await execFileAsync('git', ['worktree', 'prune'], {
+      cwd: repoPath,
+      timeout: 15_000,
+    }).catch(() => undefined);
+    if (branch !== null && branch.startsWith(BOARD_WORKTREE_BRANCH_PREFIX)) {
+      await execFileAsync('git', ['branch', '-d', branch], {
+        cwd: repoPath,
+        timeout: 15_000,
+      }).catch(() => undefined);
+    }
   }
 
   drainPane(input: BoardPaneDrainInput): { data: string; offset: number } {
@@ -476,11 +542,54 @@ export class BoardPtyManager {
     if (pane.pendingData.length === 0) return;
     const data = pane.pendingData;
     pane.pendingData = '';
-    this.forward(sessionId, paneId, {
-      type: 'data',
-      data: Buffer.from(data, 'utf8').toString('base64'),
-      offset: pane.emitted,
-    });
+    // Pending bytes are the tail of the stream, so they span
+    // [emitted - length, emitted).
+    const start = pane.emitted - data.length;
+    for (let index = 0; index < data.length; index += maxEventChars) {
+      const slice = data.slice(index, index + maxEventChars);
+      pane.sent = start + index + slice.length;
+      this.forward(sessionId, paneId, {
+        type: 'data',
+        data: Buffer.from(slice, 'utf8').toString('base64'),
+        offset: pane.sent,
+      });
+    }
+    this.applyBackpressure(pane);
+  }
+
+  /**
+   * Reports how much output the renderer has finished writing.
+   *
+   * Resuming here is what makes the pause safe: the pane only restarts once the
+   * consumer has actually caught up.
+   */
+  ackPane(input: BoardPaneAckInput): void {
+    const pane = this.requirePane(input.sessionId, input.paneId);
+    pane.ackSeen = true;
+    // Acks can arrive out of order; only ever move the watermark forward.
+    pane.ackedOffset = Math.max(pane.ackedOffset, Math.min(input.offset, pane.sent));
+    this.applyBackpressure(pane);
+  }
+
+  /**
+   * Pauses or resumes the PTY against the renderer's drain progress.
+   *
+   * Only engages once the renderer has acknowledged at least once. A consumer
+   * that never acks, such as the throughput benchmark, keeps the old unbounded
+   * behaviour instead of stalling forever.
+   */
+  private applyBackpressure(pane: PaneMeta): void {
+    if (!pane.ackSeen || pane.pty === null) return;
+    const inFlight = pane.sent - pane.ackedOffset;
+    if (!pane.paused && inFlight >= inFlightHighWaterChars) {
+      pane.pty.pause();
+      pane.paused = true;
+      return;
+    }
+    if (pane.paused && inFlight <= inFlightLowWaterChars) {
+      pane.pty.resume();
+      pane.paused = false;
+    }
   }
 
   private cancelDataFlush(pane: PaneMeta): void {

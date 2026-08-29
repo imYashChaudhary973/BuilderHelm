@@ -47,6 +47,15 @@ export const BOARD_AGENT_CATALOG: readonly BoardAgentCatalogEntry[] = [
   { id: 'custom', label: 'Custom command', command: '' },
 ];
 
+/**
+ * Marks a branch as one BuilderHelm created for a pane worktree.
+ *
+ * Ownership has to be provable before anything is deleted. Pane worktrees live
+ * under `<repo>-worktrees/<label>`, which is also where a developer keeps their
+ * own checkouts, so the directory is not evidence. Only this branch prefix is.
+ */
+export const BOARD_WORKTREE_BRANCH_PREFIX = 'exeum/';
+
 export const boardPaneCountSchema = z.union([
   z.literal(1),
   z.literal(2),
@@ -256,6 +265,24 @@ export const boardPaneDrainResultSchema = z
   .strict();
 export type BoardPaneDrainResult = z.infer<typeof boardPaneDrainResultSchema>;
 
+/**
+ * Renderer report of how much pane output it has finished writing.
+ *
+ * A pane can emit far faster than a terminal can parse and paint, so the host
+ * needs to know what has actually been consumed before it keeps reading the
+ * PTY. `offset` is the stream position the renderer has drained up to, using
+ * the same counter carried on data events.
+ */
+export const boardPaneAckInputSchema = z
+  .object({
+    correlationId: boardCorrelationSchema,
+    sessionId: z.string().uuid(),
+    paneId: z.string().uuid(),
+    offset: z.number().int().nonnegative(),
+  })
+  .strict();
+export type BoardPaneAckInput = z.infer<typeof boardPaneAckInputSchema>;
+
 export const boardSelectFolderInputSchema = z
   .object({ correlationId: boardCorrelationSchema })
   .strict();
@@ -358,6 +385,9 @@ export const boardPaneCloseIpcResponseSchema = boardIpcResponse(
 export const boardAddPaneIpcResponseSchema = boardIpcResponse(boardPaneSummarySchema);
 export const boardPaneDrainIpcResponseSchema = boardIpcResponse(
   boardPaneDrainResultSchema,
+);
+export const boardPaneAckIpcResponseSchema = boardIpcResponse(
+  z.object({ acked: z.literal(true) }).strict(),
 );
 export const boardSelectFolderIpcResponseSchema = boardIpcResponse(z.string().nullable());
 export const boardHomeDirIpcResponseSchema = boardIpcResponse(z.string().min(1));

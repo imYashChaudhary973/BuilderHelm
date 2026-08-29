@@ -23,15 +23,21 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 - Swarm mission, roster, CLI seats, live state, directives, budgets, and worktree flow.
 - Third-party attribution generated from the production graph, shipped in the
   app resources, reachable from the Help menu, and guarded in CI.
+- Pane worktree creation is transactional, and worktrees left by a crashed run
+  are reclaimed at startup. A worktree holding uncommitted work, and a branch
+  holding unlanded commits, are both preserved.
+- Terminal output is bounded end to end: the renderer reports what it has
+  drained and the host pauses the PTY when a pane outruns it.
 
 ## Partial or needing hardening
 
 - Swarm verification, review, landing, stop/reconnect, and failure recovery.
-- Terminal output is batched in Electron main and startup scanning is
-  incremental. Verified on macOS at 1, 2, 4, 8, and 12 panes. Still missing:
-  renderer-side write coalescing, backpressure when a pane outruns the
-  renderer, and reconnect that reconciles the drain snapshot against live
-  events without duplicating output.
+- Terminal output is batched in Electron main, startup scanning is incremental,
+  and reconnect reconciles the drain snapshot against live output by stream
+  offset. Verified on macOS at 1, 2, 4, 8, and 12 panes. Renderer-side write
+  coalescing is deliberately not implemented: batching already cut host sends
+  by 95% and the cell-accurate renderer replaced the DOM renderer it was meant
+  to protect, so there is no measured headroom left to reclaim.
 - Installed CLI detection resolves every catalogued command in one login shell.
   Structured-output adapters and capability metadata are still inconsistent.
 - Cross-platform shell, path, credential, and PTY behavior.

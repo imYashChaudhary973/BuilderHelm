@@ -17,6 +17,8 @@ import {
   boardDetectAgentsIpcResponseSchema,
   boardPaneCloseInputSchema,
   boardPaneCloseIpcResponseSchema,
+  boardPaneAckInputSchema,
+  boardPaneAckIpcResponseSchema,
   boardPaneDrainInputSchema,
   boardPaneDrainIpcResponseSchema,
   boardPaneEventEnvelopeSchema,
@@ -485,6 +487,13 @@ const api: BuilderHelmDesktopApi = {
         boardPaneDrainInputSchema.parse(input),
       );
       return unwrap(boardPaneDrainIpcResponseSchema.parse(response));
+    },
+    async ackPane(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.boardPaneAck,
+        boardPaneAckInputSchema.parse(input),
+      );
+      return unwrap(boardPaneAckIpcResponseSchema.parse(response));
     },
     async selectFolder() {
       const response: unknown = await ipcRenderer.invoke(ipcChannels.boardSelectFolder, {

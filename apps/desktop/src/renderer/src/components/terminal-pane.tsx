@@ -151,10 +151,31 @@ export function TerminalPane({
     const decode = (data: string): string =>
       new TextDecoder().decode(Uint8Array.from(atob(data), (c) => c.charCodeAt(0)));
 
+    // Reported once xterm has finished parsing, which is the only honest signal
+    // that the pane was consumed. The host pauses the PTY when too much is
+    // outstanding, so a silent renderer must never look like a fast one.
+    let ackHighWater = 0;
+    const ack = (offset: number): void => {
+      if (offset <= ackHighWater) return;
+      ackHighWater = offset;
+      void window.builderHelm.board
+        .ackPane({
+          correlationId: crypto.randomUUID() as CorrelationId,
+          sessionId,
+          paneId: pane.paneId,
+          offset,
+        })
+        .catch(() => undefined);
+    };
+
     /** Writes the tail of a chunk that the snapshot does not already cover. */
     const writeAfter = (text: string, offset: number, from: number): void => {
       const tail = chunkTailAfter(text, offset, from);
-      if (tail.length > 0) term.write(tail);
+      if (tail.length === 0) {
+        ack(offset);
+        return;
+      }
+      term.write(tail, () => ack(offset));
     };
 
     const unsubscribe = window.builderHelm.board.onPaneEvent(sessionId, (envelope) => {
@@ -189,7 +210,9 @@ export function TerminalPane({
         // Without a snapshot the buffered chunks are all we have; show them
         // rather than stranding the pane blank.
         snapshotOffset = 0;
-        for (const chunk of buffered) term.write(chunk.text);
+        for (const chunk of buffered) {
+          term.write(chunk.text, () => ack(chunk.offset));
+        }
         buffered = [];
       });
 

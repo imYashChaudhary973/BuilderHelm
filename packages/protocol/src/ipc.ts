@@ -9,6 +9,7 @@ import type {
   BoardLandPreview,
   BoardLandResult,
   BoardPaneCloseInput,
+  BoardPaneAckInput,
   BoardPaneDrainInput,
   BoardPaneDrainResult,
   BoardPaneEventEnvelope,
@@ -133,6 +134,7 @@ export const ipcChannels = {
   boardPaneClose: 'builderhelm:board:pane-close',
   boardPaneAdd: 'builderhelm:board:pane-add',
   boardPaneDrain: 'builderhelm:board:pane-drain',
+  boardPaneAck: 'builderhelm:board:pane-ack',
   boardHomeDir: 'builderhelm:board:home-dir',
   boardSelectFolder: 'builderhelm:board:select-folder',
   boardDetectAgents: 'builderhelm:board:detect-agents',
@@ -275,6 +277,7 @@ export interface BuilderHelmDesktopApi {
     closePane(input: BoardPaneCloseInput): Promise<{ readonly closed: true }>;
     addPane(input: BoardAddPaneInput): Promise<BoardPaneSummary>;
     drainPane(input: BoardPaneDrainInput): Promise<BoardPaneDrainResult>;
+    ackPane(input: BoardPaneAckInput): Promise<{ readonly acked: true }>;
     selectFolder(): Promise<string | null>;
     detectAgents(): Promise<BoardAgentDetection[]>;
     listPresets(): Promise<BoardPresetRecord[]>;

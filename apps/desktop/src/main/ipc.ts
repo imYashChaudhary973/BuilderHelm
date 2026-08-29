@@ -26,6 +26,8 @@ import {
   boardLandPreviewIpcResponseSchema,
   boardPaneCloseInputSchema,
   boardPaneCloseIpcResponseSchema,
+  boardPaneAckInputSchema,
+  boardPaneAckIpcResponseSchema,
   boardPaneDrainInputSchema,
   boardPaneDrainIpcResponseSchema,
   boardPaneResizeInputSchema,
@@ -961,6 +963,15 @@ export function registerIpcHandlers(
         ok: false,
         error: ipcError(error),
       });
+    }
+  });
+  ipcMain.handle(ipcChannels.boardPaneAck, (_event, input: unknown) => {
+    try {
+      const request = boardPaneAckInputSchema.parse(input);
+      requireBoard().ackPane(request);
+      return boardPaneAckIpcResponseSchema.parse({ ok: true, value: { acked: true } });
+    } catch (error) {
+      return boardPaneAckIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
     }
   });
   ipcMain.handle(ipcChannels.boardSelectFolder, async (_event, input: unknown) => {

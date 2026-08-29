@@ -172,6 +172,32 @@ function reportStartupFailure(error: unknown): void {
   }
   app.exit(1);
 }
+/**
+ * Reclaims pane worktrees left behind by a run that never shut down cleanly.
+ *
+ * Repositories come from the registered projects and from saved worktree
+ * presets, which is every folder the product itself knows about. A worktree
+ * holding uncommitted work is reported and kept, because a crash is exactly
+ * when that work is most likely to be the only copy.
+ */
+async function recoverOrphanedWorktrees(runtime: CoreRuntime): Promise<void> {
+  const correlationId = createCorrelationId();
+  const roots = new Set<string>(runtime.projects.listRepositoryRoots());
+  for (const preset of runtime.board.listPresets()) {
+    if (preset.isolation === 'worktree') roots.add(preset.folderPath);
+  }
+  for (const root of roots) {
+    try {
+      await runtime.board.reconcilePaneWorktrees(root, [], correlationId);
+    } catch (error) {
+      runtime.logger.warn({
+        event: 'board.worktree_recovery_failed',
+        correlationId,
+        data: { root, error: normalizeError(error).message },
+      });
+    }
+  }
+}
 
 app
   .whenReady()
@@ -222,6 +248,10 @@ app
     unregisterIpc = registerIpcHandlers(core, boardPty, swarmRunner);
     installApplicationMenu();
     createWindow();
+    // No session is live yet, so any pane worktree still on disk was left by a
+    // crashed or killed run. Deliberately not awaited: recovery shells out to
+    // git per repository and must not delay the window.
+    void recoverOrphanedWorktrees(core);
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {

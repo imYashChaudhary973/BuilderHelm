@@ -1,12 +1,13 @@
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { basename, dirname, join } from 'node:path';
-import { copyFile, mkdir, readdir } from 'node:fs/promises';
+import { copyFile, mkdir, readdir, realpath } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import type { BuilderHelmDatabase } from '@builderhelm/db';
 import type { Logger } from '@builderhelm/observability';
 import {
   BOARD_AGENT_CATALOG,
+  BOARD_WORKTREE_BRANCH_PREFIX,
   boardPresetRecordSchema,
   kanbanCardSchema,
   kanbanCreateInputSchema,
@@ -29,6 +30,15 @@ import {
 } from '@builderhelm/shared';
 
 const execFileAsync = promisify(execFile);
+
+/** Real path, or the input when it cannot be resolved. Never throws. */
+async function resolved(path: string): Promise<string> {
+  try {
+    return await realpath(path);
+  } catch {
+    return path;
+  }
+}
 
 /**
  * Resolves every command in one login shell.
@@ -206,7 +216,7 @@ export class BoardService {
     label: string,
     correlationId: CorrelationId,
   ): Promise<{ readonly path: string; readonly branch: string }> {
-    const branch = `exeum/${label}`;
+    const branch = `${BOARD_WORKTREE_BRANCH_PREFIX}${label}`;
     const worktreeDir = join(dirname(repoPath), `${basename(repoPath)}-worktrees`, label);
     await mkdir(dirname(worktreeDir), { recursive: true });
     try {
@@ -247,6 +257,131 @@ export class BoardService {
       data: { repoPath, worktreeDir, label, branch },
     });
     return { path: worktreeDir, branch };
+  }
+
+  /**
+   * Pane worktrees this repository still has on disk.
+   *
+   * Only branches carrying the BuilderHelm prefix are reported. A developer's
+   * own checkouts sit in the same parent directory, so the path proves nothing
+   * and must never be used to decide ownership.
+   */
+  async listPaneWorktrees(
+    repoPath: string,
+  ): Promise<{ path: string; branch: string; dirty: boolean }[]> {
+    let stdout: string;
+    try {
+      ({ stdout } = await execFileAsync('git', ['worktree', 'list', '--porcelain'], {
+        cwd: repoPath,
+        timeout: 15_000,
+      }));
+    } catch {
+      return [];
+    }
+    const found: { path: string; branch: string }[] = [];
+    let path: string | null = null;
+    for (const line of stdout.split('\n')) {
+      if (line.startsWith('worktree ')) path = line.slice('worktree '.length).trim();
+      else if (line.startsWith('branch ') && path !== null) {
+        // Porcelain reports a full ref; the prefix check needs the short name.
+        const branch = line
+          .slice('branch '.length)
+          .trim()
+          .replace(/^refs\/heads\//, '');
+        if (branch.startsWith(BOARD_WORKTREE_BRANCH_PREFIX)) found.push({ path, branch });
+        path = null;
+      }
+    }
+    return Promise.all(
+      found.map(async (entry) => ({ ...entry, dirty: await this.isDirty(entry.path) })),
+    );
+  }
+
+  /** Uncommitted work, including untracked files, that removal would destroy. */
+  private async isDirty(worktreePath: string): Promise<boolean> {
+    try {
+      const { stdout } = await execFileAsync(
+        'git',
+        ['status', '--porcelain', '--untracked-files=normal'],
+        { cwd: worktreePath, timeout: 15_000 },
+      );
+      return stdout.trim().length > 0;
+    } catch {
+      // Unreadable worktree: treat as dirty so it is never removed blindly.
+      return true;
+    }
+  }
+
+  /**
+   * Removes one pane worktree and, when safe, its branch.
+   *
+   * `git branch -d` refuses to delete a branch holding unmerged commits, so
+   * agent work that was committed but never landed survives even though its
+   * worktree directory is reclaimed.
+   */
+  async removePaneWorktree(
+    repoPath: string,
+    worktreePath: string,
+    branch: string | null,
+    correlationId: CorrelationId,
+  ): Promise<void> {
+    await execFileAsync('git', ['worktree', 'remove', '--force', worktreePath], {
+      cwd: repoPath,
+      timeout: 15_000,
+    }).catch(() => undefined);
+    // Prune first: a stale administrative entry blocks branch deletion.
+    await execFileAsync('git', ['worktree', 'prune'], {
+      cwd: repoPath,
+      timeout: 15_000,
+    }).catch(() => undefined);
+    if (branch !== null && branch.startsWith(BOARD_WORKTREE_BRANCH_PREFIX)) {
+      await execFileAsync('git', ['branch', '-d', branch], {
+        cwd: repoPath,
+        timeout: 15_000,
+      }).catch(() => undefined);
+    }
+    this.logger.info({
+      event: 'board.worktree_removed',
+      correlationId,
+      data: { repoPath, worktreePath, branch },
+    });
+  }
+
+  /**
+   * Reclaims pane worktrees left behind by a crashed or killed run.
+   *
+   * Called at startup, where no session is live yet, so every pane worktree on
+   * disk is a stray. Dirty ones are reported and kept: a crash is exactly when
+   * uncommitted agent work is most likely to be the only copy.
+   */
+  async reconcilePaneWorktrees(
+    repoPath: string,
+    keepPaths: readonly string[],
+    correlationId: CorrelationId,
+  ): Promise<{ removed: string[]; keptDirty: string[] }> {
+    const removed: string[] = [];
+    const keptDirty: string[] = [];
+    // `git worktree list` reports resolved paths, while a caller holds the path
+    // it constructed. On macOS those differ by the /var -> /private/var symlink,
+    // and comparing them raw would treat a live worktree as a stray.
+    const keep = new Set(await Promise.all(keepPaths.map((path) => resolved(path))));
+    for (const entry of await this.listPaneWorktrees(repoPath)) {
+      if (keep.has(await resolved(entry.path))) continue;
+      if (entry.dirty) {
+        keptDirty.push(entry.path);
+        continue;
+      }
+      await this.removePaneWorktree(repoPath, entry.path, entry.branch, correlationId);
+      removed.push(entry.path);
+    }
+    if (removed.length > 0 || keptDirty.length > 0) {
+      this.logger.info({
+        event: 'board.worktrees_reconciled',
+        correlationId,
+        data: { repoPath, removed: removed.length, keptDirty },
+      });
+    }
+    return { removed, keptDirty };
   }
 
   async readBranch(cwd: string): Promise<string | null> {
