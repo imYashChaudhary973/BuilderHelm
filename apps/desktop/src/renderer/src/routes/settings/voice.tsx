@@ -135,9 +135,12 @@ export function VoicePage(): React.JSX.Element {
           </p>
         </div>
       </header>
-      {error !== null && (
+      {(error !== null || voice.isError) && (
         <p className="errorBanner" role="alert">
-          {error}
+          {error ??
+            (voice.error instanceof Error
+              ? voice.error.message
+              : 'Could not load Voice settings.')}
         </p>
       )}
       <div className="settingsLayout voiceLayout">
@@ -155,10 +158,8 @@ export function VoicePage(): React.JSX.Element {
               role="switch"
               aria-checked={settings?.enabled ?? false}
               className={settings?.enabled ? 'voiceSwitch voiceSwitchOn' : 'voiceSwitch'}
-              disabled={update.isPending || voice.isLoading}
-              onClick={() =>
-                settings !== null && update.mutate({ enabled: !settings.enabled })
-              }
+              disabled={update.isPending}
+              onClick={() => update.mutate({ enabled: !(settings?.enabled ?? false) })}
             >
               <span />
             </button>
@@ -240,114 +241,126 @@ export function VoicePage(): React.JSX.Element {
               </button>
               {modelMenuOpen && (
                 <div className="voiceModelMenu" role="listbox">
-                  {models.map((model) => {
-                    const selected = settings?.modelId === model.id;
-                    return (
-                      <div
-                        key={model.id}
-                        role="option"
-                        aria-selected={selected}
-                        className={
-                          selected
-                            ? 'voiceModelOption voiceModelOptionOn'
-                            : 'voiceModelOption'
-                        }
-                        onClick={() => {
-                          if (
-                            model.requiresApiKey &&
-                            voice.data?.openAiKeyPresent === false
-                          ) {
+                  {models.length === 0 ? (
+                    <p className="voiceHint">
+                      {voice.isError
+                        ? 'Could not load speech models.'
+                        : voice.isLoading
+                          ? 'Loading models…'
+                          : 'No speech models available.'}
+                    </p>
+                  ) : (
+                    models.map((model) => {
+                      const selected = settings?.modelId === model.id;
+                      return (
+                        <div
+                          key={model.id}
+                          role="option"
+                          aria-selected={selected}
+                          className={
+                            selected
+                              ? 'voiceModelOption voiceModelOptionOn'
+                              : 'voiceModelOption'
+                          }
+                          onClick={() => {
+                            if (
+                              model.requiresApiKey &&
+                              voice.data?.openAiKeyPresent === false
+                            ) {
+                              setModelMenuOpen(false);
+                              setError(null);
+                              setPendingCloudModelId(model.id);
+                              setKeyModal(true);
+                              return;
+                            }
+                            if (
+                              model.runtime === 'cloud' &&
+                              settings?.cloudConsent !== true
+                            ) {
+                              setModelMenuOpen(false);
+                              setError(null);
+                              setPendingCloudModelId(model.id);
+                              setConsentModal(true);
+                              return;
+                            }
+                            if (model.runtime === 'local' && !model.installed) {
+                              if (!model.downloadable) return;
+                              setError(null);
+                              void window.builderHelm.voice
+                                .downloadModel({ modelId: model.id })
+                                .then(refresh)
+                                .catch((cause: Error) => setError(cause.message));
+                              return;
+                            }
                             setModelMenuOpen(false);
-                            setError(null);
-                            setPendingCloudModelId(model.id);
-                            setKeyModal(true);
-                            return;
-                          }
-                          if (
-                            model.runtime === 'cloud' &&
-                            settings?.cloudConsent !== true
-                          ) {
-                            setModelMenuOpen(false);
-                            setError(null);
-                            setPendingCloudModelId(model.id);
-                            setConsentModal(true);
-                            return;
-                          }
-                          if (model.runtime === 'local' && !model.installed) {
-                            if (!model.downloadable) return;
-                            setError(null);
-                            void window.builderHelm.voice
-                              .downloadModel({ modelId: model.id })
-                              .then(refresh)
-                              .catch((cause: Error) => setError(cause.message));
-                            return;
-                          }
-                          setModelMenuOpen(false);
-                          if (settings !== null) update.mutate({ modelId: model.id });
-                        }}
-                      >
-                        <span className="voiceModelOptionHead">
-                          <strong>{model.label}</strong>
-                          {!model.recommended && !model.requiresApiKey && (
-                            <em className="voiceTag">
-                              {model.runtime === 'cloud' ? 'cloud' : 'offline'}
-                            </em>
-                          )}
-                          {model.engine === 'zipformer' && (
-                            <em className="voiceTag">streaming</em>
-                          )}
-                          {model.recommended && <em className="voiceTag">recommended</em>}
-                          {model.requiresApiKey && <em className="voiceTag">cloud</em>}
-                          {model.installed && <em className="voiceTag">installed</em>}
-                          {model.downloadBytes !== null && (
-                            <span className="voiceSize">
-                              {Math.round(model.downloadBytes / 1_000_000)} MB
-                            </span>
-                          )}
-                        </span>
-                        <span className="voiceModelOptionCopy">{model.detail}</span>
-                        {model.runtime === 'local' && model.downloadable && (
-                          <span className="voiceModelActions">
-                            {model.downloading || progress[model.id] !== undefined ? (
-                              <>
-                                <span className="voiceSize">
-                                  {progress[model.id] ?? 0}%
-                                </span>
+                            update.mutate({ modelId: model.id });
+                          }}
+                        >
+                          <span className="voiceModelOptionHead">
+                            <strong>{model.label}</strong>
+                            {!model.recommended && !model.requiresApiKey && (
+                              <em className="voiceTag">
+                                {model.runtime === 'cloud' ? 'cloud' : 'offline'}
+                              </em>
+                            )}
+                            {model.engine === 'zipformer' && (
+                              <em className="voiceTag">streaming</em>
+                            )}
+                            {model.recommended && (
+                              <em className="voiceTag">recommended</em>
+                            )}
+                            {model.requiresApiKey && <em className="voiceTag">cloud</em>}
+                            {model.installed && <em className="voiceTag">installed</em>}
+                            {model.downloadBytes !== null && (
+                              <span className="voiceSize">
+                                {Math.round(model.downloadBytes / 1_000_000)} MB
+                              </span>
+                            )}
+                          </span>
+                          <span className="voiceModelOptionCopy">{model.detail}</span>
+                          {model.runtime === 'local' && model.downloadable && (
+                            <span className="voiceModelActions">
+                              {model.downloading || progress[model.id] !== undefined ? (
+                                <>
+                                  <span className="voiceSize">
+                                    {progress[model.id] ?? 0}%
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="dangerText"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      void window.builderHelm.voice.cancelDownload({
+                                        modelId: model.id,
+                                      });
+                                    }}
+                                  >
+                                    Cancel
+                                  </button>
+                                </>
+                              ) : model.installed ? (
                                 <button
                                   type="button"
                                   className="dangerText"
                                   onClick={(event) => {
                                     event.stopPropagation();
-                                    void window.builderHelm.voice.cancelDownload({
-                                      modelId: model.id,
-                                    });
+                                    void window.builderHelm.voice
+                                      .deleteModel({ modelId: model.id })
+                                      .then(refresh)
+                                      .catch((cause: Error) => setError(cause.message));
                                   }}
                                 >
-                                  Cancel
+                                  Delete
                                 </button>
-                              </>
-                            ) : model.installed ? (
-                              <button
-                                type="button"
-                                className="dangerText"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  void window.builderHelm.voice
-                                    .deleteModel({ modelId: model.id })
-                                    .then(refresh)
-                                    .catch((cause: Error) => setError(cause.message));
-                                }}
-                              >
-                                Delete
-                              </button>
-                            ) : (
-                              <span className="voiceSize">Download</span>
-                            )}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
+                              ) : (
+                                <span className="voiceSize">Download</span>
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               )}
             </div>

@@ -11,6 +11,7 @@ import {
 } from '@builderhelm/model-gateway';
 import { createLogger } from '@builderhelm/observability';
 import { createCorrelationId } from '@builderhelm/shared';
+import { VOICE_MODEL_CATALOG } from '@builderhelm/protocol';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -67,6 +68,27 @@ describe('voice settings', () => {
     });
     // Reading must not write: an untouched install has no row.
     expect(repository.read()).toBeUndefined();
+  });
+
+  it('still lists models when the keychain probe fails', async () => {
+    const database = openDatabase(':memory:');
+    open.add(database);
+    runMigrations(database, migrations);
+    const secrets = {
+      async get(): Promise<string | null> {
+        throw new Error('Keychain is locked');
+      },
+      async set(): Promise<void> {},
+      async delete(): Promise<void> {},
+    };
+    const service = new VoiceService(
+      new VoiceRepository(database),
+      secrets,
+      createLogger(() => undefined),
+    );
+    const status = await service.status();
+    expect(status.models.length).toBe(VOICE_MODEL_CATALOG.length);
+    expect(status.openAiKeyPresent).toBe(false);
   });
 
   it('persists a local model, mode, hotkey and microphone', async () => {

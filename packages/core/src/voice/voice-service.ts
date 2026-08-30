@@ -224,7 +224,12 @@ export class VoiceService {
   }
 
   private async hasOpenAiKey(): Promise<boolean> {
-    return (await this.secrets.get(VOICE_OPENAI_SECRET_REF)) !== null;
+    try {
+      return (await this.secrets.get(VOICE_OPENAI_SECRET_REF)) !== null;
+    } catch {
+      // Listing models must not depend on Keychain being unlocked.
+      return false;
+    }
   }
 
   private async describe(settings: VoiceSettings): Promise<VoiceStatus> {
