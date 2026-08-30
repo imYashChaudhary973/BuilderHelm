@@ -6,6 +6,7 @@ import { splitOnSilence } from '../src/renderer/src/voice/pcm.js';
 describe('formatDictation', () => {
   it('turns spoken numbers into digits and decimals', () => {
     expect(formatDictation('meet at four')).toBe('Meet at 4');
+    expect(formatDictation('zero')).toBe('0');
     expect(formatDictation('twenty three')).toBe('23');
     expect(formatDictation('twenty four')).toBe('24');
     expect(formatDictation('four point five')).toBe('4.5');

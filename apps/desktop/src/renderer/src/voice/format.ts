@@ -1,5 +1,4 @@
 const ONES: Readonly<Record<string, number>> = {
-  zero: 0,
   oh: 0,
   one: 1,
   two: 2,
@@ -174,6 +173,7 @@ function nextWord(tokens: string[], index: number): number {
 function parseUnit(raw: string): number | null {
   const word = raw.toLowerCase().replace(/[^a-z]/g, '');
   if (word.length === 0) return null;
+  if (word === 'zero') return 0;
   if (word in ONES) return ONES[word] ?? null;
   if (word in TEENS) return TEENS[word] ?? null;
   if (word in TENS) return TENS[word] ?? null;
