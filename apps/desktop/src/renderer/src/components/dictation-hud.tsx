@@ -6,6 +6,8 @@ import {
   subscribeDictation,
 } from '../voice/dictation.js';
 
+const WAVE_BARS = 18;
+
 export function DictationHud(): React.JSX.Element | null {
   const hud = useSyncExternalStore(subscribeDictation, getDictationHud);
 
@@ -30,9 +32,13 @@ export function DictationHud(): React.JSX.Element | null {
       aria-live={hud.error === null ? 'polite' : 'assertive'}
       aria-atomic="true"
       data-phase={hud.phase}
+      style={{ ['--level' as string]: String(Math.min(1, hud.level * 3)) }}
     >
-      <div className="dictationMeter" aria-hidden="true">
-        <span style={{ width: `${Math.min(100, Math.round(hud.level * 220))}%` }} />
+      <span className="dictationOrb" aria-hidden="true" />
+      <div className="dictationWave" aria-hidden="true">
+        {Array.from({ length: WAVE_BARS }, (_, index) => (
+          <i key={index} style={{ ['--i' as string]: index }} />
+        ))}
       </div>
       <p className="dictationCopy">{label}</p>
       {hud.phase !== 'idle' ? (

@@ -19,7 +19,10 @@ export function eventMatchesAccelerator(
   const mods = new Set(parts.slice(0, -1));
   const mac = platform.toLowerCase().includes('mac');
   const wantMeta =
-    mods.has('Meta') || mods.has('Super') || (mac && mods.has('CommandOrControl'));
+    mods.has('Meta') ||
+    mods.has('Super') ||
+    mods.has('Command') ||
+    (mac && mods.has('CommandOrControl'));
   const wantCtrl =
     mods.has('Control') || mods.has('Ctrl') || (!mac && mods.has('CommandOrControl'));
   const wantAlt = mods.has('Alt') || mods.has('Option');

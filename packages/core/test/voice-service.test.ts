@@ -57,11 +57,10 @@ describe('voice settings', () => {
     const { service, repository } = setup();
 
     const status = await service.status();
-
     expect(status.settings).toEqual({
       enabled: false,
       dictationMode: 'toggle',
-      hotkey: 'CommandOrControl+Shift+V',
+      hotkey: 'CommandOrControl+E',
       microphoneId: null,
       modelId: null,
       cloudConsent: false,

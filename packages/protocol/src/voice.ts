@@ -131,7 +131,7 @@ export const voiceDictationModeSchema = z.enum(voiceDictationModes);
 export type VoiceDictationMode = z.infer<typeof voiceDictationModeSchema>;
 
 /**
- * Accelerator in Electron's form, e.g. `CommandOrControl+Shift+V`.
+ * Accelerator in Electron's form, e.g. `CommandOrControl+E`.
  * Toggle mode registers it with `globalShortcut`. Hold mode matches
  * keydown/keyup on the focused window.
  */
@@ -140,9 +140,9 @@ export const voiceHotkeySchema = z
   .trim()
   .min(1)
   .max(64)
-  .regex(/^[A-Za-z0-9+]+$/, 'Use an accelerator such as CommandOrControl+Shift+V');
+  .regex(/^[A-Za-z0-9+]+$/, 'Use an accelerator such as CommandOrControl+E');
 
-export const VOICE_DEFAULT_HOTKEY = 'CommandOrControl+Shift+V';
+export const VOICE_DEFAULT_HOTKEY = 'CommandOrControl+E';
 
 export const voiceSettingsSchema = z
   .object({

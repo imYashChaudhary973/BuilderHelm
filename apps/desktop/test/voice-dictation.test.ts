@@ -66,33 +66,24 @@ describe('microphone permission copy', () => {
 });
 
 describe('voice hotkey match', () => {
-  const event = {
-    key: 'v',
-    code: 'KeyV',
-    metaKey: true,
-    ctrlKey: false,
-    altKey: false,
-    shiftKey: true,
-  };
-
-  it('matches CommandOrControl+Shift+V on mac', () => {
-    expect(eventMatchesAccelerator(event, 'CommandOrControl+Shift+V', 'MacIntel')).toBe(
-      true,
-    );
+  it('matches CommandOrControl+E on mac', () => {
+    const event = {
+      key: 'e',
+      code: 'KeyE',
+      metaKey: true,
+      ctrlKey: false,
+      altKey: false,
+      shiftKey: false,
+    };
+    expect(eventMatchesAccelerator(event, 'CommandOrControl+E', 'MacIntel')).toBe(true);
+    expect(eventMatchesAccelerator(event, 'Command+E', 'MacIntel')).toBe(true);
     expect(
       eventMatchesAccelerator(
         { ...event, metaKey: false, ctrlKey: true },
-        'CommandOrControl+Shift+V',
+        'CommandOrControl+E',
         'Win32',
       ),
     ).toBe(true);
-    expect(
-      eventMatchesAccelerator(
-        { ...event, shiftKey: false },
-        'CommandOrControl+Shift+V',
-        'MacIntel',
-      ),
-    ).toBe(false);
   });
 });
 

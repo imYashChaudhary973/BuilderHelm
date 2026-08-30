@@ -43,6 +43,24 @@ function hotkeyLabel(hotkey: string | undefined): string {
     .join('');
 }
 
+function DownloadBar({ value }: { readonly value: number }): React.JSX.Element {
+  const indeterminate = value <= 0;
+  return (
+    <div
+      className={
+        indeterminate
+          ? 'voiceDownloadBar voiceDownloadBarIndeterminate'
+          : 'voiceDownloadBar'
+      }
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={indeterminate ? undefined : value}
+    >
+      <span style={indeterminate ? undefined : { width: `${value}%` }} />
+    </div>
+  );
+}
 export function VoicePage(): React.JSX.Element {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
@@ -100,14 +118,16 @@ export function VoicePage(): React.JSX.Element {
   const models = voice.data?.models ?? [];
   const selectedModel = models.find((model) => model.id === settings?.modelId) ?? null;
   const mode = dictationMode ?? settings?.dictationMode ?? 'toggle';
+  const activeDownload = Object.entries(progress)[0];
 
   useEffect(() => {
     return window.builderHelm.voice.onModelEvent((event) => {
-      if (event.type === 'download.progress' && event.totalBytes > 0) {
-        setProgress((current) => ({
-          ...current,
-          [event.modelId]: Math.round((event.receivedBytes / event.totalBytes) * 100),
-        }));
+      if (event.type === 'download.progress') {
+        const pct =
+          event.totalBytes > 0
+            ? Math.min(100, Math.round((event.receivedBytes / event.totalBytes) * 100))
+            : 0;
+        setProgress((current) => ({ ...current, [event.modelId]: pct }));
       }
       if (
         event.type === 'download.done' ||
@@ -220,25 +240,30 @@ export function VoicePage(): React.JSX.Element {
               </p>
             </div>
             <div className="voiceModelPicker">
-              <button
-                type="button"
-                className="voiceModelTrigger"
-                aria-haspopup="listbox"
-                aria-expanded={modelMenuOpen}
-                onClick={() => setModelMenuOpen((open) => !open)}
-              >
-                {selectedModel?.label ?? 'Select Model'}
-                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-                  <path
-                    d="m7 10 5 5 5-5"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
+              <div className="voiceModelTriggerCol">
+                <button
+                  type="button"
+                  className="voiceModelTrigger"
+                  aria-haspopup="listbox"
+                  aria-expanded={modelMenuOpen}
+                  onClick={() => setModelMenuOpen((open) => !open)}
+                >
+                  {selectedModel?.label ?? 'Select Model'}
+                  <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                    <path
+                      d="m7 10 5 5 5-5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+                {activeDownload !== undefined ? (
+                  <DownloadBar value={activeDownload[1]} />
+                ) : null}
+              </div>
               {modelMenuOpen && (
                 <div className="voiceModelMenu" role="listbox">
                   {models.length === 0 ? (
@@ -286,6 +311,7 @@ export function VoicePage(): React.JSX.Element {
                             if (model.runtime === 'local' && !model.installed) {
                               if (!model.downloadable) return;
                               setError(null);
+                              setProgress((current) => ({ ...current, [model.id]: 0 }));
                               void window.builderHelm.voice
                                 .downloadModel({ modelId: model.id })
                                 .then(refresh)
@@ -322,6 +348,7 @@ export function VoicePage(): React.JSX.Element {
                             <span className="voiceModelActions">
                               {model.downloading || progress[model.id] !== undefined ? (
                                 <>
+                                  <DownloadBar value={progress[model.id] ?? 0} />
                                   <span className="voiceSize">
                                     {progress[model.id] ?? 0}%
                                   </span>

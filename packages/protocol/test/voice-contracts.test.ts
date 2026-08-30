@@ -77,6 +77,7 @@ describe('voice settings contract', () => {
   });
 
   it('takes accelerators and refuses free text', () => {
+    expect(voiceHotkeySchema.parse('CommandOrControl+E')).toBe('CommandOrControl+E');
     expect(voiceHotkeySchema.parse('CommandOrControl+Shift+V')).toBe(
       'CommandOrControl+Shift+V',
     );

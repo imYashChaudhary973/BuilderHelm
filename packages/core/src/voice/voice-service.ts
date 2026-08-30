@@ -39,10 +39,12 @@ const defaultSettings: VoiceSettings = {
 
 function toSettings(row: StoredVoiceSettings | undefined): VoiceSettings {
   if (row === undefined) return defaultSettings;
+  const hotkey =
+    row.hotkey === 'CommandOrControl+Shift+V' ? VOICE_DEFAULT_HOTKEY : row.hotkey;
   return voiceSettingsSchema.parse({
     enabled: row.enabled === 1,
     dictationMode: row.dictationMode,
-    hotkey: row.hotkey,
+    hotkey,
     microphoneId: row.microphoneId,
     modelId: row.modelId,
     cloudConsent: row.cloudConsent === 1,
