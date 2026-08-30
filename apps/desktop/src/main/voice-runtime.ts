@@ -47,20 +47,27 @@ export class VoiceRuntime {
   }
 
   async transcribeWav(id: VoiceModelId, wavPath: string): Promise<string> {
-    const recognizer = await this.load(id);
-    const sherpa = loadSherpa();
-    const stream = recognizer.createStream();
-    const wave = sherpa.readWave(wavPath);
-    stream.acceptWaveform({ sampleRate: wave.sampleRate, samples: wave.samples });
-    const pack = voiceModelPackage(id);
-    if (pack?.kind === 'zipformer') {
-      const tail = new Float32Array(Math.floor(wave.sampleRate * 0.4));
-      stream.acceptWaveform({ sampleRate: wave.sampleRate, samples: tail });
-      while (recognizer.isReady?.(stream) === true) recognizer.decode(stream);
-    } else {
-      recognizer.decode(stream);
+    try {
+      const recognizer = await this.load(id);
+      const sherpa = loadSherpa();
+      const stream = recognizer.createStream();
+      const wave = sherpa.readWave(wavPath);
+      stream.acceptWaveform({ sampleRate: wave.sampleRate, samples: wave.samples });
+      const pack = voiceModelPackage(id);
+      if (pack?.kind === 'zipformer') {
+        const tail = new Float32Array(Math.floor(wave.sampleRate * 0.4));
+        stream.acceptWaveform({ sampleRate: wave.sampleRate, samples: tail });
+        while (recognizer.isReady?.(stream) === true) recognizer.decode(stream);
+      } else {
+        recognizer.decode(stream);
+      }
+      return (recognizer.getResult(stream).text ?? '').trim();
+    } catch (error) {
+      if (error instanceof BuilderHelmError) throw error;
+      throw new BuilderHelmError('MODEL_UNAVAILABLE', "Couldn't transcribe that clip.", {
+        cause: error,
+      });
     }
-    return (recognizer.getResult(stream).text ?? '').trim();
   }
 
   private async load(id: VoiceModelId): Promise<SherpaRecognizer> {

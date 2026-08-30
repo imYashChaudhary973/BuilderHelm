@@ -27,12 +27,16 @@ export async function startMicCapture(input: {
           },
   });
   const ctx = new AudioContext({ sampleRate: VOICE_CAPTURE_RATE });
+  if (ctx.state === 'suspended') await ctx.resume();
   const source = ctx.createMediaStreamSource(stream);
   const processor = ctx.createScriptProcessor(4096, 1, 1);
   const chunks: Float32Array[] = [];
+  let peak = 0;
   processor.onaudioprocess = (event) => {
     const raw = event.inputBuffer.getChannelData(0);
-    input.onLevel(rms(raw));
+    const instant = rms(raw);
+    peak = Math.max(instant, peak * 0.82);
+    input.onLevel(Math.min(1, peak * 12));
     chunks.push(
       downsample(
         Float32Array.from(raw),

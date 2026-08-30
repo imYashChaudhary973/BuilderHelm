@@ -1511,9 +1511,15 @@ export function registerIpcHandlers(
         await rm(dir, { recursive: true, force: true });
       }
     } catch (error) {
+      const mapped =
+        error instanceof BuilderHelmError || error instanceof ZodError
+          ? error
+          : new BuilderHelmError('MODEL_UNAVAILABLE', "Couldn't transcribe that clip.", {
+              cause: error,
+            });
       return voiceTranscribeIpcResponseSchema.parse({
         ok: false,
-        error: ipcError(error),
+        error: ipcError(mapped),
       });
     }
   });

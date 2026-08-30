@@ -90,15 +90,21 @@ function insertIntoField(el: HTMLElement, text: string): void {
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
     const start = el.selectionStart ?? el.value.length;
     const end = el.selectionEnd ?? el.value.length;
-    const next = el.value.slice(0, start) + text + el.value.slice(end);
-    const proto =
-      el instanceof HTMLTextAreaElement
-        ? HTMLTextAreaElement.prototype
-        : HTMLInputElement.prototype;
-    const desc = Object.getOwnPropertyDescriptor(proto, 'value');
-    desc?.set?.call(el, next);
-    el.selectionStart = el.selectionEnd = start + text.length;
-    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.focus();
+    if (typeof el.setRangeText === 'function') {
+      el.setRangeText(text, start, end, 'end');
+    } else {
+      const next = el.value.slice(0, start) + text + el.value.slice(end);
+      const proto =
+        el instanceof HTMLTextAreaElement
+          ? HTMLTextAreaElement.prototype
+          : HTMLInputElement.prototype;
+      Object.getOwnPropertyDescriptor(proto, 'value')?.set?.call(el, next);
+      el.selectionStart = el.selectionEnd = start + text.length;
+    }
+    el.dispatchEvent(
+      new InputEvent('input', { bubbles: true, data: text, inputType: 'insertText' }),
+    );
     return;
   }
   el.focus();

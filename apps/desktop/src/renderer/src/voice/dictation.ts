@@ -134,10 +134,7 @@ export function createDictation(deps: DictationDeps) {
       text = result.text.trim();
     } catch (error) {
       if (generation !== mine) return;
-      emit({
-        ...idleHud,
-        error: error instanceof Error ? error.message : 'Transcription failed.',
-      });
+      emit({ ...idleHud, error: transcribeErrorMessage(error) });
       return;
     }
     if (generation !== mine) return;
@@ -145,8 +142,15 @@ export function createDictation(deps: DictationDeps) {
       emit({ ...idleHud, error: "Didn't hear anything." });
       return;
     }
-    emit({ phase: 'inserting', level: 0, partial: text, error: null });
-    deps.insert(text, target);
+    const inserted = deps.insert(text, target);
+    if (inserted === 'none') {
+      deps.insert(
+        text,
+        resolveInsertTarget(
+          typeof document === 'undefined' ? null : document.activeElement,
+        ),
+      );
+    }
     emit(idleHud);
   }
 
@@ -210,6 +214,7 @@ export function createDictation(deps: DictationDeps) {
     handleKeyDown,
     handleKeyUp,
     handleBlur,
+    warm: loadSettings,
     peekSettings: () => lastSettings,
     getHud: () => hud,
     subscribe(listener: () => void) {
@@ -241,12 +246,9 @@ export function bootDictation(): DictationController {
   });
   const onKeyDown = (event: KeyboardEvent) => {
     const settings = controller.peekSettings();
-    if (
-      settings?.enabled === true &&
-      settings.dictationMode === 'hold' &&
-      eventMatchesAccelerator(event, settings.hotkey)
-    ) {
+    if (settings?.enabled === true && eventMatchesAccelerator(event, settings.hotkey)) {
       event.preventDefault();
+      event.stopPropagation();
     }
     if (event.key === 'Escape' && controller.getHud().phase !== 'idle') {
       event.preventDefault();
@@ -254,12 +256,18 @@ export function bootDictation(): DictationController {
     void controller.handleKeyDown(event);
   };
   const onKeyUp = (event: KeyboardEvent) => {
+    const settings = controller.peekSettings();
+    if (settings?.enabled === true && eventMatchesAccelerator(event, settings.hotkey)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     void controller.handleKeyUp(event);
   };
   window.addEventListener('keydown', onKeyDown, true);
   window.addEventListener('keyup', onKeyUp, true);
   window.addEventListener('blur', controller.handleBlur);
   bootstrapped = controller;
+  void controller.warm();
   return controller;
 }
 
@@ -269,4 +277,16 @@ export function subscribeDictation(listener: () => void): () => void {
 
 export function getDictationHud(): DictationHud {
   return bootDictation().getHud();
+}
+
+function transcribeErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : '';
+  if (
+    message === '' ||
+    message === 'The request could not be completed' ||
+    message === 'Request validation failed'
+  ) {
+    return "Couldn't transcribe that.";
+  }
+  return message;
 }
