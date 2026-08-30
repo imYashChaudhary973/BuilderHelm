@@ -397,6 +397,14 @@ html.is-fullscreen .shell {
   grid-template-columns: 52px 1fr;
 }
 
+/* Both modifiers can apply at once. Without this pairing the rail-collapsed
+   two-column rule wins on source order, the browser panel loses its sized
+   track, and it collapses to content width no matter where the resize handle
+   is dragged. */
+.shellBrowserOn.shellRailOff {
+  grid-template-columns: 52px 1fr var(--panel-w, 360px);
+}
+
 .topbar {
   grid-area: topbar;
   display: flex;
@@ -4223,6 +4231,13 @@ fieldset legend {
   grid-template-columns: 220px 1fr;
 }
 
+/* Settings swaps the rail for its own nav, but the tools panel keeps whatever
+   width the user gave it. Without this pairing the two-column rule drops the
+   browser track and the panel shrinks to content while Settings is open. */
+.shellSettingsOn.shellBrowserOn {
+  grid-template-columns: 220px 1fr var(--panel-w, 360px);
+}
+
 .providerList {
   display: flex;
   flex-direction: column;
@@ -4428,6 +4443,9 @@ fieldset legend {
   background: #0c0c0c;
   border: 1px solid rgba(255, 255, 255, 0.05);
   overflow: visible;
+  /* Settings shares the window with the tools panel, so the card can be far
+     narrower than the viewport. Rows respond to the card, not the screen. */
+  container-type: inline-size;
 }
 
 .voiceRow {
@@ -4436,6 +4454,27 @@ fieldset legend {
   justify-content: space-between;
   gap: 24px;
   padding: 20px 0;
+}
+
+/* Below this the label and its control cannot share a line without the
+   description collapsing to one word per row. */
+@container (max-width: 520px) {
+  .voiceRow {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .browserSettingField,
+  .browserSettingInput,
+  .browserSettingSelect {
+    width: 100%;
+  }
+
+  .browserProfile {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 .voiceRow + .voiceRow {

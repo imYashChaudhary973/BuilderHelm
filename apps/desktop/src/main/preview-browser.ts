@@ -97,6 +97,12 @@ function actScript(action: PreviewDriveAction, ref: string, text: string): strin
 function pickScript(mode: PreviewToolMode): string {
   return `(() => {
   const { promise, resolve } = Promise.withResolvers();
+  // A tool armed while another is still armed must replace it, not stack on
+  // it: two live capture listeners leave a second highlight on the page and
+  // race to answer the same click. The isolated world persists between
+  // injections, so the previous run is cancelled through it.
+  if (typeof window.__bhCancelPick === 'function') window.__bhCancelPick();
+  for (const stale of document.querySelectorAll('[data-bh-overlay="pick"]')) stale.remove();
   const tint = ${mode === 'annotate' ? "'251, 191, 36'" : "'125, 211, 252'"};
   const box = document.createElement('div');
   box.setAttribute('data-bh-overlay', 'pick');
@@ -181,6 +187,7 @@ function pickScript(mode: PreviewToolMode): string {
     finish(null);
   };
 
+  window.__bhCancelPick = () => finish(null);
   document.addEventListener('mousemove', onMove, true);
   document.addEventListener('click', onClick, true);
   document.addEventListener('keydown', onKey, true);
@@ -248,6 +255,13 @@ export class PreviewBrowser {
   private partition: string | null = null;
   private annotations = 0;
   private readonly configured = new Set<string>();
+  /**
+   * Set while a renderer surface needs the panel to itself — the screenshot
+   * editor. Bounds updates keep arriving while it is open (the editor changes
+   * the stage), and each one runs through `ensure`, so visibility has to be
+   * remembered here rather than re-asserted from the attach path.
+   */
+  private hidden = false;
   private stateListener: ((state: BrowserState) => void) | null = null;
 
   constructor(private readonly settings: BrowserSettingsService) {}
@@ -305,6 +319,7 @@ export class PreviewBrowser {
         this.hide();
         break;
       case 'visible':
+        this.hidden = !input.visible;
         this.requireView().setVisible(input.visible);
         break;
       case 'back':
@@ -658,7 +673,7 @@ export class PreviewBrowser {
       win.contentView.addChildView(this.view);
       this.attached = win;
     }
-    this.view.setVisible(true);
+    this.view.setVisible(!this.hidden);
     return this.view;
   }
 

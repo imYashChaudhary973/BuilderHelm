@@ -160,10 +160,23 @@ export function BrowserSidebar({
       .catch(() => undefined);
   }, [page]);
 
+  /**
+   * The embedded view is a native child of the window, not a DOM child of the
+   * stage, so nothing moves it when the panel reflows. Anything that changes
+   * the stage — the window resizing, the panel being dragged, a tray or error
+   * banner appearing above it — has to push new bounds, or the page keeps its
+   * old rectangle and paints over the very tray that just opened.
+   */
   useEffect(() => {
+    const stage = stageRef.current;
     syncBounds();
     window.addEventListener('resize', syncBounds);
-    return () => window.removeEventListener('resize', syncBounds);
+    const observer = stage === null ? null : new ResizeObserver(syncBounds);
+    if (stage !== null) observer?.observe(stage);
+    return () => {
+      window.removeEventListener('resize', syncBounds);
+      observer?.disconnect();
+    };
   }, [syncBounds, page]);
 
   // The page can navigate without the toolbar asking — a link, a redirect, an
@@ -291,7 +304,7 @@ export function BrowserSidebar({
 
   /** Arms one-shot selection. The page cancels on Escape and resolves on click. */
   async function startTool(mode: PreviewToolMode): Promise<void> {
-    if (page === null) return;
+    if (page === null || tool !== null) return;
     setError(null);
     setPicked(null);
     setNote('');
