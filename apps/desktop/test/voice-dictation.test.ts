@@ -161,7 +161,7 @@ describe('dictation machine', () => {
     expect(dictation.getHud().phase).toBe('listening');
     await dictation.handleHotkeyPress();
     expect(transcribe).toHaveBeenCalledOnce();
-    expect(insert).toHaveBeenCalledWith('hello helm', expect.anything());
+    expect(insert).toHaveBeenCalledWith('Hello helm', expect.anything());
     expect(dictation.getHud().phase).toBe('idle');
   });
 
@@ -199,7 +199,7 @@ describe('dictation machine', () => {
     await dictation.handleKeyDown(key);
     expect(dictation.getHud().phase).toBe('listening');
     await dictation.handleKeyUp(key);
-    expect(insert).toHaveBeenCalledWith('held', expect.anything());
+    expect(insert).toHaveBeenCalledWith('Held', expect.anything());
   });
 
   it('cancel drops an in-flight transcript', async () => {

@@ -1,4 +1,5 @@
 import { microphoneErrorMessage, startMicCapture } from './capture.js';
+import { formatDictation } from './format.js';
 import { eventMatchesAccelerator, type KeyLike } from './hotkey.js';
 import { insertTranscript, resolveInsertTarget, type InsertTarget } from './insert.js';
 import {
@@ -131,7 +132,7 @@ export function createDictation(deps: DictationDeps) {
         filename: 'clip.wav',
         audioBase64: bytesToBase64(encodeWavPcm16(samples)),
       });
-      text = result.text.trim();
+      text = formatDictation(result.text);
     } catch (error) {
       if (generation !== mine) return;
       emit({ ...idleHud, error: transcribeErrorMessage(error) });
