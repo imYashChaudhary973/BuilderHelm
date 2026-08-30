@@ -164,6 +164,18 @@ export const browserZoomPercentSchema = z.union([
 ]);
 export type BrowserZoomPercent = z.infer<typeof browserZoomPercentSchema>;
 
+/** Next allowed zoom stop. Unknown current values snap through 100. */
+export function stepBrowserZoom(current: number, step: 1 | -1): BrowserZoomPercent {
+  const from = browserZoomPercents.indexOf(current as BrowserZoomPercent);
+  const index = from === -1 ? browserZoomPercents.indexOf(100) : from;
+  const next = index + step;
+  if (next <= 0) return browserZoomPercents[0];
+  if (next >= browserZoomPercents.length - 1) {
+    return browserZoomPercents[browserZoomPercents.length - 1] ?? 150;
+  }
+  return browserZoomPercents[next] ?? 100;
+}
+
 export const browserMenuKinds = ['import', 'overflow', 'viewport'] as const;
 export const browserMenuKindSchema = z.enum(browserMenuKinds);
 export type BrowserMenuKind = (typeof browserMenuKinds)[number];

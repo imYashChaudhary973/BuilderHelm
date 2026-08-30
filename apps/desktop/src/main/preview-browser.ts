@@ -14,8 +14,10 @@ import {
   PREVIEW_VIEWPORTS,
   previewTargetNeedsApproval,
   redactPreviewUrl,
+  stepBrowserZoom,
   type BrowserCommandInput,
   type BrowserState,
+  type BrowserZoomPercent,
   type PreviewBounds,
   type PreviewDriveAction,
   type PreviewDriveApproval,
@@ -239,6 +241,19 @@ function letterbox(stage: PreviewBounds, viewport: PreviewViewportId): PreviewBo
   };
 }
 
+/** Shell zoom turns CSS pixels from the renderer into a different space than
+ *  WebContentsView.setBounds, which is window DIPs. */
+function toWindowBounds(win: BrowserWindow, css: PreviewBounds): PreviewBounds {
+  const zoom = win.webContents.getZoomFactor();
+  if (zoom === 1) return css;
+  return {
+    x: Math.round(css.x * zoom),
+    y: Math.round(css.y * zoom),
+    width: Math.max(1, Math.round(css.width * zoom)),
+    height: Math.max(1, Math.round(css.height * zoom)),
+  };
+}
+
 interface PendingDrive {
   readonly id: string;
   readonly action: PreviewDriveAction;
@@ -265,6 +280,7 @@ export class PreviewBrowser {
    * remembered here rather than re-asserted from the attach path.
    */
   private hidden = false;
+  private sessionZoom: BrowserZoomPercent | null = null;
   private stateListener: ((state: BrowserState) => void) | null = null;
 
   constructor(private readonly settings: BrowserSettingsService) {}
@@ -277,6 +293,22 @@ export class PreviewBrowser {
    */
   onState(listener: (state: BrowserState) => void): void {
     this.stateListener = listener;
+  }
+
+  /**
+   * ⌘+/⌘- while the preview is open. No-ops if nothing is showing so the
+   * chrome never absorbs Chromium zoom.
+   */
+  nudgeZoom(step: 1 | -1 | 0): void {
+    if (this.view === null) return;
+    if (step === 0) {
+      this.sessionZoom = null;
+      this.applyZoom();
+      return;
+    }
+    const current = this.sessionZoom ?? this.settings.read().zoomPercent;
+    this.sessionZoom = stepBrowserZoom(current, step);
+    this.applyZoom(this.sessionZoom);
   }
 
   /**
@@ -335,6 +367,7 @@ export class PreviewBrowser {
         this.requireView().webContents.reload();
         break;
       case 'zoom':
+        this.sessionZoom = input.percent;
         this.applyZoom(input.percent);
         break;
       case 'devtools': {
@@ -633,6 +666,7 @@ export class PreviewBrowser {
         webPreferences: { ...secureWebPreferences, partition },
       });
       view.setBackgroundColor('#070707');
+      void view.webContents.setVisualZoomLevelLimits(1, 1);
       view.webContents.setWindowOpenHandler(({ url }) => {
         const allowed = parsePreviewUrl(url);
         if (allowed !== null) void view.webContents.loadURL(allowed);
@@ -654,7 +688,10 @@ export class PreviewBrowser {
       };
       view.webContents.on('did-navigate', publish);
       view.webContents.on('did-navigate-in-page', publish);
-      view.webContents.on('did-finish-load', publish);
+      view.webContents.on('did-finish-load', () => {
+        this.applyZoom();
+        publish();
+      });
       view.webContents.on(
         'console-message',
         (_event, level, message, _line, sourceId) => {
@@ -688,17 +725,18 @@ export class PreviewBrowser {
    */
   private layout(win: BrowserWindow, bounds: PreviewBounds): void {
     const view = this.ensure(win);
-    view.setBounds(letterbox(bounds, this.viewport));
+    view.setBounds(letterbox(toWindowBounds(win, bounds), this.viewport));
     this.applyZoom();
   }
 
   /**
-   * Zoom is the fit factor times the user's preference. Chromium keys zoom by
-   * origin, so it is re-applied after every navigation instead of once at open.
+   * Zoom is the fit factor times the session (or default) percent. Chromium
+   * keys zoom by origin, so it is re-applied after every navigation.
    */
   private applyZoom(percent?: number): void {
-    const view = this.requireView();
-    const wanted = percent ?? this.settings.read().zoomPercent;
+    if (this.view === null) return;
+    const view = this.view;
+    const wanted = percent ?? this.sessionZoom ?? this.settings.read().zoomPercent;
     const fit =
       this.viewport === 'desktop'
         ? 1

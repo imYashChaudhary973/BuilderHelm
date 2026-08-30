@@ -12,6 +12,7 @@ import {
   previewDrawSaveInputSchema,
   previewPickSchema,
   resolveOmniboxTarget,
+  stepBrowserZoom,
   toBrowserCookieWrite,
   type PreviewPick,
 } from '../src/browser.js';
@@ -228,5 +229,16 @@ describe('tool contracts', () => {
       browserCommandInputSchema.safeParse({ action: 'zoom', percent: 137 }).success,
     ).toBe(false);
     expect(browserCommandInputSchema.safeParse({ action: 'eval' }).success).toBe(false);
+  });
+});
+
+describe('zoom stops', () => {
+  it('steps through the allowed percents and clamps at the ends', () => {
+    expect(stepBrowserZoom(100, 1)).toBe(110);
+    expect(stepBrowserZoom(110, 1)).toBe(125);
+    expect(stepBrowserZoom(150, 1)).toBe(150);
+    expect(stepBrowserZoom(100, -1)).toBe(90);
+    expect(stepBrowserZoom(75, -1)).toBe(75);
+    expect(stepBrowserZoom(137, 1)).toBe(110);
   });
 });

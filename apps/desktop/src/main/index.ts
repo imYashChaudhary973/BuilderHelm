@@ -71,6 +71,11 @@ function createWindow(): BrowserWindow {
     },
   });
 
+  // Chromium zoom on the shell desyncs the embedded preview's bounds. Keep
+  // the chrome at 1x; View → Zoom In targets the preview page instead.
+  void window.webContents.setVisualZoomLevelLimits(1, 1);
+  window.webContents.setZoomFactor(1);
+
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   if (process.env.BUILDERHELM_SMOKE_TEST === '1') {
     window.webContents.on('preload-error', (_event, _preloadPath, error) => {
@@ -111,7 +116,10 @@ function createWindow(): BrowserWindow {
   };
   window.on('enter-full-screen', syncFullscreen);
   window.on('leave-full-screen', syncFullscreen);
-  window.webContents.on('did-finish-load', syncFullscreen);
+  window.webContents.on('did-finish-load', () => {
+    window.webContents.setZoomFactor(1);
+    syncFullscreen();
+  });
 
   if (process.env.BUILDERHELM_SMOKE_TEST !== '1') {
     window.once('ready-to-show', () => {

@@ -64,6 +64,21 @@ async function openLegalDocument(document: LegalDocument): Promise<void> {
     });
   }
 }
+/**
+ * Chromium zoom on the shell breaks the embedded preview: the page is a
+ * child WebContentsView whose bounds are CSS pixels from the renderer, and
+ * those stop matching window coordinates once the shell zooms. Zoom In/Out
+ * therefore change the preview page, not the chrome.
+ */
+let previewZoom: { in: () => void; out: () => void; reset: () => void } | null = null;
+
+export function setPreviewZoomHandlers(next: {
+  in: () => void;
+  out: () => void;
+  reset: () => void;
+}): void {
+  previewZoom = next;
+}
 
 export function installApplicationMenu(): void {
   const template: MenuItemConstructorOptions[] = [
@@ -72,7 +87,39 @@ export function installApplicationMenu(): void {
       : []),
     { role: 'fileMenu' },
     { role: 'editMenu' },
-    { role: 'viewMenu' },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        {
+          label: 'Actual Size',
+          accelerator: 'CommandOrControl+0',
+          click: () => previewZoom?.reset(),
+        },
+        {
+          label: 'Zoom In',
+          accelerator: 'CommandOrControl+Plus',
+          click: () => previewZoom?.in(),
+        },
+        {
+          label: 'Zoom In',
+          accelerator: 'CommandOrControl+=',
+          visible: false,
+          acceleratorWorksWhenHidden: true,
+          click: () => previewZoom?.in(),
+        },
+        {
+          label: 'Zoom Out',
+          accelerator: 'CommandOrControl+-',
+          click: () => previewZoom?.out(),
+        },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
     { role: 'windowMenu' },
     {
       role: 'help',

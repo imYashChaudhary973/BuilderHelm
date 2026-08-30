@@ -214,6 +214,7 @@ import type { VoiceRuntime } from './voice-runtime.js';
 import { PreviewBrowser } from './preview-browser.js';
 import { DesktopControl } from './desktop-control.js';
 import { popupBrowserMenu } from './browser-menu.js';
+import { setPreviewZoomHandlers } from './legal-menu.js';
 import { importProfileCookies } from './browser-cookies.js';
 import {
   commitGit,
@@ -284,6 +285,11 @@ export function registerIpcHandlers(
 ): () => void {
   const preview = new PreviewBrowser(core.browserSettings);
   const desktop = new DesktopControl();
+  setPreviewZoomHandlers({
+    in: () => preview.nudgeZoom(1),
+    out: () => preview.nudgeZoom(-1),
+    reset: () => preview.nudgeZoom(0),
+  });
   // Navigation the page starts itself must reach the toolbar, so main pushes
   // state instead of waiting for the renderer's next command.
   preview.onState((state) => {
