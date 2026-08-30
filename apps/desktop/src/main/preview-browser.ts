@@ -224,6 +224,9 @@ function pinScript(index: number, rect: PreviewRect): string {
 }
 
 function letterbox(stage: PreviewBounds, viewport: PreviewViewportId): PreviewBounds {
+  // Desktop is the window, not a device frame. Tablet and phone stay framed
+  // at their preset size so media queries still match those devices.
+  if (viewport === 'desktop') return stage;
   const preset = PREVIEW_VIEWPORTS[viewport];
   const scale = Math.min(stage.width / preset.width, stage.height / preset.height, 1);
   const width = Math.max(1, Math.round(preset.width * scale));
@@ -678,14 +681,10 @@ export class PreviewBrowser {
   }
 
   /**
-   * Fits the preset into the panel and then scales the page so it still
-   * believes it has the preset's width.
-   *
-   * Letterboxing bounds alone is not a device preview: a 390px phone squeezed
-   * into a 260px panel reports 260px to CSS, so the page picks a layout no
-   * phone would ever show. Zoom compensation makes the reported viewport the
-   * preset while what is drawn stays inside the panel; the user's zoom
-   * preference multiplies on top.
+   * Desktop fills the stage. Tablet and phone letterbox to the preset, then
+   * zoom so CSS still sees 768px / 390px — otherwise a phone squeezed into a
+   * 260px panel would pick a layout no phone would show. User zoom multiplies
+   * on top.
    */
   private layout(win: BrowserWindow, bounds: PreviewBounds): void {
     const view = this.ensure(win);
@@ -699,9 +698,11 @@ export class PreviewBrowser {
    */
   private applyZoom(percent?: number): void {
     const view = this.requireView();
-    const preset = PREVIEW_VIEWPORTS[this.viewport];
-    const fit = Math.min(1, view.getBounds().width / preset.width);
     const wanted = percent ?? this.settings.read().zoomPercent;
+    const fit =
+      this.viewport === 'desktop'
+        ? 1
+        : Math.min(1, view.getBounds().width / PREVIEW_VIEWPORTS[this.viewport].width);
     view.webContents.setZoomFactor(fit * (wanted / 100));
   }
 

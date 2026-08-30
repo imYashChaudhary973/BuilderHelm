@@ -36,9 +36,9 @@ DevTools · Open in default browser · ⋯
 
 ## Viewports and zoom
 
-Desktop, tablet, and phone presets letterbox the view into the panel and scale
-the page so it still reports the preset width — a 390px phone preview reports
-390px, not the panel width. The zoom preference multiplies on top.
+Desktop fills the panel. Tablet and phone letterbox to their preset and scale
+so CSS still reports 768px / 390px — a phone preview reports 390px, not the
+panel width. The zoom preference multiplies on top.
 
 ## Profiles, cookies, and links
 
