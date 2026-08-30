@@ -96,6 +96,16 @@ import type {
   ProjectRepositoryRefreshInput,
   ProjectRepositorySelectInput,
 } from './projects.js';
+import type {
+  VoiceHotkeyEvent,
+  VoiceKeySaveInput,
+  VoiceModelEvent,
+  VoiceModelIdInput,
+  VoiceSettingsUpdateInput,
+  VoiceStatus,
+  VoiceTranscribeInput,
+  VoiceTranscribeResult,
+} from './voice.js';
 
 export const ipcChannels = {
   systemHealth: 'builderhelm:system:health',
@@ -168,6 +178,16 @@ export const ipcChannels = {
   editorSearch: 'builderhelm:editor:search',
   editorGitStage: 'builderhelm:editor:git-stage',
   editorGitCommit: 'builderhelm:editor:git-commit',
+  voiceStatus: 'builderhelm:voice:status',
+  voiceSettingsUpdate: 'builderhelm:voice:settings-update',
+  voiceKeySave: 'builderhelm:voice:key-save',
+  voiceKeyDelete: 'builderhelm:voice:key-delete',
+  voiceModelDownload: 'builderhelm:voice:model-download',
+  voiceModelCancel: 'builderhelm:voice:model-cancel',
+  voiceModelDelete: 'builderhelm:voice:model-delete',
+  voiceModelEvent: 'builderhelm:voice:model-event',
+  voiceTranscribe: 'builderhelm:voice:transcribe',
+  voiceHotkey: 'builderhelm:voice:hotkey',
 } as const;
 
 export const systemHealthRequestSchema = z
@@ -317,5 +337,17 @@ export interface BuilderHelmDesktopApi {
     search(input: EditorSearchInput): Promise<EditorEntry[]>;
     gitStage(input: EditorGitStageInput): Promise<EditorGit>;
     gitCommit(input: EditorGitCommitInput): Promise<EditorGit>;
+  };
+  readonly voice: {
+    status(): Promise<VoiceStatus>;
+    updateSettings(input: VoiceSettingsUpdateInput): Promise<VoiceStatus>;
+    saveOpenAiKey(input: VoiceKeySaveInput): Promise<VoiceStatus>;
+    deleteOpenAiKey(): Promise<VoiceStatus>;
+    downloadModel(input: VoiceModelIdInput): Promise<VoiceStatus>;
+    cancelDownload(input: VoiceModelIdInput): Promise<VoiceStatus>;
+    deleteModel(input: VoiceModelIdInput): Promise<VoiceStatus>;
+    transcribe(input: VoiceTranscribeInput): Promise<VoiceTranscribeResult>;
+    onModelEvent(listener: (event: VoiceModelEvent) => void): () => void;
+    onHotkey(listener: (event: VoiceHotkeyEvent) => void): () => void;
   };
 }

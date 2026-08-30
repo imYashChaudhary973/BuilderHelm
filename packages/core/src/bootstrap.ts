@@ -8,8 +8,12 @@ import {
   ProviderRepository,
   ProjectRepositoryStore,
   runMigrations,
+  VoiceRepository,
 } from '@builderhelm/db';
-import type { GatewayFetch } from '@builderhelm/model-gateway';
+import {
+  OpenAITranscriptionAdapter,
+  type GatewayFetch,
+} from '@builderhelm/model-gateway';
 import { createLogger, type LogSink, type Logger } from '@builderhelm/observability';
 import type { SystemHealthResponse } from '@builderhelm/protocol';
 import { createCorrelationId, utcNow, type CorrelationId } from '@builderhelm/shared';
@@ -30,6 +34,7 @@ import {
 } from './swarm/swarm-service.js';
 import type { SwarmReviewer } from './swarm/swarm-reviewer.js';
 import type { SecretStore } from './secrets/secret-store.js';
+import { VoiceService, type VoiceModelInventory } from './voice/voice-service.js';
 
 export interface CoreOptions {
   readonly databasePath: string;
@@ -40,6 +45,7 @@ export interface CoreOptions {
   readonly swarmRunner?: SwarmSeatRunner;
   readonly swarmVerifier?: SwarmTaskVerifier;
   readonly swarmReviewer?: SwarmReviewer;
+  readonly voiceInventory?: VoiceModelInventory;
 }
 
 export interface CoreRuntime {
@@ -52,6 +58,7 @@ export interface CoreRuntime {
   readonly projects: ProjectService;
   readonly board: BoardService;
   readonly swarm: SwarmService;
+  readonly voice: VoiceService;
   health(correlationId: CorrelationId): SystemHealthResponse;
   close(): void;
 }
@@ -106,6 +113,13 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     logger,
   );
   const board = new BoardService(database, logger);
+  const voice = new VoiceService(
+    new VoiceRepository(database),
+    options.secretStore,
+    logger,
+    options.voiceInventory,
+    new OpenAITranscriptionAdapter(options.modelGatewayFetch ?? fetch),
+  );
   const swarmRunner: SwarmSeatRunner = options.swarmRunner ?? {
     async execute() {
       return {
@@ -143,6 +157,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     projects,
     board,
     swarm,
+    voice,
     health(correlationId) {
       return {
         status: 'ok',

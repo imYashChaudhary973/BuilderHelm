@@ -18,4 +18,5 @@ scope; technical ownership; safety boundaries; and acceptance evidence.
 | Global search               | [Search](SEARCH.md)                     |
 | Provider accounts and usage | [Accounts and usage](ACCOUNTS_USAGE.md) |
 | GitHub and Linear           | [Integrations](INTEGRATIONS.md)         |
+| Voice dictation             | [Voice](VOICE.md)                       |
 | iOS and Android             | [Mobile](MOBILE.md)                     |

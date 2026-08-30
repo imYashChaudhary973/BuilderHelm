@@ -294,8 +294,11 @@ export function MemoryPage(): React.JSX.Element {
             {usableModels.length === 0 ? (
               <div className="memoryStateCopy">
                 <strong>No compatible model</strong>
-                <p>Connect a text-streaming model to answer from your vault.</p>
-                <Link to="/settings/providers">Open model settings</Link>
+                <p>
+                  Connect a text-streaming model to answer from your vault. Add a provider
+                  in Model settings first.
+                </p>
+                <Link to="/settings/voice">Open Voice settings</Link>
               </div>
             ) : (
               <label className="memorySelect">

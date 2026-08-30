@@ -10,6 +10,7 @@ import type { CorrelationId } from '@builderhelm/shared';
 import { useEffect, useRef, useState } from 'react';
 
 import { chunkTailAfter } from '../pane-stream.js';
+import { setTerminalFocus } from '../voice/insert.js';
 
 const MIN_COLS = 2;
 const MIN_ROWS = 2;
@@ -19,7 +20,7 @@ const MIN_ROWS = 2;
 // is 4.2px but U+2500 is 16px, so box borders and padding drift apart and every
 // bordered CLI panel tears. The terminal buffer stays correct either way; only
 // the drawing is wrong, which makes it look like a CLI bug rather than a font one.
-const TERMINAL_FONT_FAMILY = 'ui-monospace, SFMono-Regular, Menlo, monospace';
+const TERMINAL_FONT_FAMILY = 'SFMono-Regular, Menlo, monospace';
 interface TerminalPaneProps {
   readonly sessionId: string;
   readonly pane: BoardPaneSummary;
@@ -135,7 +136,10 @@ export function TerminalPane({
     });
 
     const textarea = term.textarea;
-    const handleFocus = (): void => setFocused(true);
+    const handleFocus = (): void => {
+      setFocused(true);
+      setTerminalFocus(sessionId, pane.paneId);
+    };
     const handleBlur = (): void => setFocused(false);
     textarea?.addEventListener('focus', handleFocus);
     textarea?.addEventListener('blur', handleBlur);

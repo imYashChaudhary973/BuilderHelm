@@ -98,8 +98,25 @@ Components: ${packages.length}
 Generated from the resolved production dependency graph.
 `;
 
+const voiceAppendix = `
+---
+
+Voice runtime and optional on-device models
+
+sherpa-onnx-node is a production dependency and is listed with the packages
+above (Apache-2.0). Local speech models are not bundled; the user downloads
+them in Settings → Voice. Those weights keep their upstream licences:
+
+- Whisper Tiny (openai/whisper) — MIT
+- Zipformer bilingual (k2-fsa / icefall) — Apache-2.0
+- Parakeet TDT (NVIDIA) — NVIDIA Open Model License
+
+Cloud transcription uses the OpenAI API under the user's own key. Local models
+never send audio off-device.
+`;
+
 mkdirSync(dirname(output), { recursive: true });
-writeFileSync(output, `${header}\n${sections.join('\n')}`, 'utf8');
+writeFileSync(output, `${header}\n${sections.join('\n')}${voiceAppendix}`, 'utf8');
 
 process.stdout.write(
   `Wrote ${packages.length} component notices to ${output.replace(`${root}/`, '')}\n`,

@@ -20,6 +20,7 @@
     "node-pty": "1.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "sherpa-onnx-node": "^1.13.6",
     "zod": "^4.0.0"
   },
   "scripts": {
@@ -38,8 +39,11 @@
     "asar": true,
     "asarUnpack": [
       "**/*.node",
+      "**/*.dylib",
       "**/node-pty/**",
-      "**/@napi-rs/keyring/**"
+      "**/@napi-rs/keyring/**",
+      "**/sherpa-onnx-node/**",
+      "**/sherpa-onnx-darwin-*/**"
     ],
     "files": [
       "out"
@@ -65,7 +69,10 @@
         "dir"
       ],
       "icon": "resources/icon.icns",
-      "identity": null
+      "identity": null,
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "BuilderHelm uses the microphone for voice dictation."
+      }
     }
   },
   "devDependencies": {

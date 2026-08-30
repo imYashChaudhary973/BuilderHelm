@@ -2,7 +2,21 @@ import { AsyncEntry } from '@napi-rs/keyring';
 import { BUILDERHELM_KEYCHAIN_SERVICE, type SecretStore } from '@builderhelm/core';
 import { BuilderHelmError } from '@builderhelm/shared';
 
-const validSecretRef = /^builderhelm\.provider\.[0-9a-f-]{36}\.api-key$/;
+/**
+ * Exact refs only. A wildcard here would let any caller name a Keychain entry,
+ * so each credential the app owns is listed on purpose.
+ */
+const validSecretRefs: readonly RegExp[] = [
+  /^builderhelm\.provider\.[0-9a-f-]{36}\.api-key$/,
+  /^builderhelm\.voice\.openai\.api-key$/,
+];
+
+/** Keychain has no item under this ref; every other error is a real failure. */
+function isMissingEntry(error: unknown): boolean {
+  return /no matching entry|not found|no such|nsosstatuserrordomain error -25300/i.test(
+    error instanceof Error ? error.message : String(error),
+  );
+}
 
 export class KeyringSecretStore implements SecretStore {
   private entry(ref: string): AsyncEntry {
@@ -12,7 +26,7 @@ export class KeyringSecretStore implements SecretStore {
         'Secure provider credentials currently require macOS Keychain',
       );
     }
-    if (!validSecretRef.test(ref)) {
+    if (!validSecretRefs.some((pattern) => pattern.test(ref))) {
       throw new BuilderHelmError(
         'VALIDATION_FAILED',
         'Invalid secure credential reference',
@@ -25,11 +39,25 @@ export class KeyringSecretStore implements SecretStore {
     await this.entry(ref).setPassword(secret);
   }
 
+  /**
+   * Absent is not an error: Voice asks whether a key exists before one has ever
+   * been saved. Keychain reports a missing item by throwing, so only that case
+   * becomes `null` and every other failure still surfaces.
+   */
   async get(ref: string): Promise<string | null> {
-    return (await this.entry(ref).getPassword()) ?? null;
+    try {
+      return (await this.entry(ref).getPassword()) ?? null;
+    } catch (error) {
+      if (isMissingEntry(error)) return null;
+      throw error;
+    }
   }
 
   async delete(ref: string): Promise<void> {
-    await this.entry(ref).deleteCredential();
+    try {
+      await this.entry(ref).deleteCredential();
+    } catch (error) {
+      if (!isMissingEntry(error)) throw error;
+    }
   }
 }

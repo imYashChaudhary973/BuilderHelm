@@ -97,6 +97,17 @@ import {
   editorWriteIpcResponseSchema,
 } from '@builderhelm/protocol/editor';
 import {
+  voiceHotkeyEventSchema,
+  voiceKeyDeleteIpcResponseSchema,
+  voiceKeySaveInputSchema,
+  voiceModelEventSchema,
+  voiceModelIdInputSchema,
+  voiceSettingsUpdateInputSchema,
+  voiceStatusIpcResponseSchema,
+  voiceTranscribeInputSchema,
+  voiceTranscribeIpcResponseSchema,
+} from '@builderhelm/protocol/voice';
+import {
   createProviderInputSchema,
   deleteProviderInputSchema,
   modelListInputSchema,
@@ -706,6 +717,87 @@ const api: BuilderHelmDesktopApi = {
         input: editorGitCommitInputSchema.parse(input),
       });
       return unwrap(editorGitCommitIpcResponseSchema.parse(response));
+    },
+  },
+  voice: {
+    async status() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.voiceStatus, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(voiceStatusIpcResponseSchema.parse(response));
+    },
+    async updateSettings(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.voiceSettingsUpdate,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          input: voiceSettingsUpdateInputSchema.parse(input),
+        },
+      );
+      return unwrap(voiceStatusIpcResponseSchema.parse(response));
+    },
+    async saveOpenAiKey(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.voiceKeySave, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: voiceKeySaveInputSchema.parse(input),
+      });
+      return unwrap(voiceStatusIpcResponseSchema.parse(response));
+    },
+    async deleteOpenAiKey() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.voiceKeyDelete, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(voiceKeyDeleteIpcResponseSchema.parse(response));
+    },
+    async downloadModel(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.voiceModelDownload, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: voiceModelIdInputSchema.parse(input),
+      });
+      return unwrap(voiceStatusIpcResponseSchema.parse(response));
+    },
+    async cancelDownload(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.voiceModelCancel, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: voiceModelIdInputSchema.parse(input),
+      });
+      return unwrap(voiceStatusIpcResponseSchema.parse(response));
+    },
+    async deleteModel(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.voiceModelDelete, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: voiceModelIdInputSchema.parse(input),
+      });
+      return unwrap(voiceStatusIpcResponseSchema.parse(response));
+    },
+    onModelEvent(listener) {
+      const subscription = (
+        _event: Electron.IpcRendererEvent,
+        payload: unknown,
+      ): void => {
+        const parsed = voiceModelEventSchema.safeParse(payload);
+        if (parsed.success) listener(parsed.data);
+      };
+      ipcRenderer.on(ipcChannels.voiceModelEvent, subscription);
+      return () => ipcRenderer.removeListener(ipcChannels.voiceModelEvent, subscription);
+    },
+    async transcribe(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.voiceTranscribe, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: voiceTranscribeInputSchema.parse(input),
+      });
+      return unwrap(voiceTranscribeIpcResponseSchema.parse(response));
+    },
+    onHotkey(listener) {
+      const subscription = (
+        _event: Electron.IpcRendererEvent,
+        payload: unknown,
+      ): void => {
+        const parsed = voiceHotkeyEventSchema.safeParse(payload);
+        if (parsed.success) listener(parsed.data);
+      };
+      ipcRenderer.on(ipcChannels.voiceHotkey, subscription);
+      return () => ipcRenderer.removeListener(ipcChannels.voiceHotkey, subscription);
     },
   },
 };

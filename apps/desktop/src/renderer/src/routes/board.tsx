@@ -22,7 +22,7 @@ import { AgentMark } from '../components/agent-mark.js';
 import { useBoards } from '../board-store.js';
 import { useSpaces } from '../space-store.js';
 import logo from '../assets/logo.png';
-const PANE_COUNTS: readonly BoardPaneCount[] = [1, 2, 4, 6, 8, 10, 12];
+const PANE_COUNTS: readonly BoardPaneCount[] = [1, 2, 4, 6, 8, 10, 12, 16];
 const RECENTS_KEY = 'exeum.space.recents';
 const AI_AGENTS = BOARD_AGENT_CATALOG.filter((entry) => entry.id !== 'shell');
 const FEATURED_AGENT_IDS: readonly BoardAgentId[] = [
@@ -353,6 +353,7 @@ export function BoardPage(): React.JSX.Element {
   const [showMoreAgents, setShowMoreAgents] = useState(false);
   const [cdInput, setCdInput] = useState('');
   const [draggedPaneId, setDraggedPaneId] = useState<string | null>(null);
+  const [cdError, setCdError] = useState<string | null>(null);
 
   const maximizedSlot =
     session === null ? null : (maximizedBySession[session.sessionId] ?? null);
@@ -428,11 +429,27 @@ export function BoardPage(): React.JSX.Element {
     onError: (cause: Error) => setError(cause.message),
   });
 
-  function launchSpace(
+  async function applyCd(input: string): Promise<boolean> {
+    const target = resolveFolder(folderPath, input, homeDir);
+    try {
+      await window.builderHelm.editor.list({ root: target });
+    } catch {
+      setCdError(`Not found: ${input.trim()}`);
+      return false;
+    }
+    setCdError(null);
+    setFolderPath(target);
+    return true;
+  }
+
+  async function launchSpace(
     nextSlots: Record<number, SlotConfig>,
     nextIsolation: BoardIsolation,
-  ): void {
-    setSlots(nextSlots);
+  ): Promise<void> {
+    if (cdInput.trim().length > 0 && !(await applyCd(cdInput))) return;
+    const working = looksLikeCd(folderPath)
+      ? resolveFolder(homeDir, folderPath, homeDir)
+      : folderPath.trim();
     const panes: BoardPaneSpec[] = [];
     for (let slot = 0; slot < paneCount; slot += 1) {
       const config = nextSlots[slot];
@@ -448,12 +465,9 @@ export function BoardPage(): React.JSX.Element {
             : {}),
       });
     }
-    const working = looksLikeCd(folderPath)
-      ? resolveFolder(homeDir, folderPath, homeDir)
-      : folderPath.trim();
     launch.mutate({
       correlationId: crypto.randomUUID() as CorrelationId,
-      folderPath: resolveFolder(working, cdInput, homeDir),
+      folderPath: working,
       paneCount,
       isolation: nextIsolation,
       panes: panes.sort((a, b) => a.slot - b.slot),
@@ -540,7 +554,7 @@ export function BoardPage(): React.JSX.Element {
   }
 
   async function addTerminal(afterPaneId: string): Promise<void> {
-    if (session === null || session.panes.length >= 12) return;
+    if (session === null || session.panes.length >= 16) return;
     try {
       const pane = await window.builderHelm.board.addPane({
         correlationId: crypto.randomUUID() as CorrelationId,
@@ -682,7 +696,7 @@ export function BoardPage(): React.JSX.Element {
               }}
               onClose={() => void closeOnePane(pane.paneId)}
               onAdd={
-                session.panes.length >= 12
+                session.panes.length >= 16
                   ? undefined
                   : () => void addTerminal(pane.paneId)
               }
@@ -786,7 +800,7 @@ export function BoardPage(): React.JSX.Element {
             <span>
               <kbd>⌘S</kbd> BuilderHelm Swarm
             </span>
-            <Link to="/settings/providers">
+            <Link to="/settings/voice">
               <kbd>⌘,</kbd> Settings
             </Link>
           </p>
@@ -1006,19 +1020,47 @@ export function BoardPage(): React.JSX.Element {
               type="text"
               value={folderPath}
               placeholder="Browse to a project folder"
+              className={cdError !== null ? 'inputInvalid' : undefined}
               onChange={(event) => setFolderPath(event.target.value)}
-              onKeyDown={(event) => {
+              onKeyDown={async (event) => {
                 if (event.key !== 'Enter' || !looksLikeCd(folderPath)) return;
                 event.preventDefault();
-                setFolderPath(resolveFolder(homeDir, folderPath, homeDir));
+                const resolved = resolveFolder(homeDir, folderPath, homeDir);
+                try {
+                  await window.builderHelm.editor.list({ root: resolved });
+                  setCdError(null);
+                  setFolderPath(resolved);
+                } catch {
+                  setCdError(`Not found: ${folderPath.trim()}`);
+                }
               }}
             />
             <button
-              className="secondaryButton"
+              className="iconButton folderBrowseButton"
               type="button"
               onClick={() => void browse()}
+              title="Browse…"
+              aria-label="Browse for folder"
             >
-              Browse…
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <circle
+                  cx="10.5"
+                  cy="10.5"
+                  r="6.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                />
+                <line
+                  x1="15.5"
+                  y1="15.5"
+                  x2="20"
+                  y2="20"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+              </svg>
             </button>
           </div>
           <div className="folderRow">
@@ -1026,15 +1068,25 @@ export function BoardPage(): React.JSX.Element {
               type="text"
               value={cdInput}
               placeholder="cd Developer"
-              onChange={(event) => setCdInput(event.target.value)}
+              className={cdError !== null ? 'inputInvalid' : undefined}
+              onChange={(event) => {
+                setCdInput(event.target.value);
+                if (cdError !== null) setCdError(null);
+              }}
               onKeyDown={(event) => {
-                if (event.key === 'Enter' && cdInput.trim().length > 0) {
-                  setFolderPath(resolveFolder(folderPath, cdInput, homeDir));
-                  setCdInput('');
-                }
+                if (event.key !== 'Enter' || cdInput.trim().length === 0) return;
+                event.preventDefault();
+                void applyCd(cdInput).then((ok) => {
+                  if (ok) setCdInput('');
+                });
               }}
             />
           </div>
+          {cdError !== null && (
+            <p className="cdError" role="alert">
+              {cdError}
+            </p>
+          )}
         </div>
 
         <div className="wizardSection">
@@ -1060,8 +1112,7 @@ export function BoardPage(): React.JSX.Element {
                   <span
                     className="layoutPreview"
                     style={{
-                      gridTemplateColumns: `repeat(${layout.cols}, 1fr)`,
-                      gridTemplateRows: `repeat(${layout.rows}, 1fr)`,
+                      gridTemplateColumns: `repeat(${layout.cols}, 8px)`,
                     }}
                   >
                     {Array.from({ length: count }, (_, index) => (

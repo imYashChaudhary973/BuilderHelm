@@ -1,0 +1,168 @@
+import { createRequire } from 'node:module';
+
+import { voiceModelPackage, type VoiceModelId } from '@builderhelm/protocol/voice';
+import { BuilderHelmError } from '@builderhelm/shared';
+
+import type { VoiceModelManager, VoiceModelPaths } from './voice-models.js';
+
+const require = createRequire(import.meta.url);
+
+interface SherpaWave {
+  readonly sampleRate: number;
+  readonly samples: Float32Array;
+}
+
+interface SherpaStream {
+  acceptWaveform(wave: { sampleRate: number; samples: Float32Array }): void;
+}
+
+interface SherpaRecognizer {
+  createStream(): SherpaStream;
+  decode(stream: SherpaStream): void;
+  isReady?(stream: SherpaStream): boolean;
+  getResult(stream: SherpaStream): { text?: string };
+}
+
+interface SherpaAddon {
+  OfflineRecognizer: new (config: unknown) => SherpaRecognizer;
+  OnlineRecognizer: new (config: unknown) => SherpaRecognizer;
+  readWave(path: string, enableExternalBuffer?: boolean): SherpaWave;
+}
+
+/**
+ * Loads one local speech model at a time in the Electron main process.
+ * Load and transcribe never touch the network.
+ */
+export class VoiceRuntime {
+  private loaded: {
+    readonly id: VoiceModelId;
+    readonly recognizer: SherpaRecognizer;
+  } | null = null;
+  private loading: Promise<void> | null = null;
+
+  constructor(private readonly models: VoiceModelManager) {}
+
+  unload(): void {
+    this.loaded = null;
+  }
+
+  async transcribeWav(id: VoiceModelId, wavPath: string): Promise<string> {
+    try {
+      const recognizer = await this.load(id);
+      const sherpa = loadSherpa();
+      const stream = recognizer.createStream();
+      // Electron rejects napi external ArrayBuffers. Copy into a real buffer.
+      const wave = sherpa.readWave(wavPath, false);
+      const samples = Float32Array.from(wave.samples);
+      stream.acceptWaveform({ sampleRate: wave.sampleRate, samples });
+      const pack = voiceModelPackage(id);
+      if (pack?.kind === 'zipformer') {
+        const tail = new Float32Array(Math.floor(wave.sampleRate * 0.4));
+        stream.acceptWaveform({ sampleRate: wave.sampleRate, samples: tail });
+        while (recognizer.isReady?.(stream) === true) recognizer.decode(stream);
+      } else {
+        recognizer.decode(stream);
+      }
+      return (recognizer.getResult(stream).text ?? '').trim();
+    } catch (error) {
+      if (error instanceof BuilderHelmError) throw error;
+      throw new BuilderHelmError('MODEL_UNAVAILABLE', "Couldn't transcribe that clip.", {
+        cause: error,
+      });
+    }
+  }
+
+  private async load(id: VoiceModelId): Promise<SherpaRecognizer> {
+    while (this.loading !== null) await this.loading;
+    if (this.loaded?.id === id) return this.loaded.recognizer;
+
+    const paths = this.models.paths(id);
+    if (paths === null) {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'Install this speech model before using it.',
+      );
+    }
+
+    let release: () => void = () => {};
+    this.loading = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    try {
+      const sherpa = loadSherpa();
+      const pack = voiceModelPackage(id);
+      const Ctor =
+        pack?.kind === 'zipformer' ? sherpa.OnlineRecognizer : sherpa.OfflineRecognizer;
+      const recognizer = new Ctor(recognizerConfig(id, paths));
+      this.loaded = { id, recognizer };
+      return recognizer;
+    } finally {
+      this.loading = null;
+      release();
+    }
+  }
+}
+
+function loadSherpa(): SherpaAddon {
+  return require('sherpa-onnx-node') as SherpaAddon;
+}
+
+function recognizerConfig(id: VoiceModelId, paths: VoiceModelPaths): unknown {
+  const featConfig = { sampleRate: 16000, featureDim: 80 };
+  const pack = voiceModelPackage(id);
+  if (pack?.kind === 'whisper') {
+    return {
+      featConfig,
+      modelConfig: {
+        whisper: { encoder: paths.encoder, decoder: paths.decoder },
+        tokens: paths.tokens,
+        numThreads: 2,
+        provider: 'cpu',
+        debug: 0,
+      },
+    };
+  }
+  if (pack?.kind === 'nemo') {
+    if (paths.joiner === null) {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Parakeet models need a joiner.');
+    }
+    return {
+      featConfig,
+      modelConfig: {
+        transducer: {
+          encoder: paths.encoder,
+          decoder: paths.decoder,
+          joiner: paths.joiner,
+        },
+        tokens: paths.tokens,
+        modelType: 'nemo_transducer',
+        numThreads: 2,
+        provider: 'cpu',
+        debug: 0,
+      },
+    };
+  }
+  if (pack?.kind === 'zipformer') {
+    if (paths.joiner === null) {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Zipformer models need a joiner.');
+    }
+    return {
+      featConfig,
+      modelConfig: {
+        transducer: {
+          encoder: paths.encoder,
+          decoder: paths.decoder,
+          joiner: paths.joiner,
+        },
+        tokens: paths.tokens,
+        numThreads: 2,
+        provider: 'cpu',
+        debug: 0,
+      },
+    };
+  }
+  throw new BuilderHelmError(
+    'MODEL_UNAVAILABLE',
+    'This local engine is not wired for transcription yet.',
+  );
+}

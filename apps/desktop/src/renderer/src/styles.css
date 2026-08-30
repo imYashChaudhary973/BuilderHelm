@@ -1,6 +1,8 @@
 :root {
   --bg: #080a07;
   --bg-1: #0d100a;
+  /* Neutral chrome surface shared by the topbar and the rail. */
+  --chrome: #121212;
   --panel: #11150d;
   --glass: rgba(20, 24, 16, 0.55);
   --glass-strong: rgba(26, 30, 20, 0.78);
@@ -23,7 +25,7 @@
     0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 24px 48px -24px rgba(0, 0, 0, 0.55);
   --shadow-float: 0 20px 60px -20px rgba(0, 0, 0, 0.65);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono: SFMono-Regular, Menlo, monospace;
   color: var(--text);
   background: var(--bg);
   font-family:
@@ -402,7 +404,7 @@ html.is-fullscreen .shell {
   gap: 10px;
   padding: 0 10px 0 78px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: #050505;
+  background: var(--chrome);
   -webkit-app-region: drag;
 }
 
@@ -488,17 +490,54 @@ html.is-fullscreen .shell {
   overflow: visible;
   padding: 12px 10px;
   border-right: 1px solid rgba(255, 255, 255, 0.06);
-  background: #050505;
+  background: var(--chrome);
 }
 
 .railCollapsed {
   padding: 12px 6px;
 }
 
-.railModeDivider {
+/* Hairline under the New Space button, bled past the rail padding so it spans
+   the full width in both the collapsed and the expanded rail. */
+.railDivider {
   height: 1px;
-  margin: 2px 4px;
+  margin: 4px -10px 2px;
   background: var(--line);
+}
+
+.railCollapsed .railDivider {
+  margin-right: -6px;
+  margin-left: -6px;
+}
+
+/* The rail starts empty: only this square card until a Space, Board, Swarm or
+   Memory is actually in use. */
+.railNew {
+  --tile: var(--accent);
+  gap: 10px;
+  color: var(--text-2);
+}
+
+.railNewMark {
+  display: grid;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--tile) 45%, transparent);
+  border-radius: 11px;
+  background: transparent;
+  color: var(--tile);
+}
+
+.railNew:hover .railNewMark,
+.railNew.railItemOn .railNewMark {
+  border-color: var(--tile);
+}
+
+.railNewCopy {
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .railList {
@@ -573,17 +612,20 @@ html.is-fullscreen .shell {
   padding: 8px 0;
 }
 
-.railItem:hover,
-.railNew:hover {
+.railItem:hover {
   color: var(--text);
   background: rgba(255, 255, 255, 0.04);
+}
+
+.railNew:hover {
+  color: var(--text);
 }
 
 .railItemOn .railItem {
   color: var(--text);
 }
 
-.railItemOn:not(:has(.railTile)) {
+.railItemOn:not(:has(.railTile)):not(.railNew) {
   background: var(--accent-dim);
   border-radius: var(--radius-s);
 }
@@ -927,12 +969,10 @@ html.is-fullscreen .shell {
 
 .topbarIcon:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
 }
 
 .topbarIconOn {
   color: var(--accent-bright);
-  background: var(--accent-dim);
 }
 
 /* ---------- TYPOGRAPHY PRIMITIVES ---------- */
@@ -3721,6 +3761,140 @@ fieldset legend {
   align-items: flex-start;
 }
 
+.settingsNav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 10px;
+  overflow: auto;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--chrome);
+}
+
+.settingsNavLabel {
+  margin: 4px 4px 8px;
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settingsNavLink {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-s);
+  color: var(--text-2);
+  text-decoration: none;
+}
+
+.settingsNavLink:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.settingsNavLink strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settingsNavBack {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0 10px;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 15px;
+  font-weight: 500;
+  text-align: left;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.settingsNavBack:hover {
+  color: var(--text);
+  background: transparent;
+}
+
+.settingsNavDivider {
+  height: 1px;
+  margin: 0 -10px;
+  background: var(--line);
+}
+
+.settingsSearch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0;
+  padding: 6px 6px 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-3);
+}
+
+.settingsSearch input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.settingsSearch input:focus {
+  outline: none;
+  border: 0;
+}
+
+.settingsSearch input::-webkit-search-decoration,
+.settingsSearch input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.settingsSearchKey {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.settingsNavLink strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settingsNavLink small {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.settingsNavLinkOn,
+.settingsNavLinkOn:hover {
+  color: var(--text);
+  background: var(--accent-dim);
+}
+
+.shellSettingsOn {
+  grid-template-columns: 220px 1fr;
+}
+
 .providerList {
   display: flex;
   flex-direction: column;
@@ -3903,6 +4077,475 @@ fieldset legend {
   padding: 24px;
 }
 
+/* ---------- VOICE SETTINGS ---------- */
+
+.voiceHeader {
+  margin-bottom: 14px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.voiceLede {
+  margin-top: -6px;
+  color: var(--text-2);
+}
+
+.voiceLayout {
+  grid-template-columns: 1fr;
+}
+
+.voiceCard {
+  padding: 4px 28px;
+  border-radius: 16px;
+  background: #0c0c0c;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  overflow: visible;
+}
+
+.voiceRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 20px 0;
+}
+
+.voiceRow + .voiceRow {
+  border-top: 1px solid var(--line);
+}
+
+.voiceRow strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.voiceHint {
+  margin: 3px 0 0;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.voiceSwitch {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  flex-shrink: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--bg-1);
+  transition:
+    background 180ms ease,
+    border-color 180ms ease;
+}
+
+.voiceSwitch span {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--text-3);
+  transition:
+    transform 180ms var(--ease-out),
+    background 180ms ease;
+}
+
+.voiceSwitchOn {
+  background: var(--accent-dim);
+  border-color: var(--accent-line);
+}
+
+.voiceSwitchOn span {
+  transform: translateX(18px);
+  background: var(--accent);
+}
+
+.segmented {
+  display: inline-flex;
+  gap: 0;
+  flex-shrink: 0;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--bg-1);
+}
+
+.voiceCard .segmented {
+  position: relative;
+  display: inline-flex;
+  gap: 0;
+  padding: 3px;
+  min-width: 148px;
+}
+.voiceCard .segmented::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+  border-radius: calc(var(--radius-s) - 3px);
+  background: var(--accent-dim);
+  transition: left 220ms var(--ease-out);
+  pointer-events: none;
+}
+
+.voiceCard .segmentedHold::before {
+  left: 50%;
+}
+
+.voiceCard .segmentBtn {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  justify-content: center;
+  border: none;
+  border-radius: calc(var(--radius-s) - 3px);
+  padding: 7px 16px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  transition: color 180ms var(--ease-out);
+}
+
+.voiceCard .segmentBtnOn {
+  color: var(--accent-bright);
+}
+
+.voiceModelPicker {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.voiceModelTrigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 200px;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--bg-1);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.voiceModelTrigger:hover {
+  border-color: var(--line-strong);
+}
+
+.voiceModelMenu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 40;
+  width: min(440px, calc(100vw - 64px));
+  max-height: min(420px, 50vh);
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-m);
+  background: #0c0c0c;
+  box-shadow: var(--shadow-float);
+}
+
+.voiceModelOption {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.voiceModelOption:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.voiceModelOptionOn {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.voiceModelOptionHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.voiceModelOptionHead strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.voiceModelOptionOn .voiceModelOptionHead strong {
+  color: var(--text);
+}
+
+.voiceModelOption:not(.voiceModelOptionOn) .voiceModelOptionHead strong {
+  color: var(--text-2);
+}
+
+.voiceTag {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-2);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.voiceSize {
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.voiceModelOptionCopy {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.voiceModelActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.voiceModelActions .voiceDownloadBar {
+  flex: 1 0 100%;
+  margin-top: 0;
+}
+
+.hotkeyField {
+  width: 200px;
+  font-family: var(--font-mono);
+  text-align: center;
+}
+
+.voiceMicCol select {
+  min-width: 220px;
+}
+
+.voiceModels {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.voiceModel {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--bg-1);
+  color: var(--text-2);
+  text-align: left;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.voiceModel:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.voiceModel:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.voiceModelSelected {
+  border-color: var(--accent-line);
+  background: var(--accent-dim);
+  color: var(--text);
+}
+
+.voiceModelDot {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+}
+
+.voiceModelDotOn {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.voiceModelCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.voiceModelCopy strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.voiceModelCopy small {
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.voiceTag {
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  color: var(--text-3);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.voiceModelSelected .voiceTag {
+  color: var(--accent-bright);
+  border-color: var(--accent-line);
+}
+
+.voiceModelCheck {
+  margin-left: auto;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.voiceKeyRow {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.voiceKeyActions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.voiceKeyDialog {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  padding: 28px 32px 24px;
+  border-radius: 16px;
+  background: #1c1c1c;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: var(--shadow-float);
+}
+
+.voiceKeyDialog h2 {
+  margin: 0 36px 10px 0;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+
+.voiceKeyDialog p {
+  color: var(--text-2);
+  margin: 0 0 22px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.voiceKeyDialog .wizardLabel {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.voiceKeyDialog input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  background: #161616;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+.voiceKeyDialog input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.voiceKeyClose {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  color: var(--text-3);
+}
+
+.voiceKeyStorage {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 14px 0 0;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.voiceKeyStorage svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.voiceKeyDialog .formActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 22px;
+}
+
+.voiceKeySave {
+  min-width: 108px;
+  padding: 9px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: #cfcfcf;
+  color: #111;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.voiceKeySave:hover:not(:disabled) {
+  background: #ddd;
+}
+
+.voiceKeySave:disabled {
+  opacity: 0.55;
+}
+
 .confirmDialog {
   width: 100%;
   max-width: 420px;
@@ -3997,8 +4640,16 @@ fieldset legend {
 
   .spaceModeHint,
   .spaceModeOpen,
-  .spaceMode {
+  .spaceModeIcon,
+  .spaceMode,
+  .spaceMode::after {
     transition: none;
+  }
+
+  /* The hover glow still lands; only the travelling beam stops. */
+  .spaceMode::before {
+    animation: none;
+    opacity: 0.5;
   }
 
   .chatTurn,
@@ -4123,6 +4774,7 @@ html.is-fullscreen .spaceHome {
 }
 
 .spaceMode {
+  --mode-glow: var(--accent);
   position: relative;
   width: 100%;
   display: flex;
@@ -4140,7 +4792,21 @@ html.is-fullscreen .spaceHome {
   transition:
     min-height 220ms var(--ease-out),
     background 180ms ease,
-    border-color 180ms ease;
+    border-color 180ms ease,
+    box-shadow 220ms var(--ease-out);
+}
+
+/* Each card sweeps and glows in its own hue, matching its rail tile. */
+.spaceModes li:nth-child(2) .spaceMode {
+  --mode-glow: #7ec8e3;
+}
+
+.spaceModes li:nth-child(3) .spaceMode {
+  --mode-glow: #b6d475;
+}
+
+.spaceModes li:nth-child(4) .spaceMode {
+  --mode-glow: #c9a0ff;
 }
 
 @property --mode-edge-angle {
@@ -4172,18 +4838,19 @@ html.is-fullscreen .spaceHome {
 .spaceMode::before {
   position: absolute;
   inset: 0;
+  z-index: 2;
   padding: 1px;
   border-radius: inherit;
   background: conic-gradient(
     from var(--mode-edge-angle),
     transparent 0deg 306deg,
-    rgba(201, 160, 255, 0.35) 320deg,
-    #6ff4af 332deg,
+    color-mix(in srgb, var(--mode-glow) 35%, transparent) 320deg,
+    var(--mode-glow) 332deg,
     #ffffff 340deg,
-    #e8ff6a 347deg,
+    color-mix(in srgb, var(--mode-glow) 70%, #ffffff) 347deg,
     transparent 360deg
   );
-  filter: drop-shadow(0 0 4px rgba(111, 244, 175, 0.7));
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--mode-glow) 70%, transparent));
   pointer-events: none;
   content: '';
   -webkit-mask:
@@ -4192,6 +4859,38 @@ html.is-fullscreen .spaceHome {
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   animation: modeEdgeSweep 8s linear infinite;
+}
+
+/* Inner haze that rises from the icon corner on hover, behind the content. */
+.spaceMode::after {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(
+      130% 170% at 8% 135%,
+      color-mix(in srgb, var(--mode-glow) 30%, transparent),
+      transparent 64%
+    ),
+    radial-gradient(
+      100% 140% at 50% -35%,
+      color-mix(in srgb, var(--mode-glow) 14%, transparent),
+      transparent 62%
+    );
+  opacity: 0;
+  pointer-events: none;
+  content: '';
+  transition: opacity 240ms var(--ease-out);
+}
+
+.spaceModeIcon,
+.spaceModeText,
+.spaceMode kbd,
+.spaceModeOpen,
+.spaceModeSoon {
+  position: relative;
+  z-index: 1;
 }
 
 .spaceModes li:nth-child(2) .spaceMode::before {
@@ -4208,8 +4907,29 @@ html.is-fullscreen .spaceHome {
 
 .spaceMode:hover:not(:disabled),
 .spaceMode:focus-visible:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: color-mix(in srgb, var(--mode-glow) 40%, transparent);
   background: #101010;
+  box-shadow: 0 18px 44px -30px color-mix(in srgb, var(--mode-glow) 65%, transparent);
+}
+
+/* Hover takes the ambient sweep and drives it faster and brighter. */
+.spaceMode:hover:not(:disabled)::before,
+.spaceMode:focus-visible:not(:disabled)::before {
+  animation-duration: 2.6s;
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--mode-glow) 85%, transparent))
+    brightness(1.15);
+}
+
+.spaceMode:hover:not(:disabled)::after,
+.spaceMode:focus-visible:not(:disabled)::after {
+  opacity: 1;
+}
+
+.spaceMode:hover:not(:disabled) .spaceModeIcon,
+.spaceMode:focus-visible:not(:disabled) .spaceModeIcon {
+  border-color: color-mix(in srgb, var(--mode-glow) 55%, transparent);
+  color: var(--mode-glow);
+  box-shadow: 0 0 18px -6px color-mix(in srgb, var(--mode-glow) 70%, transparent);
 }
 
 .spaceMode:disabled {
@@ -4227,6 +4947,10 @@ html.is-fullscreen .spaceHome {
   border-radius: 12px;
   background: #141414;
   color: #f2f2f2;
+  transition:
+    border-color 200ms ease,
+    color 200ms ease,
+    box-shadow 240ms var(--ease-out);
 }
 
 .spaceModeText {
@@ -4367,10 +5091,8 @@ html.is-fullscreen .spaceHome {
 
 .layoutTiles {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(8, 1fr);
   gap: clamp(8px, 1vw, 12px);
-  flex: 1 1 auto;
-  align-content: stretch;
 }
 
 .layoutTile {
@@ -4395,13 +5117,17 @@ html.is-fullscreen .spaceHome {
 
 .layoutPreview {
   display: grid;
-  gap: 3px;
-  width: clamp(28px, 3.4vw, 48px);
-  height: clamp(20px, 2.6vw, 34px);
+  grid-auto-rows: 8px;
+  gap: 2px;
+  justify-content: center;
+  align-content: center;
 }
 
+/* Fixed cell size: the box is sized by its cells, so no count can overflow the
+   tile, and every layout shows the same square unit. */
 .layoutPreview i {
-  display: block;
+  width: 8px;
+  height: 8px;
   border-radius: 1px;
   background: currentColor;
   opacity: 0.55;
@@ -4771,18 +5497,39 @@ html.is-fullscreen .spaceHome {
   border: 1px solid var(--line);
   background: var(--bg-1);
   color: var(--text);
+  font-family: var(--font-mono);
   transition:
     border-color 0.15s var(--ease-out),
     background 0.15s var(--ease-out);
 }
 
-.folderRow .secondaryButton {
+.folderRow .folderBrowseButton {
   flex-shrink: 0;
-  white-space: nowrap;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--line);
+  background: var(--bg-1);
+  color: var(--text-3);
+}
+
+.folderRow .folderBrowseButton:hover {
+  color: var(--text);
 }
 
 .folderRow input:focus {
   border-color: var(--accent-line);
+}
+
+.folderRow input.inputInvalid {
+  border-color: #e06c5b;
+}
+
+.cdError {
+  margin: 8px 2px 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #e06c5b;
 }
 
 .recentChips {
@@ -5672,6 +6419,20 @@ html.is-fullscreen .spaceHome {
   overflow-x: hidden !important;
 }
 
+/* Every pane showed two vertical bars: this native viewport scrollbar plus the
+   one the agent CLI draws inside its own TUI. xterm.js ships
+   `overflow-y: scroll`, so the 8px gutter was reserved and painted even with
+   nothing to scroll, and it also made the render canvas wider than the
+   viewport's client box. Wheel and keyboard scrolling are unaffected. */
+.paneTerminalHost .xterm-viewport {
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.paneTerminalHost .xterm-viewport::-webkit-scrollbar {
+  display: none;
+}
+
 /* xterm.js configures its cell measurement from the Terminal fontFamily option
    but does not put that family on the row container, so the application
    sans-serif is inherited and every glyph is drawn off the measured grid. Must
@@ -6450,6 +7211,153 @@ html.is-fullscreen .spaceHome {
 @media (prefers-reduced-motion: reduce) {
   .swarmGraph line.swarmEdgeLive,
   .swarmNode i {
+    animation: none;
+  }
+}
+
+.dictationHud {
+  position: fixed;
+  z-index: 80;
+  left: 50%;
+  bottom: 28px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(340px, calc(100vw - 48px));
+  height: 48px;
+  padding: 0 12px 0 14px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(12, 12, 12, 0.92);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(18px);
+  pointer-events: auto;
+}
+
+.dictationOrb {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 99px;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent-line);
+}
+
+.dictationHud[data-phase='listening'] .dictationOrb {
+  animation: dictationPulse 1.1s var(--ease-out) infinite;
+}
+
+.dictationHud[data-phase='transcribing'] .dictationOrb {
+  background: var(--text-3);
+  box-shadow: none;
+}
+
+.dictationWave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  flex: 1;
+  height: 22px;
+}
+
+.dictationWave i {
+  display: block;
+  width: 2px;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--accent-bright);
+}
+
+.dictationHud[data-phase='transcribing'] .dictationWave i {
+  height: 4px;
+  opacity: 0.45;
+}
+
+.dictationCopy {
+  flex-shrink: 1;
+  margin: 0;
+  max-width: 14em;
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dictationCancel {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 10px;
+}
+
+.voiceDownloadBar {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  overflow: hidden;
+  margin-top: 8px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.voiceDownloadBar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.voiceDownloadBarIndeterminate span {
+  width: 36%;
+  animation: voiceDownloadSlide 1s ease-in-out infinite;
+}
+
+.voiceModelTriggerCol {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 200px;
+}
+
+@keyframes dictationPulse {
+  50% {
+    transform: scale(1.35);
+    opacity: 0.7;
+  }
+}
+
+@keyframes dictationBar {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(calc(0.55 + var(--level, 0.2)));
+  }
+}
+
+@keyframes voiceDownloadSlide {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dictationHud {
+    backdrop-filter: none;
+  }
+
+  .dictationOrb,
+  .dictationWave i,
+  .voiceDownloadBarIndeterminate span {
     animation: none;
   }
 }

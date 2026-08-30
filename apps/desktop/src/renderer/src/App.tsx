@@ -1,10 +1,12 @@
-import { Link, Outlet, useRouterState } from '@tanstack/react-router';
+import { Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
 import { BoardProvider } from './board-store.js';
 import logo from './assets/logo.png';
 import { SidePanel } from './components/side-panel.js';
 import { SpaceRail } from './components/space-rail.js';
+import { DictationHud } from './components/dictation-hud.js';
+import { SettingsNav } from './routes/settings/nav.js';
 import { PreviewProvider, usePreview } from './preview-store.js';
 import { SpaceProvider } from './space-store.js';
 
@@ -20,6 +22,20 @@ function Shell(): React.JSX.Element {
     }
   });
   const settingsActive = pathname.startsWith('/settings');
+  const navigate = useNavigate();
+
+  // Escape leaves Settings, mirroring the visible back control. The router has
+  // nowhere back when a deep link opened the app, so it goes home instead.
+  useEffect(() => {
+    if (!settingsActive) return;
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      void navigate({ to: '/' });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [settingsActive, navigate]);
 
   useEffect(() => {
     if (preview.open && preview.tab === 'browser') return;
@@ -36,8 +52,9 @@ function Shell(): React.JSX.Element {
 
   const shellClass = [
     'shell',
+    settingsActive ? 'shellSettingsOn' : '',
     preview.open ? 'shellBrowserOn' : '',
-    railCollapsed ? 'shellRailOff' : '',
+    !settingsActive && railCollapsed ? 'shellRailOff' : '',
   ]
     .filter((item) => item.length > 0)
     .join(' ');
@@ -72,13 +89,17 @@ function Shell(): React.JSX.Element {
           </span>
         </div>
         <div className="topbarEnd">
-          <Link
+          <button
+            type="button"
             className={settingsActive ? 'topbarIcon topbarIconOn' : 'topbarIcon'}
-            to="/settings/providers"
-            title="Settings"
+            title={settingsActive ? 'Leave settings (Esc)' : 'Settings'}
+            aria-pressed={settingsActive}
+            onClick={() =>
+              void navigate({ to: settingsActive ? '/' : '/settings/voice' })
+            }
           >
             <GearIcon />
-          </Link>
+          </button>
           <button
             type="button"
             className={preview.open ? 'topbarIcon topbarIconOn' : 'topbarIcon'}
@@ -90,11 +111,16 @@ function Shell(): React.JSX.Element {
           </button>
         </div>
       </header>
-      <SpaceRail collapsed={railCollapsed} />
+      {pathname.startsWith('/settings') ? (
+        <SettingsNav active={pathname} />
+      ) : (
+        <SpaceRail collapsed={railCollapsed} />
+      )}
       <main className="content" role="main">
         <Outlet />
       </main>
       {preview.open ? <SidePanel /> : null}
+      <DictationHud />
     </div>
   );
 }

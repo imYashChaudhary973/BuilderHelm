@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -36,5 +39,16 @@ describe('Electron security boundary', () => {
     expect(policy).not.toContain("'unsafe-eval'");
     expect(policy).toContain("object-src 'none'");
     expect(policy).toContain("frame-ancestors 'none'");
+  });
+
+  it('declares microphone use for the packaged Mac app', () => {
+    const manifest = JSON.parse(
+      readFileSync(resolve(import.meta.dirname, '../package.json'), 'utf8'),
+    ) as {
+      build?: { mac?: { extendInfo?: { NSMicrophoneUsageDescription?: string } } };
+    };
+    expect(manifest.build?.mac?.extendInfo?.NSMicrophoneUsageDescription).toMatch(
+      /microphone/i,
+    );
   });
 });

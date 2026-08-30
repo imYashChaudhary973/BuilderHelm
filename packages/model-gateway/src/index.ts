@@ -6,3 +6,4 @@ export * from './adapters/ollama-adapter.js';
 export * from './error-mapping.js';
 export * from './http.js';
 export * from './model-gateway.js';
+export * from './transcription-adapter.js';
