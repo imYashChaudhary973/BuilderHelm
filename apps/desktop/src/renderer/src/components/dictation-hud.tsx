@@ -24,7 +24,13 @@ export function DictationHud(): React.JSX.Element | null {
         : hud.partial);
 
   return (
-    <div className="dictationHud" role="status" aria-live="polite" data-phase={hud.phase}>
+    <div
+      className="dictationHud"
+      role="status"
+      aria-live={hud.error === null ? 'polite' : 'assertive'}
+      aria-atomic="true"
+      data-phase={hud.phase}
+    >
       <div className="dictationMeter" aria-hidden="true">
         <span style={{ width: `${Math.min(100, Math.round(hud.level * 220))}%` }} />
       </div>
@@ -33,6 +39,7 @@ export function DictationHud(): React.JSX.Element | null {
         <button
           type="button"
           className="dictationCancel"
+          aria-label="Cancel dictation"
           onClick={() => bootDictation().cancel()}
         >
           Esc

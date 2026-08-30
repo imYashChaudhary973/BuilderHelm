@@ -7240,6 +7240,7 @@ html.is-fullscreen .spaceHome {
   display: block;
   height: 100%;
   background: var(--accent);
+  transition: width 80ms linear;
 }
 
 .dictationCopy {
@@ -7259,3 +7260,12 @@ html.is-fullscreen .spaceHome {
   font-size: 11px;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .dictationHud {
+    backdrop-filter: none;
+  }
+
+  .dictationMeter span {
+    transition: none;
+  }
+}

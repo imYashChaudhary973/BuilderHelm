@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { VoiceHotkeys } from '../src/main/voice-hotkeys.js';
+import { microphoneErrorMessage } from '../src/renderer/src/voice/capture.js';
 import { createDictation } from '../src/renderer/src/voice/dictation.js';
 import { eventMatchesAccelerator } from '../src/renderer/src/voice/hotkey.js';
 import {
@@ -24,6 +25,7 @@ function settings(over: Record<string, unknown> = {}) {
     hotkey: 'CommandOrControl+Shift+V',
     microphoneId: null,
     modelId: 'whisper-tiny',
+    cloudConsent: false,
     ...over,
   };
 }
@@ -49,6 +51,17 @@ describe('voice pcm', () => {
   it('treats a quiet buffer as silence', () => {
     expect(rms(new Float32Array(1600))).toBe(0);
     expect(peakRms(tone(0.4))).toBeGreaterThan(0.3);
+  });
+});
+
+describe('microphone permission copy', () => {
+  it('names System Settings when access is declined', () => {
+    expect(microphoneErrorMessage(new DOMException('denied', 'NotAllowedError'))).toMatch(
+      /System Settings/,
+    );
+    expect(microphoneErrorMessage(new DOMException('gone', 'NotFoundError'))).toMatch(
+      /No microphone/,
+    );
   });
 });
 
@@ -130,6 +143,7 @@ describe('voice hotkeys', () => {
       hotkey: 'CommandOrControl+Shift+V',
       microphoneId: null,
       modelId: 'whisper-tiny' as const,
+      cloudConsent: false,
     };
     hotkeys.sync(base);
     expect(register).toHaveBeenCalledOnce();

@@ -1,6 +1,6 @@
 # Implementation status
 
-Last reviewed: 2026-08-28.
+Last reviewed: 2026-08-30.
 
 This document distinguishes working code from planned product scope. A feature
 is not shipped merely because a route, mock, fixture, or documentation page exists.
@@ -21,6 +21,8 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 - Editor tree, tabs, save, save-all, autosave, and word wrap.
 - Git status, history, stage, unstage, and commit.
 - Swarm mission, roster, CLI seats, live state, directives, budgets, and worktree flow.
+- Voice dictation: on-device models never send audio off-device; cloud models
+  require a stored key and first-run consent before any upload.
 - Third-party attribution generated from the production graph, shipped in the
   app resources, reachable from the Help menu, and guarded in CI.
 - Pane worktree creation is transactional, and worktrees left by a crashed run

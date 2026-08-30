@@ -153,6 +153,8 @@ export const voiceSettingsSchema = z
     microphoneId: z.string().trim().min(1).max(200).nullable(),
     /** `null` until the user picks a model; there is no default. */
     modelId: voiceModelIdSchema.nullable(),
+    /** False until the user agrees that cloud models may upload audio. */
+    cloudConsent: z.boolean(),
   })
   .strict();
 export type VoiceSettings = z.infer<typeof voiceSettingsSchema>;

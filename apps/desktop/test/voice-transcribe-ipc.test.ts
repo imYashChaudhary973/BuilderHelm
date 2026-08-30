@@ -1,4 +1,3 @@
-
 import type { CoreRuntime } from '@builderhelm/core';
 import { ipcChannels } from '@builderhelm/protocol/ipc';
 import type { VoiceStatus } from '@builderhelm/protocol/voice';
@@ -65,6 +64,7 @@ function voiceStatus(model: VoiceStatus['models'][number]): VoiceStatus {
       hotkey: 'CommandOrControl+Shift+V',
       microphoneId: null,
       modelId: model.id,
+      cloudConsent: model.runtime === 'cloud',
     },
     models: [model],
     openAiKeyPresent: model.runtime === 'cloud',
@@ -173,4 +173,3 @@ describe('voice transcribe IPC', () => {
     unregister();
   });
 });
-

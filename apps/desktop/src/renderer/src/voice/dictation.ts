@@ -1,4 +1,4 @@
-import { startMicCapture } from './capture.js';
+import { microphoneErrorMessage, startMicCapture } from './capture.js';
 import { eventMatchesAccelerator, type KeyLike } from './hotkey.js';
 import { insertTranscript, resolveInsertTarget, type InsertTarget } from './insert.js';
 import {
@@ -94,8 +94,8 @@ export function createDictation(deps: DictationDeps) {
           emit({ ...hud, level });
         },
       });
-    } catch {
-      emit({ ...idleHud, error: 'Microphone unavailable.' });
+    } catch (error) {
+      emit({ ...idleHud, error: microphoneErrorMessage(error) });
       return;
     }
     if (generation !== mine) {

@@ -6,6 +6,7 @@ export interface StoredVoiceSettings extends Record<string, unknown> {
   hotkey: string;
   microphoneId: string | null;
   modelId: string | null;
+  cloudConsent: number;
   updatedAt: string;
 }
 
@@ -15,6 +16,7 @@ export interface VoiceSettingsWrite {
   readonly hotkey: string;
   readonly microphoneId: string | null;
   readonly modelId: string | null;
+  readonly cloudConsent: boolean;
   readonly updatedAt: string;
 }
 
@@ -24,6 +26,7 @@ const voiceColumns = `
   hotkey,
   microphone_id AS microphoneId,
   model_id AS modelId,
+  cloud_consent AS cloudConsent,
   updated_at AS updatedAt
 `;
 
@@ -44,14 +47,16 @@ export class VoiceRepository {
   write(settings: VoiceSettingsWrite): void {
     this.database.run(
       `INSERT INTO voice_settings (
-        id, enabled, dictation_mode, hotkey, microphone_id, model_id, updated_at
-      ) VALUES (1, ?, ?, ?, ?, ?, ?)
+        id, enabled, dictation_mode, hotkey, microphone_id, model_id,
+        cloud_consent, updated_at
+      ) VALUES (1, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT (id) DO UPDATE SET
         enabled = excluded.enabled,
         dictation_mode = excluded.dictation_mode,
         hotkey = excluded.hotkey,
         microphone_id = excluded.microphone_id,
         model_id = excluded.model_id,
+        cloud_consent = excluded.cloud_consent,
         updated_at = excluded.updated_at`,
       [
         Number(settings.enabled),
@@ -59,6 +64,7 @@ export class VoiceRepository {
         settings.hotkey,
         settings.microphoneId,
         settings.modelId,
+        Number(settings.cloudConsent),
         settings.updatedAt,
       ],
     );

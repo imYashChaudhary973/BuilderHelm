@@ -34,6 +34,7 @@ const defaultSettings: VoiceSettings = {
   hotkey: VOICE_DEFAULT_HOTKEY,
   microphoneId: null,
   modelId: null,
+  cloudConsent: false,
 };
 
 function toSettings(row: StoredVoiceSettings | undefined): VoiceSettings {
@@ -44,6 +45,7 @@ function toSettings(row: StoredVoiceSettings | undefined): VoiceSettings {
     hotkey: row.hotkey,
     microphoneId: row.microphoneId,
     modelId: row.modelId,
+    cloudConsent: row.cloudConsent === 1,
   });
 }
 
@@ -174,6 +176,17 @@ export class VoiceService {
         `${entry.label} sends audio to OpenAI. Add an API key first.`,
       );
     }
+    if (!settings.cloudConsent) {
+      this.logger.warn({
+        event: 'voice.transcribe_blocked',
+        correlationId,
+        data: { modelId: entry.id, reason: 'missing_consent' },
+      });
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'Confirm that audio may be sent to OpenAI before using a cloud model.',
+      );
+    }
     if (this.transcription === null) {
       throw new BuilderHelmError(
         'INTEGRATION_OFFLINE',
@@ -205,6 +218,7 @@ export class VoiceService {
       hotkey: settings.hotkey,
       microphoneId: settings.microphoneId,
       modelId: settings.modelId,
+      cloudConsent: settings.cloudConsent,
       updatedAt: utcNow(),
     });
   }

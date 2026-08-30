@@ -52,6 +52,7 @@ describe('voice settings contract', () => {
     hotkey: VOICE_DEFAULT_HOTKEY,
     microphoneId: null,
     modelId: 'whisper-tiny' as const,
+    cloudConsent: false,
   };
 
   it('accepts a null model, because there is no default', () => {
@@ -92,6 +93,7 @@ describe('voice status contract', () => {
         hotkey: VOICE_DEFAULT_HOTKEY,
         microphoneId: null,
         modelId: null,
+        cloudConsent: false,
       },
       openAiKeyPresent: false,
       models: VOICE_MODEL_CATALOG.map((entry) => ({

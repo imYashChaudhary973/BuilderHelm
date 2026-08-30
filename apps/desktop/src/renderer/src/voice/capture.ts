@@ -1,5 +1,16 @@
 import { downsample, rms, VOICE_CAPTURE_RATE } from './pcm.js';
 
+export function microphoneErrorMessage(error: unknown): string {
+  const name = error instanceof DOMException ? error.name : '';
+  if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+    return 'Microphone access was declined. Allow it in System Settings → Privacy & Security → Microphone.';
+  }
+  if (name === 'NotFoundError') {
+    return 'No microphone found.';
+  }
+  return 'Microphone unavailable.';
+}
+
 export async function startMicCapture(input: {
   deviceId: string | null;
   onLevel: (level: number) => void;

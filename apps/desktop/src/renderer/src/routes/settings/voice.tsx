@@ -14,6 +14,11 @@ const KEY_MODAL_COPY = {
     'Local runtime keys are stored in ~/.orca using Electron encrypted storage when available.',
 } as const;
 
+const CONSENT_COPY = {
+  title: 'Send audio to OpenAI?',
+  body: 'Cloud models upload the recording to OpenAI. Local models never send audio off-device.',
+} as const;
+
 /** Renders an accelerator the way a Mac menu shows it, e.g. ⌘E. */
 function hotkeyLabel(hotkey: string | undefined): string {
   if (hotkey === undefined) return 'the hotkey';
@@ -42,10 +47,10 @@ export function VoicePage(): React.JSX.Element {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [keyModal, setKeyModal] = useState(false);
+  const [consentModal, setConsentModal] = useState(false);
   const [pendingCloudModelId, setPendingCloudModelId] = useState<VoiceModelId | null>(
     null,
   );
-
   const voice = useQuery({
     queryKey: ['voice-status'],
     queryFn: () => window.builderHelm.voice.status(),
@@ -72,12 +77,18 @@ export function VoicePage(): React.JSX.Element {
       const modelId = pendingCloudModelId;
       setError(null);
       setKeyModal(false);
-      setPendingCloudModelId(null);
       await refresh();
-      if (modelId !== null) {
-        await window.builderHelm.voice.updateSettings({ modelId });
-        await refresh();
+      if (modelId === null) {
+        setPendingCloudModelId(null);
+        return;
       }
+      if (settings?.cloudConsent !== true) {
+        setConsentModal(true);
+        return;
+      }
+      setPendingCloudModelId(null);
+      await window.builderHelm.voice.updateSettings({ modelId });
+      await refresh();
     },
     onError: (cause: Error) => setError(cause.message),
   });
@@ -119,7 +130,8 @@ export function VoicePage(): React.JSX.Element {
         <div>
           <h1>Voice</h1>
           <p className="voiceLede">
-            Local speech-to-text dictation with on-device models.
+            Local models never send audio off-device. Cloud models upload audio to OpenAI
+            only after you agree.
           </p>
         </div>
       </header>
@@ -249,6 +261,16 @@ export function VoicePage(): React.JSX.Element {
                             setError(null);
                             setPendingCloudModelId(model.id);
                             setKeyModal(true);
+                            return;
+                          }
+                          if (
+                            model.runtime === 'cloud' &&
+                            settings?.cloudConsent !== true
+                          ) {
+                            setModelMenuOpen(false);
+                            setError(null);
+                            setPendingCloudModelId(model.id);
+                            setConsentModal(true);
                             return;
                           }
                           if (model.runtime === 'local' && !model.installed) {
@@ -419,6 +441,47 @@ export function VoicePage(): React.JSX.Element {
           </section>
         </div>
       )}
+
+      {consentModal && (
+        <div className="dialogBackdrop" role="presentation">
+          <section
+            className="voiceKeyDialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="consent-dialog-title"
+          >
+            <h2 id="consent-dialog-title">{CONSENT_COPY.title}</h2>
+            <p>{CONSENT_COPY.body}</p>
+            <div className="formActions">
+              <button
+                type="button"
+                className="secondaryButton"
+                onClick={() => {
+                  setConsentModal(false);
+                  setPendingCloudModelId(null);
+                }}
+              >
+                Not now
+              </button>
+              <button
+                type="button"
+                className="voiceKeySave"
+                onClick={() => {
+                  const modelId = pendingCloudModelId;
+                  setConsentModal(false);
+                  setPendingCloudModelId(null);
+                  update.mutate({
+                    cloudConsent: true,
+                    ...(modelId !== null ? { modelId } : {}),
+                  });
+                }}
+              >
+                Allow
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </>
   );
 }
@@ -463,7 +526,7 @@ function MicrophoneRow(props: {
         <strong>Microphone</strong>
         <p className="voiceHint">
           {denied
-            ? 'Microphone access was declined. Allow it in System Settings to pick a device.'
+            ? 'Microphone access was declined. Allow it in System Settings → Privacy & Security → Microphone.'
             : 'Input device used for voice dictation. System default follows the OS microphone setting.'}
         </p>
       </div>

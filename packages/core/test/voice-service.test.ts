@@ -63,6 +63,7 @@ describe('voice settings', () => {
       hotkey: 'CommandOrControl+Shift+V',
       microphoneId: null,
       modelId: null,
+      cloudConsent: false,
     });
     // Reading must not write: an untouched install has no row.
     expect(repository.read()).toBeUndefined();
@@ -258,15 +259,34 @@ describe('voice cloud transcription', () => {
       { apiKey: 'sk-phase-four-voice-sentinel-key' },
       createCorrelationId(),
     );
-    await service.updateSettings({ modelId: 'gpt-4o-transcribe' }, createCorrelationId());
+    await service.updateSettings(
+      { modelId: 'gpt-4o-transcribe', cloudConsent: true },
+      createCorrelationId(),
+    );
 
     const result = await service.transcribe(
       { bytes: pcmWav(), filename: 'clip.wav' },
       createCorrelationId(),
     );
-
     expect(result.text).toBe('hello from gpt-4o');
     expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  it('does not send audio before first-run cloud consent', async () => {
+    const fetcher = vi.fn<GatewayFetch>(async () => new Response('{}'));
+    const { service } = setup(fetcher);
+    await service.saveOpenAiKey(
+      { apiKey: 'sk-phase-four-voice-sentinel-key' },
+      createCorrelationId(),
+    );
+    await service.updateSettings({ modelId: 'gpt-4o-transcribe' }, createCorrelationId());
+    await expect(
+      service.transcribe(
+        { bytes: pcmWav(), filename: 'clip.wav' },
+        createCorrelationId(),
+      ),
+    ).rejects.toThrow(/OpenAI/i);
+    expect(fetcher).not.toHaveBeenCalled();
   });
 
   it('blocks transcription without a key and makes no audio request', async () => {
@@ -295,7 +315,7 @@ describe('voice cloud transcription', () => {
       createCorrelationId(),
     );
     await service.updateSettings(
-      { modelId: 'gpt-4o-mini-transcribe' },
+      { modelId: 'gpt-4o-mini-transcribe', cloudConsent: true },
       createCorrelationId(),
     );
     await service.deleteOpenAiKey(createCorrelationId());

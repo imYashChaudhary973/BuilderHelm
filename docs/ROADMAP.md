@@ -8,8 +8,8 @@ conditions are met.
 
 - Remove the previous native-engine migration and duplicate runtime.
 - Establish Node.js 24, supported Electron, React, Vite, xterm.js, and node-pty.
-- Replace conflicting documents and add an architecture guard.
 - Keep the existing desktop product behavior compiling and tested.
+- Voice dictation (local and consented cloud) is in the macOS desktop app.
 
 ## P1 — Reliable local agent workspaces
 
