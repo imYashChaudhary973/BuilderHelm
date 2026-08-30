@@ -3,7 +3,6 @@ import {
   resolveOmniboxTarget,
   type PreviewDriveApproval,
   type PreviewPick,
-  type PreviewSnapshot,
   type PreviewToolMode,
   type PreviewViewportId,
 } from '@builderhelm/protocol/browser';
@@ -105,10 +104,6 @@ export function BrowserSidebar({
   const [canGoForward, setCanGoForward] = useState(false);
   const [page, setPage] = useState<string | null>(null);
   const [recents, setRecents] = useState(readRecents);
-  const [viewport, setViewport] = useState<PreviewViewportId>('desktop');
-  const [snapshot, setSnapshot] = useState<PreviewSnapshot | null>(null);
-  const [shot, setShot] = useState<string | null>(null);
-  const [fillText, setFillText] = useState('');
   const [approval, setApproval] = useState<PreviewDriveApproval | null>(null);
   const [tool, setTool] = useState<PreviewToolMode | null>(null);
   const [picked, setPicked] = useState<PreviewPick | null>(null);
@@ -116,11 +111,6 @@ export function BrowserSidebar({
   const [drawing, setDrawing] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const events = useQuery({
-    queryKey: ['preview-events'],
-    queryFn: () => window.builderHelm.browser.events(),
-    refetchInterval: page === null ? false : 1500,
-  });
   const origins = useQuery({
     queryKey: ['preview-origins'],
     queryFn: () => window.builderHelm.browser.origins(),
@@ -136,15 +126,6 @@ export function BrowserSidebar({
       window.builderHelm.swarm.latest({
         correlationId: crypto.randomUUID() as CorrelationId,
       }),
-  });
-  const artifacts = useQuery({
-    queryKey: ['preview-artifacts', root, swarm.data?.id],
-    queryFn: () =>
-      window.builderHelm.browser.artifacts({
-        ...(root === null ? {} : { root }),
-        runId: swarm.data?.id ?? null,
-      }),
-    enabled: page !== null,
   });
 
   const evidence = {
@@ -185,7 +166,6 @@ export function BrowserSidebar({
     return window.builderHelm.browser.onState((state) => {
       setCanGoBack(state.canGoBack);
       setCanGoForward(state.canGoForward);
-      setViewport(state.viewport);
       if (state.url.length === 0) return;
       setPage(state.url);
       setDraft(state.url);
@@ -227,7 +207,6 @@ export function BrowserSidebar({
       setPage(opened);
       setCanGoBack(state.canGoBack);
       setCanGoForward(state.canGoForward);
-      setViewport(state.viewport);
       setRecents(remember(opened));
       localStorage.setItem(LAST_KEY, opened);
     } catch (cause) {
@@ -242,7 +221,6 @@ export function BrowserSidebar({
       const state = await window.builderHelm.browser.command({ action });
       setCanGoBack(state.canGoBack);
       setCanGoForward(state.canGoForward);
-      setViewport(state.viewport);
       if (state.url.length > 0) {
         setDraft(state.url);
         setPage(state.url);
@@ -256,39 +234,13 @@ export function BrowserSidebar({
     const stage = stageRef.current;
     if (stage === null) return;
     try {
-      const state = await window.builderHelm.browser.command({
+      await window.builderHelm.browser.command({
         action: 'viewport',
         preset,
         bounds: stageBounds(stage),
       });
-      setViewport(state.viewport);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Viewport failed');
-    }
-  }
-
-  async function takeSnapshot(): Promise<void> {
-    try {
-      setSnapshot(await window.builderHelm.browser.snapshot(evidence));
-      await artifacts.refetch();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Snapshot failed');
-    }
-  }
-
-  async function drive(
-    action: 'click' | 'type' | 'fill' | 'scroll',
-    ref: string,
-  ): Promise<void> {
-    try {
-      const result = await window.builderHelm.browser.drive({
-        action,
-        ref,
-        ...(action === 'fill' || action === 'type' ? { text: fillText } : {}),
-      });
-      setApproval(result.kind === 'approval_required' ? result.approval : null);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Drive failed');
     }
   }
 
@@ -343,7 +295,6 @@ export function BrowserSidebar({
       setPicked(null);
       setNote('');
       setError('Annotation saved to this revision.');
-      await artifacts.refetch();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Annotation failed');
     }
@@ -364,7 +315,6 @@ export function BrowserSidebar({
       }
       await window.builderHelm.browser.command({ action: 'visible', visible: false });
       setDrawing(artifact.pngBase64);
-      await artifacts.refetch();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Capture failed');
     }
@@ -385,7 +335,6 @@ export function BrowserSidebar({
     setSaving(true);
     try {
       await window.builderHelm.browser.saveDrawing({ png, ...evidence });
-      await artifacts.refetch();
       setError('Marked screenshot copied. Saved to this revision.');
       await closeDrawing();
     } catch (cause) {
@@ -454,15 +403,6 @@ export function BrowserSidebar({
     }
   }
 
-  function newTab(): void {
-    setPage(null);
-    setDraft('');
-    setError(null);
-    setSnapshot(null);
-    setShot(null);
-    void window.builderHelm?.browser.command({ action: 'hide' }).catch(() => undefined);
-  }
-
   /**
    * Arrow, Home, and End move focus inside the icon group, skipping disabled
    * tools. Every button stays in the tab order rather than using a roving
@@ -502,36 +442,38 @@ export function BrowserSidebar({
           void openUrl(draft);
         }}
       >
-        <button
-          type="button"
-          className="browserIcon"
-          disabled={!canGoBack}
-          aria-label="Back"
-          title="Back"
-          onClick={() => void run('back')}
-        >
-          <IconBack />
-        </button>
-        <button
-          type="button"
-          className="browserIcon"
-          disabled={!canGoForward}
-          aria-label="Forward"
-          title="Forward"
-          onClick={() => void run('forward')}
-        >
-          <IconForward />
-        </button>
-        <button
-          type="button"
-          className="browserIcon"
-          disabled={page === null}
-          aria-label="Reload"
-          title="Reload"
-          onClick={() => void run('reload')}
-        >
-          <IconReload />
-        </button>
+        <div className="browserNav">
+          <button
+            type="button"
+            className="browserIcon"
+            disabled={!canGoBack}
+            aria-label="Back"
+            title="Back"
+            onClick={() => void run('back')}
+          >
+            <IconBack />
+          </button>
+          <button
+            type="button"
+            className="browserIcon"
+            disabled={!canGoForward}
+            aria-label="Forward"
+            title="Forward"
+            onClick={() => void run('forward')}
+          >
+            <IconForward />
+          </button>
+          <button
+            type="button"
+            className="browserIcon"
+            disabled={page === null}
+            aria-label="Reload"
+            title="Reload"
+            onClick={() => void run('reload')}
+          >
+            <IconReload />
+          </button>
+        </div>
         <div className="browserOmnibox">
           <span
             className={secure ? 'browserLock browserLockOn' : 'browserLock'}
@@ -571,7 +513,7 @@ export function BrowserSidebar({
         </button>
         <div
           ref={toolbarRef}
-          className="browserTools browserToolsBar"
+          className="browserToolsBar"
           role="toolbar"
           aria-label="Page tools"
           aria-orientation="horizontal"
@@ -779,92 +721,6 @@ export function BrowserSidebar({
             Deny
           </button>
         </p>
-      ) : null}
-      {page !== null && (
-        <div className="browserTools">
-          <button type="button" onClick={() => void takeSnapshot()}>
-            Snapshot
-          </button>
-          <button type="button" onClick={newTab}>
-            New tab
-          </button>
-          <span className="browserHint">
-            {viewport} · {settings.data?.zoomPercent ?? 100}%
-          </span>
-        </div>
-      )}
-      {snapshot !== null ? (
-        <ol className="browserSnapshot" aria-label="Page snapshot">
-          {snapshot.nodes.map((node) => (
-            <li key={node.ref}>
-              <code>{node.ref}</code> {node.role} {node.name}
-              <button type="button" onClick={() => void drive('click', node.ref)}>
-                Click
-              </button>
-              <button type="button" onClick={() => void drive('fill', node.ref)}>
-                Fill
-              </button>
-              <button type="button" onClick={() => void drive('scroll', node.ref)}>
-                Scroll
-              </button>
-            </li>
-          ))}
-          <li>
-            <input
-              aria-label="Fill text"
-              value={fillText}
-              placeholder="text for fill and type"
-              onChange={(event) => setFillText(event.target.value)}
-            />
-          </li>
-        </ol>
-      ) : null}
-      {(events.data ?? []).length > 0 ? (
-        <ul className="browserSnapshot" aria-label="Console and network">
-          {(events.data ?? []).slice(-12).map((item, index) => (
-            <li key={`${item.createdAt}-${String(index)}`}>
-              {item.kind} {item.text} {item.url}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {shot !== null ? (
-        <img className="browserShot" src={shot} alt="Preview screenshot" />
-      ) : null}
-      {(artifacts.data ?? []).length > 0 ? (
-        <ul className="browserArtifacts" aria-label="Run artifacts">
-          {(artifacts.data ?? []).map((item) => (
-            <li key={item.id}>
-              <strong>{item.kind}</strong>
-              <small>
-                {item.viewport} · {item.headSha.slice(0, 7)}
-                {item.detail === null ? '' : ` · ${item.detail}`}
-              </small>
-              {item.pngBase64 !== null ? (
-                <button
-                  type="button"
-                  onClick={() => setShot(`data:image/png;base64,${item.pngBase64}`)}
-                >
-                  Open
-                </button>
-              ) : null}
-              {item.nodes !== null ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSnapshot({
-                      url: item.url,
-                      viewport: item.viewport,
-                      nodes: item.nodes ?? [],
-                    })
-                  }
-                >
-                  Open
-                </button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
       ) : null}
     </aside>
   );

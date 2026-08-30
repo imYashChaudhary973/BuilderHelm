@@ -831,24 +831,19 @@ html.is-fullscreen .shell {
   display: flex;
   gap: 8px;
   align-items: center;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--line);
   -webkit-app-region: no-drag;
-  /* Wrapping, not clipping. Below roughly 530px the row cannot hold the
-     omnibox and every tool, and a clipped overflow menu is unreachable. */
   flex-wrap: wrap;
   row-gap: 8px;
 }
 
-/* The icon group is one ARIA toolbar. It wraps as a unit rather than being
-   clipped: at the narrowest usable panel width the six tools cannot share one
-   line with the omnibox, and an unreachable overflow menu is a broken toolbar. */
+.browserNav,
 .browserToolsBar {
   display: flex;
   flex-shrink: 0;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 0;
+  align-items: center;
+  gap: 2px;
 }
 
 .browserIcon:focus-visible,
@@ -860,8 +855,8 @@ html.is-fullscreen .shell {
 
 .browserIcon {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   place-items: center;
   padding: 0;
@@ -869,6 +864,10 @@ html.is-fullscreen .shell {
   border-radius: 10px;
   color: var(--text);
   background: transparent;
+}
+
+.browserIcon svg {
+  display: block;
 }
 
 .browserIcon:hover:not(:disabled) {
@@ -890,17 +889,14 @@ html.is-fullscreen .shell {
    on a lighter surface so the address reads as editable. */
 .browserOmnibox {
   display: flex;
-  /* An explicit basis, not `auto`: with wrapping enabled a content-sized
-     omnibox would push the tools onto a second row long before the row is
-     actually full. It starts narrow and grows into whatever is left. */
   flex: 1 1 160px;
   min-width: 160px;
   align-items: center;
   gap: 10px;
-  height: 42px;
-  padding: 0 6px 0 14px;
+  height: 36px;
+  padding: 0 4px 0 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
+  border-radius: 12px;
   background: #0d0d0d;
 }
 
@@ -920,9 +916,9 @@ html.is-fullscreen .shell {
   min-width: 0;
   flex: 1;
   align-items: center;
-  height: 30px;
+  height: 28px;
   padding: 0 12px;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #171717;
 }
 
@@ -943,13 +939,13 @@ html.is-fullscreen .shell {
 
 .browserImport {
   display: flex;
-  height: 34px;
+  height: 36px;
   flex-shrink: 0;
   align-items: center;
   gap: 7px;
   padding: 0 14px;
   border: 0;
-  border-radius: 11px;
+  border-radius: 10px;
   color: var(--text);
   background: rgba(255, 255, 255, 0.08);
   font-size: 13px;
