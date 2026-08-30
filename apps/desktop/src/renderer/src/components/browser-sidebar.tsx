@@ -1,15 +1,32 @@
 import { useQuery } from '@tanstack/react-query';
 import {
-  PREVIEW_VIEWPORTS,
-  type DesktopActApproval,
+  resolveOmniboxTarget,
   type PreviewDriveApproval,
+  type PreviewPick,
   type PreviewSnapshot,
+  type PreviewToolMode,
   type PreviewViewportId,
 } from '@builderhelm/protocol/browser';
 import type { CorrelationId } from '@builderhelm/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 
-import { useSpaces } from '../space-store.js';
+import { useSpaces, type SpaceStore } from '../space-store.js';
+import { ScreenshotEditor } from './screenshot-editor.js';
+import {
+  IconAnnotate,
+  IconBack,
+  IconDevtools,
+  IconDraw,
+  IconExternal,
+  IconForward,
+  IconGrab,
+  IconImport,
+  IconLock,
+  IconOverflow,
+  IconReload,
+  IconWeb,
+} from './browser-icons.js';
 
 interface RecentHit {
   readonly url: string;
@@ -18,11 +35,6 @@ interface RecentHit {
 
 const RECENTS_KEY = 'exeum.browser.recents';
 const LAST_KEY = 'exeum.browser.last';
-const VIEWPORTS = [
-  'desktop',
-  'tablet',
-  'phone',
-] as const satisfies readonly PreviewViewportId[];
 
 function stageBounds(el: HTMLDivElement): {
   x: number;
@@ -66,11 +78,10 @@ function remember(url: string): RecentHit[] {
     { url, label },
     ...readRecents().filter((item) => item.url !== url),
   ].slice(0, 10);
-  localStorage.setItem(RECENTS_KEY, JSON.stringify(next));
   return next;
 }
 
-function workspaceFolder(spaces: ReturnType<typeof useSpaces>): string | null {
+function workspaceFolder(spaces: SpaceStore): string | null {
   if (spaces.draft || spaces.activeId === null) return null;
   return (
     spaces.spaces.find((item) => item.sessionId === spaces.activeId)?.folderPath ?? null
@@ -83,8 +94,11 @@ export function BrowserSidebar({
   readonly startUrl: string | null;
 }): React.JSX.Element {
   const spaces = useSpaces();
+  const navigate = useNavigate();
   const root = workspaceFolder(spaces);
   const stageRef = useRef<HTMLDivElement | null>(null);
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
+  const omniboxRef = useRef<HTMLInputElement | null>(null);
   const [draft, setDraft] = useState(startUrl ?? '');
   const [error, setError] = useState<string | null>(null);
   const [canGoBack, setCanGoBack] = useState(false);
@@ -96,22 +110,25 @@ export function BrowserSidebar({
   const [shot, setShot] = useState<string | null>(null);
   const [fillText, setFillText] = useState('');
   const [approval, setApproval] = useState<PreviewDriveApproval | null>(null);
-  const [pickNote, setPickNote] = useState('this is stuck');
-  const [desktopApproval, setDesktopApproval] = useState<DesktopActApproval | null>(null);
-  const [menu, setMenu] = useState<
-    'import' | 'history' | 'overflow' | 'viewport' | 'settings' | null
-  >(null);
-  const [designOn, setDesignOn] = useState(false);
+  const [tool, setTool] = useState<PreviewToolMode | null>(null);
+  const [picked, setPicked] = useState<PreviewPick | null>(null);
+  const [note, setNote] = useState('');
+  const [drawing, setDrawing] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
   const events = useQuery({
     queryKey: ['preview-events'],
     queryFn: () => window.builderHelm.browser.events(),
     refetchInterval: page === null ? false : 1500,
   });
-
   const origins = useQuery({
     queryKey: ['preview-origins'],
     queryFn: () => window.builderHelm.browser.origins(),
     refetchInterval: 2000,
+  });
+  const settings = useQuery({
+    queryKey: ['browser-settings'],
+    queryFn: () => window.builderHelm.browser.settings(),
   });
   const swarm = useQuery({
     queryKey: ['preview-swarm'],
@@ -130,6 +147,11 @@ export function BrowserSidebar({
     enabled: page !== null,
   });
 
+  const evidence = {
+    ...(root === null ? {} : { root }),
+    runId: swarm.data?.id ?? null,
+  };
+
   const syncBounds = useCallback(() => {
     const stage = stageRef.current;
     if (stage === null || page === null) return;
@@ -143,6 +165,19 @@ export function BrowserSidebar({
     window.addEventListener('resize', syncBounds);
     return () => window.removeEventListener('resize', syncBounds);
   }, [syncBounds, page]);
+
+  // The page can navigate without the toolbar asking — a link, a redirect, an
+  // in-page route. Main pushes the new state so Back and Forward stay honest.
+  useEffect(() => {
+    return window.builderHelm.browser.onState((state) => {
+      setCanGoBack(state.canGoBack);
+      setCanGoForward(state.canGoForward);
+      setViewport(state.viewport);
+      if (state.url.length === 0) return;
+      setPage(state.url);
+      setDraft(state.url);
+    });
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(LAST_KEY, page ?? '');
@@ -161,21 +196,25 @@ export function BrowserSidebar({
 
   async function openUrl(raw: string): Promise<void> {
     const stage = stageRef.current;
-    const url = raw.trim();
-    if (stage === null || url.length === 0) return;
+    if (stage === null) return;
+    const target = resolveOmniboxTarget(raw, settings.data?.searchEngine ?? 'google');
+    if (target === null) {
+      setError('Type a URL or a search phrase.');
+      return;
+    }
     setError(null);
     try {
       const state = await window.builderHelm.browser.command({
         action: 'open',
-        url,
+        url: target,
         bounds: stageBounds(stage),
       });
-      setDraft(state.url.length > 0 ? state.url : url);
-      setPage(state.url.length > 0 ? state.url : url);
+      const opened = state.url.length > 0 ? state.url : target;
+      setDraft(opened);
+      setPage(opened);
       setCanGoBack(state.canGoBack);
       setCanGoForward(state.canGoForward);
       setViewport(state.viewport);
-      const opened = state.url.length > 0 ? state.url : url;
       setRecents(remember(opened));
       localStorage.setItem(LAST_KEY, opened);
     } catch (cause) {
@@ -183,7 +222,9 @@ export function BrowserSidebar({
     }
   }
 
-  async function run(action: 'back' | 'forward' | 'reload' | 'external'): Promise<void> {
+  async function run(
+    action: 'back' | 'forward' | 'reload' | 'external' | 'devtools',
+  ): Promise<void> {
     try {
       const state = await window.builderHelm.browser.command({ action });
       setCanGoBack(state.canGoBack);
@@ -215,28 +256,10 @@ export function BrowserSidebar({
 
   async function takeSnapshot(): Promise<void> {
     try {
-      const next = await window.builderHelm.browser.snapshot({
-        ...(root === null ? {} : { root }),
-        runId: swarm.data?.id ?? null,
-      });
-      setSnapshot(next);
+      setSnapshot(await window.builderHelm.browser.snapshot(evidence));
       await artifacts.refetch();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Snapshot failed');
-    }
-  }
-
-  async function takeScreenshot(): Promise<void> {
-    try {
-      const artifact = await window.builderHelm.browser.screenshot({
-        ...(root === null ? {} : { root }),
-        runId: swarm.data?.id ?? null,
-      });
-      if (artifact.pngBase64 !== null)
-        setShot(`data:image/png;base64,${artifact.pngBase64}`);
-      await artifacts.refetch();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Screenshot failed');
     }
   }
 
@@ -250,8 +273,7 @@ export function BrowserSidebar({
         ref,
         ...(action === 'fill' || action === 'type' ? { text: fillText } : {}),
       });
-      if (result.kind === 'approval_required') setApproval(result.approval);
-      else setApproval(null);
+      setApproval(result.kind === 'approval_required' ? result.approval : null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Drive failed');
     }
@@ -267,65 +289,155 @@ export function BrowserSidebar({
     }
   }
 
-  async function desktopAct(action: 'click' | 'type'): Promise<void> {
+  /** Arms one-shot selection. The page cancels on Escape and resolves on click. */
+  async function startTool(mode: PreviewToolMode): Promise<void> {
+    if (page === null) return;
+    setError(null);
+    setPicked(null);
+    setNote('');
+    setTool(mode);
     try {
-      const input =
-        action === 'click'
-          ? (() => {
-              const [xRaw, yRaw] = fillText.split(',');
-              const x = Number(xRaw);
-              const y = Number(yRaw);
-              if (!Number.isFinite(x) || !Number.isFinite(y)) {
-                throw new Error('Click needs x,y');
-              }
-              return { action, x: Math.round(x), y: Math.round(y) } as const;
-            })()
-          : { action, text: fillText };
-      const result = await window.builderHelm.desktop.act(input);
-      if (result.kind === 'approval_required') setDesktopApproval(result.approval);
-      else setDesktopApproval(null);
+      setPicked(await window.builderHelm.browser.pick({ mode }));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Desktop act failed');
-    }
-  }
-
-  async function resolveDesktop(allow: boolean): Promise<void> {
-    if (desktopApproval === null) return;
-    try {
-      await window.builderHelm.desktop.approve({ id: desktopApproval.id, allow });
-      setDesktopApproval(null);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Desktop approval failed');
-    }
-  }
-
-  async function desktopShot(): Promise<void> {
-    try {
-      const shot = await window.builderHelm.desktop.screenshot();
-      setShot(`data:image/png;base64,${shot.pngBase64}`);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Desktop screenshot failed');
-    }
-  }
-
-  async function pickElement(): Promise<void> {
-    try {
-      const picked = await window.builderHelm.browser.pick();
-      if (picked.pngBase64 !== null) {
-        setShot(`data:image/png;base64,${picked.pngBase64}`);
-      }
-      setError(`Picked ${picked.role} “${picked.name}”. Send to builder when ready.`);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Pick failed');
+      setError(cause instanceof Error ? cause.message : 'Selection failed');
+    } finally {
+      setTool(null);
     }
   }
 
   async function sendPicked(): Promise<void> {
+    if (note.trim().length === 0) {
+      setError('Add a note before sending this to an agent.');
+      return;
+    }
     try {
-      const result = await window.builderHelm.browser.sendPick({ note: pickNote });
+      const result = await window.builderHelm.browser.sendPick({ note });
       setError(result.sent ? 'Sent to builder seats.' : 'No swarm builder to send to.');
+      setPicked(null);
+      setNote('');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Send failed');
+    }
+  }
+
+  async function saveAnnotation(): Promise<void> {
+    if (note.trim().length === 0) {
+      setError('An annotation needs a note.');
+      return;
+    }
+    try {
+      await window.builderHelm.browser.annotate({ note, ...evidence });
+      setPicked(null);
+      setNote('');
+      setError('Annotation saved to this revision.');
+      await artifacts.refetch();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Annotation failed');
+    }
+  }
+
+  /**
+   * Captures the page, then hides the live view while the editor is open. The
+   * view keeps its document and scroll offset, so closing the editor restores
+   * exactly what was captured instead of reloading the page.
+   */
+  async function startDrawing(): Promise<void> {
+    if (page === null) return;
+    try {
+      const artifact = await window.builderHelm.browser.screenshot(evidence);
+      if (artifact.pngBase64 === null) {
+        setError('The capture came back empty.');
+        return;
+      }
+      await window.builderHelm.browser.command({ action: 'visible', visible: false });
+      setDrawing(artifact.pngBase64);
+      await artifacts.refetch();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Capture failed');
+    }
+  }
+
+  async function closeDrawing(): Promise<void> {
+    setDrawing(null);
+    setSaving(false);
+    try {
+      await window.builderHelm.browser.command({ action: 'visible', visible: true });
+      syncBounds();
+    } catch {
+      // The view is gone; the idle home screen is already correct.
+    }
+  }
+
+  async function saveDrawing(png: ArrayBuffer): Promise<void> {
+    setSaving(true);
+    try {
+      await window.builderHelm.browser.saveDrawing({ png, ...evidence });
+      await artifacts.refetch();
+      setError('Marked screenshot saved to this revision.');
+      await closeDrawing();
+    } catch (cause) {
+      setSaving(false);
+      setError(cause instanceof Error ? cause.message : 'Could not save the markup');
+    }
+  }
+
+  async function openMenu(
+    kind: 'import' | 'overflow' | 'viewport',
+    anchor: HTMLElement,
+  ): Promise<void> {
+    const rect = anchor.getBoundingClientRect();
+    try {
+      const { choice } = await window.builderHelm.browser.menu({
+        kind,
+        x: Math.round(rect.left),
+        y: Math.round(rect.bottom + 4),
+      });
+      if (choice === null) return;
+      await applyMenuChoice(choice, anchor);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Menu failed');
+    }
+  }
+
+  async function applyMenuChoice(choice: string, anchor: HTMLElement): Promise<void> {
+    const [key, ...rest] = choice.split(':');
+    const value = rest.join(':');
+    if (key === 'open') {
+      await openUrl(value);
+      return;
+    }
+    if (key === 'viewport') {
+      await applyViewport(value as PreviewViewportId);
+      return;
+    }
+    if (key === 'profile') {
+      await window.builderHelm.browser.updateSettings({ activeProfileId: value });
+      await settings.refetch();
+      // Cookies belong to the partition, so the page has to be reopened under
+      // the new profile rather than kept alive across the switch.
+      if (page !== null) await openUrl(page);
+      return;
+    }
+    if (key === 'cookies') {
+      const result = await window.builderHelm.browser.importCookies({ id: value });
+      await settings.refetch();
+      setError(
+        result.cancelled
+          ? 'Cookie import cancelled.'
+          : `Imported ${String(result.imported)} cookies from ${String(result.domains.length)} domains.`,
+      );
+      return;
+    }
+    if (choice === 'profile-new') {
+      const name = window.prompt('New profile name');
+      if (name === null || name.trim().length === 0) return;
+      await window.builderHelm.browser.createProfile({ name });
+      await settings.refetch();
+      await openMenu('overflow', anchor);
+      return;
+    }
+    if (choice === 'settings') {
+      await navigate({ to: '/settings/browser' });
     }
   }
 
@@ -338,7 +450,35 @@ export function BrowserSidebar({
     void window.builderHelm?.browser.command({ action: 'hide' }).catch(() => undefined);
   }
 
+  /**
+   * Arrow, Home, and End move focus inside the icon group, skipping disabled
+   * tools. Every button stays in the tab order rather than using a roving
+   * tabindex: the group is six controls in a toolbar that already holds a text
+   * field, and swallowing Tab would make the field harder to leave.
+   */
+  function moveToolbarFocus(event: React.KeyboardEvent<HTMLDivElement>): void {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    const group = toolbarRef.current;
+    if (group === null) return;
+    const items = [...group.querySelectorAll<HTMLButtonElement>('button')].filter(
+      (item) => !item.disabled,
+    );
+    if (items.length === 0) return;
+    event.preventDefault();
+    const active = items.indexOf(document.activeElement as HTMLButtonElement);
+    const next =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? items.length - 1
+          : event.key === 'ArrowRight'
+            ? (Math.max(0, active) + 1) % items.length
+            : (Math.max(0, active) - 1 + items.length) % items.length;
+    items[next]?.focus();
+  }
+
   const ports = origins.data ?? [];
+  const secure = page !== null && page.startsWith('https:');
 
   return (
     <aside className="browserSide" aria-label="Browser">
@@ -346,7 +486,6 @@ export function BrowserSidebar({
         className="browserBar"
         onSubmit={(event) => {
           event.preventDefault();
-          setMenu(null);
           void openUrl(draft);
         }}
       >
@@ -355,242 +494,225 @@ export function BrowserSidebar({
           className="browserIcon"
           disabled={!canGoBack}
           aria-label="Back"
+          title="Back"
           onClick={() => void run('back')}
         >
-          ←
+          <IconBack />
         </button>
         <button
           type="button"
           className="browserIcon"
           disabled={!canGoForward}
           aria-label="Forward"
+          title="Forward"
           onClick={() => void run('forward')}
         >
-          →
+          <IconForward />
         </button>
         <button
           type="button"
           className="browserIcon"
           disabled={page === null}
           aria-label="Reload"
+          title="Reload"
           onClick={() => void run('reload')}
         >
-          ↻
+          <IconReload />
         </button>
         <div className="browserOmnibox">
-          <span aria-hidden="true">{draft.startsWith('https:') ? '🔒' : '🌐'}</span>
+          <span
+            className={secure ? 'browserLock browserLockOn' : 'browserLock'}
+            aria-hidden="true"
+          >
+            {secure ? <IconLock /> : <IconWeb />}
+          </span>
           <input
-            aria-label="Address"
+            ref={omniboxRef}
+            aria-label="Address and search"
             value={draft}
-            placeholder="http or https only"
+            placeholder="Enter a URL or search"
             spellCheck={false}
+            autoComplete="off"
+            onFocus={(event) => event.currentTarget.select()}
             onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Escape') return;
+              event.preventDefault();
+              setDraft(page ?? '');
+              event.currentTarget.blur();
+            }}
           />
         </div>
         <button
           type="button"
           className="browserImport"
           aria-haspopup="menu"
-          aria-expanded={menu === 'import'}
-          onClick={() => setMenu(menu === 'import' ? null : 'import')}
+          aria-label="Import a mapped localhost port"
+          title="Import a mapped localhost port"
+          onClick={(event) => void openMenu('import', event.currentTarget)}
         >
-          Import
+          <IconImport />
+          <span className="browserImportLabel">Import</span>
         </button>
-        <button
-          type="button"
-          className="browserIcon"
-          aria-label="History"
-          onClick={() => setMenu(menu === 'history' ? null : 'history')}
+        <div
+          ref={toolbarRef}
+          className="browserTools browserToolsBar"
+          role="toolbar"
+          aria-label="Page tools"
+          aria-orientation="horizontal"
+          onKeyDown={moveToolbarFocus}
         >
-          🕐
-        </button>
-        <button
-          type="button"
-          className="browserIcon"
-          disabled={page === null}
-          aria-label="Send to agent"
-          onClick={() => void sendPicked()}
-        >
-          💬
-        </button>
-        <button
-          type="button"
-          className={designOn ? 'browserIcon browserIconOn' : 'browserIcon'}
-          disabled={page === null}
-          aria-label="Design Mode"
-          aria-pressed={designOn}
-          onClick={() => {
-            setDesignOn(true);
-            void pickElement().finally(() => setDesignOn(false));
-          }}
-        >
-          ✨
-        </button>
-        <button
-          type="button"
-          className="browserIcon"
-          aria-label="Viewport size"
-          onClick={() => setMenu(menu === 'viewport' ? null : 'viewport')}
-        >
-          ⛶
-        </button>
-        <button
-          type="button"
-          className="browserIcon"
-          disabled={page === null}
-          aria-label="Open in system browser"
-          onClick={() => void run('external')}
-        >
-          ↗
-        </button>
-        <button
-          type="button"
-          className="browserIcon"
-          aria-label="Browser menu"
-          aria-haspopup="menu"
-          aria-expanded={menu === 'overflow' || menu === 'settings'}
-          onClick={() => setMenu(menu === 'overflow' ? null : 'overflow')}
-        >
-          ⋯
-        </button>
+          <button
+            type="button"
+            className={tool === 'grab' ? 'browserIcon browserIconOn' : 'browserIcon'}
+            disabled={page === null}
+            aria-label="Grab page element"
+            aria-pressed={tool === 'grab'}
+            title="Grab page element — click an element, Esc cancels"
+            onClick={() => void startTool('grab')}
+          >
+            <IconGrab />
+          </button>
+          <button
+            type="button"
+            className={tool === 'annotate' ? 'browserIcon browserIconOn' : 'browserIcon'}
+            disabled={page === null}
+            aria-label="Annotate page element"
+            aria-pressed={tool === 'annotate'}
+            title="Annotate page element — click an element, Esc cancels"
+            onClick={() => void startTool('annotate')}
+          >
+            <IconAnnotate />
+          </button>
+          <button
+            type="button"
+            className={drawing === null ? 'browserIcon' : 'browserIcon browserIconOn'}
+            disabled={page === null}
+            aria-label="Draw on screenshot"
+            aria-pressed={drawing !== null}
+            title="Draw on screenshot"
+            onClick={() => void startDrawing()}
+          >
+            <IconDraw />
+          </button>
+          <button
+            type="button"
+            className="browserIcon"
+            disabled={page === null}
+            aria-label="Open browser devtools"
+            title="Open browser devtools"
+            onClick={() => void run('devtools')}
+          >
+            <IconDevtools />
+          </button>
+          <button
+            type="button"
+            className="browserIcon"
+            disabled={page === null}
+            aria-label="Open in default browser"
+            title="Open in default browser"
+            onClick={() => void run('external')}
+          >
+            <IconExternal />
+          </button>
+          <button
+            type="button"
+            className="browserIcon"
+            aria-haspopup="menu"
+            aria-label="Browser menu"
+            title="Profiles, viewport, and settings"
+            onClick={(event) => void openMenu('overflow', event.currentTarget)}
+          >
+            <IconOverflow />
+          </button>
+        </div>
       </form>
-      {menu === 'import' ? (
-        <div className="browserMenu" role="menu" aria-label="Import local origin">
-          {ports.length === 0 ? (
-            <p className="browserHint">No localhost URLs in pane output yet.</p>
-          ) : (
-            ports.map((origin) => (
-              <button
-                key={origin.url}
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setMenu(null);
-                  void openUrl(origin.url);
-                }}
-              >
-                {origin.port}
-              </button>
-            ))
-          )}
-        </div>
-      ) : null}
-      {menu === 'history' ? (
-        <div className="browserMenu" role="menu" aria-label="History">
-          {recents.length === 0 ? (
-            <p className="browserHint">No recently opened pages.</p>
-          ) : (
-            recents.map((item) => (
-              <button
-                key={item.url}
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setMenu(null);
-                  void openUrl(item.url);
-                }}
-              >
-                {item.label}
-              </button>
-            ))
-          )}
-        </div>
-      ) : null}
-      {menu === 'viewport' ? (
-        <div className="browserMenu" role="menu" aria-label="Viewport size">
-          {VIEWPORTS.map((id) => (
-            <button
-              key={id}
-              type="button"
-              role="menuitem"
-              className={viewport === id ? 'browserChipOn' : undefined}
-              onClick={() => {
-                setMenu(null);
-                void applyViewport(id);
-              }}
-            >
-              {id} {PREVIEW_VIEWPORTS[id].width}
-            </button>
-          ))}
-        </div>
-      ) : null}
-      {menu === 'overflow' ? (
-        <div className="browserMenu" role="menu" aria-label="Browser menu">
-          <button type="button" role="menuitem" onClick={() => setMenu('viewport')}>
-            Viewport Size
-          </button>
-          <button type="button" role="menuitem" onClick={() => setMenu('settings')}>
-            Browser Settings…
-          </button>
-        </div>
-      ) : null}
-      {menu === 'settings' ? (
-        <div className="browserMenu" role="menu" aria-label="Browser settings">
-          <button
-            type="button"
-            role="menuitem"
-            disabled={page === null}
-            onClick={() => {
-              setMenu(null);
-              void takeSnapshot();
-            }}
-          >
-            Snapshot
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            disabled={page === null}
-            onClick={() => {
-              setMenu(null);
-              void takeScreenshot();
-            }}
-          >
-            Screenshot
-          </button>
-          <button type="button" role="menuitem" onClick={() => void desktopShot()}>
-            Desktop shot
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setMenu(null);
-              newTab();
-            }}
-          >
-            New tab
-          </button>
-          <input
-            aria-label="Fill text"
-            value={fillText}
-            placeholder="fill / type / click x,y"
-            onChange={(event) => setFillText(event.target.value)}
-          />
-          <button type="button" role="menuitem" onClick={() => void desktopAct('click')}>
-            Desktop click
-          </button>
-          <button type="button" role="menuitem" onClick={() => void desktopAct('type')}>
-            Desktop type
-          </button>
-        </div>
-      ) : null}
       {error !== null && (
         <p className="browserError" role="alert">
           {error}
         </p>
       )}
+      {picked !== null && (
+        <div className="browserTray" role="group" aria-label="Selected element">
+          {picked.pngBase64 !== null && (
+            <img
+              className="browserTrayShot"
+              src={`data:image/png;base64,${picked.pngBase64}`}
+              alt={`${picked.role} ${picked.name}`}
+            />
+          )}
+          <div className="browserTrayBody">
+            <strong>
+              {picked.role}
+              {picked.name.length > 0 ? ` · ${picked.name}` : ''}
+            </strong>
+            <small>
+              {picked.locator} · {String(picked.rect.width)}×{String(picked.rect.height)}
+            </small>
+            <input
+              aria-label="Note"
+              placeholder="What should change here?"
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+            />
+            <div className="browserTrayActions">
+              <button
+                type="button"
+                className="drawChip drawChipPrimary"
+                onClick={() => void saveAnnotation()}
+              >
+                Save annotation
+              </button>
+              <button
+                type="button"
+                className="drawChip"
+                onClick={() => void sendPicked()}
+              >
+                Send to agent
+              </button>
+              <button
+                type="button"
+                className="drawChip"
+                onClick={() => {
+                  setPicked(null);
+                  setNote('');
+                }}
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div
         ref={stageRef}
         className={page === null ? 'browserStage browserStageIdle' : 'browserStage'}
       >
-        {page === null ? (
+        {drawing !== null ? (
+          <ScreenshotEditor
+            pngBase64={drawing}
+            busy={saving}
+            onCancel={() => void closeDrawing()}
+            onSave={(png) => void saveDrawing(png)}
+          />
+        ) : page === null ? (
           <div className="browserHome">
             <div className="browserHomeMark" aria-hidden="true">
-              ⌂
+              <IconWeb />
             </div>
             <h2>Preview</h2>
             <p>Open a mapped local port from a live Space or Swarm pane.</p>
+            {settings.data !== undefined && settings.data.homePage.length > 0 && (
+              <div className="browserPorts">
+                <button
+                  type="button"
+                  className="browserChip"
+                  onClick={() => void openUrl(settings.data.homePage)}
+                >
+                  Home page
+                </button>
+              </div>
+            )}
             {ports.length === 0 ? (
               <p className="browserHint">No localhost URLs in pane output yet.</p>
             ) : (
@@ -603,6 +725,10 @@ export function BrowserSidebar({
                     onClick={() => void openUrl(origin.url)}
                   >
                     {origin.port}
+                    {settings.data?.localhostWorktreeLabels === true &&
+                    origin.sessionId !== null
+                      ? ` · ${origin.sessionId.slice(0, 8)}`
+                      : ''}
                   </button>
                 ))}
               </div>
@@ -639,17 +765,19 @@ export function BrowserSidebar({
           </button>
         </p>
       ) : null}
-      {desktopApproval !== null ? (
-        <p className="browserError" role="alertdialog">
-          Approve {desktopApproval.summary}?
-          <button type="button" onClick={() => void resolveDesktop(true)}>
-            Allow
+      {page !== null && (
+        <div className="browserTools">
+          <button type="button" onClick={() => void takeSnapshot()}>
+            Snapshot
           </button>
-          <button type="button" onClick={() => void resolveDesktop(false)}>
-            Deny
+          <button type="button" onClick={newTab}>
+            New tab
           </button>
-        </p>
-      ) : null}
+          <span className="browserHint">
+            {viewport} · {settings.data?.zoomPercent ?? 100}%
+          </span>
+        </div>
+      )}
       {snapshot !== null ? (
         <ol className="browserSnapshot" aria-label="Page snapshot">
           {snapshot.nodes.map((node) => (
@@ -666,13 +794,16 @@ export function BrowserSidebar({
               </button>
             </li>
           ))}
+          <li>
+            <input
+              aria-label="Fill text"
+              value={fillText}
+              placeholder="text for fill and type"
+              onChange={(event) => setFillText(event.target.value)}
+            />
+          </li>
         </ol>
       ) : null}
-      <input
-        aria-label="Pick note"
-        value={pickNote}
-        onChange={(event) => setPickNote(event.target.value)}
-      />
       {(events.data ?? []).length > 0 ? (
         <ul className="browserSnapshot" aria-label="Console and network">
           {(events.data ?? []).slice(-12).map((item, index) => (
@@ -692,6 +823,7 @@ export function BrowserSidebar({
               <strong>{item.kind}</strong>
               <small>
                 {item.viewport} · {item.headSha.slice(0, 7)}
+                {item.detail === null ? '' : ` · ${item.detail}`}
               </small>
               {item.pngBase64 !== null ? (
                 <button

@@ -89,31 +89,45 @@ import {
   type ChatClientStreamEvent,
 } from '@builderhelm/protocol/chat';
 import {
+  browserAnnotateRequestSchema,
   browserApproveRequestSchema,
   browserArtifactsIpcResponseSchema,
   browserArtifactsRequestSchema,
   browserCommandIpcResponseSchema,
   browserCommandRequestSchema,
+  browserCookieImportIpcResponseSchema,
+  browserCookieImportRequestSchema,
+  browserDrawSaveRequestSchema,
   browserDriveIpcResponseSchema,
   browserDriveRequestSchema,
   browserEventsIpcResponseSchema,
   browserEventsRequestSchema,
+  browserMenuIpcResponseSchema,
+  browserMenuRequestSchema,
   browserOriginsIpcResponseSchema,
   browserOriginsRequestSchema,
+  browserProfilePartition,
   browserPickIpcResponseSchema,
   browserPickRequestSchema,
   browserPickSendIpcResponseSchema,
   browserPickSendRequestSchema,
+  browserProfileCreateRequestSchema,
+  browserProfileDeleteRequestSchema,
   browserReceiptsIpcResponseSchema,
   browserScreenshotIpcResponseSchema,
   browserScreenshotRequestSchema,
+  browserSettingsIpcResponseSchema,
+  browserSettingsRequestSchema,
+  browserSettingsUpdateRequestSchema,
   browserSnapshotIpcResponseSchema,
   browserSnapshotRequestSchema,
+  browserStateSchema,
   desktopActIpcResponseSchema,
   desktopActRequestSchema,
   desktopApproveRequestSchema,
   desktopScreenshotIpcResponseSchema,
   desktopScreenshotRequestSchema,
+  formatAnnotationDetail,
 } from '@builderhelm/protocol/browser';
 import {
   editorCreateIpcResponseSchema,
@@ -199,6 +213,8 @@ import type { VoiceModelManager } from './voice-models.js';
 import type { VoiceRuntime } from './voice-runtime.js';
 import { PreviewBrowser } from './preview-browser.js';
 import { DesktopControl } from './desktop-control.js';
+import { popupBrowserMenu } from './browser-menu.js';
+import { importProfileCookies } from './browser-cookies.js';
 import {
   commitGit,
   createEditorEntry,
@@ -210,7 +226,7 @@ import {
   stageGitPath,
   writeEditorFile,
 } from './file-reader.js';
-import { dialog, ipcMain, type WebContents } from 'electron';
+import { BrowserWindow, dialog, ipcMain, session, type WebContents } from 'electron';
 import { ZodError } from 'zod';
 
 function ipcError(error: unknown): {
@@ -258,8 +274,19 @@ export function registerIpcHandlers(
     onSettings?: (settings: VoiceSettings) => void;
   },
 ): () => void {
-  const preview = new PreviewBrowser();
+  const preview = new PreviewBrowser(core.browserSettings);
   const desktop = new DesktopControl();
+  // Navigation the page starts itself must reach the toolbar, so main pushes
+  // state instead of waiting for the renderer's next command.
+  preview.onState((state) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (win.webContents.isDestroyed()) continue;
+      win.webContents.send(
+        ipcChannels.browserStateEvent,
+        browserStateSchema.parse(state),
+      );
+    }
+  });
   const activeStreams = new Map<
     string,
     { readonly controller: AbortController; readonly senderId: number }
@@ -1359,11 +1386,185 @@ export function registerIpcHandlers(
 
   ipcMain.handle(ipcChannels.browserPick, async (_event, input: unknown) => {
     try {
-      browserPickRequestSchema.parse(input);
-      const value = await preview.pick();
+      const request = browserPickRequestSchema.parse(input);
+      const value = await preview.pick(request.input.mode);
       return browserPickIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
       return browserPickIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserAnnotate, async (_event, input: unknown) => {
+    try {
+      const request = browserAnnotateRequestSchema.parse(input);
+      const { index, pick } = await preview.pinAnnotation();
+      const value = core.previewArtifacts.record({
+        runId: request.input.runId ?? null,
+        headSha: previewHeadSha(request.input.root),
+        kind: 'annotation',
+        url: pick.url,
+        viewport: pick.viewport,
+        detail: formatAnnotationDetail({ index, note: request.input.note, pick }),
+        ...(pick.pngBase64 === null
+          ? {}
+          : { png: new Uint8Array(Buffer.from(pick.pngBase64, 'base64')) }),
+      });
+      return browserScreenshotIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return browserScreenshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserDrawSave, (_event, input: unknown) => {
+    try {
+      const request = browserDrawSaveRequestSchema.parse(input);
+      const value = core.previewArtifacts.record({
+        runId: request.input.runId ?? null,
+        headSha: previewHeadSha(request.input.root),
+        kind: 'screenshot',
+        url: preview.currentUrl(),
+        viewport: preview.currentViewport(),
+        png: new Uint8Array(request.input.png),
+      });
+      return browserScreenshotIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return browserScreenshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserMenu, async (event, input: unknown) => {
+    try {
+      const request = browserMenuRequestSchema.parse(input);
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (win === null) {
+        throw new BuilderHelmError('VALIDATION_FAILED', 'No window for the menu');
+      }
+      const value = await popupBrowserMenu(win, request.input, {
+        origins: board?.listPreviewOrigins() ?? [],
+        settings: core.browserSettings.read(),
+        viewport: preview.currentViewport(),
+      });
+      return browserMenuIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return browserMenuIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserSettings, (_event, input: unknown) => {
+    try {
+      browserSettingsRequestSchema.parse(input);
+      return browserSettingsIpcResponseSchema.parse({
+        ok: true,
+        value: core.browserSettings.read(),
+      });
+    } catch (error) {
+      return browserSettingsIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserSettingsUpdate, (_event, input: unknown) => {
+    try {
+      const request = browserSettingsUpdateRequestSchema.parse(input);
+      return browserSettingsIpcResponseSchema.parse({
+        ok: true,
+        value: core.browserSettings.update(request.input),
+      });
+    } catch (error) {
+      return browserSettingsIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserProfileCreate, (_event, input: unknown) => {
+    try {
+      const request = browserProfileCreateRequestSchema.parse(input);
+      return browserSettingsIpcResponseSchema.parse({
+        ok: true,
+        value: core.browserSettings.createProfile(request.input.name),
+      });
+    } catch (error) {
+      return browserSettingsIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserProfileDelete, async (event, input: unknown) => {
+    try {
+      const request = browserProfileDeleteRequestSchema.parse(input);
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (win === null) {
+        throw new BuilderHelmError('VALIDATION_FAILED', 'No window for the prompt');
+      }
+      const settings = core.browserSettings.read();
+      const profile = settings.profiles.find((entry) => entry.id === request.input.id);
+      if (profile === undefined) {
+        throw new BuilderHelmError('VALIDATION_FAILED', 'No such browser profile');
+      }
+      // Deleting a profile destroys its cookies and cache, so the confirmation
+      // is a trusted main-process dialog rather than a renderer prompt.
+      const confirmed = await dialog.showMessageBox(win, {
+        type: 'warning',
+        buttons: ['Cancel', 'Delete'],
+        defaultId: 0,
+        cancelId: 0,
+        title: 'Delete browser profile',
+        message: `Delete ${profile.name}?`,
+        detail: 'Its cookies, cache, and stored sign-ins are erased.',
+      });
+      if (confirmed.response !== 1) {
+        return browserSettingsIpcResponseSchema.parse({ ok: true, value: settings });
+      }
+      const next = core.browserSettings.deleteProfile(profile.id);
+      await session.fromPartition(browserProfilePartition(profile.id)).clearStorageData();
+      return browserSettingsIpcResponseSchema.parse({ ok: true, value: next });
+    } catch (error) {
+      return browserSettingsIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserCookieImport, async (event, input: unknown) => {
+    try {
+      const request = browserCookieImportRequestSchema.parse(input);
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (win === null) {
+        throw new BuilderHelmError('VALIDATION_FAILED', 'No window for the picker');
+      }
+      const profile = core.browserSettings
+        .read()
+        .profiles.find((entry) => entry.id === request.input.id);
+      if (profile === undefined) {
+        throw new BuilderHelmError('VALIDATION_FAILED', 'No such browser profile');
+      }
+      const value = await importProfileCookies(win, profile);
+      if (!value.cancelled) {
+        core.browserSettings.recordCookieImport(
+          profile.id,
+          value.domains,
+          value.imported,
+        );
+      }
+      return browserCookieImportIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return browserCookieImportIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
     }
   });
 
@@ -1394,7 +1595,8 @@ export function registerIpcHandlers(
       core.swarm.direct(
         run.id,
         builders,
-        `Preview pick ${picked.role} "${picked.name}"\n${request.input.note}\n${picked.html}`,
+        `Preview pick ${picked.role} "${picked.name}" at ${picked.locator}\n` +
+          `${request.input.note}\n${picked.url}`,
         request.correlationId,
       );
       return browserPickSendIpcResponseSchema.parse({ ok: true, value: { sent: true } });
@@ -1843,6 +2045,14 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.browserEvents);
     ipcMain.removeHandler(ipcChannels.browserPick);
     ipcMain.removeHandler(ipcChannels.browserPickSend);
+    ipcMain.removeHandler(ipcChannels.browserAnnotate);
+    ipcMain.removeHandler(ipcChannels.browserDrawSave);
+    ipcMain.removeHandler(ipcChannels.browserMenu);
+    ipcMain.removeHandler(ipcChannels.browserSettings);
+    ipcMain.removeHandler(ipcChannels.browserSettingsUpdate);
+    ipcMain.removeHandler(ipcChannels.browserProfileCreate);
+    ipcMain.removeHandler(ipcChannels.browserProfileDelete);
+    ipcMain.removeHandler(ipcChannels.browserCookieImport);
     ipcMain.removeHandler(ipcChannels.browserReceipts);
     ipcMain.removeHandler(ipcChannels.desktopScreenshot);
     ipcMain.removeHandler(ipcChannels.desktopAct);

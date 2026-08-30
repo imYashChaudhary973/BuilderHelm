@@ -14,7 +14,11 @@ import { VoiceModelManager } from './voice-models.js';
 import { VoiceRuntime } from './voice-runtime.js';
 import { VoiceHotkeys } from './voice-hotkeys.js';
 import { installApplicationMenu } from './legal-menu.js';
-import { buildContentSecurityPolicy, secureWebPreferences } from './security.js';
+import {
+  buildContentSecurityPolicy,
+  isAllowedNavigation,
+  secureWebPreferences,
+} from './security.js';
 
 let core: CoreRuntime | undefined;
 let unregisterIpc: (() => void) | undefined;
@@ -22,14 +26,6 @@ let boardPty: BoardPtyManager | undefined;
 let swarmRunner: PtySwarmRunner | undefined;
 let voiceHotkeys: VoiceHotkeys | undefined;
 let smokeDatabasePath: string | undefined;
-
-function isAllowedNavigation(currentUrl: string, destinationUrl: string): boolean {
-  try {
-    return new URL(currentUrl).origin === new URL(destinationUrl).origin;
-  } catch {
-    return false;
-  }
-}
 
 async function completeSmokeWhenRendererIsReady(window: BrowserWindow): Promise<void> {
   const deadline = Date.now() + 10_000;

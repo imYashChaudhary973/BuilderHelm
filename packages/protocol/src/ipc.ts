@@ -41,14 +41,24 @@ import type {
 
 import type {
   BrowserCommandInput,
+  BrowserCookieImportResult,
+  BrowserMenuInput,
+  BrowserMenuResult,
+  BrowserProfileCreateInput,
+  BrowserProfileDeleteInput,
+  BrowserSettings,
+  BrowserSettingsUpdateInput,
   BrowserState,
+  PreviewAnnotationInput,
   PreviewArtifact,
   PreviewArtifactListInput,
+  PreviewDrawSaveInput,
   PreviewDriveInput,
   PreviewDriveResult,
   PreviewEvent,
   PreviewOrigin,
   PreviewPick,
+  PreviewPickInput,
   PreviewDriveReceipt,
   DesktopActInput,
   DesktopActResult,
@@ -194,6 +204,15 @@ export const ipcChannels = {
   browserPick: 'builderhelm:browser:pick',
   browserPickSend: 'builderhelm:browser:pick-send',
   browserReceipts: 'builderhelm:browser:receipts',
+  browserSettings: 'builderhelm:browser:settings',
+  browserSettingsUpdate: 'builderhelm:browser:settings-update',
+  browserProfileCreate: 'builderhelm:browser:profile-create',
+  browserProfileDelete: 'builderhelm:browser:profile-delete',
+  browserCookieImport: 'builderhelm:browser:cookie-import',
+  browserMenu: 'builderhelm:browser:menu',
+  browserAnnotate: 'builderhelm:browser:annotate',
+  browserStateEvent: 'builderhelm:browser:state-event',
+  browserDrawSave: 'builderhelm:browser:draw-save',
   desktopScreenshot: 'builderhelm:desktop:screenshot',
   desktopAct: 'builderhelm:desktop:act',
   desktopApprove: 'builderhelm:desktop:approve',
@@ -364,9 +383,18 @@ export interface BuilderHelmDesktopApi {
       readonly allow: boolean;
     }): Promise<PreviewDriveResult>;
     events(): Promise<PreviewEvent[]>;
-    pick(): Promise<PreviewPick>;
+    pick(input: PreviewPickInput): Promise<PreviewPick>;
     sendPick(input: { readonly note: string }): Promise<{ readonly sent: boolean }>;
+    annotate(input: PreviewAnnotationInput): Promise<PreviewArtifact>;
+    saveDrawing(input: PreviewDrawSaveInput): Promise<PreviewArtifact>;
+    menu(input: BrowserMenuInput): Promise<BrowserMenuResult>;
+    settings(): Promise<BrowserSettings>;
+    updateSettings(input: BrowserSettingsUpdateInput): Promise<BrowserSettings>;
+    createProfile(input: BrowserProfileCreateInput): Promise<BrowserSettings>;
+    deleteProfile(input: BrowserProfileDeleteInput): Promise<BrowserSettings>;
+    importCookies(input: BrowserProfileDeleteInput): Promise<BrowserCookieImportResult>;
     receipts(): Promise<PreviewDriveReceipt[]>;
+    onState(listener: (state: BrowserState) => void): () => void;
   };
   readonly desktop: {
     screenshot(): Promise<{ readonly pngBase64: string }>;

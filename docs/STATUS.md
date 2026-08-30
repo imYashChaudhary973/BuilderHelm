@@ -34,10 +34,19 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
   canonical interactive, headless, structured-output, resume, usage, and Swarm
   permission capabilities. Provider-specific launch, schema-output, and usage
   behavior is isolated in the core CLI adapters.
-- Preview: loopback ports, snapshots, screenshots, P3b click/fill by ref,
-  Git evidence gallery on HEAD, land fail-closed if the reviewed head moved,
-  and macOS whole-desktop click/type that always prompts. Cart/checkout/send
-  never silent. WebMCP declared tools are not shipped.
+- Browser: sandboxed `WebContentsView` preview per profile, loopback port
+  import, omnibox that navigates or searches, click/fill by ref, element grab
+  and annotation with pins, screenshot markup, detached page DevTools, viewport
+  presets that report the preset width, and a Git evidence gallery on HEAD.
+  Land fails closed if the reviewed head moved. Cart/checkout/send never
+  silent. WebMCP declared tools are not shipped.
+- Browser settings: home page, search engine, zoom, link routing, terminal link
+  actions, localhost worktree labels, and profiles with isolated cookies. Stored
+  in the existing settings table and verified to survive a restart. Cookie
+  import is a main-process picker; cookie values never reach the renderer and
+  there is no export path.
+- macOS whole-desktop click/type remains permissioned in the main process and
+  always prompts. It has no entry point in the browser toolbar.
 
 ## Partial or needing hardening
 
@@ -52,6 +61,11 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 - Packaged desktop verification is thin: the packaged arm64 app starts, reports
   renderer ready, and exits cleanly, but it is unsigned, unnotarized, and has
   had no real user session run against it.
+- Browser paths behind native dialogs — cookie import, profile deletion, and the
+  toolbar's native menus — are covered by unit tests and manual use, not by
+  automated UI runs: an OS dialog cannot be driven from the test harness.
+- A capture taken while the window is occluded returns no pixels, so evidence
+  recorded from a background window carries metadata without a picture.
 
 ## Planned, not shipped
 

@@ -14,6 +14,7 @@ import { voiceSettingsMigration } from './0013-voice-settings.js';
 import { voiceCloudConsentMigration } from './0014-voice-cloud-consent.js';
 import { previewArtifactsMigration } from './0015-preview-artifacts.js';
 import { previewToolArtifactsMigration } from './0016-preview-tool-artifacts.js';
+import { previewAnnotationsMigration } from './0017-preview-annotations.js';
 
 export const migrations = [
   foundationMigration,
@@ -32,6 +33,7 @@ export const migrations = [
   voiceCloudConsentMigration,
   previewArtifactsMigration,
   previewToolArtifactsMigration,
+  previewAnnotationsMigration,
 ] as const;
 
 export {
@@ -51,4 +53,5 @@ export {
   voiceCloudConsentMigration,
   previewArtifactsMigration,
   previewToolArtifactsMigration,
+  previewAnnotationsMigration,
 };

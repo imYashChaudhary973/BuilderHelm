@@ -4,7 +4,7 @@ export interface PreviewArtifactWrite {
   readonly id: string;
   readonly runId: string | null;
   readonly headSha: string;
-  readonly kind: 'screenshot' | 'snapshot' | 'tool' | 'console';
+  readonly kind: 'screenshot' | 'snapshot' | 'tool' | 'console' | 'annotation';
   readonly url: string;
   readonly viewport: 'desktop' | 'tablet' | 'phone';
   readonly bodyJson: string | null;
@@ -16,7 +16,7 @@ interface StoredPreviewArtifact extends Record<string, unknown> {
   id: string;
   run_id: string | null;
   head_sha: string;
-  kind: 'screenshot' | 'snapshot' | 'tool' | 'console';
+  kind: 'screenshot' | 'snapshot' | 'tool' | 'console' | 'annotation';
   url: string;
   viewport: 'desktop' | 'tablet' | 'phone';
   body_json: string | null;

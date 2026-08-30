@@ -813,6 +813,9 @@ html.is-fullscreen .shell {
   min-width: 0;
   min-height: 0;
   background: transparent;
+  /* The toolbar responds to the panel, not the window: the panel is resizable
+     and can be far narrower than the viewport. */
+  container-type: inline-size;
 }
 
 .browserBar {
@@ -823,6 +826,28 @@ html.is-fullscreen .shell {
   padding: 6px 8px;
   border-bottom: 1px solid var(--line);
   -webkit-app-region: no-drag;
+  /* Wrapping, not clipping. Below roughly 530px the row cannot hold the
+     omnibox and every tool, and a clipped overflow menu is unreachable. */
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+/* The icon group is one ARIA toolbar. It wraps as a unit rather than being
+   clipped: at the narrowest usable panel width the six tools cannot share one
+   line with the omnibox, and an unreachable overflow menu is a broken toolbar. */
+.browserToolsBar {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 0;
+}
+
+.browserIcon:focus-visible,
+.browserImport:focus-visible,
+.browserOmnibox:focus-within {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 1px;
 }
 
 .browserIcon {
@@ -852,17 +877,32 @@ html.is-fullscreen .shell {
   background: color-mix(in srgb, var(--accent-dim) 40%, transparent);
 }
 
+/* Square-rounded, deliberately not a pill: it reads as a field rather than a
+   button, and matches the settings inputs. */
 .browserOmnibox {
   display: flex;
-  flex: 1;
-  min-width: 0;
+  /* An explicit basis, not `auto`: with wrapping enabled a content-sized
+     omnibox would push the tools onto a second row long before the row is
+     actually full. It starts narrow and grows into whatever is left. */
+  flex: 1 1 120px;
+  min-width: 120px;
   align-items: center;
   gap: 8px;
   height: 32px;
-  padding: 0 12px;
+  padding: 0 10px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 11px;
   background: #121212;
+}
+
+.browserLock {
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+}
+
+.browserLockOn {
+  color: var(--accent-bright);
 }
 
 .browserOmnibox span {
@@ -884,11 +924,14 @@ html.is-fullscreen .shell {
 }
 
 .browserImport {
+  display: flex;
   height: 28px;
   flex-shrink: 0;
-  padding: 0 12px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 10px;
   color: var(--text);
   background: #1a1a1a;
   font-size: 12px;
@@ -898,48 +941,14 @@ html.is-fullscreen .shell {
   border-color: var(--line-strong);
 }
 
-.browserMenu {
-  position: absolute;
-  right: 8px;
-  top: 46px;
-  z-index: 30;
-  display: flex;
-  min-width: 220px;
-  max-width: min(360px, calc(100% - 16px));
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #161616;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
-}
+@container (max-width: 560px) {
+  .browserImportLabel {
+    display: none;
+  }
 
-.browserMenu button {
-  display: flex;
-  width: 100%;
-  padding: 8px 10px;
-  border: 0;
-  border-radius: 8px;
-  color: var(--text);
-  background: transparent;
-  text-align: left;
-}
-
-.browserMenu button:hover:not(:disabled) {
-  background: #222;
-}
-
-.browserMenu button:disabled {
-  opacity: 0.4;
-}
-
-.browserMenu input {
-  margin: 4px 0;
-}
-
-.browserMenu .browserHint {
-  margin: 8px 10px;
+  .browserImport {
+    padding: 0 8px;
+  }
 }
 
 .browserError {
@@ -1135,6 +1144,144 @@ html.is-fullscreen .shell {
   border-radius: 6px;
   background: #141414;
   color: var(--text-2);
+}
+
+/* ---------- BROWSER SELECTION TRAY ---------- */
+
+.browserTray {
+  display: flex;
+  gap: 10px;
+  margin: 0 10px 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #141414;
+}
+
+.browserTrayShot {
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #050505;
+}
+
+.browserTrayBody {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.browserTrayBody strong {
+  font-size: 12px;
+}
+
+.browserTrayBody small {
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browserTrayBody input {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #101010;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.browserTrayActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ---------- SCREENSHOT MARKUP ---------- */
+
+.drawEditor {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  overflow: auto;
+  background: #070707;
+}
+
+.drawTools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.drawToolsLabel {
+  color: var(--text-3);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.drawSwatch {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+}
+
+.drawSwatchOn {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 1px;
+}
+
+.drawChip {
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #141414;
+  color: var(--text-2);
+  font-size: 11px;
+}
+
+.drawChip:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+
+.drawChip:disabled {
+  opacity: 0.4;
+}
+
+.drawChipOn {
+  border-color: var(--accent-line);
+  color: var(--accent-bright);
+}
+
+.drawChipPrimary {
+  border-color: var(--accent-line);
+  background: color-mix(in srgb, var(--accent-dim) 45%, transparent);
+  color: var(--accent-bright);
+}
+
+/* The canvas keeps capture pixels; CSS only scales what is shown. */
+.drawCanvas {
+  max-width: 100%;
+  align-self: flex-start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #050505;
+  touch-action: none;
+  cursor: crosshair;
 }
 
 .topbarIcon {
@@ -4307,6 +4454,85 @@ fieldset legend {
   line-height: 1.5;
 }
 
+/* ---------- BROWSER SETTINGS ---------- */
+
+.browserSettingField {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Square-rounded, same radius as the omnibox so the two read as one system. */
+.browserSettingInput {
+  width: 220px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--bg-1);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.browserSettingInput::placeholder {
+  color: var(--text-3);
+}
+
+.browserSettingSelect {
+  height: 32px;
+  min-width: 160px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--bg-1);
+  color: var(--text);
+  font-size: 13px;
+}
+
+/* Conditional rows sit under their parent toggle, as in the reference. */
+.browserSettingNested {
+  margin-left: 14px;
+  padding-left: 14px;
+  border-left: 1px solid var(--line);
+}
+
+.browserProfiles {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.browserProfile {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-1);
+}
+
+.browserProfileBadge {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-dim) 45%, transparent);
+  color: var(--accent-bright);
+  font-size: 11px;
+}
+
+.browserProfileActions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .voiceSwitch {
   position: relative;
   width: 44px;
@@ -6592,6 +6818,45 @@ html.is-fullscreen .spaceHome {
   min-height: 0;
   padding: 4px;
   overflow: hidden;
+}
+
+/* Anchored at the click, fixed so it escapes the pane's overflow clip. */
+.linkActions {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  max-width: 320px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #161616;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+.linkActions small {
+  overflow: hidden;
+  padding: 2px 8px 6px;
+  color: var(--text-3);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linkActions button {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+}
+
+.linkActions button:hover {
+  background: #222;
 }
 
 .paneTerminalHost .xterm,

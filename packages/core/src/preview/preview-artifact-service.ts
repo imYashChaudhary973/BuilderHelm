@@ -28,8 +28,13 @@ export class PreviewArtifactService {
   constructor(private readonly repository: PreviewArtifactRepository) {}
 
   record(draft: PreviewArtifactDraft): PreviewArtifact {
-    const detail =
-      draft.kind === 'tool' || draft.kind === 'console' ? (draft.detail ?? '') : null;
+    // What a kind carries, in one place: a snapshot carries nodes, a tool,
+    // console line, or annotation carries prose, and anything with a capture
+    // keeps its picture. Splitting these rules between write and read is how
+    // an annotation's note ended up stored but absent from the returned row.
+    const carriesDetail =
+      draft.kind === 'tool' || draft.kind === 'console' || draft.kind === 'annotation';
+    const detail = carriesDetail ? (draft.detail ?? '') : null;
     const artifact = previewArtifactSchema.parse({
       id: createId(),
       runId: draft.runId ?? null,
@@ -38,7 +43,7 @@ export class PreviewArtifactService {
       url: draft.url,
       viewport: draft.viewport,
       nodes: draft.kind === 'snapshot' ? [...(draft.nodes ?? [])] : null,
-      pngBase64: draft.kind === 'screenshot' ? encodePng(draft.png ?? null) : null,
+      pngBase64: encodePng(draft.png ?? null),
       detail,
       createdAt: utcNow(),
     });
@@ -72,7 +77,7 @@ export class PreviewArtifactService {
         viewport: row.viewport,
         nodes: snapshot ? buildPageSnapshot(JSON.parse(row.bodyJson ?? '[]')) : null,
         pngBase64: encodePng(row.png),
-        detail: snapshot || row.kind === 'screenshot' ? null : (row.bodyJson ?? null),
+        detail: snapshot ? null : (row.bodyJson ?? null),
         createdAt: row.createdAt,
       });
     });

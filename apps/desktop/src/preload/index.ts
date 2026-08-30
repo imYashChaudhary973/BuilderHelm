@@ -77,19 +77,30 @@ import {
   browserArtifactsIpcResponseSchema,
   browserCommandIpcResponseSchema,
   browserCommandInputSchema,
+  browserCookieImportIpcResponseSchema,
   browserDriveIpcResponseSchema,
   browserEventsIpcResponseSchema,
+  browserMenuInputSchema,
+  browserMenuIpcResponseSchema,
   browserOriginsIpcResponseSchema,
   browserPickIpcResponseSchema,
   browserPickSendIpcResponseSchema,
+  browserProfileCreateInputSchema,
+  browserProfileDeleteInputSchema,
   browserReceiptsIpcResponseSchema,
   browserScreenshotIpcResponseSchema,
+  browserSettingsIpcResponseSchema,
+  browserSettingsUpdateInputSchema,
   browserSnapshotIpcResponseSchema,
+  browserStateSchema,
   desktopActIpcResponseSchema,
   desktopActInputSchema,
   desktopScreenshotIpcResponseSchema,
+  previewAnnotationInputSchema,
   previewArtifactListInputSchema,
+  previewDrawSaveInputSchema,
   previewDriveInputSchema,
+  previewPickInputSchema,
   previewScreenshotInputSchema,
 } from '@builderhelm/protocol/browser';
 import {
@@ -716,11 +727,79 @@ const api: BuilderHelmDesktopApi = {
       });
       return unwrap(browserEventsIpcResponseSchema.parse(response));
     },
-    async pick() {
+    async pick(input) {
       const response: unknown = await ipcRenderer.invoke(ipcChannels.browserPick, {
         correlationId: globalThis.crypto.randomUUID(),
+        input: previewPickInputSchema.parse(input),
       });
       return unwrap(browserPickIpcResponseSchema.parse(response));
+    },
+    async annotate(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.browserAnnotate, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: previewAnnotationInputSchema.parse(input),
+      });
+      return unwrap(browserScreenshotIpcResponseSchema.parse(response));
+    },
+    async saveDrawing(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.browserDrawSave, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: previewDrawSaveInputSchema.parse(input),
+      });
+      return unwrap(browserScreenshotIpcResponseSchema.parse(response));
+    },
+    async menu(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.browserMenu, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: browserMenuInputSchema.parse(input),
+      });
+      return unwrap(browserMenuIpcResponseSchema.parse(response));
+    },
+    async settings() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.browserSettings, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(browserSettingsIpcResponseSchema.parse(response));
+    },
+    async updateSettings(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.browserSettingsUpdate,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          input: browserSettingsUpdateInputSchema.parse(input),
+        },
+      );
+      return unwrap(browserSettingsIpcResponseSchema.parse(response));
+    },
+    async createProfile(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.browserProfileCreate,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          input: browserProfileCreateInputSchema.parse(input),
+        },
+      );
+      return unwrap(browserSettingsIpcResponseSchema.parse(response));
+    },
+    async deleteProfile(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.browserProfileDelete,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          input: browserProfileDeleteInputSchema.parse(input),
+        },
+      );
+      return unwrap(browserSettingsIpcResponseSchema.parse(response));
+    },
+    async importCookies(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.browserCookieImport,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          input: browserProfileDeleteInputSchema.parse(input),
+        },
+      );
+      return unwrap(browserCookieImportIpcResponseSchema.parse(response));
     },
     async sendPick(input) {
       const response: unknown = await ipcRenderer.invoke(ipcChannels.browserPickSend, {
@@ -734,6 +813,16 @@ const api: BuilderHelmDesktopApi = {
         correlationId: globalThis.crypto.randomUUID(),
       });
       return unwrap(browserReceiptsIpcResponseSchema.parse(response));
+    },
+    onState(listener) {
+      const handler = (_event: unknown, payload: unknown): void => {
+        const parsed = browserStateSchema.safeParse(payload);
+        if (parsed.success) listener(parsed.data);
+      };
+      ipcRenderer.on(ipcChannels.browserStateEvent, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcChannels.browserStateEvent, handler);
+      };
     },
   },
   desktop: {

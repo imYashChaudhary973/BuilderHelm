@@ -6,6 +6,7 @@ import {
   ModelRepository,
   openDatabase,
   PreviewArtifactRepository,
+  SettingsRepository,
   ProviderRepository,
   ProjectRepositoryStore,
   runMigrations,
@@ -36,6 +37,7 @@ import {
 import type { SwarmReviewer } from './swarm/swarm-reviewer.js';
 import type { SecretStore } from './secrets/secret-store.js';
 import { PreviewArtifactService } from './preview/preview-artifact-service.js';
+import { BrowserSettingsService } from './browser/browser-settings-service.js';
 import { VoiceService, type VoiceModelInventory } from './voice/voice-service.js';
 
 export interface CoreOptions {
@@ -61,6 +63,7 @@ export interface CoreRuntime {
   readonly board: BoardService;
   readonly swarm: SwarmService;
   readonly previewArtifacts: PreviewArtifactService;
+  readonly browserSettings: BrowserSettingsService;
   readonly voice: VoiceService;
   health(correlationId: CorrelationId): SystemHealthResponse;
   close(): void;
@@ -126,6 +129,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
   const previewArtifacts = new PreviewArtifactService(
     new PreviewArtifactRepository(database),
   );
+  const browserSettings = new BrowserSettingsService(new SettingsRepository(database));
   const swarmRunner: SwarmSeatRunner = options.swarmRunner ?? {
     async execute() {
       return {
@@ -164,6 +168,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     board,
     swarm,
     previewArtifacts,
+    browserSettings,
     voice,
     health(correlationId) {
       return {

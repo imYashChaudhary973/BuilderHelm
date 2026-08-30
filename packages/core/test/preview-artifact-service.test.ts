@@ -53,4 +53,29 @@ describe('PreviewArtifactService', () => {
       'add_to_cart 1 in cart',
     );
   });
+
+  it('keeps an annotation note and its capture on the same revision', () => {
+    const database = openDatabase(':memory:');
+    databases.push(database);
+    runMigrations(database, migrations);
+    const service = new PreviewArtifactService(new PreviewArtifactRepository(database));
+
+    const recorded = service.record({
+      headSha: 'c'.repeat(40),
+      kind: 'annotation',
+      url: 'http://127.0.0.1:4310/index.html',
+      viewport: 'desktop',
+      detail: '#1 label is cut off — button "Refresh list" @40,120 98x38 [main>button]',
+      png: new Uint8Array([1, 2, 3, 4]),
+    });
+
+    // The note is the evidence; returning it only from `list` made the saved
+    // annotation look empty to the caller that just wrote it.
+    expect(recorded.detail).toContain('label is cut off');
+    expect(recorded.pngBase64).not.toBeNull();
+    const listed = service.list({ headSha: 'c'.repeat(40) })[0];
+    expect(listed?.detail).toBe(recorded.detail);
+    expect(listed?.pngBase64).toBe(recorded.pngBase64);
+    expect(listed?.nodes).toBeNull();
+  });
 });

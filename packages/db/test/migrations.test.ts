@@ -35,8 +35,8 @@ describe('migration runner', () => {
     const result = runMigrations(database, migrations);
 
     expect(result).toEqual({
-      applied: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
-      currentVersion: 16,
+      applied: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
+      currentVersion: 17,
     });
     expect(
       database.queryOne<{ count: number }>(
@@ -61,8 +61,8 @@ describe('migration runner', () => {
     );
 
     expect(runMigrations(database, migrations)).toEqual({
-      applied: [10, 11, 12, 13, 14, 15, 16],
-      currentVersion: 16,
+      applied: [10, 11, 12, 13, 14, 15, 16, 17],
+      currentVersion: 17,
     });
     expect(
       database.queryOne<{ id: string; name: string }>(
@@ -101,7 +101,7 @@ describe('migration runner', () => {
 
     expect(runMigrations(database, migrations)).toEqual({
       applied: [],
-      currentVersion: 16,
+      currentVersion: 17,
     });
   });
 
@@ -117,7 +117,7 @@ describe('migration runner', () => {
     openDatabases.push(reopened);
     expect(runMigrations(reopened, migrations)).toEqual({
       applied: [],
-      currentVersion: 16,
+      currentVersion: 17,
     });
   });
 
@@ -185,6 +185,37 @@ describe('migration runner', () => {
     ).toThrow();
     expect(() =>
       database.run(`UPDATE voice_settings SET dictation_mode = 'wave' WHERE id = 1`),
+    ).toThrow();
+  });
+
+  it('keeps annotation artifacts on the same revision table', () => {
+    const database = createTestDatabase();
+    runMigrations(database, migrations);
+
+    database.run(
+      `INSERT INTO preview_artifacts (
+        id, run_id, head_sha, kind, url, viewport, body_json, png, created_at
+      ) VALUES (?, NULL, ?, 'annotation', ?, 'desktop', ?, NULL, ?)`,
+      [
+        '00000000-0000-4000-8000-0000000000a1',
+        'abc1234',
+        'http://127.0.0.1:3000/',
+        '#1 label is cut off',
+        '2026-08-30T00:00:00.000Z',
+      ],
+    );
+
+    expect(
+      database.queryOne<{ kind: string }>(
+        `SELECT kind FROM preview_artifacts WHERE id = ?`,
+        ['00000000-0000-4000-8000-0000000000a1'],
+      ),
+    ).toEqual({ kind: 'annotation' });
+    // An unknown kind would reach the evidence gallery and render as nothing.
+    expect(() =>
+      database.run(`UPDATE preview_artifacts SET kind = 'sketch' WHERE id = ?`, [
+        '00000000-0000-4000-8000-0000000000a1',
+      ]),
     ).toThrow();
   });
 });

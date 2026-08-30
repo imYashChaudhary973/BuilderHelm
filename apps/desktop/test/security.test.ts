@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildContentSecurityPolicy,
+  isAllowedNavigation,
   secureWebPreferences,
 } from '../src/main/security.js';
 
@@ -41,6 +42,17 @@ describe('Electron security boundary', () => {
     expect(policy).toContain("frame-ancestors 'none'");
   });
 
+  it('allows only same-document navigation for the app shell', () => {
+    const shell = 'file:///Applications/BuilderHelm.app/out/renderer/index.html';
+
+    expect(isAllowedNavigation(shell, `${shell}?x=1`)).toBe(true);
+    expect(isAllowedNavigation(shell, `${shell}#/settings`)).toBe(true);
+    // Every file:// URL shares the origin "null", so a stray in-app anchor
+    // would otherwise navigate the shell away and blank the app.
+    expect(isAllowedNavigation(shell, 'file:///settings/browser')).toBe(false);
+    expect(isAllowedNavigation(shell, 'https://example.com/')).toBe(false);
+    expect(isAllowedNavigation(shell, 'not a url')).toBe(false);
+  });
   it('declares microphone use for the packaged Mac app', () => {
     const manifest = JSON.parse(
       readFileSync(resolve(import.meta.dirname, '../package.json'), 'utf8'),
