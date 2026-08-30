@@ -12,8 +12,49 @@ export function rms(samples: ArrayLike<number>): number {
   return Math.sqrt(sum / samples.length);
 }
 
-export function peakRms(chunks: ArrayLike<number>): number {
-  return rms(chunks);
+export function peakRms(samples: ArrayLike<number>, window = 1600): number {
+  if (samples.length === 0) return 0;
+  let peak = 0;
+  for (let i = 0; i < samples.length; i += window) {
+    const end = Math.min(samples.length, i + window);
+    let sum = 0;
+    for (let j = i; j < end; j += 1) {
+      const value = samples[j] ?? 0;
+      sum += value * value;
+    }
+    peak = Math.max(peak, Math.sqrt(sum / (end - i)));
+  }
+  return peak;
+}
+
+/** Split 16 kHz PCM on gaps of low energy. Used as pause → period. */
+export function splitOnSilence(
+  samples: Float32Array,
+  gapMs = 400,
+  sampleRate = VOICE_CAPTURE_RATE,
+  floor = SILENCE_RMS,
+): Float32Array[] {
+  const gap = Math.max(1, Math.floor((sampleRate * gapMs) / 1000));
+  const frame = Math.max(1, Math.floor(sampleRate / 50));
+  const parts: Float32Array[] = [];
+  let start = 0;
+  let silent = 0;
+  for (let i = 0; i < samples.length; i += frame) {
+    const slice = samples.subarray(i, Math.min(samples.length, i + frame));
+    if (rms(slice) < floor) {
+      silent += slice.length;
+      if (silent >= gap && i + frame - silent > start) {
+        const part = samples.subarray(start, i + frame - silent);
+        if (part.length >= frame) parts.push(Float32Array.from(part));
+        start = i + frame;
+      }
+    } else {
+      silent = 0;
+    }
+  }
+  const tail = samples.subarray(start);
+  if (tail.length >= frame) parts.push(Float32Array.from(tail));
+  return parts.length > 0 ? parts : [samples];
 }
 
 export function downsample(

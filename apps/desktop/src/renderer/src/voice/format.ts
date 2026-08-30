@@ -36,12 +36,19 @@ const TENS: Readonly<Record<string, number>> = {
   ninety: 90,
 };
 
-/** Spoken punctuation → glyphs. "point" between numbers is a decimal, not this. */
+const HOURS: Readonly<Record<string, number>> = {
+  ...ONES,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+};
+
 const PUNCT: Readonly<Record<string, string>> = {
   period: '.',
   'full stop': '.',
   comma: ',',
   'question mark': '?',
+  exclamation: '!',
   'exclamation mark': '!',
   'exclamation point': '!',
   colon: ':',
@@ -51,36 +58,65 @@ const PUNCT: Readonly<Record<string, string>> = {
   'new line': '\n',
   newline: '\n',
   'new paragraph': '\n\n',
-  ellipsis: '…',
-  'dot dot dot': '…',
 };
 
-/**
- * Inverse-text and correction pass used by Wispr-style dictation:
- * "four" → 4, spoken punctuation, and "5 actually 6pm" → "6pm".
- */
+const MERIDIEM = String.raw`(?:a\.?m\.?|p\.?m\.?)`;
+const TIME_SPAN = String.raw`(?:\d{1,2}(?::\d{2})?(?:\s*${MERIDIEM})?|\d+(?:\.\d+)?|[A-Za-z]+(?:\s+(?:${MERIDIEM}|o'?clock))?)`;
+const INTERREGNUM = String.raw`(?:no(?:\s*,)?\s*actually|actually|i\s+mean|no\s+wait|wait\s+no)`;
+
 export function formatDictation(text: string): string {
   let value = text.replace(/\s+/g, ' ').trim();
   if (value.length === 0) return value;
   value = applyCorrections(value);
-  value = applyNumbers(value);
+  value = applyTimesAndNumbers(value);
   value = applyPunctuation(value);
+  value = glueMeridiem(value);
   value = value.replace(/[ \t]+([,.!?;:])/g, '$1');
   value = value.replace(/\s+\n/g, '\n').replace(/\n[ \t]+/g, '\n');
   value = value.replace(/[ \t]{2,}/g, ' ').trim();
   return capitalizeSentences(value);
 }
 
+export function alreadyPunctuated(text: string): boolean {
+  const letters = text.replace(/[^A-Za-z]/g, '').length;
+  const marks = (text.match(/[.?!]/g) ?? []).length;
+  return letters > 0 && marks / Math.max(1, text.split(/\s+/).length) >= 0.08;
+}
+
+export function joinUtterances(parts: readonly string[]): string {
+  return parts
+    .map((part) => part.trim().replace(/[.?!]+$/g, ''))
+    .filter((part) => part.length > 0)
+    .map((part, index, all) => (index === all.length - 1 ? part : `${part}.`))
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function applyCorrections(text: string): string {
   let value = text.replace(/[^.!?\n]*\bscratch that\b\s*/gi, '');
-  const marker =
-    /(\b(?:\d{1,4}(?::\d{2})?(?:\s*(?:a\.?m\.?|p\.?m\.?))?|[A-Za-z]+))\s*(?:\.{2,}|…|,)?\s*\b(?:actually|i mean|no wait)\b\s+/gi;
+  const marker = new RegExp(
+    String.raw`(${TIME_SPAN})\s*(?:\.{2,}|…|,)?\s*\b${INTERREGNUM}\b(?:\s*,)?\s+`,
+    'gi',
+  );
   value = value.replace(marker, '');
   return value.replace(/\s+/g, ' ').trim();
 }
 
-function applyNumbers(text: string): string {
-  const tokens = text.split(/(\s+)/);
+function applyTimesAndNumbers(text: string): string {
+  let value = text.replace(
+    /\b(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+o['’]?clock\b/gi,
+    (_match, hour: string) => {
+      const n = HOURS[hour.toLowerCase()] ?? Number(hour);
+      return `${Number.isFinite(n) ? n : hour}:00`;
+    },
+  );
+  value = value.replace(
+    /\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(\d{2})\s+(a\.?m\.?|p\.?m\.?)\b/gi,
+    (_match, hour: string, minutes: string, mer: string) =>
+      `${HOURS[hour.toLowerCase()] ?? hour}:${minutes}${compactMeridiem(mer)}`,
+  );
+  const tokens = value.split(/(\s+)/);
   const out: string[] = [];
   let i = 0;
   while (i < tokens.length) {
@@ -134,6 +170,7 @@ function nextWord(tokens: string[], index: number): number {
   if (/^\s+$/.test(tokens[index] ?? '')) return index + 1;
   return index;
 }
+
 function parseUnit(raw: string): number | null {
   const word = raw.toLowerCase().replace(/[^a-z]/g, '');
   if (word.length === 0) return null;
@@ -155,11 +192,20 @@ function applyPunctuation(text: string): string {
   return value;
 }
 
+function glueMeridiem(text: string): string {
+  return text.replace(
+    /\b(\d{1,2}(?::\d{2})?)\s+(a\.?m\.?|p\.?m\.?)\b/gi,
+    (_match, hour: string, mer: string) => `${hour}${compactMeridiem(mer)}`,
+  );
+}
+
+function compactMeridiem(raw: string): string {
+  return raw.replace(/\./g, '').toLowerCase();
+}
+
 function capitalizeSentences(text: string): string {
   return text.replace(
     /(^|[.!?]\s+|\n+)([a-z])/g,
-    (_match, prefix: string, letter: string) => {
-      return `${prefix}${letter.toUpperCase()}`;
-    },
+    (_match, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`,
   );
 }

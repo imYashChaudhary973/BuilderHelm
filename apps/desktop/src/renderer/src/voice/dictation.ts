@@ -1,5 +1,5 @@
 import { microphoneErrorMessage, startMicCapture } from './capture.js';
-import { formatDictation } from './format.js';
+import { alreadyPunctuated, formatDictation, joinUtterances } from './format.js';
 import { eventMatchesAccelerator, type KeyLike } from './hotkey.js';
 import { insertTranscript, resolveInsertTarget, type InsertTarget } from './insert.js';
 import {
@@ -8,6 +8,7 @@ import {
   LISTEN_MAX_MS,
   peakRms,
   SILENCE_RMS,
+  splitOnSilence,
 } from './pcm.js';
 
 export type DictationPhase = 'idle' | 'listening' | 'transcribing' | 'inserting';
@@ -128,11 +129,20 @@ export function createDictation(deps: DictationDeps) {
     emit({ phase: 'transcribing', level: 0, partial: '', error: null });
     let text = '';
     try {
-      const result = await deps.transcribe({
-        filename: 'clip.wav',
-        audioBase64: bytesToBase64(encodeWavPcm16(samples)),
-      });
-      text = formatDictation(result.text);
+      const chunks = splitOnSilence(samples).filter((part) => peakRms(part) >= silence);
+      const pieces: string[] = [];
+      for (const part of chunks.length > 0 ? chunks : [samples]) {
+        const result = await deps.transcribe({
+          filename: 'clip.wav',
+          audioBase64: bytesToBase64(encodeWavPcm16(part)),
+        });
+        const formatted = formatDictation(result.text);
+        if (formatted.length > 0) pieces.push(formatted);
+      }
+      text =
+        pieces.length > 1 && !pieces.every((piece) => alreadyPunctuated(piece))
+          ? formatDictation(joinUtterances(pieces))
+          : (pieces[0] ?? '');
     } catch (error) {
       if (generation !== mine) return;
       emit({ ...idleHud, error: transcribeErrorMessage(error) });
