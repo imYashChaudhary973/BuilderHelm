@@ -186,12 +186,12 @@ describe('dictation machine', () => {
       capture: async () => ({ stop: () => tone() }),
       transcribe,
       insert,
-      settings: async () => settings({ dictationMode: 'hold' }),
+      settings: async () => settings({ dictationMode: 'hold', hotkey: 'Shift+V' }),
     });
     const key = {
       key: 'v',
       code: 'KeyV',
-      metaKey: true,
+      metaKey: false,
       ctrlKey: false,
       altKey: false,
       shiftKey: true,

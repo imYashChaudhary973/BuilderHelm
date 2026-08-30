@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,7 +26,9 @@ function normalize(text: string): string {
 }
 
 describe('voice runtime', () => {
-  it('transcribes the fixture wav offline with whisper-tiny', async () => {
+  it.skipIf(
+    !existsSync(join(extracted, 'tiny.en-encoder.int8.onnx')),
+  )('transcribes the fixture wav offline with whisper-tiny', async () => {
     const encoder = join(extracted, 'tiny.en-encoder.int8.onnx');
     const decoder = join(extracted, 'tiny.en-decoder.int8.onnx');
     const tokens = join(extracted, 'tiny.en-tokens.txt');
