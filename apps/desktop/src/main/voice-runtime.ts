@@ -26,7 +26,7 @@ interface SherpaRecognizer {
 interface SherpaAddon {
   OfflineRecognizer: new (config: unknown) => SherpaRecognizer;
   OnlineRecognizer: new (config: unknown) => SherpaRecognizer;
-  readWave(path: string): SherpaWave;
+  readWave(path: string, enableExternalBuffer?: boolean): SherpaWave;
 }
 
 /**
@@ -51,8 +51,10 @@ export class VoiceRuntime {
       const recognizer = await this.load(id);
       const sherpa = loadSherpa();
       const stream = recognizer.createStream();
-      const wave = sherpa.readWave(wavPath);
-      stream.acceptWaveform({ sampleRate: wave.sampleRate, samples: wave.samples });
+      // Electron rejects napi external ArrayBuffers. Copy into a real buffer.
+      const wave = sherpa.readWave(wavPath, false);
+      const samples = Float32Array.from(wave.samples);
+      stream.acceptWaveform({ sampleRate: wave.sampleRate, samples });
       const pack = voiceModelPackage(id);
       if (pack?.kind === 'zipformer') {
         const tail = new Float32Array(Math.floor(wave.sampleRate * 0.4));
