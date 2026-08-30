@@ -43,6 +43,7 @@ import type {
   BrowserCommandInput,
   BrowserCookieImportResult,
   BrowserMenuInput,
+  BrowserMenuPayload,
   BrowserMenuResult,
   BrowserProfileCreateInput,
   BrowserProfileDeleteInput,
@@ -210,6 +211,8 @@ export const ipcChannels = {
   browserProfileDelete: 'builderhelm:browser:profile-delete',
   browserCookieImport: 'builderhelm:browser:cookie-import',
   browserMenu: 'builderhelm:browser:menu',
+  browserMenuPayload: 'builderhelm:browser:menu-payload',
+  browserMenuPick: 'builderhelm:browser:menu-pick',
   browserAnnotate: 'builderhelm:browser:annotate',
   browserStateEvent: 'builderhelm:browser:state-event',
   browserDrawSave: 'builderhelm:browser:draw-save',
@@ -388,6 +391,8 @@ export interface BuilderHelmDesktopApi {
     annotate(input: PreviewAnnotationInput): Promise<PreviewArtifact>;
     saveDrawing(input: PreviewDrawSaveInput): Promise<PreviewArtifact>;
     menu(input: BrowserMenuInput): Promise<BrowserMenuResult>;
+    onMenuPayload(listener: (payload: BrowserMenuPayload) => void): () => void;
+    pickMenu(choice: string | null): void;
     settings(): Promise<BrowserSettings>;
     updateSettings(input: BrowserSettingsUpdateInput): Promise<BrowserSettings>;
     createProfile(input: BrowserProfileCreateInput): Promise<BrowserSettings>;

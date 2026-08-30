@@ -10,6 +10,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { App } from './App.js';
+import { BrowserMenuPopup } from './components/browser-menu-popup.js';
 import { KanbanBoard } from './components/kanban-board.js';
 import { ActionsPage } from './routes/actions.js';
 import { BoardPage } from './routes/board.js';
@@ -106,10 +107,19 @@ declare module '@tanstack/react-router' {
 const root = document.getElementById('root');
 if (root === null) throw new Error('Renderer root element is missing');
 
-createRoot(root).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
-  </StrictMode>,
-);
+if (window.location.hash === '#browser-popup') {
+  document.documentElement.classList.add('browserPopup');
+  createRoot(root).render(
+    <StrictMode>
+      <BrowserMenuPopup />
+    </StrictMode>,
+  );
+} else {
+  createRoot(root).render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </StrictMode>,
+  );
+}

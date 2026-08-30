@@ -386,7 +386,7 @@ export function BrowserSidebar({
     try {
       await window.builderHelm.browser.saveDrawing({ png, ...evidence });
       await artifacts.refetch();
-      setError('Marked screenshot saved to this revision.');
+      setError('Marked screenshot copied. Saved to this revision.');
       await closeDrawing();
     } catch (cause) {
       setSaving(false);
@@ -539,22 +539,24 @@ export function BrowserSidebar({
           >
             {secure ? <IconLock /> : <IconWeb />}
           </span>
-          <input
-            ref={omniboxRef}
-            aria-label="Address and search"
-            value={draft}
-            placeholder="Enter a URL or search"
-            spellCheck={false}
-            autoComplete="off"
-            onFocus={(event) => event.currentTarget.select()}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== 'Escape') return;
-              event.preventDefault();
-              setDraft(page ?? '');
-              event.currentTarget.blur();
-            }}
-          />
+          <div className="browserOmniboxField">
+            <input
+              ref={omniboxRef}
+              aria-label="Address and search"
+              value={draft}
+              placeholder="Enter a URL or search"
+              spellCheck={false}
+              autoComplete="off"
+              onFocus={(event) => event.currentTarget.select()}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Escape') return;
+                event.preventDefault();
+                setDraft(page ?? '');
+                event.currentTarget.blur();
+              }}
+            />
+          </div>
         </div>
         <button
           type="button"

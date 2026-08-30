@@ -226,7 +226,15 @@ import {
   stageGitPath,
   writeEditorFile,
 } from './file-reader.js';
-import { BrowserWindow, dialog, ipcMain, session, type WebContents } from 'electron';
+import {
+  BrowserWindow,
+  clipboard,
+  dialog,
+  ipcMain,
+  nativeImage,
+  session,
+  type WebContents,
+} from 'electron';
 import { ZodError } from 'zod';
 
 function ipcError(error: unknown): {
@@ -1421,13 +1429,15 @@ export function registerIpcHandlers(
   ipcMain.handle(ipcChannels.browserDrawSave, (_event, input: unknown) => {
     try {
       const request = browserDrawSaveRequestSchema.parse(input);
+      const png = Buffer.from(request.input.png);
+      clipboard.writeImage(nativeImage.createFromBuffer(png));
       const value = core.previewArtifacts.record({
         runId: request.input.runId ?? null,
         headSha: previewHeadSha(request.input.root),
         kind: 'screenshot',
         url: preview.currentUrl(),
         viewport: preview.currentViewport(),
-        png: new Uint8Array(request.input.png),
+        png: new Uint8Array(png),
       });
       return browserScreenshotIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
@@ -2048,6 +2058,7 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.browserAnnotate);
     ipcMain.removeHandler(ipcChannels.browserDrawSave);
     ipcMain.removeHandler(ipcChannels.browserMenu);
+    ipcMain.removeHandler(ipcChannels.browserMenuPick);
     ipcMain.removeHandler(ipcChannels.browserSettings);
     ipcMain.removeHandler(ipcChannels.browserSettingsUpdate);
     ipcMain.removeHandler(ipcChannels.browserProfileCreate);

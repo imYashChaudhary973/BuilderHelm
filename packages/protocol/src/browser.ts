@@ -169,8 +169,11 @@ export const browserMenuKindSchema = z.enum(browserMenuKinds);
 export type BrowserMenuKind = (typeof browserMenuKinds)[number];
 
 /**
- * Toolbar menus are native. The embedded page sits above renderer DOM, so a
- * React popover anchored in the toolbar would be painted behind it.
+ * Toolbar menus are a child window. The embedded page sits above renderer DOM,
+ * so a React popover anchored in the toolbar would be painted behind it.
+ *
+ * The renderer only supplies kind and position. Items are built in main from
+ * mapped ports and the real profile list, then pushed to the popup.
  */
 export const browserMenuInputSchema = z
   .object({
@@ -186,6 +189,21 @@ export const browserMenuResultSchema = z
   .object({ choice: z.string().min(1).max(4200).nullable() })
   .strict();
 export type BrowserMenuResult = z.infer<typeof browserMenuResultSchema>;
+
+export const browserMenuPayloadSchema = z
+  .object({
+    kind: browserMenuKindSchema,
+    origins: z.array(previewOriginSchema).max(32),
+    settings: z.lazy(() => browserSettingsSchema),
+    viewport: previewViewportIdSchema,
+  })
+  .strict();
+export type BrowserMenuPayload = z.infer<typeof browserMenuPayloadSchema>;
+
+export const browserMenuPickSchema = z
+  .object({ choice: z.string().min(1).max(4200).nullable() })
+  .strict();
+export type BrowserMenuPick = z.infer<typeof browserMenuPickSchema>;
 
 export const browserCommandInputSchema = z.discriminatedUnion('action', [
   z

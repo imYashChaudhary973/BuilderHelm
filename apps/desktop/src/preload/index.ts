@@ -82,6 +82,8 @@ import {
   browserEventsIpcResponseSchema,
   browserMenuInputSchema,
   browserMenuIpcResponseSchema,
+  browserMenuPayloadSchema,
+  browserMenuPickSchema,
   browserOriginsIpcResponseSchema,
   browserPickIpcResponseSchema,
   browserPickSendIpcResponseSchema,
@@ -754,6 +756,22 @@ const api: BuilderHelmDesktopApi = {
         input: browserMenuInputSchema.parse(input),
       });
       return unwrap(browserMenuIpcResponseSchema.parse(response));
+    },
+    onMenuPayload(listener) {
+      const handler = (_event: unknown, payload: unknown): void => {
+        const parsed = browserMenuPayloadSchema.safeParse(payload);
+        if (parsed.success) listener(parsed.data);
+      };
+      ipcRenderer.on(ipcChannels.browserMenuPayload, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcChannels.browserMenuPayload, handler);
+      };
+    },
+    pickMenu(choice) {
+      void ipcRenderer.invoke(
+        ipcChannels.browserMenuPick,
+        browserMenuPickSchema.parse({ choice }),
+      );
     },
     async settings() {
       const response: unknown = await ipcRenderer.invoke(ipcChannels.browserSettings, {

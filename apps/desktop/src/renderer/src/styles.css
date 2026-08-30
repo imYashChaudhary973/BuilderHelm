@@ -829,15 +829,15 @@ html.is-fullscreen .shell {
 .browserBar {
   position: relative;
   display: flex;
-  gap: 4px;
+  gap: 8px;
   align-items: center;
-  padding: 6px 8px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--line);
   -webkit-app-region: no-drag;
   /* Wrapping, not clipping. Below roughly 530px the row cannot hold the
      omnibox and every tool, and a clipped overflow menu is unreachable. */
   flex-wrap: wrap;
-  row-gap: 6px;
+  row-gap: 8px;
 }
 
 /* The icon group is one ARIA toolbar. It wraps as a unit rather than being
@@ -847,7 +847,7 @@ html.is-fullscreen .shell {
   display: flex;
   flex-shrink: 0;
   flex-wrap: wrap;
-  gap: 2px;
+  gap: 6px;
   padding: 0;
 }
 
@@ -860,62 +860,70 @@ html.is-fullscreen .shell {
 
 .browserIcon {
   display: grid;
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   flex-shrink: 0;
   place-items: center;
   padding: 0;
   border: 0;
-  border-radius: 6px;
-  color: var(--text-2);
+  border-radius: 10px;
+  color: var(--text);
   background: transparent;
 }
 
 .browserIcon:hover:not(:disabled) {
-  color: var(--text);
-  background: #1c1c1c;
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .browserIcon:disabled {
-  opacity: 0.35;
+  color: var(--text-3);
+  opacity: 0.45;
 }
 
 .browserIconOn {
   color: var(--accent-bright);
-  background: color-mix(in srgb, var(--accent-dim) 40%, transparent);
+  background: color-mix(in srgb, var(--accent-dim) 45%, transparent);
 }
 
-/* Square-rounded, deliberately not a pill: it reads as a field rather than a
-   button, and matches the settings inputs. */
+/* An outer shell holding an inner field, as in the reference chrome: the shell
+   carries the security affordance and the rounding, the field carries the text
+   on a lighter surface so the address reads as editable. */
 .browserOmnibox {
   display: flex;
   /* An explicit basis, not `auto`: with wrapping enabled a content-sized
      omnibox would push the tools onto a second row long before the row is
      actually full. It starts narrow and grows into whatever is left. */
-  flex: 1 1 120px;
-  min-width: 120px;
+  flex: 1 1 160px;
+  min-width: 160px;
   align-items: center;
-  gap: 8px;
-  height: 32px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 11px;
-  background: #121212;
+  gap: 10px;
+  height: 42px;
+  padding: 0 6px 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: #0d0d0d;
 }
 
 .browserLock {
   display: grid;
+  flex-shrink: 0;
   place-items: center;
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
 .browserLockOn {
   color: var(--accent-bright);
 }
 
-.browserOmnibox span {
-  flex-shrink: 0;
-  font-size: 12px;
+.browserOmniboxField {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: #171717;
 }
 
 .browserOmnibox input {
@@ -925,6 +933,8 @@ html.is-fullscreen .shell {
   padding: 0;
   border: 0;
   background: transparent;
+  color: var(--text);
+  font-size: 13px;
 }
 
 .browserOmnibox input:focus {
@@ -933,20 +943,20 @@ html.is-fullscreen .shell {
 
 .browserImport {
   display: flex;
-  height: 28px;
+  height: 34px;
   flex-shrink: 0;
   align-items: center;
-  gap: 6px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  gap: 7px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 11px;
   color: var(--text);
-  background: #1a1a1a;
-  font-size: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 13px;
 }
 
 .browserImport:hover {
-  border-color: var(--line-strong);
+  background: rgba(255, 255, 255, 0.13);
 }
 
 @container (max-width: 560px) {
@@ -966,8 +976,11 @@ html.is-fullscreen .shell {
 }
 
 .browserStage {
+  position: relative;
+  display: flex;
   flex: 1;
   min-height: 0;
+  flex-direction: column;
   background: #070707;
 }
 
@@ -1214,41 +1227,275 @@ html.is-fullscreen .shell {
 
 /* ---------- SCREENSHOT MARKUP ---------- */
 
+/* The capture fills the stage. Tools float over it, bottom-center, matching
+   the reference chrome: a tool pill stacked on a caption bar. */
 .drawEditor {
-  display: flex;
-  height: 100%;
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px;
-  overflow: auto;
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
   background: #070707;
+}
+
+.drawSurface {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+}
+
+/* The canvas keeps capture pixels; CSS only scales what is shown. */
+.drawCanvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.drawTextInput {
+  position: absolute;
+  min-width: 72px;
+  margin: 0;
+  padding: 2px 6px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: rgba(8, 8, 8, 0.72);
+  font-weight: 600;
+}
+
+.drawDock {
+  position: absolute;
+  z-index: 2;
+  right: 16px;
+  bottom: 18px;
+  left: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.drawDock > * {
+  pointer-events: auto;
 }
 
 .drawTools {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 2px;
   align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: #171717;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
 }
 
-.drawToolsLabel {
+.drawTool {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  color: var(--text);
+  background: transparent;
+}
+
+.drawTool:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.drawTool:disabled {
   color: var(--text-3);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  opacity: 0.4;
+}
+
+.drawToolOn {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.drawDivider {
+  width: 1px;
+  height: 22px;
+  margin: 0 4px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.drawColor {
+  position: relative;
 }
 
 .drawSwatch {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   padding: 0;
-  border: 1px solid var(--line-strong);
-  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
 }
 
 .drawSwatchOn {
-  outline: 2px solid var(--accent-bright);
+  outline: 2px solid #fff;
   outline-offset: 1px;
+}
+
+.drawSwatches {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: #171717;
+  transform: translateX(-50%);
+}
+
+.drawSize {
+  width: auto;
+  gap: 2px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.drawBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  padding: 8px 8px 8px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  background: #171717;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+}
+
+.drawBar p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.drawGhost,
+.drawPrimary {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.drawGhost {
+  color: var(--text);
+  background: transparent;
+}
+
+.drawGhost:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.drawPrimary {
+  color: #111;
+  background: #e8e8e8;
+}
+
+.drawPrimary:hover:not(:disabled) {
+  background: #fff;
+}
+
+.drawPrimary:disabled {
+  opacity: 0.45;
+}
+
+/* ---------- BROWSER MENU POPUP ---------- */
+
+html.browserPopup,
+html.browserPopup body {
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+
+.browserMenu {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  background: #171717;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+}
+
+.browserMenuList {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  overflow: auto;
+}
+
+.browserMenuItem {
+  display: flex;
+  width: 100%;
+  min-height: 40px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--text);
+  background: transparent;
+  font-size: 13px;
+  text-align: left;
+}
+
+.browserMenuItem:hover:not(:disabled),
+.browserMenuItem:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.browserMenuItem:disabled {
+  color: var(--text-3);
+}
+
+.browserMenuItem span:not(.browserMenuCheck) {
+  min-width: 0;
+  flex: 1;
+}
+
+.browserMenuItem svg {
+  flex-shrink: 0;
+  color: var(--text-2);
+}
+
+.browserMenuCheck {
+  display: grid;
+  width: 18px;
+  flex: 0 0 18px;
+  place-items: center;
+  color: var(--text);
+}
+
+.browserMenuCheck svg {
+  color: var(--text);
+}
+
+.browserMenuRule {
+  height: 1px;
+  margin: 4px 8px;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .drawChip {
@@ -1279,17 +1526,6 @@ html.is-fullscreen .shell {
   border-color: var(--accent-line);
   background: color-mix(in srgb, var(--accent-dim) 45%, transparent);
   color: var(--accent-bright);
-}
-
-/* The canvas keeps capture pixels; CSS only scales what is shown. */
-.drawCanvas {
-  max-width: 100%;
-  align-self: flex-start;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #050505;
-  touch-action: none;
-  cursor: crosshair;
 }
 
 .topbarIcon {
