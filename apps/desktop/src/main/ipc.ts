@@ -89,8 +89,31 @@ import {
   type ChatClientStreamEvent,
 } from '@builderhelm/protocol/chat';
 import {
+  browserApproveRequestSchema,
+  browserArtifactsIpcResponseSchema,
+  browserArtifactsRequestSchema,
   browserCommandIpcResponseSchema,
   browserCommandRequestSchema,
+  browserDriveIpcResponseSchema,
+  browserDriveRequestSchema,
+  browserEventsIpcResponseSchema,
+  browserEventsRequestSchema,
+  browserOriginsIpcResponseSchema,
+  browserOriginsRequestSchema,
+  browserPickIpcResponseSchema,
+  browserPickRequestSchema,
+  browserPickSendIpcResponseSchema,
+  browserPickSendRequestSchema,
+  browserReceiptsIpcResponseSchema,
+  browserScreenshotIpcResponseSchema,
+  browserScreenshotRequestSchema,
+  browserSnapshotIpcResponseSchema,
+  browserSnapshotRequestSchema,
+  desktopActIpcResponseSchema,
+  desktopActRequestSchema,
+  desktopApproveRequestSchema,
+  desktopScreenshotIpcResponseSchema,
+  desktopScreenshotRequestSchema,
 } from '@builderhelm/protocol/browser';
 import {
   editorCreateIpcResponseSchema,
@@ -175,6 +198,7 @@ import type { PtySwarmRunner } from './swarm-runner.js';
 import type { VoiceModelManager } from './voice-models.js';
 import type { VoiceRuntime } from './voice-runtime.js';
 import { PreviewBrowser } from './preview-browser.js';
+import { DesktopControl } from './desktop-control.js';
 import {
   commitGit,
   createEditorEntry,
@@ -235,6 +259,7 @@ export function registerIpcHandlers(
   },
 ): () => void {
   const preview = new PreviewBrowser();
+  const desktop = new DesktopControl();
   const activeStreams = new Map<
     string,
     { readonly controller: AbortController; readonly senderId: number }
@@ -1084,6 +1109,7 @@ export function registerIpcHandlers(
         request.repoPath,
         request.branch,
         request.correlationId,
+        request.reviewedHead,
       );
       return boardLandIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
@@ -1216,6 +1242,221 @@ export function registerIpcHandlers(
         ok: false,
         error: ipcError(error),
       });
+    }
+  });
+
+  function previewHeadSha(root: string | undefined): string {
+    if (root === undefined) return 'unversioned';
+    try {
+      return new LocalGitInspector().inspect(root).headSha;
+    } catch {
+      return 'unversioned';
+    }
+  }
+
+  ipcMain.handle(ipcChannels.browserOrigins, (_event, input: unknown) => {
+    try {
+      browserOriginsRequestSchema.parse(input);
+      const value = board?.listPreviewOrigins() ?? [];
+      return browserOriginsIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return browserOriginsIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserSnapshot, async (_event, input: unknown) => {
+    try {
+      const request = browserSnapshotRequestSchema.parse(input);
+      const snap = await preview.snapshot();
+      core.previewArtifacts.record({
+        runId: request.input.runId ?? null,
+        headSha: previewHeadSha(request.input.root),
+        kind: 'snapshot',
+        url: snap.url,
+        viewport: snap.viewport,
+        nodes: snap.nodes,
+      });
+      return browserSnapshotIpcResponseSchema.parse({
+        ok: true,
+        value: snap,
+      });
+    } catch (error) {
+      return browserSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserScreenshot, async (_event, input: unknown) => {
+    try {
+      const request = browserScreenshotRequestSchema.parse(input);
+      const shot = await preview.screenshot();
+      const value = core.previewArtifacts.record({
+        runId: request.input.runId ?? null,
+        headSha: previewHeadSha(request.input.root),
+        kind: 'screenshot',
+        url: shot.url,
+        viewport: shot.viewport,
+        png: shot.png,
+      });
+      return browserScreenshotIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return browserScreenshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserArtifacts, (_event, input: unknown) => {
+    try {
+      const request = browserArtifactsRequestSchema.parse(input);
+      const value = core.previewArtifacts.list({
+        headSha: previewHeadSha(request.input.root),
+        runId: request.input.runId ?? null,
+      });
+      return browserArtifactsIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return browserArtifactsIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserDrive, async (_event, input: unknown) => {
+    try {
+      const request = browserDriveRequestSchema.parse(input);
+      const value = await preview.drive(request.input);
+      return browserDriveIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return browserDriveIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserApprove, async (_event, input: unknown) => {
+    try {
+      const request = browserApproveRequestSchema.parse(input);
+      const value = await preview.resolveDrive(request.input.id, request.input.allow);
+      return browserDriveIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return browserDriveIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserEvents, (_event, input: unknown) => {
+    try {
+      browserEventsRequestSchema.parse(input);
+      return browserEventsIpcResponseSchema.parse({
+        ok: true,
+        value: preview.listEvents(),
+      });
+    } catch (error) {
+      return browserEventsIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserPick, async (_event, input: unknown) => {
+    try {
+      browserPickRequestSchema.parse(input);
+      const value = await preview.pick();
+      return browserPickIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return browserPickIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserPickSend, (_event, input: unknown) => {
+    try {
+      const request = browserPickSendRequestSchema.parse(input);
+      const picked = preview.lastPicked();
+      if (picked === null) {
+        throw new BuilderHelmError('VALIDATION_FAILED', 'Pick an element first');
+      }
+      const run = core.swarm.latestRun();
+      if (run === null) {
+        return browserPickSendIpcResponseSchema.parse({
+          ok: true,
+          value: { sent: false },
+        });
+      }
+      const builders = core.swarm
+        .state(run.id)
+        .seats.filter((seat) => seat.role === 'builder')
+        .map((seat) => seat.id);
+      if (builders.length === 0) {
+        return browserPickSendIpcResponseSchema.parse({
+          ok: true,
+          value: { sent: false },
+        });
+      }
+      core.swarm.direct(
+        run.id,
+        builders,
+        `Preview pick ${picked.role} "${picked.name}"\n${request.input.note}\n${picked.html}`,
+        request.correlationId,
+      );
+      return browserPickSendIpcResponseSchema.parse({ ok: true, value: { sent: true } });
+    } catch (error) {
+      return browserPickSendIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserReceipts, (_event, input: unknown) => {
+    try {
+      browserEventsRequestSchema.parse(input);
+      return browserReceiptsIpcResponseSchema.parse({
+        ok: true,
+        value: preview.listReceipts(),
+      });
+    } catch (error) {
+      return browserReceiptsIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.desktopScreenshot, async (_event, input: unknown) => {
+    try {
+      desktopScreenshotRequestSchema.parse(input);
+      return desktopScreenshotIpcResponseSchema.parse({
+        ok: true,
+        value: await desktop.screenshot(),
+      });
+    } catch (error) {
+      return desktopScreenshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.desktopAct, async (_event, input: unknown) => {
+    try {
+      const request = desktopActRequestSchema.parse(input);
+      return desktopActIpcResponseSchema.parse({
+        ok: true,
+        value: await desktop.act(request.input),
+      });
+    } catch (error) {
+      return desktopActIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.desktopApprove, async (_event, input: unknown) => {
+    try {
+      const request = desktopApproveRequestSchema.parse(input);
+      return desktopActIpcResponseSchema.parse({
+        ok: true,
+        value: await desktop.resolve(request.input.id, request.input.allow),
+      });
+    } catch (error) {
+      return desktopActIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
     }
   });
 
@@ -1593,6 +1834,19 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.kanbanUpdate);
     ipcMain.removeHandler(ipcChannels.kanbanDelete);
     ipcMain.removeHandler(ipcChannels.browserCommand);
+    ipcMain.removeHandler(ipcChannels.browserOrigins);
+    ipcMain.removeHandler(ipcChannels.browserSnapshot);
+    ipcMain.removeHandler(ipcChannels.browserScreenshot);
+    ipcMain.removeHandler(ipcChannels.browserArtifacts);
+    ipcMain.removeHandler(ipcChannels.browserDrive);
+    ipcMain.removeHandler(ipcChannels.browserApprove);
+    ipcMain.removeHandler(ipcChannels.browserEvents);
+    ipcMain.removeHandler(ipcChannels.browserPick);
+    ipcMain.removeHandler(ipcChannels.browserPickSend);
+    ipcMain.removeHandler(ipcChannels.browserReceipts);
+    ipcMain.removeHandler(ipcChannels.desktopScreenshot);
+    ipcMain.removeHandler(ipcChannels.desktopAct);
+    ipcMain.removeHandler(ipcChannels.desktopApprove);
     ipcMain.removeHandler(ipcChannels.editorPick);
     ipcMain.removeHandler(ipcChannels.editorRead);
     ipcMain.removeHandler(ipcChannels.editorList);

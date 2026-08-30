@@ -71,6 +71,22 @@ describe('BoardService worktrees', () => {
     database.close();
   });
 
+  it('refuses land when the reviewed head moved', async () => {
+    const repo = createRepository();
+    const database = openDatabase(':memory:');
+    runMigrations(database, migrations);
+    const service = new BoardService(database, logger);
+    const worktree = await service.createWorktree(repo, 'p1-test', createCorrelationId());
+    writeFileSync(join(worktree.path, 'extra.md'), 'from pane\n');
+    execFileSync('git', ['add', 'extra.md'], { cwd: worktree.path });
+    execFileSync('git', ['commit', '-m', 'pane work'], { cwd: worktree.path });
+    await expect(
+      service.landBranch(repo, worktree.branch, createCorrelationId(), 'a'.repeat(40)),
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    expect(existsSync(join(repo, 'extra.md'))).toBe(false);
+    database.close();
+  });
+
   it('previews a pane branch without merging', async () => {
     const repo = createRepository();
     const database = openDatabase(':memory:');

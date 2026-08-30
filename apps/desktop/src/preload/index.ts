@@ -74,8 +74,23 @@ import {
   type BuilderHelmDesktopApi,
 } from '@builderhelm/protocol/ipc';
 import {
+  browserArtifactsIpcResponseSchema,
   browserCommandIpcResponseSchema,
   browserCommandInputSchema,
+  browserDriveIpcResponseSchema,
+  browserEventsIpcResponseSchema,
+  browserOriginsIpcResponseSchema,
+  browserPickIpcResponseSchema,
+  browserPickSendIpcResponseSchema,
+  browserReceiptsIpcResponseSchema,
+  browserScreenshotIpcResponseSchema,
+  browserSnapshotIpcResponseSchema,
+  desktopActIpcResponseSchema,
+  desktopActInputSchema,
+  desktopScreenshotIpcResponseSchema,
+  previewArtifactListInputSchema,
+  previewDriveInputSchema,
+  previewScreenshotInputSchema,
 } from '@builderhelm/protocol/browser';
 import {
   editorCreateInputSchema,
@@ -653,6 +668,94 @@ const api: BuilderHelmDesktopApi = {
         input: browserCommandInputSchema.parse(input),
       });
       return unwrap(browserCommandIpcResponseSchema.parse(response));
+    },
+    async origins() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.browserOrigins, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(browserOriginsIpcResponseSchema.parse(response));
+    },
+    async snapshot(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.browserSnapshot, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: previewScreenshotInputSchema.parse(input),
+      });
+      return unwrap(browserSnapshotIpcResponseSchema.parse(response));
+    },
+    async screenshot(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.browserScreenshot, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: previewScreenshotInputSchema.parse(input),
+      });
+      return unwrap(browserScreenshotIpcResponseSchema.parse(response));
+    },
+    async artifacts(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.browserArtifacts, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: previewArtifactListInputSchema.parse(input),
+      });
+      return unwrap(browserArtifactsIpcResponseSchema.parse(response));
+    },
+    async drive(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.browserDrive, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: previewDriveInputSchema.parse(input),
+      });
+      return unwrap(browserDriveIpcResponseSchema.parse(response));
+    },
+    async approve(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.browserApprove, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input,
+      });
+      return unwrap(browserDriveIpcResponseSchema.parse(response));
+    },
+    async events() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.browserEvents, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(browserEventsIpcResponseSchema.parse(response));
+    },
+    async pick() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.browserPick, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(browserPickIpcResponseSchema.parse(response));
+    },
+    async sendPick(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.browserPickSend, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input,
+      });
+      return unwrap(browserPickSendIpcResponseSchema.parse(response));
+    },
+    async receipts() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.browserReceipts, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(browserReceiptsIpcResponseSchema.parse(response));
+    },
+  },
+  desktop: {
+    async screenshot() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.desktopScreenshot, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(desktopScreenshotIpcResponseSchema.parse(response));
+    },
+    async act(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.desktopAct, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: desktopActInputSchema.parse(input),
+      });
+      return unwrap(desktopActIpcResponseSchema.parse(response));
+    },
+    async approve(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.desktopApprove, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input,
+      });
+      return unwrap(desktopActIpcResponseSchema.parse(response));
     },
   },
   editor: {

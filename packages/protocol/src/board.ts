@@ -497,6 +497,10 @@ export const boardLandInputSchema = z
     correlationId: boardCorrelationSchema,
     repoPath: z.string().min(1).max(4096),
     branch: z.string().min(1).max(255),
+    reviewedHead: z
+      .string()
+      .regex(/^[0-9a-f]{40,64}$/)
+      .optional(),
   })
   .strict();
 export type BoardLandInput = z.infer<typeof boardLandInputSchema>;

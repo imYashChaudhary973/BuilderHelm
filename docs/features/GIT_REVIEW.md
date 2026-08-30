@@ -1,6 +1,8 @@
 # Git and review
 
-Status: basic Git actions working; unified review, PR, CI, and conflict flows planned.
+Status: basic Git actions working; preview screenshots, snapshots, tool calls,
+and console slices list next to changes. Unified review, PR, CI, and conflict
+flows planned.
 
 ## Goal
 

@@ -24,6 +24,8 @@ import {
   type BoardPaneWriteInput,
   type BoardPaneResizeInput,
   type BoardSessionSummary,
+  extractPreviewOrigins,
+  type PreviewOrigin,
 } from '@builderhelm/protocol';
 import { BuilderHelmError } from '@builderhelm/shared';
 import { Notification, type WebContents } from 'electron';
@@ -217,6 +219,26 @@ export class BoardPtyManager {
       panes: new Map(),
     });
     return sessionId;
+  }
+
+  listPreviewOrigins(): PreviewOrigin[] {
+    const found = new Map<string, PreviewOrigin>();
+    for (const [sessionId, session] of this.sessions) {
+      for (const [paneId, pane] of session.panes) {
+        const text = `${pane.output}\n${pane.startupTail}\n${pane.pendingData}`;
+        for (const url of extractPreviewOrigins(text)) {
+          let port = 80;
+          try {
+            const parsed = new URL(url);
+            port = Number(parsed.port || (parsed.protocol === 'https:' ? 443 : 80));
+          } catch {
+            continue;
+          }
+          found.set(url, { url, port, sessionId, paneId });
+        }
+      }
+    }
+    return [...found.values()].slice(0, 32);
   }
 
   /** Resolves when the pane's process exits, with everything it printed. */

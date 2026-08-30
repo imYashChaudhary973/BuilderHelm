@@ -39,7 +39,22 @@ import type {
   KanbanUpdateInput,
 } from './kanban.js';
 
-import type { BrowserCommandInput, BrowserState } from './browser.js';
+import type {
+  BrowserCommandInput,
+  BrowserState,
+  PreviewArtifact,
+  PreviewArtifactListInput,
+  PreviewDriveInput,
+  PreviewDriveResult,
+  PreviewEvent,
+  PreviewOrigin,
+  PreviewPick,
+  PreviewDriveReceipt,
+  DesktopActInput,
+  DesktopActResult,
+  PreviewScreenshotInput,
+  PreviewSnapshot,
+} from './browser.js';
 import type {
   EditorCreateInput,
   EditorEntry,
@@ -169,6 +184,19 @@ export const ipcChannels = {
   kanbanUpdate: 'builderhelm:kanban:update',
   kanbanDelete: 'builderhelm:kanban:delete',
   browserCommand: 'builderhelm:browser:command',
+  browserOrigins: 'builderhelm:browser:origins',
+  browserSnapshot: 'builderhelm:browser:snapshot',
+  browserScreenshot: 'builderhelm:browser:screenshot',
+  browserArtifacts: 'builderhelm:browser:artifacts',
+  browserDrive: 'builderhelm:browser:drive',
+  browserApprove: 'builderhelm:browser:approve',
+  browserEvents: 'builderhelm:browser:events',
+  browserPick: 'builderhelm:browser:pick',
+  browserPickSend: 'builderhelm:browser:pick-send',
+  browserReceipts: 'builderhelm:browser:receipts',
+  desktopScreenshot: 'builderhelm:desktop:screenshot',
+  desktopAct: 'builderhelm:desktop:act',
+  desktopApprove: 'builderhelm:desktop:approve',
   editorPick: 'builderhelm:editor:pick',
   editorRead: 'builderhelm:editor:read',
   editorList: 'builderhelm:editor:list',
@@ -326,6 +354,27 @@ export interface BuilderHelmDesktopApi {
   };
   readonly browser: {
     command(input: BrowserCommandInput): Promise<BrowserState>;
+    origins(): Promise<PreviewOrigin[]>;
+    snapshot(input: PreviewScreenshotInput): Promise<PreviewSnapshot>;
+    screenshot(input: PreviewScreenshotInput): Promise<PreviewArtifact>;
+    artifacts(input: PreviewArtifactListInput): Promise<PreviewArtifact[]>;
+    drive(input: PreviewDriveInput): Promise<PreviewDriveResult>;
+    approve(input: {
+      readonly id: string;
+      readonly allow: boolean;
+    }): Promise<PreviewDriveResult>;
+    events(): Promise<PreviewEvent[]>;
+    pick(): Promise<PreviewPick>;
+    sendPick(input: { readonly note: string }): Promise<{ readonly sent: boolean }>;
+    receipts(): Promise<PreviewDriveReceipt[]>;
+  };
+  readonly desktop: {
+    screenshot(): Promise<{ readonly pngBase64: string }>;
+    act(input: DesktopActInput): Promise<DesktopActResult>;
+    approve(input: {
+      readonly id: string;
+      readonly allow: boolean;
+    }): Promise<DesktopActResult>;
   };
   readonly editor: {
     pick(): Promise<EditorFile | null>;

@@ -34,6 +34,10 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
   canonical interactive, headless, structured-output, resume, usage, and Swarm
   permission capabilities. Provider-specific launch, schema-output, and usage
   behavior is isolated in the core CLI adapters.
+- Preview: loopback ports, snapshots, screenshots, P3b click/fill by ref,
+  Git evidence gallery on HEAD, land fail-closed if the reviewed head moved,
+  and macOS whole-desktop click/type that always prompts. Cart/checkout/send
+  never silent. WebMCP declared tools are not shipped.
 
 ## Partial or needing hardening
 
@@ -51,8 +55,8 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 
 ## Planned, not shipped
 
-- Built-in browser interaction and UI-element handoff.
 - Unified diff, test, CI, conflict, commit, and pull-request review surface.
+- Unsigned or auto-approved whole-desktop computer-use.
 - GitHub and Linear task integrations.
 - Global search across worktrees, files, agents, commands, and artifacts.
 - Rich development notes with slash commands and inline logs.

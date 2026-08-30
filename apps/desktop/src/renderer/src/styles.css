@@ -806,6 +806,7 @@ html.is-fullscreen .shell {
 }
 
 .browserSide {
+  position: relative;
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -815,30 +816,130 @@ html.is-fullscreen .shell {
 }
 
 .browserBar {
+  position: relative;
   display: flex;
-  gap: 6px;
+  gap: 4px;
   align-items: center;
-  padding: 10px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
   -webkit-app-region: no-drag;
 }
 
-.browserBar button {
+.browserIcon {
+  display: grid;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
-  padding: 6px 8px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
   color: var(--text-2);
-  background: var(--bg-1);
+  background: transparent;
 }
 
-.browserBar button:disabled {
-  opacity: 0.4;
+.browserIcon:hover:not(:disabled) {
+  color: var(--text);
+  background: #1c1c1c;
 }
 
-.browserBar input {
+.browserIcon:disabled {
+  opacity: 0.35;
+}
+
+.browserIconOn {
+  color: var(--accent-bright);
+  background: color-mix(in srgb, var(--accent-dim) 40%, transparent);
+}
+
+.browserOmnibox {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #121212;
+}
+
+.browserOmnibox span {
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.browserOmnibox input {
   flex: 1;
   min-width: 0;
   margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.browserOmnibox input:focus {
+  outline: none;
+}
+
+.browserImport {
+  height: 28px;
+  flex-shrink: 0;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  background: #1a1a1a;
+  font-size: 12px;
+}
+
+.browserImport:hover {
+  border-color: var(--line-strong);
+}
+
+.browserMenu {
+  position: absolute;
+  right: 8px;
+  top: 46px;
+  z-index: 30;
+  display: flex;
+  min-width: 220px;
+  max-width: min(360px, calc(100% - 16px));
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #161616;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+.browserMenu button {
+  display: flex;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+}
+
+.browserMenu button:hover:not(:disabled) {
+  background: #222;
+}
+
+.browserMenu button:disabled {
+  opacity: 0.4;
+}
+
+.browserMenu input {
+  margin: 4px 0;
+}
+
+.browserMenu .browserHint {
+  margin: 8px 10px;
 }
 
 .browserError {
@@ -954,6 +1055,86 @@ html.is-fullscreen .shell {
 .browserRecents small {
   color: var(--text-3);
   font-size: 11px;
+}
+
+.browserTools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 10px 8px;
+}
+
+.browserTools button {
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #141414;
+  color: var(--text-2);
+  font-size: 11px;
+}
+
+.browserChipOn {
+  border-color: var(--accent-line);
+  color: var(--accent-bright);
+}
+
+.browserPorts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.browserHint {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.browserSnapshot {
+  max-height: 140px;
+  margin: 0;
+  padding: 8px 12px;
+  overflow: auto;
+  border-top: 1px solid var(--line);
+  color: var(--text-2);
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+
+.browserShot {
+  display: block;
+  max-height: 160px;
+  width: 100%;
+  object-fit: contain;
+  background: #050505;
+  border-top: 1px solid var(--line);
+}
+
+.browserArtifacts {
+  list-style: none;
+  margin: 0;
+  padding: 8px 10px 12px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+}
+
+.browserArtifacts li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.browserArtifacts small {
+  color: var(--text-3);
+}
+
+.browserArtifacts button {
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #141414;
+  color: var(--text-2);
 }
 
 .topbarIcon {

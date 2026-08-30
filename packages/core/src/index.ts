@@ -18,3 +18,4 @@ export * from './swarm/swarm-prompt.js';
 export * from './swarm/swarm-reviewer.js';
 export * from './swarm/cli-adapters.js';
 export * from './voice/voice-service.js';
+export * from './preview/preview-artifact-service.js';

@@ -1,3 +1,4 @@
+import type { PreviewArtifact } from '@builderhelm/protocol/browser';
 import type { EditorGit } from '@builderhelm/protocol/editor';
 import { useEffect, useState } from 'react';
 
@@ -28,6 +29,8 @@ export function GitSidebar(): React.JSX.Element {
   const [picked, setPicked] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [evidence, setEvidence] = useState<PreviewArtifact[]>([]);
+  const [opened, setOpened] = useState<PreviewArtifact | null>(null);
 
   useEffect(() => {
     if (root === null) {
@@ -52,6 +55,25 @@ export function GitSidebar(): React.JSX.Element {
       alive = false;
     };
   }, [root]);
+
+  useEffect(() => {
+    if (root === null || git === null) {
+      setEvidence([]);
+      return;
+    }
+    let alive = true;
+    void window.builderHelm.browser
+      .artifacts({ root })
+      .then((next) => {
+        if (alive) setEvidence(next);
+      })
+      .catch(() => {
+        if (alive) setEvidence([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [root, git?.headSha]);
 
   async function stage(path: string | undefined, staged: boolean): Promise<void> {
     if (root === null) return;
@@ -238,6 +260,47 @@ export function GitSidebar(): React.JSX.Element {
           Commit
         </button>
       </form>
+      {evidence.length > 0 ? (
+        <section className="gitLists" aria-label="Preview evidence">
+          <header>Evidence on {git.headSha.slice(0, 7)}</header>
+          {evidence.some((item) => item.headSha !== git.headSha) ? (
+            <p className="browserError" role="alert">
+              Head moved since proof. Land refused until you re-capture.
+            </p>
+          ) : null}
+          <ul className="gitChanges">
+            {evidence.map((item) => (
+              <li key={item.id}>
+                <button type="button" onClick={() => setOpened(item)}>
+                  {item.kind}
+                  {item.detail !== null ? ` · ${item.detail.slice(0, 80)}` : ''}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {opened !== null && opened.pngBase64 !== null ? (
+            <img
+              className="browserShot"
+              src={`data:image/png;base64,${opened.pngBase64}`}
+              alt={`${opened.kind} evidence`}
+            />
+          ) : null}
+          {opened !== null && opened.nodes !== null ? (
+            <ol className="browserSnapshot" aria-label="Snapshot evidence">
+              {opened.nodes.map((node) => (
+                <li key={node.ref}>
+                  <code>{node.ref}</code> {node.role} {node.name}
+                </li>
+              ))}
+            </ol>
+          ) : null}
+          {opened !== null && opened.detail !== null ? (
+            <p className="browserHint">{opened.detail}</p>
+          ) : null}
+        </section>
+      ) : (
+        <p className="browserHint">No preview proof on this revision.</p>
+      )}
       <div className="gitFooter">
         {picked === null ? 'Select a file to inspect it.' : fileName(picked)}
       </div>
