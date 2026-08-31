@@ -8,7 +8,7 @@ Inspect and make focused project edits without leaving the active workspace.
 
 ## V1 scope
 
-- Workspace-scoped file tree and tabs.
+- Workspace-scoped file tree shown first; the editor opens when a file is chosen.
 - Text and Markdown editing.
 - Save, save all, autosave, word wrap, dirty indicators, and external-change detection.
 - Read-only previews for images, PDFs, and repository documentation.
