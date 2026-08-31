@@ -10,7 +10,7 @@ import {
   type Stats,
 } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, dirname, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { EditorEntry, EditorFile } from '@builderhelm/protocol/editor';
 import { BuilderHelmError } from '@builderhelm/shared';
 import { dialog } from 'electron';
@@ -39,7 +39,8 @@ function resolveWorkspace(
   let resolved: string;
   try {
     resolvedRoot = realpathSync(resolve(root));
-    resolved = realpathSync(resolve(path));
+    const candidate = isAbsolute(path) ? path : join(resolvedRoot, path);
+    resolved = realpathSync(resolve(candidate));
   } catch (cause) {
     throw new BuilderHelmError('VALIDATION_FAILED', 'The folder does not exist', {
       cause,
@@ -145,7 +146,11 @@ export function createEditorEntry(
   if (!/^[A-Za-z0-9._-]+$/.test(name) || name === '.' || name === '..') {
     throw new BuilderHelmError('VALIDATION_FAILED', 'Use a simple file name');
   }
-  const parent = resolveWorkspace(root, dirname(resolve(path)));
+  const parentSpec = dirname(path);
+  const parent = resolveWorkspace(
+    root,
+    parentSpec === '.' || parentSpec === '' ? root : parentSpec,
+  );
   const target = resolve(parent.path, name);
   if (!insideWorkspace(parent.root, target)) {
     throw new BuilderHelmError('PERMISSION_DENIED', 'Path is outside the workspace');

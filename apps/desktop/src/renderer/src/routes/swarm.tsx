@@ -27,17 +27,24 @@ function folderName(path: string): string {
   return path.split('/').filter(Boolean).at(-1) ?? path;
 }
 
+function usableRecent(path: string): boolean {
+  return path.startsWith('/') && !/^\/Users\/[^/]+\/private\//.test(path);
+}
+
 function readRecents(): string[] {
   try {
     const value: unknown = JSON.parse(localStorage.getItem(RECENTS_KEY) ?? '[]');
     if (!Array.isArray(value)) return [];
-    return value.filter((item): item is string => typeof item === 'string').slice(0, 8);
+    return value
+      .filter((item): item is string => typeof item === 'string' && usableRecent(item))
+      .slice(0, 8);
   } catch {
     return [];
   }
 }
 
 function writeRecents(folderPath: string): void {
+  if (!usableRecent(folderPath)) return;
   const next = [folderPath, ...readRecents().filter((item) => item !== folderPath)].slice(
     0,
     8,
