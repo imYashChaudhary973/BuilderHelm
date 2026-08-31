@@ -546,6 +546,15 @@ export const swarmDirectInputSchema = z
   .strict();
 export type SwarmDirectInput = z.infer<typeof swarmDirectInputSchema>;
 
+export const swarmLandTaskInputSchema = z
+  .object({
+    runId: uuidSchema,
+    taskId: uuidSchema,
+    reviewedHead: z.string().regex(/^[0-9a-f]{40,64}$/),
+  })
+  .strict();
+export type SwarmLandTaskInput = z.infer<typeof swarmLandTaskInputSchema>;
+
 export const swarmTaskUpdateInputSchema = z
   .object({
     runId: uuidSchema,
@@ -588,6 +597,12 @@ export const swarmDirectRequestSchema = z
     input: swarmDirectInputSchema,
   })
   .strict();
+export const swarmLandTaskRequestSchema = z
+  .object({
+    correlationId: swarmCorrelationSchema,
+    input: swarmLandTaskInputSchema,
+  })
+  .strict();
 export const swarmTaskUpdateRequestSchema = z
   .object({
     correlationId: swarmCorrelationSchema,
@@ -614,6 +629,7 @@ export const swarmDirectIpcResponseSchema = swarmIpcResult(
   z.object({ queued: z.literal(true) }).strict(),
 );
 export const swarmTaskUpdateIpcResponseSchema = swarmIpcResult(swarmTaskSchema);
+export const swarmLandTaskIpcResponseSchema = swarmIpcResult(swarmTaskSchema);
 export const swarmStopIpcResponseSchema = swarmIpcResult(
   z.object({ stopped: z.literal(true) }).strict(),
 );

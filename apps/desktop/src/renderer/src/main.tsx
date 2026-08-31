@@ -17,6 +17,7 @@ import { ChatPage } from './routes/chat.js';
 import { MemoryPage } from './routes/memory.js';
 import { VoicePage } from './routes/settings/voice.js';
 import { SwarmPage } from './routes/swarm.js';
+import { ReviewPage } from './routes/review.js';
 import { TodayPage } from './routes/today.js';
 import { ProjectsPage } from './routes/projects.js';
 import './styles.css';
@@ -72,6 +73,11 @@ const swarmRoute = createRoute({
   path: '/swarm',
   component: SwarmPage,
 });
+const reviewRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/review',
+  component: ReviewPage,
+});
 const routeTree = rootRoute.addChildren([
   indexRoute,
   todayRoute,
@@ -82,6 +88,7 @@ const routeTree = rootRoute.addChildren([
   spaceRoute,
   boardRoute,
   swarmRoute,
+  reviewRoute,
   voiceRoute,
 ]);
 const router = createRouter({

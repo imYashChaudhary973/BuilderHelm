@@ -49,6 +49,8 @@ import {
   swarmCreateRequestSchema,
   swarmDirectIpcResponseSchema,
   swarmDirectRequestSchema,
+  swarmLandTaskIpcResponseSchema,
+  swarmLandTaskRequestSchema,
   swarmStateIpcResponseSchema,
   swarmStateRequestSchema,
   swarmStopIpcResponseSchema,
@@ -112,6 +114,24 @@ import {
   editorWriteIpcResponseSchema,
   editorWriteRequestSchema,
 } from '@builderhelm/protocol/editor';
+import {
+  reviewCheckListIpcResponseSchema,
+  reviewCheckListRequestSchema,
+  reviewCheckRunIpcResponseSchema,
+  reviewCheckRunRequestSchema,
+  reviewCiIpcResponseSchema,
+  reviewCiRequestSchema,
+  reviewCommentCreateIpcResponseSchema,
+  reviewCommentCreateRequestSchema,
+  reviewCommentListIpcResponseSchema,
+  reviewCommentListRequestSchema,
+  reviewDiffIpcResponseSchema,
+  reviewDiffRequestSchema,
+  reviewLandInspectIpcResponseSchema,
+  reviewLandInspectRequestSchema,
+  reviewPrDraftIpcResponseSchema,
+  reviewPrDraftRequestSchema,
+} from '@builderhelm/protocol/review';
 import { ipcChannels, systemHealthRequestSchema } from '@builderhelm/protocol/ipc';
 import {
   knowledgeAnswerIpcResponseSchema,
@@ -817,6 +837,21 @@ export function registerIpcHandlers(
     }
   });
 
+  ipcMain.handle(ipcChannels.swarmLandTask, async (_event, input: unknown) => {
+    try {
+      const request = swarmLandTaskRequestSchema.parse(input);
+      const value = await core.swarm.landTask(
+        request.input.runId,
+        request.input.taskId,
+        request.input.reviewedHead,
+        request.correlationId,
+      );
+      return swarmLandTaskIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return swarmLandTaskIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
   ipcMain.handle(ipcChannels.swarmStop, (_event, input: unknown) => {
     try {
       const request = swarmStopRequestSchema.parse(input);
@@ -1080,10 +1115,17 @@ export function registerIpcHandlers(
   ipcMain.handle(ipcChannels.boardLand, async (_event, input: unknown) => {
     try {
       const request = boardLandInputSchema.parse(input);
+      if (request.reviewedHead === undefined) {
+        throw new BuilderHelmError(
+          'VALIDATION_FAILED',
+          'Landing requires the reviewed head SHA',
+        );
+      }
       const value = await core.board.landBranch(
         request.repoPath,
         request.branch,
         request.correlationId,
+        request.reviewedHead,
       );
       return boardLandIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
@@ -1361,6 +1403,123 @@ export function registerIpcHandlers(
     }
   });
 
+  ipcMain.handle(ipcChannels.reviewDiff, async (_event, input: unknown) => {
+    try {
+      const request = reviewDiffRequestSchema.parse(input);
+      const value = await core.review.diff(request.input);
+      return reviewDiffIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return reviewDiffIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.reviewCommentCreate, async (_event, input: unknown) => {
+    try {
+      const request = reviewCommentCreateRequestSchema.parse(input);
+      const owner = core.swarm.ownerForFile(request.input.root, request.input.path);
+      const value = await core.review.addComment({
+        ...request.input,
+        runId: request.input.runId ?? owner?.runId ?? null,
+        seatId: request.input.seatId ?? owner?.seatId ?? null,
+      });
+      if (value.seatId !== null && value.runId !== null) {
+        core.swarm.direct(
+          value.runId,
+          [value.seatId],
+          `Review comment on ${value.path}:${String(value.line)}\n${value.body}`,
+          request.correlationId,
+        );
+      }
+      return reviewCommentCreateIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return reviewCommentCreateIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.reviewCommentList, async (_event, input: unknown) => {
+    try {
+      const request = reviewCommentListRequestSchema.parse(input);
+      const value = await core.review.listComments(
+        request.input.root,
+        request.input.path,
+      );
+      return reviewCommentListIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return reviewCommentListIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.reviewCheckRun, async (_event, input: unknown) => {
+    try {
+      const request = reviewCheckRunRequestSchema.parse(input);
+      const value = await core.review.runCheck(request.input.root, request.input.command);
+      return reviewCheckRunIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return reviewCheckRunIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.reviewCheckList, async (_event, input: unknown) => {
+    try {
+      const request = reviewCheckListRequestSchema.parse(input);
+      const value = await core.review.listChecks(request.input.root);
+      return reviewCheckListIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return reviewCheckListIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.reviewPrDraft, async (_event, input: unknown) => {
+    try {
+      const request = reviewPrDraftRequestSchema.parse(input);
+      const value = await core.review.draftPr(
+        request.input.root,
+        request.input.title,
+        request.input.body,
+        request.input.base,
+      );
+      return reviewPrDraftIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return reviewPrDraftIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.reviewCi, async (_event, input: unknown) => {
+    try {
+      const request = reviewCiRequestSchema.parse(input);
+      const value = await core.review.ci(request.input.root);
+      return reviewCiIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return reviewCiIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.reviewLandInspect, async (_event, input: unknown) => {
+    try {
+      const request = reviewLandInspectRequestSchema.parse(input);
+      const value = await core.review.inspectLand(
+        request.input.root,
+        request.input.branch,
+        request.input.reviewedHead,
+      );
+      return reviewLandInspectIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return reviewLandInspectIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
   function presentVoice(value: Awaited<ReturnType<CoreRuntime['voice']['status']>>) {
     voice?.onSettings?.(value.settings);
     return voiceStatusIpcResponseSchema.parse({ ok: true, value });
@@ -1567,6 +1726,7 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.swarmCreate);
     ipcMain.removeHandler(ipcChannels.swarmState);
     ipcMain.removeHandler(ipcChannels.swarmDirect);
+    ipcMain.removeHandler(ipcChannels.swarmLandTask);
     ipcMain.removeHandler(ipcChannels.swarmStop);
     ipcMain.removeHandler(ipcChannels.swarmStopSeat);
     ipcMain.removeHandler(ipcChannels.swarmLatest);
@@ -1602,6 +1762,14 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.editorSearch);
     ipcMain.removeHandler(ipcChannels.editorGitStage);
     ipcMain.removeHandler(ipcChannels.editorGitCommit);
+    ipcMain.removeHandler(ipcChannels.reviewDiff);
+    ipcMain.removeHandler(ipcChannels.reviewCommentCreate);
+    ipcMain.removeHandler(ipcChannels.reviewCommentList);
+    ipcMain.removeHandler(ipcChannels.reviewCheckRun);
+    ipcMain.removeHandler(ipcChannels.reviewCheckList);
+    ipcMain.removeHandler(ipcChannels.reviewPrDraft);
+    ipcMain.removeHandler(ipcChannels.reviewCi);
+    ipcMain.removeHandler(ipcChannels.reviewLandInspect);
     ipcMain.removeHandler(ipcChannels.voiceStatus);
     ipcMain.removeHandler(ipcChannels.voiceSettingsUpdate);
     ipcMain.removeHandler(ipcChannels.voiceKeySave);

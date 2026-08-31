@@ -7,6 +7,7 @@ import {
   openDatabase,
   ProviderRepository,
   ProjectRepositoryStore,
+  ReviewRepository,
   runMigrations,
   VoiceRepository,
 } from '@builderhelm/db';
@@ -25,6 +26,7 @@ import { KnowledgeService } from './knowledge/knowledge-service.js';
 import { ActionService } from './actions/action-service.js';
 import { createWorkToolRegistry, PermissionEngine } from '@builderhelm/tools';
 import { ProjectService } from './projects/project-service.js';
+import { GitReviewService } from './projects/git-review.js';
 import { BoardService } from './board/board-service.js';
 import { PnpmTaskVerifier } from './swarm/pnpm-verifier.js';
 import {
@@ -58,6 +60,7 @@ export interface CoreRuntime {
   readonly projects: ProjectService;
   readonly board: BoardService;
   readonly swarm: SwarmService;
+  readonly review: GitReviewService;
   readonly voice: VoiceService;
   health(correlationId: CorrelationId): SystemHealthResponse;
   close(): void;
@@ -120,6 +123,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     options.voiceInventory,
     new OpenAITranscriptionAdapter(options.modelGatewayFetch ?? fetch),
   );
+  const review = new GitReviewService(new ReviewRepository(database));
   const swarmRunner: SwarmSeatRunner = options.swarmRunner ?? {
     async execute() {
       return {
@@ -157,6 +161,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     projects,
     board,
     swarm,
+    review,
     voice,
     health(correlationId) {
       return {

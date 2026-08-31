@@ -1,8 +1,8 @@
 import type { EditorGit } from '@builderhelm/protocol/editor';
+import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
 import { useSpaces } from '../space-store.js';
-
 function workspaceFolder(spaces: ReturnType<typeof useSpaces>): string | null {
   if (spaces.draft || spaces.activeId === null) return null;
   return (
@@ -21,6 +21,7 @@ function dirLabel(path: string): string {
 
 export function GitSidebar(): React.JSX.Element {
   const spaces = useSpaces();
+  const navigate = useNavigate();
   const root = workspaceFolder(spaces);
   const [git, setGit] = useState<EditorGit | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -239,6 +240,13 @@ export function GitSidebar(): React.JSX.Element {
         </button>
       </form>
       <div className="gitFooter">
+        <button
+          type="button"
+          className="gitAct"
+          onClick={() => void navigate({ to: '/review' })}
+        >
+          Open Review
+        </button>
         {picked === null ? 'Select a file to inspect it.' : fileName(picked)}
       </div>
     </aside>

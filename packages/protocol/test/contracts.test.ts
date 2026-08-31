@@ -25,6 +25,8 @@ import {
   systemHealthRequestSchema,
   systemHealthResponseSchema,
   zeroEventSchema,
+  reviewDiffIpcResponseSchema,
+  reviewLandInspectSchema,
 } from '../src/index.js';
 
 describe('event envelope', () => {
@@ -308,5 +310,23 @@ describe('editor workspace list', () => {
       }).value[0]?.kind,
     ).toBe('dir');
     expect(editorGitIpcResponseSchema.parse({ ok: true, value: null }).value).toBeNull();
+  });
+});
+
+describe('review contracts', () => {
+  it('accepts an empty diff and a clean land inspect', () => {
+    expect(reviewDiffIpcResponseSchema.parse({ ok: true, value: [] }).value).toEqual([]);
+    expect(
+      reviewLandInspectSchema.parse({
+        branch: 'exeum/task',
+        base: 'main',
+        headSha: 'a'.repeat(40),
+        reviewedHead: 'a'.repeat(40),
+        ahead: 1,
+        behind: 0,
+        unmerged: [],
+        kind: 'clean',
+      }).kind,
+    ).toBe('clean');
   });
 });

@@ -378,6 +378,78 @@ export class SwarmService {
   }
 
   /**
+   * Human-controlled land. Fail closed if the reviewed SHA is no longer the
+   * seat branch tip. Rebuilds the dispatcher so dependents can start.
+   */
+  async landTask(
+    runId: string,
+    taskId: string,
+    reviewedHead: string,
+    correlationId: CorrelationId,
+  ): Promise<SwarmTaskRecord> {
+    const run = this.requireRun(runId);
+    const row = this.repository.listTasks(runId).find((item) => item.id === taskId);
+    if (row === undefined) {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Unknown swarm task');
+    }
+    const task = swarmTaskSchema.parse(row);
+    if (task.status !== 'review') {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'Only tasks in review can be landed',
+      );
+    }
+    if (task.seatId === null) {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Task has no seat to land');
+    }
+    const seat = swarmSeatSchema.parse(this.repository.getSeat(task.seatId));
+    if (seat.branch === null) {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Seat has no branch to land');
+    }
+    const landed = await this.board.landBranch(
+      run.folderPath,
+      seat.branch,
+      correlationId,
+      reviewedHead,
+    );
+    const next = swarmTaskSchema.parse({
+      ...task,
+      status: 'landed',
+      landedCommit: landed.head,
+      updatedAt: utcNow(),
+    });
+    this.repository.updateTask(next);
+    this.emit(runId);
+    this.appendMessage(
+      runId,
+      seat.id,
+      'task_event',
+      `landed "${task.title}" at ${landed.head.slice(0, 7)}`,
+    );
+    await this.pump(runId);
+    return next;
+  }
+
+  ownerForFile(
+    rootPath: string,
+    path: string,
+  ): { readonly runId: string; readonly seatId: string } | null {
+    for (const run of this.repository.listRuns(20)) {
+      if (run.folderPath !== rootPath || run.status !== 'running') continue;
+      for (const task of this.repository.listTasks(run.id)) {
+        if (
+          (task.status === 'review' || task.status === 'in_progress') &&
+          task.seatId !== null &&
+          task.files.includes(path)
+        ) {
+          return { runId: run.id, seatId: task.seatId };
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
    * The dispatcher. Runs until the queue drains, the budget expires, or the
    * run stops. Any free builder seat takes the next unblocked task.
    */
@@ -405,6 +477,7 @@ export class SwarmService {
 
         const pending = tasks.filter((task) => task.status === 'pending');
         if (pending.length === 0) {
+          if (tasks.some((task) => task.status === 'review')) return;
           const landed = tasks.some((task) => task.status === 'landed');
           const failed = tasks.some((task) => task.status === 'failed');
           this.repository.updateRun(runId, landed ? 'done' : 'failed', utcNow());
@@ -560,15 +633,9 @@ export class SwarmService {
         }
       }
 
-      const landed = await this.board.landBranch(
-        run.folderPath,
-        branch,
-        createCorrelationId(),
-      );
       this.repository.updateTask({
         ...active,
-        status: 'landed',
-        landedCommit: landed.head,
+        status: 'review',
         updatedAt: utcNow(),
       });
       this.emit(run.id);
@@ -576,7 +643,7 @@ export class SwarmService {
         run.id,
         current.id,
         'task_event',
-        `landed "${active.title}" at ${landed.head.slice(0, 7)}`,
+        `ready for review: "${active.title}"`,
       );
     } catch (error) {
       this.recordFailure(active, normalizeError(error).message);

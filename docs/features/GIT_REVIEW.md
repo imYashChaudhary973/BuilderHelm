@@ -1,6 +1,6 @@
 # Git and review
 
-Status: basic Git actions working; unified review, PR, CI, and conflict flows planned.
+Status: working on macOS. Unified diffs, line comments, recorded checks, draft PRs via `gh`, CI status, conflict inspect, and fail-closed landing.
 
 ## Goal
 

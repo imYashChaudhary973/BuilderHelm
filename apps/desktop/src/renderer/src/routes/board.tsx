@@ -69,6 +69,14 @@ const MODES = [
     promise:
       'A living knowledge graph. Persistent memory your agents read and write as they build. Context that compounds.',
   },
+  {
+    id: 'review',
+    name: 'BuilderHelm Review',
+    shortcut: '⌘R',
+    enabled: true,
+    promise:
+      'Diff, comments, checks, and land. Agent output becomes a reviewed Git change.',
+  },
 ] as const;
 
 function SpaceStepper({ step }: { readonly step: 1 | 2 | 3 }): React.JSX.Element {
@@ -398,6 +406,10 @@ export function BoardPage(): React.JSX.Element {
         event.preventDefault();
         void navigate({ to: '/swarm' });
       }
+      if (event.key.toLowerCase() === 'r') {
+        event.preventDefault();
+        void navigate({ to: '/review' });
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -499,7 +511,6 @@ export function BoardPage(): React.JSX.Element {
     },
     onError: (cause: Error) => setLandNotice(cause.message),
   });
-
   const land = useMutation({
     mutationFn: (branch: string) => {
       if (session === null) throw new Error('No live Space session');
@@ -507,6 +518,7 @@ export function BoardPage(): React.JSX.Element {
         correlationId: crypto.randomUUID() as CorrelationId,
         repoPath: session.folderPath,
         branch,
+        reviewedHead: landPreview?.headSha,
       });
     },
     onMutate: () => setLandNotice(null),
@@ -764,6 +776,10 @@ export function BoardPage(): React.JSX.Element {
                     }
                     if (mode.id === 'swarm') {
                       void navigate({ to: '/swarm' });
+                      return;
+                    }
+                    if (mode.id === 'review') {
+                      void navigate({ to: '/review' });
                       return;
                     }
                     if (mode.enabled) setPhase('workspace');

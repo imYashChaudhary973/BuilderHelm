@@ -63,6 +63,10 @@
     "./voice": {
       "types": "./dist/voice.d.ts",
       "import": "./src/voice.ts"
+    },
+    "./review": {
+      "types": "./dist/review.d.ts",
+      "import": "./src/review.ts"
     }
   },
   "dependencies": {

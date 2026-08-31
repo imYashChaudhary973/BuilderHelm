@@ -20,6 +20,9 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 - Memory vault selection, local Markdown indexing, answers, and citations.
 - Editor tree, tabs, save, save-all, autosave, and word wrap.
 - Git status, history, stage, unstage, and commit.
+- Review: unified diffs, line comments routed to the owning seat, recorded
+  checks with command and revision, draft PRs via `gh`, CI status, and
+  fail-closed landing when the reviewed head moved.
 - Swarm mission, roster, CLI seats, live state, directives, budgets, and worktree flow.
 - Voice dictation: on-device models never send audio off-device; cloud models
   require a stored key and first-run consent before any upload.
@@ -37,7 +40,7 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 
 ## Partial or needing hardening
 
-- Swarm verification, review, landing, stop/reconnect, and failure recovery.
+- Swarm stop/reconnect and failure recovery.
 - Terminal output is batched in Electron main, startup scanning is incremental,
   and reconnect reconciles the drain snapshot against live output by stream
   offset. Verified on macOS at 1, 2, 4, 8, and 12 panes. Renderer-side write
@@ -52,7 +55,6 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 ## Planned, not shipped
 
 - Built-in browser interaction and UI-element handoff.
-- Unified diff, test, CI, conflict, commit, and pull-request review surface.
 - GitHub and Linear task integrations.
 - Global search across worktrees, files, agents, commands, and artifacts.
 - Rich development notes with slash commands and inline logs.

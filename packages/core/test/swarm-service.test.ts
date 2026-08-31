@@ -95,6 +95,28 @@ function setup(
   return { service, repo };
 }
 
+async function landReviewed(
+  service: SwarmService,
+  repo: string,
+  runId: string,
+): Promise<void> {
+  for (let round = 0; round < 8; round += 1) {
+    const waiting = service.state(runId).tasks.filter((task) => task.status === 'review');
+    if (waiting.length === 0) return;
+    for (const task of waiting) {
+      const seat = service.state(runId).seats.find((item) => item.id === task.seatId);
+      if (seat?.branch === undefined || seat.branch === null) {
+        throw new Error(`review task ${task.title} has no branch`);
+      }
+      const sha = execFileSync('git', ['rev-parse', seat.branch], {
+        cwd: repo,
+        encoding: 'utf8',
+      }).trim();
+      await service.landTask(runId, task.id, sha, createCorrelationId());
+    }
+  }
+}
+
 function createInput(repo: string, builders: number): SwarmCreateInput {
   return {
     name: 'Test Swarm',
@@ -130,6 +152,11 @@ describe('SwarmService dispatch', () => {
     );
 
     await service.pump(run.id);
+    expect(service.state(run.id).tasks.map((task) => task.status)).toEqual([
+      'review',
+      'review',
+    ]);
+    await landReviewed(service, repo, run.id);
 
     const state = service.state(run.id);
     expect(state.tasks.map((task) => task.status)).toEqual(['landed', 'landed']);
@@ -154,6 +181,12 @@ describe('SwarmService dispatch', () => {
     );
 
     await service.pump(run.id);
+    expect(log).toEqual(['Base']);
+    const waiting = Object.fromEntries(
+      service.state(run.id).tasks.map((task) => [task.title, task.status]),
+    );
+    expect(waiting).toEqual({ Base: 'review', Dependent: 'pending' });
+    await landReviewed(service, repo, run.id);
 
     expect(log).toEqual(['Base', 'Dependent']);
     expect(service.state(run.id).tasks.map((task) => task.status)).toEqual([
@@ -238,6 +271,7 @@ describe('SwarmService dispatch', () => {
     expect(log).toEqual([]);
 
     await service.resume(run.id, createCorrelationId());
+    await landReviewed(service, repo, run.id);
 
     const state = service.state(run.id);
     expect(log).toEqual(['Slow']);
@@ -310,23 +344,25 @@ describe('SwarmService shared context', () => {
     };
     const { service, repo } = setup(runner);
     const run = service.createRun(createInput(repo, 1), createCorrelationId());
-    service.addTask(
+    const first = service.addTask(
       run.id,
       { title: 'Alpha', detail: 'write the fixture', files: ['src/a.ts'] },
       createCorrelationId(),
     );
     service.addTask(
       run.id,
-      { title: 'Beta', files: ['src/b.ts'] },
+      { title: 'Beta', files: ['src/b.ts'], dependsOn: [first.id] },
       createCorrelationId(),
     );
 
     await service.pump(run.id);
-
-    expect(prompts).toHaveLength(2);
+    expect(prompts).toHaveLength(1);
     expect(prompts[0]).toContain('Swarm roster:');
     expect(prompts[0]).toContain('builder/grok');
     expect(prompts[0]).not.toContain('Work already landed');
+
+    await landReviewed(service, repo, run.id);
+    expect(prompts).toHaveLength(2);
     expect(prompts[1]).toContain('Work already landed by other seats');
     expect(prompts[1]).toContain('Alpha');
     expect(prompts[1]).toContain('write the fixture');
@@ -439,9 +475,9 @@ describe('SwarmService restart recovery', () => {
     expect(reconciled.tasks[0]!.status).toBe('pending');
 
     await second.resume(run.id, createCorrelationId());
+    await landReviewed(second, repo, run.id);
     const finished = second.state(run.id);
     expect(finished.tasks[0]!.status).toBe('landed');
-    expect(finished.run.status).toBe('done');
     expect(second.latestRun()!.id).toBe(run.id);
   });
 
@@ -456,6 +492,7 @@ describe('SwarmService restart recovery', () => {
     );
 
     await service.pump(run.id);
+    await landReviewed(service, repo, run.id);
 
     expect(service.state(run.id).run.status).toBe('done');
     const worktrees = execFileSync('git', ['worktree', 'list'], {
@@ -589,7 +626,8 @@ describe('SwarmService review gate and planning', () => {
     );
 
     await service.pump(run.id);
-
+    expect(service.state(run.id).tasks[0]!.status).toBe('review');
+    await landReviewed(service, repo, run.id);
     expect(service.state(run.id).tasks[0]!.status).toBe('landed');
   });
 

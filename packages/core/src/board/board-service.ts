@@ -444,6 +444,7 @@ export class BoardService {
   ): Promise<{
     readonly branch: string;
     readonly base: string;
+    readonly headSha: string;
     readonly ahead: number;
     readonly files: readonly string[];
     readonly stat: string;
@@ -460,21 +461,29 @@ export class BoardService {
       throw new BuilderHelmError('VALIDATION_FAILED', 'Cannot land a branch into itself');
     }
     const range = `${current}...${branch}`;
-    const [{ stdout: countOut }, { stdout: namesOut }, { stdout: statOut }] =
-      await Promise.all([
-        execFileAsync('git', ['rev-list', '--count', `${current}..${branch}`], {
-          cwd: repoPath,
-          timeout: 15_000,
-        }),
-        execFileAsync('git', ['diff', '--name-only', range], {
-          cwd: repoPath,
-          timeout: 15_000,
-        }),
-        execFileAsync('git', ['diff', '--stat', range], {
-          cwd: repoPath,
-          timeout: 15_000,
-        }),
-      ]);
+    const [
+      { stdout: countOut },
+      { stdout: namesOut },
+      { stdout: statOut },
+      { stdout: headOut },
+    ] = await Promise.all([
+      execFileAsync('git', ['rev-list', '--count', `${current}..${branch}`], {
+        cwd: repoPath,
+        timeout: 15_000,
+      }),
+      execFileAsync('git', ['diff', '--name-only', range], {
+        cwd: repoPath,
+        timeout: 15_000,
+      }),
+      execFileAsync('git', ['diff', '--stat', range], {
+        cwd: repoPath,
+        timeout: 15_000,
+      }),
+      execFileAsync('git', ['rev-parse', branch], {
+        cwd: repoPath,
+        timeout: 5_000,
+      }),
+    ]);
     const ahead = Number.parseInt(countOut.trim(), 10);
     if (!Number.isFinite(ahead)) {
       throw new BuilderHelmError(
@@ -483,18 +492,20 @@ export class BoardService {
       );
     }
     const files = namesOut.trim() === '' ? [] : namesOut.trim().split('\n');
+    const headSha = headOut.trim();
     this.logger.info({
       event: 'board.branch_previewed',
       correlationId,
-      data: { repoPath, branch, base: current, ahead, files },
+      data: { repoPath, branch, base: current, ahead, files, headSha },
     });
-    return { branch, base: current, ahead, files, stat: statOut.trim() };
+    return { branch, base: current, headSha, ahead, files, stat: statOut.trim() };
   }
 
   async landBranch(
     repoPath: string,
     branch: string,
     correlationId: CorrelationId,
+    reviewedHead: string,
   ): Promise<{ readonly landed: true; readonly head: string }> {
     assertExeumBranch(branch);
     const current = await this.readBranch(repoPath);
@@ -506,6 +517,17 @@ export class BoardService {
     }
     if (current === branch) {
       throw new BuilderHelmError('VALIDATION_FAILED', 'Cannot land a branch into itself');
+    }
+    const { stdout: actualOut } = await execFileAsync('git', ['rev-parse', branch], {
+      cwd: repoPath,
+      timeout: 5_000,
+    });
+    const actual = actualOut.trim();
+    if (actual !== reviewedHead) {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'Landing failed closed: the reviewed head moved',
+      );
     }
     try {
       await execFileAsync(
@@ -533,7 +555,7 @@ export class BoardService {
     this.logger.info({
       event: 'board.branch_landed',
       correlationId,
-      data: { repoPath, branch, head },
+      data: { repoPath, branch, head, reviewedHead },
     });
     return { landed: true, head };
   }

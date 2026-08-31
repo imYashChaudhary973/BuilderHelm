@@ -1,6 +1,6 @@
 # Swarm
 
-Status: core local flow exists; review and recovery need hardening.
+Status: core local flow exists. Verify still gates work; landing waits for a human and fails closed if the reviewed head moved.
 
 ## Goal
 

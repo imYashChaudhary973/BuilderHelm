@@ -24,8 +24,10 @@ import type {
 import type {
   SwarmCreateInput,
   SwarmDirectInput,
+  SwarmLandTaskInput,
   SwarmRunRecord,
   SwarmState,
+  SwarmTaskRecord,
 } from './swarm.js';
 import type {
   KanbanCard,
@@ -52,6 +54,22 @@ import type {
   EditorSearchInput,
   EditorWriteInput,
 } from './editor.js';
+import type {
+  ReviewCheck,
+  ReviewCheckListInput,
+  ReviewCheckRunInput,
+  ReviewCiCheck,
+  ReviewCiInput,
+  ReviewComment,
+  ReviewCommentCreateInput,
+  ReviewCommentListInput,
+  ReviewDiffFile,
+  ReviewDiffInput,
+  ReviewLandInspect,
+  ReviewLandInspectInput,
+  ReviewPr,
+  ReviewPrDraftInput,
+} from './review.js';
 import type {
   ActionCommandInput,
   ActionCommandOutcome,
@@ -178,6 +196,15 @@ export const ipcChannels = {
   editorSearch: 'builderhelm:editor:search',
   editorGitStage: 'builderhelm:editor:git-stage',
   editorGitCommit: 'builderhelm:editor:git-commit',
+  swarmLandTask: 'builderhelm:swarm:land-task',
+  reviewDiff: 'builderhelm:review:diff',
+  reviewCommentCreate: 'builderhelm:review:comment-create',
+  reviewCommentList: 'builderhelm:review:comment-list',
+  reviewCheckRun: 'builderhelm:review:check-run',
+  reviewCheckList: 'builderhelm:review:check-list',
+  reviewPrDraft: 'builderhelm:review:pr-draft',
+  reviewCi: 'builderhelm:review:ci',
+  reviewLandInspect: 'builderhelm:review:land-inspect',
   voiceStatus: 'builderhelm:voice:status',
   voiceSettingsUpdate: 'builderhelm:voice:settings-update',
   voiceKeySave: 'builderhelm:voice:key-save',
@@ -274,6 +301,10 @@ export interface BuilderHelmDesktopApi {
       readonly correlationId: CorrelationId;
       readonly input: SwarmDirectInput;
     }): Promise<{ queued: true }>;
+    landTask(input: {
+      readonly correlationId: CorrelationId;
+      readonly input: SwarmLandTaskInput;
+    }): Promise<SwarmTaskRecord>;
     stop(input: {
       readonly correlationId: CorrelationId;
       readonly runId: string;
@@ -337,6 +368,16 @@ export interface BuilderHelmDesktopApi {
     search(input: EditorSearchInput): Promise<EditorEntry[]>;
     gitStage(input: EditorGitStageInput): Promise<EditorGit>;
     gitCommit(input: EditorGitCommitInput): Promise<EditorGit>;
+  };
+  readonly review: {
+    diff(input: ReviewDiffInput): Promise<ReviewDiffFile[]>;
+    comment(input: ReviewCommentCreateInput): Promise<ReviewComment>;
+    comments(input: ReviewCommentListInput): Promise<ReviewComment[]>;
+    check(input: ReviewCheckRunInput): Promise<ReviewCheck>;
+    checks(input: ReviewCheckListInput): Promise<ReviewCheck[]>;
+    prDraft(input: ReviewPrDraftInput): Promise<ReviewPr>;
+    ci(input: ReviewCiInput): Promise<ReviewCiCheck[]>;
+    inspectLand(input: ReviewLandInspectInput): Promise<ReviewLandInspect>;
   };
   readonly voice: {
     status(): Promise<VoiceStatus>;

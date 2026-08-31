@@ -2663,7 +2663,8 @@ fieldset legend {
   display: flex;
   flex: 1;
   flex-direction: column;
-  min-height: 0;
+  justify-content: center;
+  min-height: 100%;
   padding: 28px 24px 18px;
   overflow: auto;
   background: #070807;
@@ -4690,6 +4691,7 @@ fieldset legend {
   align-items: stretch;
   width: 100%;
   min-height: 100%;
+  height: 100%;
   background: #0a0a0a;
 }
 
@@ -4724,6 +4726,31 @@ fieldset legend {
 
 html.is-fullscreen .spaceHome {
   width: min(820px, calc(100% - 96px));
+}
+
+html.is-fullscreen .spaceStage {
+  height: 100%;
+}
+
+html.is-fullscreen .spaceWizard {
+  width: min(920px, calc(100% - 96px));
+  padding: clamp(28px, 5vh, 64px) 0 clamp(32px, 5vh, 72px);
+  gap: clamp(16px, 2.2vh, 28px);
+}
+
+html.is-fullscreen .layoutTile {
+  min-height: clamp(96px, 11vh, 132px);
+}
+
+html.is-fullscreen .swarmWizard {
+  min-height: 100%;
+  justify-content: center;
+  padding: clamp(28px, 5vh, 56px) 24px clamp(24px, 4vh, 40px);
+}
+
+html.is-fullscreen .swarmWizardBody,
+html.is-fullscreen .swarmWizardFoot {
+  width: min(820px, 100%);
 }
 
 .spaceHomeBrand {
@@ -5091,7 +5118,7 @@ html.is-fullscreen .spaceHome {
 
 .layoutTiles {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: clamp(8px, 1vw, 12px);
 }
 
@@ -5101,8 +5128,8 @@ html.is-fullscreen .spaceHome {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 72px;
-  padding: 10px 6px 8px;
+  min-height: 88px;
+  padding: 12px 8px 10px;
   border-radius: var(--radius-m);
   border: 1px solid var(--line);
   background: var(--bg-1);
@@ -5319,11 +5346,10 @@ html.is-fullscreen .spaceHome {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  justify-content: flex-start;
+  justify-content: center;
   width: min(920px, calc(100% - 64px));
   max-width: 920px;
-  min-height: 0;
-  height: auto;
+  min-height: 100%;
   box-sizing: border-box;
   margin: 0 auto;
   padding: 28px 0 24px;
@@ -7360,4 +7386,156 @@ html.is-fullscreen .spaceHome {
   .voiceDownloadBarIndeterminate span {
     animation: none;
   }
+}
+
+.reviewPage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 18px 20px 16px;
+  gap: 12px;
+}
+
+.reviewHeader h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.reviewHeader p,
+.reviewEmpty {
+  margin: 4px 0 0;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.reviewWorkspace {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 260px;
+  gap: 12px;
+  min-height: 0;
+  flex: 1;
+}
+
+.reviewFiles,
+.reviewDiff,
+.reviewShip {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--panel);
+}
+
+.reviewFiles,
+.reviewShip {
+  padding: 12px;
+}
+
+.reviewFiles ul,
+.reviewComments,
+.reviewChecks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.reviewFiles button,
+.reviewShip button {
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
+  text-align: left;
+  font-size: 12px;
+}
+
+.reviewFileOn {
+  background: var(--accent-dim);
+  color: var(--accent-bright);
+}
+
+.reviewDiff {
+  padding: 12px 14px;
+}
+
+.reviewDiff h2 {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.reviewHunk {
+  margin: 0 0 12px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.reviewLineAdd {
+  display: block;
+  background: rgba(182, 212, 117, 0.12);
+}
+
+.reviewLineDel {
+  display: block;
+  background: var(--danger-dim);
+}
+
+.reviewLineCtx {
+  display: block;
+  color: var(--text-3);
+}
+
+.reviewComment {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.reviewComment input,
+.reviewShip input,
+.reviewShip textarea {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #101010;
+  color: var(--text);
+}
+
+.reviewShip textarea {
+  min-height: 64px;
+}
+
+.reviewComments li,
+.reviewChecks li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.reviewChecks em {
+  color: var(--accent-bright);
+  font-style: normal;
+}
+
+.reviewShip section {
+  margin-bottom: 16px;
+}
+
+.reviewShip a {
+  display: block;
+  margin: 6px 0;
+  color: var(--accent-bright);
+  font-size: 12px;
 }
