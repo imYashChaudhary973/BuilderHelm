@@ -266,7 +266,6 @@ function GitHubIntakePanel({
   );
 }
 
-
 function LinearIntakePanel({
   issues,
   loading,
