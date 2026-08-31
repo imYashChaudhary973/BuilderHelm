@@ -885,12 +885,11 @@ html.is-fullscreen .shell {
 }
 
 /* An outer shell holding an inner field, as in the reference chrome: the shell
-   carries the security affordance and the rounding, the field carries the text
-   on a lighter surface so the address reads as editable. */
-.browserOmnibox {
+   carries the rounding, the field carries the text. Import uses the same
+   metrics so the two sit as a pair. */
+.browserOmnibox,
+.browserImport {
   display: flex;
-  flex: 1 1 160px;
-  min-width: 160px;
   align-items: center;
   gap: 10px;
   height: 36px;
@@ -898,6 +897,17 @@ html.is-fullscreen .shell {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   background: #0d0d0d;
+}
+
+.browserOmnibox {
+  flex: 1 1 160px;
+  min-width: 160px;
+}
+
+.browserImport {
+  flex-shrink: 0;
+  color: var(--text);
+  font-size: 13px;
 }
 
 .browserLock {
@@ -911,15 +921,19 @@ html.is-fullscreen .shell {
   color: var(--accent-bright);
 }
 
-.browserOmniboxField {
+.browserOmniboxField,
+.browserImportLabel {
   display: flex;
   min-width: 0;
-  flex: 1;
   align-items: center;
   height: 28px;
   padding: 0 12px;
   border-radius: 8px;
   background: #171717;
+}
+
+.browserOmniboxField {
+  flex: 1;
 }
 
 .browserOmnibox input {
@@ -937,22 +951,17 @@ html.is-fullscreen .shell {
   outline: none;
 }
 
-.browserImport {
-  display: flex;
-  height: 36px;
+.browserImport svg {
+  display: block;
   flex-shrink: 0;
-  align-items: center;
-  gap: 7px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 10px;
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.08);
-  font-size: 13px;
 }
 
 .browserImport:hover {
-  background: rgba(255, 255, 255, 0.13);
+  background: #141414;
+}
+
+.browserImport:hover .browserImportLabel {
+  background: #1c1c1c;
 }
 
 @container (max-width: 560px) {
@@ -961,7 +970,7 @@ html.is-fullscreen .shell {
   }
 
   .browserImport {
-    padding: 0 8px;
+    padding: 0 12px;
   }
 }
 
