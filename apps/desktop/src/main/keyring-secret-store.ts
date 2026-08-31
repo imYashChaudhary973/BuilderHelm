@@ -9,6 +9,7 @@ import { BuilderHelmError } from '@builderhelm/shared';
 const validSecretRefs: readonly RegExp[] = [
   /^builderhelm\.provider\.[0-9a-f-]{36}\.api-key$/,
   /^builderhelm\.voice\.openai\.api-key$/,
+  /^builderhelm\.linear\.api-key$/,
 ];
 
 /** Keychain has no item under this ref; every other error is a real failure. */

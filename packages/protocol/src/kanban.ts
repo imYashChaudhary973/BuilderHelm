@@ -16,17 +16,30 @@ export const kanbanColumnSchema = z.enum([
   'cancelled',
 ]);
 export type KanbanColumn = z.infer<typeof kanbanColumnSchema>;
-export const kanbanCardSourceSchema = z
-  .object({
-    provider: z.literal('github'),
-    id: z.string().min(1).max(200),
-    url: z.string().url().max(2_048),
-    repository: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/),
-    number: z.number().int().positive(),
-    state: z.enum(['open', 'closed']),
-    syncedAt: z.string().datetime(),
-  })
-  .strict();
+export const kanbanCardSourceSchema = z.discriminatedUnion('provider', [
+  z
+    .object({
+      provider: z.literal('github'),
+      id: z.string().min(1).max(200),
+      url: z.string().url().max(2_048),
+      repository: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/),
+      number: z.number().int().positive(),
+      state: z.enum(['open', 'closed']),
+      syncedAt: z.string().datetime(),
+    })
+    .strict(),
+  z
+    .object({
+      provider: z.literal('linear'),
+      id: z.string().min(1).max(200),
+      url: z.string().url().max(2_048),
+      identifier: z.string().regex(/^[A-Z][A-Z0-9]*-\d+$/i),
+      number: z.number().int().positive(),
+      state: z.enum(['open', 'closed']),
+      syncedAt: z.string().datetime(),
+    })
+    .strict(),
+]);
 export type KanbanCardSource = z.infer<typeof kanbanCardSourceSchema>;
 
 export const kanbanProjectSchema = z

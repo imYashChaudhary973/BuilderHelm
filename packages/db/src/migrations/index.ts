@@ -17,6 +17,7 @@ import { previewToolArtifactsMigration } from './0016-preview-tool-artifacts.js'
 import { previewAnnotationsMigration } from './0017-preview-annotations.js';
 import { reviewPersistenceMigration } from './0018-review.js';
 import { githubIssuesMigration } from './0019-github-issues.js';
+import { linearIssuesMigration } from './0020-linear-issues.js';
 
 export const migrations = [
   foundationMigration,
@@ -38,6 +39,7 @@ export const migrations = [
   previewAnnotationsMigration,
   reviewPersistenceMigration,
   githubIssuesMigration,
+  linearIssuesMigration,
 ] as const;
 
 export {
@@ -60,4 +62,5 @@ export {
   previewAnnotationsMigration,
   reviewPersistenceMigration,
   githubIssuesMigration,
+  linearIssuesMigration,
 };

@@ -23,6 +23,7 @@ import {
   type KanbanCard,
   type KanbanColumn,
   type KanbanProject,
+  type LinearIssue,
 } from '@builderhelm/protocol';
 import {
   normalizeError,
@@ -156,15 +157,25 @@ function toKanbanCard(row: StoredKanbanCard): KanbanCard {
     source:
       row.sourceProvider === null
         ? null
-        : {
-            provider: row.sourceProvider,
-            id: row.sourceId,
-            url: row.sourceUrl,
-            repository: row.sourceRepository,
-            number: row.sourceNumber,
-            state: row.sourceState,
-            syncedAt: row.sourceSyncedAt,
-          },
+        : row.sourceProvider === 'linear'
+          ? {
+              provider: 'linear',
+              id: row.sourceId,
+              url: row.sourceUrl,
+              identifier: row.sourceRepository,
+              number: row.sourceNumber,
+              state: row.sourceState,
+              syncedAt: row.sourceSyncedAt,
+            }
+          : {
+              provider: 'github',
+              id: row.sourceId,
+              url: row.sourceUrl,
+              repository: row.sourceRepository,
+              number: row.sourceNumber,
+              state: row.sourceState,
+              syncedAt: row.sourceSyncedAt,
+            },
     linkedRunId: row.linkedRunId,
     createdAt: row.createdAt,
   });
@@ -706,6 +717,16 @@ export class BoardService {
     return toKanbanCard(row);
   }
 
+  findLinearCard(issueId: string): KanbanCard | null {
+    const row = this.database.queryOne<StoredKanbanCard>(
+      `SELECT ${kanbanCardColumns}
+       FROM kanban_cards
+       WHERE source_provider = 'linear' AND source_id = ?`,
+      [issueId],
+    );
+    return row === undefined ? null : toKanbanCard(row);
+  }
+
   findGitHubCard(issueId: string): KanbanCard | null {
     const row = this.database.queryOne<StoredKanbanCard>(
       `SELECT ${kanbanCardColumns}
@@ -818,6 +839,118 @@ export class BoardService {
         repository: issue.repository,
         issue: issue.number,
       },
+    });
+    return card;
+  }
+
+  importLinearIssue(
+    workspace: string,
+    issue: LinearIssue,
+    correlationId: CorrelationId,
+  ): KanbanCard {
+    this.requireProject(workspace);
+    const existing = this.findLinearCard(issue.id);
+    if (existing !== null) return existing;
+    const createdAt = utcNow();
+    const number = Number.parseInt(
+      issue.identifier.slice(issue.identifier.lastIndexOf('-') + 1),
+      10,
+    );
+    const card = kanbanCardSchema.parse({
+      id: randomUUID(),
+      workspace,
+      title: issue.title,
+      detail: issue.body,
+      column: 'idea',
+      source: {
+        provider: 'linear',
+        id: issue.id,
+        url: issue.url,
+        identifier: issue.identifier,
+        number,
+        state: issue.state,
+        syncedAt: createdAt,
+      },
+      linkedRunId: null,
+      createdAt,
+    });
+    try {
+      this.database.transaction(() => {
+        this.database.run(
+          `INSERT INTO kanban_cards (
+             id, workspace, title, detail, column_name,
+             source_provider, source_id, source_url, source_repository,
+             source_number, source_state, source_synced_at, created_at
+           ) VALUES (?, ?, ?, ?, ?, 'linear', ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            card.id,
+            card.workspace,
+            card.title,
+            card.detail,
+            card.column,
+            issue.id,
+            issue.url,
+            issue.identifier,
+            number,
+            issue.state,
+            createdAt,
+            card.createdAt,
+          ],
+        );
+        this.touchProject(workspace, createdAt);
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        const raced = this.findLinearCard(issue.id);
+        if (raced !== null) return raced;
+      }
+      throw error;
+    }
+    this.logger.info({
+      event: 'kanban.linear_issue_imported',
+      correlationId,
+      data: {
+        cardId: card.id,
+        workspace,
+        identifier: issue.identifier,
+      },
+    });
+    return card;
+  }
+
+  syncLinearIssueState(
+    id: string,
+    state: GitHubIssueState,
+    correlationId: CorrelationId,
+  ): KanbanCard {
+    const current = this.getCard(id);
+    if (current.source?.provider !== 'linear') {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'That card is not linked to Linear',
+      );
+    }
+    const syncedAt = utcNow();
+    const column =
+      state === 'closed'
+        ? 'shipped'
+        : current.column === 'shipped' || current.column === 'cancelled'
+          ? 'idea'
+          : current.column;
+    const card = this.database.transaction(() => {
+      this.database.run(
+        `UPDATE kanban_cards
+         SET source_state = ?, source_synced_at = ?, column_name = ?
+         WHERE id = ?`,
+        [state, syncedAt, column, id],
+      );
+      this.touchProject(current.workspace, syncedAt);
+      return this.getCard(id);
+    });
+    this.logger.info({
+      event: 'kanban.linear_issue_synced',
+      correlationId,
+      data: { cardId: id, state },
     });
     return card;
   }

@@ -31,6 +31,7 @@ import { ProjectService } from './projects/project-service.js';
 import { GitReviewService } from './projects/git-review.js';
 import { BoardService } from './board/board-service.js';
 import { GitHubIssuesService } from './integrations/github-issues.js';
+import { LinearIssuesService } from './integrations/linear-issues.js';
 import { PnpmTaskVerifier } from './swarm/pnpm-verifier.js';
 import {
   SwarmService,
@@ -67,6 +68,7 @@ export interface CoreRuntime {
   readonly swarm: SwarmService;
   readonly review: GitReviewService;
   readonly githubIssues: GitHubIssuesService;
+  readonly linearIssues: LinearIssuesService;
   readonly previewArtifacts: PreviewArtifactService;
   readonly browserSettings: BrowserSettingsService;
   readonly voice: VoiceService;
@@ -133,6 +135,12 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
   );
   const review = new GitReviewService(new ReviewRepository(database));
   const githubIssues = new GitHubIssuesService(database, board, logger);
+  const linearIssues = new LinearIssuesService(
+    database,
+    board,
+    logger,
+    options.secretStore,
+  );
   const previewArtifacts = new PreviewArtifactService(
     new PreviewArtifactRepository(database),
   );
@@ -176,6 +184,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     swarm,
     review,
     githubIssues,
+    linearIssues,
     previewArtifacts,
     browserSettings,
     voice,
