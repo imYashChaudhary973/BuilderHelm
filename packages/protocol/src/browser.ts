@@ -769,6 +769,42 @@ export function toBrowserCookieWrite(
   };
 }
 
+export interface CookieImportPlan {
+  readonly writes: readonly BrowserCookieWrite[];
+  readonly rejected: number;
+  readonly domains: readonly string[];
+  readonly countByDomain: Readonly<Record<string, number>>;
+}
+
+/**
+ * Everything the cookie import decides before it touches a cookie store:
+ * which rows survive `toBrowserCookieWrite`, how many were dropped, and the
+ * per-domain tally the confirmation prompt shows. Pure so the logic the OS
+ * dialogs gate is covered by tests rather than only by clicking.
+ */
+export function planCookieImport(
+  items: readonly BrowserCookieImportItem[],
+): CookieImportPlan {
+  const writes: BrowserCookieWrite[] = [];
+  let rejected = 0;
+  const countByDomain: Record<string, number> = {};
+  for (const item of items) {
+    const write = toBrowserCookieWrite(item);
+    if (write === null) {
+      rejected += 1;
+      continue;
+    }
+    writes.push(write);
+    countByDomain[write.domain] = (countByDomain[write.domain] ?? 0) + 1;
+  }
+  return {
+    writes,
+    rejected,
+    domains: Object.keys(countByDomain).sort(),
+    countByDomain,
+  };
+}
+
 /** Import report. Domains and counts only; a cookie value never leaves main. */
 export const browserCookieImportResultSchema = z
   .object({

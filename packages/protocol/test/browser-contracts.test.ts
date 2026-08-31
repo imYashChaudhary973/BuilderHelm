@@ -12,6 +12,7 @@ import {
   previewDrawSaveInputSchema,
   previewPickSchema,
   resolveOmniboxTarget,
+  planCookieImport,
   stepBrowserZoom,
   toBrowserCookieWrite,
   type PreviewPick,
@@ -240,5 +241,50 @@ describe('zoom stops', () => {
     expect(stepBrowserZoom(100, -1)).toBe(90);
     expect(stepBrowserZoom(75, -1)).toBe(75);
     expect(stepBrowserZoom(137, 1)).toBe(110);
+  });
+});
+
+describe('cookie import planning', () => {
+  const row = (domain: string, name: string) => ({
+    name,
+    value: 'v',
+    domain,
+    path: '/',
+    secure: true,
+    httpOnly: false,
+    sameSite: 'lax' as const,
+  });
+
+  it('tallies accepted rows per domain and sorts the domains', () => {
+    const plan = planCookieImport([
+      row('b.test', 'one'),
+      row('a.test', 'two'),
+      row('b.test', 'three'),
+    ]);
+
+    expect(plan.writes).toHaveLength(3);
+    expect(plan.rejected).toBe(0);
+    expect(plan.domains).toEqual(['a.test', 'b.test']);
+    expect(plan.countByDomain).toEqual({ 'a.test': 1, 'b.test': 2 });
+  });
+
+  it('counts untrustworthy rows as rejected instead of writing them', () => {
+    const plan = planCookieImport([
+      row('good.test', 'keep'),
+      row('bad domain', 'drop'),
+      { ...row('trav.test', 'drop'), path: '/../etc' },
+    ]);
+
+    expect(plan.writes.map((write) => write.name)).toEqual(['keep']);
+    expect(plan.rejected).toBe(2);
+    expect(plan.domains).toEqual(['good.test']);
+  });
+
+  it('reports an empty plan rather than throwing when nothing survives', () => {
+    const plan = planCookieImport([row('bad domain', 'drop')]);
+
+    expect(plan.writes).toEqual([]);
+    expect(plan.rejected).toBe(1);
+    expect(plan.domains).toEqual([]);
   });
 });

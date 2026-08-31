@@ -66,9 +66,12 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 - Packaged desktop verification is thin: the packaged arm64 app starts, reports
   renderer ready, and exits cleanly, but it is unsigned, unnotarized, and has
   had no real user session run against it.
-- Browser paths behind native dialogs — cookie import, profile deletion, and the
-  toolbar's native menus — are covered by unit tests and manual use, not by
-  automated UI runs: an OS dialog cannot be driven from the test harness.
+- Two OS dialogs stay click-only: the cookie file picker and the confirm prompts
+  for import and profile deletion. What they gate is covered — file size, JSON
+  parse, and export shape in `readCookieExport`, the per-domain plan and the
+  dropped-row count in `planCookieImport`, and the default-profile and
+  active-profile rules in the settings service. The toolbar menus are a child
+  window rather than a native menu, so they are driveable end to end.
 - A capture taken while the window is occluded returns no pixels, so evidence
   recorded from a background window carries metadata without a picture.
 

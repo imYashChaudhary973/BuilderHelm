@@ -39,8 +39,11 @@ DevTools · Open in default browser · ⋯
 Desktop fills the panel. Tablet and phone letterbox to their preset and scale
 so CSS still reports 768px / 390px — a phone preview reports 390px, not the
 panel width. ⌘+/⌘- zoom the preview page, not the app chrome — Chromium zoom
-on the shell misplaces the embedded view. The default zoom preference is the
-reset (⌘0) and multiplies on top of device fit.
+on the shell misplaces the embedded view, so the shell is pinned at 1x.
+
+There is one zoom number, not two: ⌘+/⌘- step through the allowed stops and
+write the result to Settings → Default Zoom, and ⌘0 sets 100%. It multiplies on
+top of the device fit factor.
 
 ## Profiles, cookies, and links
 

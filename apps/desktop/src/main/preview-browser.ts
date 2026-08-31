@@ -17,7 +17,6 @@ import {
   stepBrowserZoom,
   type BrowserCommandInput,
   type BrowserState,
-  type BrowserZoomPercent,
   type PreviewBounds,
   type PreviewDriveAction,
   type PreviewDriveApproval,
@@ -241,19 +240,6 @@ function letterbox(stage: PreviewBounds, viewport: PreviewViewportId): PreviewBo
   };
 }
 
-/** Shell zoom turns CSS pixels from the renderer into a different space than
- *  WebContentsView.setBounds, which is window DIPs. */
-function toWindowBounds(win: BrowserWindow, css: PreviewBounds): PreviewBounds {
-  const zoom = win.webContents.getZoomFactor();
-  if (zoom === 1) return css;
-  return {
-    x: Math.round(css.x * zoom),
-    y: Math.round(css.y * zoom),
-    width: Math.max(1, Math.round(css.width * zoom)),
-    height: Math.max(1, Math.round(css.height * zoom)),
-  };
-}
-
 interface PendingDrive {
   readonly id: string;
   readonly action: PreviewDriveAction;
@@ -280,7 +266,6 @@ export class PreviewBrowser {
    * remembered here rather than re-asserted from the attach path.
    */
   private hidden = false;
-  private sessionZoom: BrowserZoomPercent | null = null;
   private stateListener: ((state: BrowserState) => void) | null = null;
 
   constructor(private readonly settings: BrowserSettingsService) {}
@@ -296,19 +281,16 @@ export class PreviewBrowser {
   }
 
   /**
-   * ⌘+/⌘- while the preview is open. No-ops if nothing is showing so the
-   * chrome never absorbs Chromium zoom.
+   * ⌘+/⌘-/⌘0 while the preview is open. The stepped percent is written back to
+   * settings so the live page and Settings → Default Zoom are the same number
+   * rather than two that can disagree on screen. ⌘0 is 100%.
    */
   nudgeZoom(step: 1 | -1 | 0): void {
     if (this.view === null) return;
-    if (step === 0) {
-      this.sessionZoom = null;
-      this.applyZoom();
-      return;
-    }
-    const current = this.sessionZoom ?? this.settings.read().zoomPercent;
-    this.sessionZoom = stepBrowserZoom(current, step);
-    this.applyZoom(this.sessionZoom);
+    const next =
+      step === 0 ? 100 : stepBrowserZoom(this.settings.read().zoomPercent, step);
+    this.settings.update({ zoomPercent: next });
+    this.applyZoom(next);
   }
 
   /**
@@ -363,11 +345,7 @@ export class PreviewBrowser {
       case 'forward':
         this.requireView().webContents.navigationHistory.goForward();
         break;
-      case 'reload':
-        this.requireView().webContents.reload();
-        break;
       case 'zoom':
-        this.sessionZoom = input.percent;
         this.applyZoom(input.percent);
         break;
       case 'devtools': {
@@ -722,21 +700,25 @@ export class PreviewBrowser {
    * zoom so CSS still sees 768px / 390px — otherwise a phone squeezed into a
    * 260px panel would pick a layout no phone would show. User zoom multiplies
    * on top.
+   *
+   * `bounds` arrive as renderer CSS pixels and are used as window DIPs, which
+   * only holds while the shell itself is never Chromium-zoomed. `createWindow`
+   * pins it at 1x for exactly this reason.
    */
   private layout(win: BrowserWindow, bounds: PreviewBounds): void {
     const view = this.ensure(win);
-    view.setBounds(letterbox(toWindowBounds(win, bounds), this.viewport));
+    view.setBounds(letterbox(bounds, this.viewport));
     this.applyZoom();
   }
 
   /**
-   * Zoom is the fit factor times the session (or default) percent. Chromium
-   * keys zoom by origin, so it is re-applied after every navigation.
+   * Zoom is the device fit factor times the stored percent. Chromium keys zoom
+   * by origin, so it is re-applied after every navigation.
    */
   private applyZoom(percent?: number): void {
     if (this.view === null) return;
     const view = this.view;
-    const wanted = percent ?? this.sessionZoom ?? this.settings.read().zoomPercent;
+    const wanted = percent ?? this.settings.read().zoomPercent;
     const fit =
       this.viewport === 'desktop'
         ? 1

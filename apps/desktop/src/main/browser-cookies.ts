@@ -6,11 +6,43 @@ import {
   BROWSER_COOKIE_FILE_MAX_BYTES,
   browserCookieImportFileSchema,
   browserProfilePartition,
-  toBrowserCookieWrite,
+  planCookieImport,
+  type BrowserCookieImportItem,
   type BrowserCookieImportResult,
   type BrowserProfile,
 } from '@builderhelm/protocol/browser';
 import { BuilderHelmError } from '@builderhelm/shared';
+
+/**
+ * Reads and validates a Cookie-Editor export.
+ *
+ * Split from the import so the size limit, the JSON parse, and the shape check
+ * are reachable from a test with a temporary file. Only the file picker itself
+ * needs a human.
+ */
+export async function readCookieExport(path: string): Promise<BrowserCookieImportItem[]> {
+  const info = await stat(path);
+  if (info.size > BROWSER_COOKIE_FILE_MAX_BYTES) {
+    throw new BuilderHelmError(
+      'VALIDATION_FAILED',
+      'That cookie file is too large to import.',
+    );
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await readFile(path, 'utf8'));
+  } catch {
+    throw new BuilderHelmError('VALIDATION_FAILED', 'That file is not valid JSON.');
+  }
+  const items = browserCookieImportFileSchema.safeParse(parsed);
+  if (!items.success) {
+    throw new BuilderHelmError(
+      'VALIDATION_FAILED',
+      'That file is not a supported cookie export.',
+    );
+  }
+  return items.data;
+}
 
 /**
  * Imports a Cookie-Editor JSON export into one profile's partition.
@@ -40,42 +72,15 @@ export async function importProfileCookies(
   const path = picked.filePaths[0];
   if (picked.canceled || path === undefined) return empty;
 
-  const info = await stat(path);
-  if (info.size > BROWSER_COOKIE_FILE_MAX_BYTES) {
-    throw new BuilderHelmError(
-      'VALIDATION_FAILED',
-      'That cookie file is too large to import.',
-    );
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(await readFile(path, 'utf8'));
-  } catch {
-    throw new BuilderHelmError('VALIDATION_FAILED', 'That file is not valid JSON.');
-  }
-  const items = browserCookieImportFileSchema.safeParse(parsed);
-  if (!items.success) {
-    throw new BuilderHelmError(
-      'VALIDATION_FAILED',
-      'That file is not a supported cookie export.',
-    );
-  }
-
-  const writes = items.data.map(toBrowserCookieWrite);
-  const accepted = writes.filter((write) => write !== null);
-  let rejected = writes.length - accepted.length;
-  const byDomain: Record<string, number> = {};
-  for (const write of accepted) {
-    byDomain[write.domain] = (byDomain[write.domain] ?? 0) + 1;
-  }
-  const domains = Object.keys(byDomain).sort();
-  if (accepted.length === 0) {
+  const plan = planCookieImport(await readCookieExport(path));
+  let rejected = plan.rejected;
+  if (plan.writes.length === 0) {
     return { ...empty, rejected, cancelled: false };
   }
 
-  const summary = domains
+  const summary = plan.domains
     .slice(0, 20)
-    .map((domain) => `${domain} · ${String(byDomain[domain] ?? 0)}`)
+    .map((domain) => `${domain} · ${String(plan.countByDomain[domain] ?? 0)}`)
     .join('\n');
   const confirmed = await dialog.showMessageBox(win, {
     type: 'question',
@@ -83,14 +88,14 @@ export async function importProfileCookies(
     defaultId: 1,
     cancelId: 0,
     title: 'Import cookies',
-    message: `Import ${String(accepted.length)} cookies into ${profile.name}?`,
+    message: `Import ${String(plan.writes.length)} cookies into ${profile.name}?`,
     detail: `These sign-ins become available to pages opened in this profile.\n\n${summary}`,
   });
   if (confirmed.response !== 1) return { ...empty, rejected, cancelled: true };
 
   const store = session.fromPartition(browserProfilePartition(profile.id)).cookies;
   let imported = 0;
-  for (const write of accepted) {
+  for (const write of plan.writes) {
     try {
       await store.set(write);
       imported += 1;
@@ -104,7 +109,7 @@ export async function importProfileCookies(
     profileId: profile.id,
     imported,
     rejected,
-    domains: domains.slice(0, 50),
+    domains: plan.domains.slice(0, 50),
     cancelled: false,
   };
 }
