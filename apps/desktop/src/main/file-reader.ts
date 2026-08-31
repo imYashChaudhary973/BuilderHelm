@@ -178,35 +178,121 @@ export function searchEditorFiles(
   return matches;
 }
 
+/** `added`/`removed` per path, keyed the same way porcelain names them. */
+function readNumstat(root: string, staged: boolean): Map<string, [number, number]> {
+  const counts = new Map<string, [number, number]>();
+  try {
+    const raw = execFileSync(
+      'git',
+      staged
+        ? ['diff', '--numstat', '--no-color', '--cached']
+        : ['diff', '--numstat', '--no-color'],
+      { cwd: root, encoding: 'utf8', timeout: 8_000, windowsHide: true },
+    );
+    for (const line of raw.split('\n')) {
+      const [addedRaw, removedRaw, ...rest] = line.split('\t');
+      const path = rest.join('\t').split(' => ').at(-1);
+      if (path === undefined || path.length === 0) continue;
+      // A binary file reports "-" for both counts.
+      const added = Number(addedRaw);
+      const removed = Number(removedRaw);
+      counts.set(path, [
+        Number.isSafeInteger(added) && added >= 0 ? added : 0,
+        Number.isSafeInteger(removed) && removed >= 0 ? removed : 0,
+      ]);
+    }
+  } catch {
+    // No diff available is not an error; the panel just shows no counts.
+  }
+  return counts;
+}
+
 export function listGitChanges(root: string): ReadonlyArray<{
   readonly path: string;
   readonly code: string;
   readonly staged: boolean;
+  readonly added: number;
+  readonly removed: number;
 }> {
   try {
+    // Deliberately not trimmed: porcelain rows are `XY<space>path`, and an
+    // unstaged change starts with a space. Trimming the output ate the first
+    // row's leading space, so its status shifted left by one — an unstaged
+    // edit read as staged and its filename lost its first character.
     const status = execFileSync('git', ['status', '--porcelain=v1'], {
       cwd: root,
       encoding: 'utf8',
       timeout: 8_000,
       windowsHide: true,
-    }).trim();
+    }).replace(/\n+$/, '');
     if (status.length === 0) return [];
-    const rows: Array<{ path: string; code: string; staged: boolean }> = [];
+    const stagedCounts = readNumstat(root, true);
+    const workCounts = readNumstat(root, false);
+    const rows: Array<{
+      path: string;
+      code: string;
+      staged: boolean;
+      added: number;
+      removed: number;
+    }> = [];
+    const push = (path: string, code: string, isStaged: boolean): void => {
+      const [added, removed] = (isStaged ? stagedCounts : workCounts).get(path) ?? [0, 0];
+      rows.push({ path, code, staged: isStaged, added, removed });
+    };
     for (const line of status.split('\n').slice(0, 80)) {
+      if (line.length < 4) continue;
       const path = line.slice(3).split(' -> ').at(-1) ?? line.slice(3);
       const index = line[0] ?? ' ';
       const work = line[1] ?? ' ';
-      if (index !== ' ' && index !== '?') {
-        rows.push({ path, code: index, staged: true });
-      }
-      if (work !== ' ' && work !== '?') {
-        rows.push({ path, code: work, staged: false });
-      }
-      if (index === '?' && work === '?') {
-        rows.push({ path, code: 'U', staged: false });
-      }
+      if (index !== ' ' && index !== '?') push(path, index, true);
+      if (work !== ' ' && work !== '?') push(path, work, false);
+      if (index === '?' && work === '?') push(path, 'U', false);
     }
     return rows;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Files in one commit, with their line counts.
+ *
+ * `--no-commit-id` drops the header so only numstat rows remain, and `-m`
+ * makes a merge commit report its files rather than nothing at all.
+ */
+export function readCommitFiles(
+  root: string,
+  sha: string,
+): ReadonlyArray<{
+  readonly path: string;
+  readonly added: number;
+  readonly removed: number;
+}> {
+  if (!/^[0-9a-f]{7,64}$/.test(sha)) return [];
+  try {
+    const raw = execFileSync(
+      'git',
+      ['show', '--numstat', '--no-color', '--no-commit-id', '-m', '--format=', sha, '--'],
+      { cwd: root, encoding: 'utf8', timeout: 8_000, windowsHide: true },
+    );
+    const files: Array<{ path: string; added: number; removed: number }> = [];
+    const seen = new Set<string>();
+    for (const line of raw.split('\n').slice(0, 500)) {
+      const [addedRaw, removedRaw, ...rest] = line.split('\t');
+      const path = rest.join('\t').split(' => ').at(-1);
+      if (path === undefined || path.length === 0) continue;
+      // `-m` repeats a merge's files once per parent.
+      if (seen.has(path)) continue;
+      seen.add(path);
+      const added = Number(addedRaw);
+      const removed = Number(removedRaw);
+      files.push({
+        path,
+        added: Number.isSafeInteger(added) && added >= 0 ? added : 0,
+        removed: Number.isSafeInteger(removed) && removed >= 0 ? removed : 0,
+      });
+    }
+    return files;
   } catch {
     return [];
   }

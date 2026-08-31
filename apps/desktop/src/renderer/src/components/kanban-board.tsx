@@ -1,12 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import type {
   KanbanCard,
   KanbanColumn,
   KanbanProject,
 } from '@builderhelm/protocol/kanban';
+import type { GitHubIssue } from '@builderhelm/protocol/integrations';
 import { useEffect, useState } from 'react';
 
 import { useBoards } from '../board-store.js';
+import { queueSwarmHandoff } from '../swarm-persist.js';
 
 const COLUMNS: readonly { id: KanbanColumn; label: string }[] = [
   { id: 'idea', label: 'To Do' },
@@ -165,9 +168,100 @@ function ProjectChooser({
     </section>
   );
 }
+function GitHubIntakePanel({
+  issues,
+  loading,
+  refreshing,
+  busy,
+  error,
+  currentWorkspace,
+  onRefresh,
+  onClose,
+  onImport,
+  onOpen,
+}: {
+  readonly issues: readonly GitHubIssue[];
+  readonly loading: boolean;
+  readonly refreshing: boolean;
+  readonly busy: boolean;
+  readonly error: string | null;
+  readonly currentWorkspace: string;
+  readonly onRefresh: () => void;
+  readonly onClose: () => void;
+  readonly onImport: (issue: GitHubIssue) => void;
+  readonly onOpen: (url: string) => void;
+}): React.JSX.Element {
+  return (
+    <section className="githubIntake" aria-labelledby="github-intake-title">
+      <header>
+        <div>
+          <h2 id="github-intake-title">Assigned GitHub issues</h2>
+          <p>Import work explicitly. BuilderHelm never starts an agent from this list.</p>
+        </div>
+        <div>
+          <button type="button" disabled={refreshing} onClick={onRefresh}>
+            {refreshing ? 'Refreshing…' : 'Refresh'}
+          </button>
+          <button type="button" aria-label="Close GitHub issue list" onClick={onClose}>
+            ×
+          </button>
+        </div>
+      </header>
+      {error !== null ? (
+        <p className="githubIntakeError" role="alert">
+          {error}
+        </p>
+      ) : loading ? (
+        <ul aria-label="Loading assigned GitHub issues">
+          {[0, 1, 2].map((row) => (
+            <li className="githubIssueSkeleton" key={row} aria-hidden="true">
+              <span />
+              <span />
+            </li>
+          ))}
+        </ul>
+      ) : issues.length === 0 ? (
+        <p className="githubIntakeEmpty">
+          No open issues are assigned to the active GitHub CLI account.
+        </p>
+      ) : (
+        <ul>
+          {issues.map((issue) => {
+            const imported = issue.importedCardId !== null;
+            const importedHere = issue.importedWorkspaceId === currentWorkspace;
+            return (
+              <li key={issue.id}>
+                <button
+                  className="githubIssueIdentity"
+                  type="button"
+                  title={`Open ${issue.repository} issue ${issue.number}`}
+                  onClick={() => onOpen(issue.url)}
+                >
+                  <span>
+                    {issue.repository} #{issue.number}
+                  </span>
+                  <strong>{issue.title}</strong>
+                </button>
+                <button
+                  className="githubIssueImport"
+                  type="button"
+                  disabled={busy || imported}
+                  onClick={() => onImport(issue)}
+                >
+                  {imported ? (importedHere ? 'Added' : 'On another board') : 'Import'}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
 
 export function KanbanBoard(): React.JSX.Element {
   const boards = useBoards();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const projects = useQuery({
     queryKey: ['kanban-projects'],
@@ -187,6 +281,13 @@ export function KanbanBoard(): React.JSX.Element {
   const [composeTitle, setComposeTitle] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [githubOpen, setGithubOpen] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const githubIssues = useQuery({
+    queryKey: ['github-assigned-issues'],
+    enabled: githubOpen,
+    queryFn: () => window.builderHelm.integrations.listGitHubIssues({}),
+  });
 
   useEffect(() => {
     if (projects.isSuccess && boards.activeId !== null && selectedProject === undefined) {
@@ -316,6 +417,88 @@ export function KanbanBoard(): React.JSX.Element {
     if (card === undefined || card.column === column) return;
     await move(card, column);
   }
+  async function importGitHubIssue(issue: GitHubIssue): Promise<void> {
+    if (selectedProject === undefined) return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const card = await window.builderHelm.integrations.importGitHubIssue({
+        workspace: selectedProject.id,
+        url: issue.url,
+      });
+      if (card.workspace === selectedProject.id) {
+        setCards((current) => {
+          const exists = current.some((item) => item.id === card.id);
+          return exists
+            ? current.map((item) => (item.id === card.id ? card : item))
+            : [...current, card];
+        });
+        setNotice(
+          issue.importedCardId === null
+            ? `Imported ${issue.repository} #${issue.number}`
+            : 'That issue is already on this Board.',
+        );
+      } else {
+        setNotice('That issue is already on another Board.');
+      }
+      await Promise.all([refreshProjects(), githubIssues.refetch()]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not import that issue');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function syncGitHubIssue(card: KanbanCard): Promise<void> {
+    const source = card.source;
+    if (source === null) return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await window.builderHelm.integrations.syncGitHubIssue({
+        cardId: card.id,
+        state: source.state === 'open' ? 'closed' : 'open',
+        requestId: crypto.randomUUID(),
+      });
+      setCards((current) =>
+        current.map((item) => (item.id === result.card.id ? result.card : item)),
+      );
+      if (result.receipt.outcome === 'succeeded') {
+        setNotice(`${result.receipt.detail} · Receipt ${result.receipt.id.slice(0, 8)}`);
+        await Promise.all([refreshProjects(), githubIssues.refetch()]);
+      } else {
+        setError(result.receipt.detail);
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not sync that issue');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function startGitHubIssue(card: KanbanCard): void {
+    const source = card.source;
+    if (source === null) return;
+    const mission = [card.title, card.detail?.trim(), `Source: ${source.url}`]
+      .filter((line): line is string => line !== undefined && line.length > 0)
+      .join('\n\n')
+      .slice(0, 10_000);
+    if (!queueSwarmHandoff({ cardId: card.id, mission })) {
+      setError('Swarm could not receive this issue. Session storage is unavailable.');
+      return;
+    }
+    void navigate({ to: '/swarm' });
+  }
+
+  function openGitHubIssue(url: string): void {
+    void window.builderHelm.browser
+      .command({ action: 'external', url })
+      .catch((cause: unknown) =>
+        setError(cause instanceof Error ? cause.message : 'Could not open GitHub'),
+      );
+  }
 
   if (boards.activeId === null || (projects.isSuccess && selectedProject === undefined)) {
     return (
@@ -359,6 +542,18 @@ export function KanbanBoard(): React.JSX.Element {
           <button className="secondaryButton" type="button" onClick={boards.choose}>
             All boards
           </button>
+          <button
+            className="secondaryButton"
+            type="button"
+            aria-expanded={githubOpen}
+            onClick={() => {
+              setGithubOpen((current) => !current);
+              setError(null);
+              setNotice(null);
+            }}
+          >
+            GitHub issues
+          </button>
           <form
             className="kanbanAdd"
             onSubmit={(event) => {
@@ -384,6 +579,25 @@ export function KanbanBoard(): React.JSX.Element {
           {error}
         </p>
       )}
+      {notice !== null && (
+        <p className="kanbanNotice" role="status">
+          {notice}
+        </p>
+      )}
+      {githubOpen ? (
+        <GitHubIntakePanel
+          issues={githubIssues.data ?? []}
+          loading={githubIssues.isLoading}
+          refreshing={githubIssues.isFetching}
+          busy={busy}
+          error={githubIssues.error instanceof Error ? githubIssues.error.message : null}
+          currentWorkspace={selectedProject.id}
+          onRefresh={() => void githubIssues.refetch()}
+          onClose={() => setGithubOpen(false)}
+          onImport={(issue) => void importGitHubIssue(issue)}
+          onOpen={openGitHubIssue}
+        />
+      ) : null}
       <div className="kanbanGrid">
         {COLUMNS.map((column) => {
           const items = cards.filter((card) => card.column === column.id);
@@ -457,71 +671,107 @@ export function KanbanBoard(): React.JSX.Element {
                       setDropColumn(null);
                     }}
                   >
-                    {editingId === card.id ? (
-                      <input
-                        className="kanbanCardEdit"
-                        aria-label={`Rename ${card.title}`}
-                        value={editTitle}
-                        autoFocus
-                        disabled={busy}
-                        onChange={(event) => setEditTitle(event.target.value)}
-                        onBlur={() => void rename(card, editTitle)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            event.preventDefault();
-                            void rename(card, editTitle);
-                          }
-                          if (event.key === 'Escape') setEditingId(null);
-                        }}
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        className="kanbanCardTitle"
-                        onClick={() => {
-                          setEditingId(card.id);
-                          setEditTitle(card.title);
-                        }}
-                      >
-                        {card.title}
-                      </button>
-                    )}
-                    <div>
-                      {neighbor(column.id, -1) !== undefined ? (
+                    <div className="kanbanCardMain">
+                      {editingId === card.id ? (
+                        <input
+                          className="kanbanCardEdit"
+                          aria-label={`Rename ${card.title}`}
+                          value={editTitle}
+                          autoFocus
+                          disabled={busy}
+                          onChange={(event) => setEditTitle(event.target.value)}
+                          onBlur={() => void rename(card, editTitle)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault();
+                              void rename(card, editTitle);
+                            }
+                            if (event.key === 'Escape') setEditingId(null);
+                          }}
+                        />
+                      ) : (
                         <button
                           type="button"
-                          aria-label={`Move ${card.title} back`}
-                          disabled={busy}
+                          className="kanbanCardTitle"
                           onClick={() => {
-                            const previous = neighbor(column.id, -1);
-                            if (previous !== undefined) void move(card, previous);
+                            setEditingId(card.id);
+                            setEditTitle(card.title);
                           }}
                         >
-                          ←
+                          {card.title}
                         </button>
-                      ) : null}
-                      {neighbor(column.id, 1) !== undefined ? (
+                      )}
+                      <div className="kanbanCardMoves">
+                        {neighbor(column.id, -1) !== undefined ? (
+                          <button
+                            type="button"
+                            aria-label={`Move ${card.title} back`}
+                            disabled={busy}
+                            onClick={() => {
+                              const previous = neighbor(column.id, -1);
+                              if (previous !== undefined) void move(card, previous);
+                            }}
+                          >
+                            ←
+                          </button>
+                        ) : null}
+                        {neighbor(column.id, 1) !== undefined ? (
+                          <button
+                            type="button"
+                            aria-label={`Move ${card.title} forward`}
+                            disabled={busy}
+                            onClick={() => {
+                              const next = neighbor(column.id, 1);
+                              if (next !== undefined) void move(card, next);
+                            }}
+                          >
+                            →
+                          </button>
+                        ) : null}
                         <button
                           type="button"
-                          aria-label={`Move ${card.title} forward`}
+                          aria-label={`Delete ${card.title}`}
                           disabled={busy}
-                          onClick={() => {
-                            const next = neighbor(column.id, 1);
-                            if (next !== undefined) void move(card, next);
-                          }}
+                          onClick={() => void remove(card)}
                         >
-                          →
+                          ×
                         </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        aria-label={`Delete ${card.title}`}
-                        disabled={busy}
-                        onClick={() => void remove(card)}
-                      >
-                        ×
-                      </button>
+                      </div>
                     </div>
+                    {card.source !== null ? (
+                      <div className="kanbanCardSource">
+                        <button
+                          className="kanbanSourceLink"
+                          type="button"
+                          onClick={() => {
+                            const source = card.source;
+                            if (source !== null) openGitHubIssue(source.url);
+                          }}
+                        >
+                          {card.source.repository} #{card.source.number}
+                        </button>
+                        <span data-state={card.source.state}>{card.source.state}</span>
+                        {card.linkedRunId !== null ? <span>Swarm linked</span> : null}
+                        <div className="kanbanSourceActions">
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => startGitHubIssue(card)}
+                          >
+                            Start Swarm
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void syncGitHubIssue(card)}
+                          >
+                            {card.source.state === 'open'
+                              ? 'Close issue'
+                              : 'Reopen issue'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                   </li>
                 ))}
                 {compose === column.id ? (

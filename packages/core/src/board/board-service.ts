@@ -18,6 +18,8 @@ import {
   type BoardAgentDetection,
   type BoardPresetRecord,
   type BoardPresetSpec,
+  type GitHubIssue,
+  type GitHubIssueState,
   type KanbanCard,
   type KanbanColumn,
   type KanbanProject,
@@ -107,6 +109,63 @@ function toRecord(row: StoredBoardPreset): BoardPresetRecord {
     isolation: row.isolation,
     panes: JSON.parse(String(row.panesJson)),
     id: row.id,
+    createdAt: row.createdAt,
+  });
+}
+interface StoredKanbanCard extends Record<string, unknown> {
+  id: string;
+  workspace: string;
+  title: string;
+  detail: string | null;
+  columnName: string;
+  sourceProvider: string | null;
+  sourceId: string | null;
+  sourceUrl: string | null;
+  sourceRepository: string | null;
+  sourceNumber: number | null;
+  sourceState: string | null;
+  sourceSyncedAt: string | null;
+  linkedRunId: string | null;
+  createdAt: string;
+}
+
+const kanbanCardColumns = `
+  id,
+  workspace,
+  title,
+  detail,
+  column_name AS columnName,
+  source_provider AS sourceProvider,
+  source_id AS sourceId,
+  source_url AS sourceUrl,
+  source_repository AS sourceRepository,
+  source_number AS sourceNumber,
+  source_state AS sourceState,
+  source_synced_at AS sourceSyncedAt,
+  linked_run_id AS linkedRunId,
+  created_at AS createdAt
+`;
+
+function toKanbanCard(row: StoredKanbanCard): KanbanCard {
+  return kanbanCardSchema.parse({
+    id: row.id,
+    workspace: row.workspace,
+    title: row.title,
+    detail: row.detail,
+    column: row.columnName,
+    source:
+      row.sourceProvider === null
+        ? null
+        : {
+            provider: row.sourceProvider,
+            id: row.sourceId,
+            url: row.sourceUrl,
+            repository: row.sourceRepository,
+            number: row.sourceNumber,
+            state: row.sourceState,
+            syncedAt: row.sourceSyncedAt,
+          },
+    linkedRunId: row.linkedRunId,
     createdAt: row.createdAt,
   });
 }
@@ -444,6 +503,7 @@ export class BoardService {
   ): Promise<{
     readonly branch: string;
     readonly base: string;
+    readonly headSha: string;
     readonly ahead: number;
     readonly files: readonly string[];
     readonly stat: string;
@@ -460,21 +520,29 @@ export class BoardService {
       throw new BuilderHelmError('VALIDATION_FAILED', 'Cannot land a branch into itself');
     }
     const range = `${current}...${branch}`;
-    const [{ stdout: countOut }, { stdout: namesOut }, { stdout: statOut }] =
-      await Promise.all([
-        execFileAsync('git', ['rev-list', '--count', `${current}..${branch}`], {
-          cwd: repoPath,
-          timeout: 15_000,
-        }),
-        execFileAsync('git', ['diff', '--name-only', range], {
-          cwd: repoPath,
-          timeout: 15_000,
-        }),
-        execFileAsync('git', ['diff', '--stat', range], {
-          cwd: repoPath,
-          timeout: 15_000,
-        }),
-      ]);
+    const [
+      { stdout: countOut },
+      { stdout: namesOut },
+      { stdout: statOut },
+      { stdout: headOut },
+    ] = await Promise.all([
+      execFileAsync('git', ['rev-list', '--count', `${current}..${branch}`], {
+        cwd: repoPath,
+        timeout: 15_000,
+      }),
+      execFileAsync('git', ['diff', '--name-only', range], {
+        cwd: repoPath,
+        timeout: 15_000,
+      }),
+      execFileAsync('git', ['diff', '--stat', range], {
+        cwd: repoPath,
+        timeout: 15_000,
+      }),
+      execFileAsync('git', ['rev-parse', branch], {
+        cwd: repoPath,
+        timeout: 5_000,
+      }),
+    ]);
     const ahead = Number.parseInt(countOut.trim(), 10);
     if (!Number.isFinite(ahead)) {
       throw new BuilderHelmError(
@@ -483,19 +551,20 @@ export class BoardService {
       );
     }
     const files = namesOut.trim() === '' ? [] : namesOut.trim().split('\n');
+    const headSha = headOut.trim();
     this.logger.info({
       event: 'board.branch_previewed',
       correlationId,
-      data: { repoPath, branch, base: current, ahead, files },
+      data: { repoPath, branch, base: current, ahead, files, headSha },
     });
-    return { branch, base: current, ahead, files, stat: statOut.trim() };
+    return { branch, base: current, headSha, ahead, files, stat: statOut.trim() };
   }
 
   async landBranch(
     repoPath: string,
     branch: string,
     correlationId: CorrelationId,
-    reviewedHead?: string,
+    reviewedHead: string,
   ): Promise<{ readonly landed: true; readonly head: string }> {
     assertExeumBranch(branch);
     const current = await this.readBranch(repoPath);
@@ -508,17 +577,16 @@ export class BoardService {
     if (current === branch) {
       throw new BuilderHelmError('VALIDATION_FAILED', 'Cannot land a branch into itself');
     }
-    if (reviewedHead !== undefined) {
-      const { stdout } = await execFileAsync('git', ['rev-parse', branch], {
-        cwd: repoPath,
-        timeout: 5_000,
-      });
-      if (stdout.trim() !== reviewedHead) {
-        throw new BuilderHelmError(
-          'VALIDATION_FAILED',
-          'Reviewed head moved; land refused',
-        );
-      }
+    const { stdout: actualOut } = await execFileAsync('git', ['rev-parse', branch], {
+      cwd: repoPath,
+      timeout: 5_000,
+    });
+    const actual = actualOut.trim();
+    if (actual !== reviewedHead) {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'Landing failed closed: the reviewed head moved',
+      );
     }
     try {
       await execFileAsync(
@@ -546,7 +614,7 @@ export class BoardService {
     this.logger.info({
       event: 'board.branch_landed',
       correlationId,
-      data: { repoPath, branch, head },
+      data: { repoPath, branch, head, reviewedHead },
     });
     return { landed: true, head };
   }
@@ -617,28 +685,35 @@ export class BoardService {
 
   listCards(workspace: string): KanbanCard[] {
     return this.database
-      .queryAll<{
-        id: string;
-        workspace: string;
-        title: string;
-        column_name: string;
-        created_at: string;
-      }>(
-        `SELECT id, workspace, title, column_name, created_at
+      .queryAll<StoredKanbanCard>(
+        `SELECT ${kanbanCardColumns}
          FROM kanban_cards
          WHERE workspace = ?
          ORDER BY created_at ASC`,
         [workspace],
       )
-      .map((row) =>
-        kanbanCardSchema.parse({
-          id: row.id,
-          workspace: row.workspace,
-          title: row.title,
-          column: row.column_name,
-          createdAt: row.created_at,
-        }),
-      );
+      .map(toKanbanCard);
+  }
+
+  getCard(id: string): KanbanCard {
+    const row = this.database.queryOne<StoredKanbanCard>(
+      `SELECT ${kanbanCardColumns} FROM kanban_cards WHERE id = ?`,
+      [id],
+    );
+    if (row === undefined) {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'That card is gone');
+    }
+    return toKanbanCard(row);
+  }
+
+  findGitHubCard(issueId: string): KanbanCard | null {
+    const row = this.database.queryOne<StoredKanbanCard>(
+      `SELECT ${kanbanCardColumns}
+       FROM kanban_cards
+       WHERE source_provider = 'github' AND source_id = ?`,
+      [issueId],
+    );
+    return row === undefined ? null : toKanbanCard(row);
   }
 
   createCard(
@@ -647,6 +722,219 @@ export class BoardService {
     correlationId: CorrelationId,
     column: KanbanColumn = 'idea',
   ): KanbanCard {
+    this.requireProject(workspace);
+    const input = kanbanCreateInputSchema.parse({ workspace, title, column });
+    const card = kanbanCardSchema.parse({
+      id: randomUUID(),
+      workspace: input.workspace,
+      title: input.title,
+      detail: null,
+      column: input.column ?? 'idea',
+      source: null,
+      linkedRunId: null,
+      createdAt: utcNow(),
+    });
+    this.database.transaction(() => {
+      this.database.run(
+        `INSERT INTO kanban_cards (id, workspace, title, column_name, created_at)
+         VALUES (?, ?, ?, ?, ?)`,
+        [card.id, card.workspace, card.title, card.column, card.createdAt],
+      );
+      this.touchProject(workspace, card.createdAt);
+    });
+    this.logger.info({
+      event: 'kanban.card_created',
+      correlationId,
+      data: { cardId: card.id, workspace, column: card.column },
+    });
+    return card;
+  }
+
+  importGitHubIssue(
+    workspace: string,
+    issue: GitHubIssue,
+    correlationId: CorrelationId,
+  ): KanbanCard {
+    this.requireProject(workspace);
+    const existing = this.findGitHubCard(issue.id);
+    if (existing !== null) return existing;
+    const createdAt = utcNow();
+    const card = kanbanCardSchema.parse({
+      id: randomUUID(),
+      workspace,
+      title: issue.title,
+      detail: issue.body,
+      column: 'idea',
+      source: {
+        provider: 'github',
+        id: issue.id,
+        url: issue.url,
+        repository: issue.repository,
+        number: issue.number,
+        state: issue.state,
+        syncedAt: createdAt,
+      },
+      linkedRunId: null,
+      createdAt,
+    });
+    try {
+      this.database.transaction(() => {
+        this.database.run(
+          `INSERT INTO kanban_cards (
+             id, workspace, title, detail, column_name,
+             source_provider, source_id, source_url, source_repository,
+             source_number, source_state, source_synced_at, created_at
+           ) VALUES (?, ?, ?, ?, ?, 'github', ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            card.id,
+            card.workspace,
+            card.title,
+            card.detail,
+            card.column,
+            issue.id,
+            issue.url,
+            issue.repository,
+            issue.number,
+            issue.state,
+            createdAt,
+            card.createdAt,
+          ],
+        );
+        this.touchProject(workspace, createdAt);
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        const raced = this.findGitHubCard(issue.id);
+        if (raced !== null) return raced;
+      }
+      throw error;
+    }
+    this.logger.info({
+      event: 'kanban.github_issue_imported',
+      correlationId,
+      data: {
+        cardId: card.id,
+        workspace,
+        repository: issue.repository,
+        issue: issue.number,
+      },
+    });
+    return card;
+  }
+
+  moveCard(id: string, column: KanbanColumn, correlationId: CorrelationId): KanbanCard {
+    const updatedAt = utcNow();
+    const card = this.database.transaction(() => {
+      this.database.run(`UPDATE kanban_cards SET column_name = ? WHERE id = ?`, [
+        column,
+        id,
+      ]);
+      const found = this.getCard(id);
+      this.touchProject(found.workspace, updatedAt);
+      return found;
+    });
+    this.logger.info({
+      event: 'kanban.card_moved',
+      correlationId,
+      data: { cardId: id, column },
+    });
+    return card;
+  }
+
+  updateCard(id: string, title: string, correlationId: CorrelationId): KanbanCard {
+    const input = kanbanUpdateInputSchema.parse({ id, title });
+    const updatedAt = utcNow();
+    const card = this.database.transaction(() => {
+      this.database.run(`UPDATE kanban_cards SET title = ? WHERE id = ?`, [
+        input.title,
+        input.id,
+      ]);
+      const found = this.getCard(input.id);
+      this.touchProject(found.workspace, updatedAt);
+      return found;
+    });
+    this.logger.info({
+      event: 'kanban.card_updated',
+      correlationId,
+      data: { cardId: input.id },
+    });
+    return card;
+  }
+
+  syncGitHubIssueState(
+    id: string,
+    state: GitHubIssueState,
+    correlationId: CorrelationId,
+  ): KanbanCard {
+    const current = this.getCard(id);
+    if (current.source?.provider !== 'github') {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'That card is not linked to GitHub',
+      );
+    }
+    const syncedAt = utcNow();
+    const column =
+      state === 'closed'
+        ? 'shipped'
+        : current.column === 'shipped' || current.column === 'cancelled'
+          ? 'idea'
+          : current.column;
+    const card = this.database.transaction(() => {
+      this.database.run(
+        `UPDATE kanban_cards
+         SET source_state = ?, source_synced_at = ?, column_name = ?
+         WHERE id = ?`,
+        [state, syncedAt, column, id],
+      );
+      this.touchProject(current.workspace, syncedAt);
+      return this.getCard(id);
+    });
+    this.logger.info({
+      event: 'kanban.github_issue_synced',
+      correlationId,
+      data: { cardId: id, state },
+    });
+    return card;
+  }
+
+  linkCardRun(cardId: string, runId: string, correlationId: CorrelationId): KanbanCard {
+    const current = this.getCard(cardId);
+    const updatedAt = utcNow();
+    const column = current.column === 'idea' ? 'doing' : current.column;
+    const card = this.database.transaction(() => {
+      this.database.run(
+        `UPDATE kanban_cards SET linked_run_id = ?, column_name = ? WHERE id = ?`,
+        [runId, column, cardId],
+      );
+      this.touchProject(current.workspace, updatedAt);
+      return this.getCard(cardId);
+    });
+    this.logger.info({
+      event: 'kanban.card_run_linked',
+      correlationId,
+      data: { cardId, runId },
+    });
+    return card;
+  }
+
+  deleteCard(id: string, correlationId: CorrelationId): { deleted: true } {
+    const input = kanbanDeleteInputSchema.parse({ id });
+    const updatedAt = utcNow();
+    this.database.transaction(() => {
+      const found = this.getCard(input.id);
+      this.database.run(`DELETE FROM kanban_cards WHERE id = ?`, [input.id]);
+      this.touchProject(found.workspace, updatedAt);
+    });
+    this.logger.info({
+      event: 'kanban.card_deleted',
+      correlationId,
+      data: { cardId: input.id },
+    });
+    return { deleted: true };
+  }
+
+  private requireProject(workspace: string): void {
     if (
       this.database.queryOne<{ id: string }>(
         `SELECT id FROM kanban_projects WHERE id = ?`,
@@ -658,134 +946,12 @@ export class BoardService {
         'Select a Board project before adding tasks',
       );
     }
-    const input = kanbanCreateInputSchema.parse({ workspace, title, column });
-    const card = kanbanCardSchema.parse({
-      id: randomUUID(),
-      workspace: input.workspace,
-      title: input.title,
-      column: input.column ?? 'idea',
-      createdAt: utcNow(),
-    });
-    this.database.transaction(() => {
-      this.database.run(
-        `INSERT INTO kanban_cards (id, workspace, title, column_name, created_at)
-         VALUES (?, ?, ?, ?, ?)`,
-        [card.id, card.workspace, card.title, card.column, card.createdAt],
-      );
-      this.database.run(`UPDATE kanban_projects SET updated_at = ? WHERE id = ?`, [
-        card.createdAt,
-        workspace,
-      ]);
-    });
-    this.logger.info({
-      event: 'kanban.card_created',
-      correlationId,
-      data: { cardId: card.id, workspace, column: card.column },
-    });
-    return card;
-  }
-  moveCard(id: string, column: KanbanColumn, correlationId: CorrelationId): KanbanCard {
-    const updatedAt = utcNow();
-    const row = this.database.transaction(() => {
-      this.database.run(`UPDATE kanban_cards SET column_name = ? WHERE id = ?`, [
-        column,
-        id,
-      ]);
-      const found = this.database.queryOne<{
-        id: string;
-        workspace: string;
-        title: string;
-        column_name: string;
-        created_at: string;
-      }>(
-        `SELECT id, workspace, title, column_name, created_at FROM kanban_cards WHERE id = ?`,
-        [id],
-      );
-      if (found === undefined) {
-        throw new BuilderHelmError('VALIDATION_FAILED', 'That card is gone');
-      }
-      this.database.run(`UPDATE kanban_projects SET updated_at = ? WHERE id = ?`, [
-        updatedAt,
-        found.workspace,
-      ]);
-      return found;
-    });
-    this.logger.info({
-      event: 'kanban.card_moved',
-      correlationId,
-      data: { cardId: id, column },
-    });
-    return kanbanCardSchema.parse({
-      id: row.id,
-      workspace: row.workspace,
-      title: row.title,
-      column: row.column_name,
-      createdAt: row.created_at,
-    });
-  }
-  updateCard(id: string, title: string, correlationId: CorrelationId): KanbanCard {
-    const input = kanbanUpdateInputSchema.parse({ id, title });
-    const updatedAt = utcNow();
-    const row = this.database.transaction(() => {
-      this.database.run(`UPDATE kanban_cards SET title = ? WHERE id = ?`, [
-        input.title,
-        input.id,
-      ]);
-      const found = this.database.queryOne<{
-        id: string;
-        workspace: string;
-        title: string;
-        column_name: string;
-        created_at: string;
-      }>(
-        `SELECT id, workspace, title, column_name, created_at FROM kanban_cards WHERE id = ?`,
-        [input.id],
-      );
-      if (found === undefined) {
-        throw new BuilderHelmError('VALIDATION_FAILED', 'That card is gone');
-      }
-      this.database.run(`UPDATE kanban_projects SET updated_at = ? WHERE id = ?`, [
-        updatedAt,
-        found.workspace,
-      ]);
-      return found;
-    });
-    this.logger.info({
-      event: 'kanban.card_updated',
-      correlationId,
-      data: { cardId: input.id },
-    });
-    return kanbanCardSchema.parse({
-      id: row.id,
-      workspace: row.workspace,
-      title: row.title,
-      column: row.column_name,
-      createdAt: row.created_at,
-    });
   }
 
-  deleteCard(id: string, correlationId: CorrelationId): { deleted: true } {
-    const input = kanbanDeleteInputSchema.parse({ id });
-    const updatedAt = utcNow();
-    this.database.transaction(() => {
-      const found = this.database.queryOne<{ workspace: string }>(
-        `SELECT workspace FROM kanban_cards WHERE id = ?`,
-        [input.id],
-      );
-      if (found === undefined) {
-        throw new BuilderHelmError('VALIDATION_FAILED', 'That card is gone');
-      }
-      this.database.run(`DELETE FROM kanban_cards WHERE id = ?`, [input.id]);
-      this.database.run(`UPDATE kanban_projects SET updated_at = ? WHERE id = ?`, [
-        updatedAt,
-        found.workspace,
-      ]);
-    });
-    this.logger.info({
-      event: 'kanban.card_deleted',
-      correlationId,
-      data: { cardId: input.id },
-    });
-    return { deleted: true };
+  private touchProject(workspace: string, updatedAt: string): void {
+    this.database.run(`UPDATE kanban_projects SET updated_at = ? WHERE id = ?`, [
+      updatedAt,
+      workspace,
+    ]);
   }
 }

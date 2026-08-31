@@ -499,7 +499,6 @@ export function BoardPage(): React.JSX.Element {
     },
     onError: (cause: Error) => setLandNotice(cause.message),
   });
-
   const land = useMutation({
     mutationFn: (branch: string) => {
       if (session === null) throw new Error('No live Space session');
@@ -507,6 +506,7 @@ export function BoardPage(): React.JSX.Element {
         correlationId: crypto.randomUUID() as CorrelationId,
         repoPath: session.folderPath,
         branch,
+        reviewedHead: landPreview?.headSha,
       });
     },
     onMutate: () => setLandNotice(null),

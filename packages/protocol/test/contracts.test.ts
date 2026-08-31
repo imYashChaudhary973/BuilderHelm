@@ -31,6 +31,11 @@ import {
   systemHealthRequestSchema,
   systemHealthResponseSchema,
   zeroEventSchema,
+  reviewDiffIpcResponseSchema,
+  reviewLandInspectSchema,
+  githubIssueImportInputSchema,
+  githubIssueSchema,
+  githubIssueSyncInputSchema,
 } from '../src/index.js';
 
 describe('event envelope', () => {
@@ -372,5 +377,55 @@ describe('editor workspace list', () => {
       }).value[0]?.kind,
     ).toBe('dir');
     expect(editorGitIpcResponseSchema.parse({ ok: true, value: null }).value).toBeNull();
+  });
+});
+
+describe('review contracts', () => {
+  it('accepts an empty diff and a clean land inspect', () => {
+    expect(reviewDiffIpcResponseSchema.parse({ ok: true, value: [] }).value).toEqual([]);
+    expect(
+      reviewLandInspectSchema.parse({
+        branch: 'exeum/task',
+        base: 'main',
+        headSha: 'a'.repeat(40),
+        reviewedHead: 'a'.repeat(40),
+        ahead: 1,
+        behind: 0,
+        unmerged: [],
+        kind: 'clean',
+      }).kind,
+    ).toBe('clean');
+  });
+});
+
+describe('GitHub issue contracts', () => {
+  it('accepts an assigned issue and an explicit status write', () => {
+    expect(
+      githubIssueSchema.parse({
+        id: 'I_kwDOBuilderHelm1',
+        repository: 'acme/builderhelm',
+        number: 41,
+        title: 'Ship GitHub issue intake',
+        body: '',
+        url: 'https://github.com/acme/builderhelm/issues/41',
+        state: 'open',
+        updatedAt: '2026-08-31T12:00:00Z',
+        importedCardId: null,
+        importedWorkspaceId: null,
+      }).number,
+    ).toBe(41);
+    expect(
+      githubIssueImportInputSchema.parse({
+        workspace: '00000000-0000-4000-8000-000000000001',
+        url: 'https://github.com/acme/builderhelm/issues/41',
+      }).url,
+    ).toContain('/issues/41');
+    expect(
+      githubIssueSyncInputSchema.parse({
+        cardId: '00000000-0000-4000-8000-000000000002',
+        state: 'closed',
+        requestId: '00000000-0000-4000-8000-000000000003',
+      }).state,
+    ).toBe('closed');
   });
 });

@@ -36,6 +36,13 @@ function createRepository(): string {
   return root;
 }
 
+function branchHead(repo: string, branch: string): string {
+  return execFileSync('git', ['rev-parse', branch], {
+    cwd: repo,
+    encoding: 'utf8',
+  }).trim();
+}
+
 describe('BoardService worktrees', () => {
   it('creates an isolated branch and reports it', async () => {
     const repo = createRepository();
@@ -62,7 +69,12 @@ describe('BoardService worktrees', () => {
     execFileSync('git', ['add', 'extra.md'], { cwd: worktree.path });
     execFileSync('git', ['commit', '-m', 'pane work'], { cwd: worktree.path });
 
-    const result = await service.landBranch(repo, worktree.branch, createCorrelationId());
+    const result = await service.landBranch(
+      repo,
+      worktree.branch,
+      createCorrelationId(),
+      branchHead(worktree.path, 'HEAD'),
+    );
 
     expect(result.landed).toBe(true);
     expect(result.head.length).toBeGreaterThanOrEqual(7);
@@ -104,6 +116,7 @@ describe('BoardService worktrees', () => {
     );
 
     expect(preview.ahead).toBe(1);
+    expect(preview.headSha).toBe(branchHead(worktree.path, 'HEAD'));
     expect(preview.files).toEqual(['extra.md']);
     expect(preview.stat).toContain('extra.md');
     expect(existsSync(join(repo, 'extra.md'))).toBe(false);
@@ -124,10 +137,31 @@ describe('BoardService worktrees', () => {
     execFileSync('git', ['commit', '-m', 'main readme'], { cwd: repo });
 
     await expect(
-      service.landBranch(repo, worktree.branch, createCorrelationId()),
+      service.landBranch(
+        repo,
+        worktree.branch,
+        createCorrelationId(),
+        branchHead(worktree.path, 'HEAD'),
+      ),
     ).rejects.toMatchObject({ code: 'TOOL_EXECUTION_FAILED' });
     expect(readFileSync(join(repo, 'README.md'), 'utf8')).toBe('mainline\n');
     expect(existsSync(join(repo, '.git', 'MERGE_HEAD'))).toBe(false);
+    database.close();
+  });
+
+  it('refuses to land when the reviewed head moved', async () => {
+    const repo = createRepository();
+    const database = openDatabase(':memory:');
+    runMigrations(database, migrations);
+    const service = new BoardService(database, logger);
+    const worktree = await service.createWorktree(repo, 'p1-test', createCorrelationId());
+    writeFileSync(join(worktree.path, 'extra.md'), 'from pane\n');
+    execFileSync('git', ['add', 'extra.md'], { cwd: worktree.path });
+    execFileSync('git', ['commit', '-m', 'pane work'], { cwd: worktree.path });
+    await expect(
+      service.landBranch(repo, worktree.branch, createCorrelationId(), 'a'.repeat(40)),
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    expect(existsSync(join(repo, 'extra.md'))).toBe(false);
     database.close();
   });
 
@@ -137,7 +171,7 @@ describe('BoardService worktrees', () => {
     runMigrations(database, migrations);
     const service = new BoardService(database, logger);
     await expect(
-      service.landBranch(repo, 'main', createCorrelationId()),
+      service.landBranch(repo, 'main', createCorrelationId(), 'a'.repeat(40)),
     ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
     database.close();
   });

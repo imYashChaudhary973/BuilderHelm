@@ -9,6 +9,7 @@ import {
   SettingsRepository,
   ProviderRepository,
   ProjectRepositoryStore,
+  ReviewRepository,
   runMigrations,
   VoiceRepository,
 } from '@builderhelm/db';
@@ -27,7 +28,9 @@ import { KnowledgeService } from './knowledge/knowledge-service.js';
 import { ActionService } from './actions/action-service.js';
 import { createWorkToolRegistry, PermissionEngine } from '@builderhelm/tools';
 import { ProjectService } from './projects/project-service.js';
+import { GitReviewService } from './projects/git-review.js';
 import { BoardService } from './board/board-service.js';
+import { GitHubIssuesService } from './integrations/github-issues.js';
 import { PnpmTaskVerifier } from './swarm/pnpm-verifier.js';
 import {
   SwarmService,
@@ -62,6 +65,8 @@ export interface CoreRuntime {
   readonly projects: ProjectService;
   readonly board: BoardService;
   readonly swarm: SwarmService;
+  readonly review: GitReviewService;
+  readonly githubIssues: GitHubIssuesService;
   readonly previewArtifacts: PreviewArtifactService;
   readonly browserSettings: BrowserSettingsService;
   readonly voice: VoiceService;
@@ -126,6 +131,8 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     options.voiceInventory,
     new OpenAITranscriptionAdapter(options.modelGatewayFetch ?? fetch),
   );
+  const review = new GitReviewService(new ReviewRepository(database));
+  const githubIssues = new GitHubIssuesService(database, board, logger);
   const previewArtifacts = new PreviewArtifactService(
     new PreviewArtifactRepository(database),
   );
@@ -167,6 +174,8 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     projects,
     board,
     swarm,
+    review,
+    githubIssues,
     previewArtifacts,
     browserSettings,
     voice,

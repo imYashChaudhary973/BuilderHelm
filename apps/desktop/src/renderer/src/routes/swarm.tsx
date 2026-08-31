@@ -17,7 +17,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { TerminalPane } from '../components/terminal-pane.js';
 import { SwarmLive, type SwarmLiveSeat } from '../swarm-live.js';
 import { SwarmSetup } from '../swarm-setup.js';
-import { readLastJob, writeLastJob } from '../swarm-persist.js';
+import { readLastJob, takeSwarmHandoff, writeLastJob } from '../swarm-persist.js';
 
 type WizardStep = 'mission' | 'roster' | 'launch';
 
@@ -59,7 +59,9 @@ function formatRemain(ms: number): string {
 export function SwarmPage(): React.JSX.Element {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [job, setJob] = useState(readLastJob());
+  const [handoff] = useState(takeSwarmHandoff);
+  const [job, setJob] = useState(() => handoff?.mission ?? readLastJob());
+  const [sourceCardId, setSourceCardId] = useState(handoff?.cardId ?? null);
   const [folderPath, setFolderPath] = useState('');
   const [homeDir, setHomeDir] = useState('');
   const [step, setStep] = useState<WizardStep>('mission');
@@ -91,7 +93,10 @@ export function SwarmPage(): React.JSX.Element {
     void window.builderHelm.swarm
       .latest({ correlationId: crypto.randomUUID() as CorrelationId })
       .then((latest) => {
-        if (latest !== null && latest.status === 'running') setRun(latest);
+        if (latest !== null && latest.status === 'running') {
+          setRun(latest);
+          setSourceCardId(null);
+        }
       })
       .catch(() => undefined);
   }, []);
@@ -169,11 +174,22 @@ export function SwarmPage(): React.JSX.Element {
       });
     },
     onMutate: () => setError(null),
-    onSuccess: (created) => {
+    onSuccess: async (created) => {
       writeLastJob(job);
       writeRecents(created.folderPath);
       setPreviews({});
       setRun(created);
+      if (sourceCardId === null) return;
+      try {
+        await window.builderHelm.board.linkCardRun({
+          cardId: sourceCardId,
+          runId: created.id,
+        });
+      } catch {
+        setError('Swarm started, but its Board task could not be linked.');
+      } finally {
+        setSourceCardId(null);
+      }
     },
     onError: (cause: Error) => setError(cause.message),
   });

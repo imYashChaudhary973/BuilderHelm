@@ -3273,7 +3273,8 @@ fieldset legend {
   display: flex;
   flex: 1;
   flex-direction: column;
-  min-height: 0;
+  justify-content: center;
+  min-height: 100%;
   padding: 28px 24px 18px;
   overflow: auto;
   background: #070807;
@@ -5410,6 +5411,7 @@ fieldset legend {
   align-items: stretch;
   width: 100%;
   min-height: 100%;
+  height: 100%;
   background: #0a0a0a;
 }
 
@@ -5444,6 +5446,31 @@ fieldset legend {
 
 html.is-fullscreen .spaceHome {
   width: min(820px, calc(100% - 96px));
+}
+
+html.is-fullscreen .spaceStage {
+  height: 100%;
+}
+
+html.is-fullscreen .spaceWizard {
+  width: min(920px, calc(100% - 96px));
+  padding: clamp(28px, 5vh, 64px) 0 clamp(32px, 5vh, 72px);
+  gap: clamp(16px, 2.2vh, 28px);
+}
+
+html.is-fullscreen .layoutTile {
+  min-height: clamp(96px, 11vh, 132px);
+}
+
+html.is-fullscreen .swarmWizard {
+  min-height: 100%;
+  justify-content: center;
+  padding: clamp(28px, 5vh, 56px) 24px clamp(24px, 4vh, 40px);
+}
+
+html.is-fullscreen .swarmWizardBody,
+html.is-fullscreen .swarmWizardFoot {
+  width: min(820px, 100%);
 }
 
 .spaceHomeBrand {
@@ -5811,7 +5838,7 @@ html.is-fullscreen .spaceHome {
 
 .layoutTiles {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: clamp(8px, 1vw, 12px);
 }
 
@@ -5821,8 +5848,8 @@ html.is-fullscreen .spaceHome {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 72px;
-  padding: 10px 6px 8px;
+  min-height: 88px;
+  padding: 12px 8px 10px;
   border-radius: var(--radius-m);
   border: 1px solid var(--line);
   background: var(--bg-1);
@@ -6039,11 +6066,10 @@ html.is-fullscreen .spaceHome {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  justify-content: flex-start;
+  justify-content: center;
   width: min(920px, calc(100% - 64px));
   max-width: 920px;
-  min-height: 0;
-  height: auto;
+  min-height: 100%;
   box-sizing: border-box;
   margin: 0 auto;
   padding: 28px 0 24px;
@@ -6849,13 +6875,248 @@ html.is-fullscreen .spaceHome {
 
 .kanbanCol li {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 10px;
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #121312;
+}
+
+.kanbanCardMain,
+.kanbanCardMoves {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kanbanCardMain {
+  justify-content: space-between;
+}
+
+.kanbanCardMoves {
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.kanbanCardSource {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.kanbanSourceLink {
+  width: auto;
+  height: auto;
+  padding: 0;
+  border: 0;
+  color: var(--accent-bright);
+  background: transparent;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.kanbanSourceLink:hover {
+  text-decoration: underline;
+}
+
+.kanbanCardSource [data-state='open'] {
+  color: #72b869;
+}
+
+.kanbanCardSource [data-state='closed'] {
+  color: #a5a5a5;
+}
+
+.kanbanSourceActions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.kanbanSourceActions button {
+  flex: 1 1 auto;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--bg-1);
+  font-size: 11px;
+  font-weight: 600;
+}
+.kanbanSourceActions button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent-bright);
+  background: var(--accent-dim);
+}
+
+.kanbanNotice {
+  margin: 0;
+  padding: 8px 11px;
+  border-radius: 8px;
+  color: #b6d475;
+  background: rgba(182, 212, 117, 0.1);
+  font-size: 12px;
+}
+
+.githubIntake {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 360px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #0c0d0c;
+  overflow: hidden;
+}
+
+.githubIntake header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.githubIntake header h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.githubIntake header p {
+  margin: 3px 0 0;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.githubIntake header div:last-child {
+  display: flex;
+  gap: 6px;
+}
+
+.githubIntake header button,
+.githubIssueImport {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--bg-1);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.githubIntake header button:hover:not(:disabled),
+.githubIssueImport:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent-bright);
+  background: var(--accent-dim);
+}
+
+.githubIntake ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.githubIntake li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #121312;
+}
+
+.githubIssueIdentity {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.githubIssueIdentity span {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.githubIssueIdentity strong {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.githubIssueImport {
+  flex: 0 0 auto;
+  font-size: 11px;
+}
+
+.githubIssueImport:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.githubIntakeEmpty,
+.githubIntakeError {
+  margin: 0;
+  padding: 16px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.githubIntakeError {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.githubIntakeEmpty {
+  color: var(--text-3);
+}
+
+.githubIssueSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.githubIssueSkeleton span {
+  height: 10px;
+  border-radius: 3px;
+  background: var(--line);
+}
+
+.githubIssueSkeleton span:first-child {
+  width: 30%;
+}
+
+.githubIssueSkeleton span:last-child {
+  width: 70%;
 }
 
 .kanbanCard {
@@ -6917,13 +7178,7 @@ html.is-fullscreen .spaceHome {
 .kanbanCompose form {
   width: 100%;
 }
-
-.kanbanCol li > div {
-  display: flex;
-  gap: 4px;
-}
-
-.kanbanCol li button {
+.kanbanCardMoves button {
   display: grid;
   width: 24px;
   height: 24px;
@@ -6935,7 +7190,7 @@ html.is-fullscreen .spaceHome {
   background: transparent;
 }
 
-.kanbanCol li button:hover:not(:disabled) {
+.kanbanCardMoves button:hover:not(:disabled) {
   border-color: var(--accent);
   color: var(--accent-bright);
   background: var(--accent-dim);
@@ -7223,7 +7478,8 @@ html.is-fullscreen .spaceHome {
   .presetNameInput,
   .spaceMode::before,
   .kanbanCard,
-  .kanbanCol {
+  .kanbanCol,
+  .githubIssueSkeleton span {
     animation: none;
     transition: none;
   }
@@ -7578,198 +7834,585 @@ html.is-fullscreen .spaceHome {
   overflow-wrap: anywhere;
 }
 
+/* Git panel: toolbar, branch head, commit box, change tree, commit graph. */
 .gitSide {
   display: flex;
   flex: 1;
   flex-direction: column;
   min-height: 0;
-  padding: 12px;
-  gap: 10px;
-}
-
-.gitBranch {
-  display: flex;
-  align-items: center;
+  padding: 10px 8px 0;
   gap: 8px;
-  width: fit-content;
-  padding: 5px 10px;
-  border: 1px solid var(--accent-line);
-  border-radius: 999px;
-  background: var(--accent-dim);
-  color: var(--accent-bright);
-  font-size: 12px;
+  overflow: auto;
+  container-type: inline-size;
 }
 
-.gitBranch em {
-  font-style: normal;
-  color: var(--text-2);
-}
-
-.gitViews {
-  display: flex;
-  gap: 4px;
-  padding: 3px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: #101010;
-}
-
-.gitViews button {
-  flex: 1;
+.gitToolbar {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 6px;
-  padding: 6px 8px;
-  border: 0;
-  border-radius: 999px;
+  position: relative;
+}
+
+.gitToolbarGap {
+  flex: 1;
+}
+
+.gitToolbar > button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
   background: transparent;
   color: var(--text-2);
-  font-size: 12px;
 }
 
-.gitViewOn {
-  background: #1a1a1a;
+.gitToolbar > button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.07);
   color: var(--text);
 }
 
-.gitViews strong {
-  padding: 0 5px;
-  border-radius: 999px;
-  background: var(--accent-dim);
-  color: var(--accent-bright);
-  font-size: 11px;
+.gitToolOn {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background: #1c1c1c !important;
+  color: var(--text) !important;
 }
 
-.gitChanges,
-.gitLog {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  overflow: auto;
-}
-
-.gitChanges li,
-.gitLog li {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  padding: 7px 4px;
-  border-top: 1px solid var(--line);
-  font-size: 12px;
-}
-
-.gitChanges em {
-  display: grid;
-  width: 18px;
-  height: 18px;
-  place-items: center;
-  border-radius: 5px;
-  background: var(--accent-dim);
-  color: var(--accent-bright);
-  font-style: normal;
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.gitLog code {
-  flex-shrink: 0;
-  color: var(--text-3);
-  font-family: var(--font-mono);
-}
-
-.gitLists {
-  display: flex;
+.gitFilter {
   flex: 1;
-  flex-direction: column;
-  min-height: 0;
-  overflow: auto;
-  gap: 14px;
-}
-
-.gitLists header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-3);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.gitLists section > p {
-  margin: 8px 0 0;
-  color: var(--text-3);
+  min-width: 0;
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 7px;
+  background: #141414;
+  color: var(--text);
   font-size: 12px;
 }
 
-.gitChanges button {
+.gitFilter:focus {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: -1px;
+}
+
+/* Anchored to the toolbar, above the lists it acts on. */
+.gitMenu {
+  position: absolute;
+  top: 30px;
+  right: 0;
+  z-index: 6;
   display: flex;
-  gap: 8px;
-  align-items: center;
-  width: 100%;
-  padding: 0;
+  flex-direction: column;
+  min-width: 190px;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: #171717;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+}
+
+.gitMenuUp {
+  top: auto;
+  bottom: 32px;
+  right: auto;
+  left: 0;
+}
+
+.gitMenu button {
+  padding: 7px 9px;
   border: 0;
+  border-radius: 7px;
   background: transparent;
-  color: inherit;
+  color: var(--text);
+  font-size: 12px;
   text-align: left;
 }
 
-.gitChanges small {
-  margin-left: auto;
-  color: var(--text-3);
+.gitMenu button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.gitFooter {
-  margin-top: auto;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
-  color: var(--text-3);
+.gitMenu button:disabled {
+  opacity: 0.4;
+}
+
+.gitHead {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.gitChip {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 3px 9px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: #1a1a1a;
+  color: var(--text);
   font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.gitAct {
-  flex-shrink: 0;
-  padding: 2px 8px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #141414;
-  color: var(--text-2);
+/* Detached HEAD is a state a reviewer must notice before committing. */
+.gitChipWarn {
+  border-color: rgba(255, 176, 92, 0.45);
+  background: rgba(255, 176, 92, 0.12);
+  color: #ffc07a;
+}
+
+.gitTrack {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-3);
   font-size: 11px;
 }
 
-.gitLists header .gitAct {
-  margin-left: auto;
-  text-transform: none;
-  letter-spacing: 0;
+.gitTrack em {
+  font-style: normal;
+  color: var(--text-2);
+}
+
+.gitTrack code {
+  color: var(--accent-bright);
+  font-size: 11px;
+}
+
+.gitLink {
+  border: 0;
+  background: transparent;
+  color: var(--accent-bright);
+  font-size: 11px;
+  padding: 0;
+}
+
+.gitBasePick {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9px;
+  background: #141414;
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.gitBasePick select {
+  min-width: 0;
+  height: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 7px;
+  background: #1a1a1a;
+  color: var(--text);
+  font-size: 12px;
 }
 
 .gitCommit {
   display: flex;
-  gap: 6px;
+  flex-direction: column;
+  gap: 7px;
 }
 
-.gitCommit input {
-  flex: 1;
-  min-width: 0;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
+.gitMessage {
+  width: 100%;
+  padding: 8px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9px;
+  background: #141414;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  resize: vertical;
+}
+
+.gitMessage:focus {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: -1px;
+}
+
+.gitMessage:disabled {
+  opacity: 0.5;
+}
+
+.gitCommitRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* One control, two targets: the label stages, the chevron opens its menu. */
+.gitSplit {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
-  background: #101010;
+  background: #1a1a1a;
+  overflow: visible;
+}
+
+.gitSplit > button {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  padding: 5px 10px;
+}
+
+.gitSplit > button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.gitSplit > button:disabled {
+  opacity: 0.4;
+}
+
+.gitSplitMore {
+  display: grid !important;
+  place-items: center;
+  width: 24px;
+  padding: 0 !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: var(--text-2) !important;
+}
+
+.gitCommitGo {
+  margin-left: auto;
+  padding: 5px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: #1a1a1a;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.gitCommitGo:disabled {
+  opacity: 0.4;
+}
+
+.gitLists {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+}
+
+.gitGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.gitGroupHead {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 4px 5px;
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
+.gitGroupName {
+  white-space: nowrap;
+}
+
+.gitGroupCount {
+  color: var(--text-2);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.gitViewAll {
+  margin-left: auto;
+  padding: 1px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent-bright);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.gitViewAll:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* Sibling icon buttons keep their own gap rather than each claiming the margin. */
+.gitViewAll + .gitViewAll {
+  margin-left: 0;
+}
+
+.gitGroupEmpty {
+  margin: 0;
+  padding: 4px 6px 8px;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.gitRows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gitFolder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  color: var(--text-2);
+  font-size: 11px;
+}
+
+.gitFolder strong {
+  color: var(--text-3);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.gitRow {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 7px;
+}
+
+.gitRow:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.gitRowIn {
+  padding-left: 12px;
+}
+
+.gitRowPick {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 5px 6px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+}
+
+.gitFileIcon {
+  flex-shrink: 0;
+  color: var(--text-3);
+}
+
+.gitRowName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gitRowDir {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gitAdded,
+.gitRemoved {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.gitAdded {
+  color: #8fce6a;
+}
+
+.gitRemoved {
+  color: #ff8f73;
+}
+
+/* Counts already claimed the margin, so the badge only needs its own gap. */
+.gitAdded ~ .gitRemoved,
+.gitAdded ~ .gitBadge,
+.gitRemoved ~ .gitBadge {
+  margin-left: 0;
+}
+
+.gitBadge {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  flex-shrink: 0;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-2);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.gitAct {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.gitAct:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
   color: var(--text);
 }
 
-.gitCommit button {
-  padding: 8px 12px;
-  border: 0;
-  border-radius: 8px;
-  background: var(--accent);
-  color: var(--bg);
-  font-weight: 650;
+.gitAct:disabled {
+  opacity: 0.35;
 }
 
-.gitCommit button:disabled {
-  opacity: 0.4;
+/* Single lane. A real multi-branch graph is a different feature. */
+.gitGraph {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gitNode {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  align-items: start;
+}
+
+.gitLane {
+  position: relative;
+  display: block;
+  align-self: stretch;
+  min-height: 26px;
+}
+
+.gitDot {
+  position: absolute;
+  top: 9px;
+  left: 5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--text-3);
+}
+
+.gitDotHead {
+  background: var(--accent-bright);
+  box-shadow: 0 0 0 3px rgba(122, 162, 247, 0.22);
+}
+
+.gitWire {
+  position: absolute;
+  top: 16px;
+  bottom: -2px;
+  left: 8px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.gitNodeRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+}
+
+.gitNodeRow:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.gitChevron {
+  flex-shrink: 0;
+  width: 9px;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.gitNodeSubject {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gitNodeSha {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--text-3);
+  font-size: 10px;
+}
+
+.gitNodeFiles {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 6px;
+  padding: 0 0 0 15px;
+  list-style: none;
+}
+
+.gitNodeFiles li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 0;
+  color: var(--text-2);
+  font-size: 11px;
+  min-width: 0;
+}
+
+.gitFooter {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  padding: 7px 4px;
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text-3);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Under roughly 230px the directory column and counts cannot share a row. */
+@container (max-width: 230px) {
+  .gitRowDir {
+    display: none;
+  }
 }
 
 /* Swarm inspector: tabs, plan, chat, activity, node previews. */
@@ -8167,4 +8810,174 @@ html.is-fullscreen .spaceHome {
   .voiceDownloadBarIndeterminate span {
     animation: none;
   }
+}
+
+/* Lives inside the Git sidebar now, not on a page of its own: no outer
+   padding, and it scrolls within whatever width the panel is dragged to. */
+.reviewPage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+  gap: 10px;
+  overflow: auto;
+  container-type: inline-size;
+}
+
+.reviewHeader h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.reviewHeader p,
+.reviewEmpty {
+  margin: 4px 0 0;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.reviewWorkspace {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 260px;
+  gap: 12px;
+  min-height: 0;
+  flex: 1;
+}
+
+/* The sidebar is narrower than any three-column layout can survive, so the
+   file list, the diff, and the ship panel stack instead of being clipped. */
+@container (max-width: 720px) {
+  .reviewWorkspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .reviewFiles,
+  .reviewShip {
+    max-height: 220px;
+    overflow: auto;
+  }
+}
+
+.reviewFiles,
+.reviewDiff,
+.reviewShip {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--panel);
+}
+
+.reviewFiles,
+.reviewShip {
+  padding: 12px;
+}
+
+.reviewFiles ul,
+.reviewComments,
+.reviewChecks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.reviewFiles button,
+.reviewShip button {
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
+  text-align: left;
+  font-size: 12px;
+}
+
+.reviewFileOn {
+  background: var(--accent-dim);
+  color: var(--accent-bright);
+}
+
+.reviewDiff {
+  padding: 12px 14px;
+}
+
+.reviewDiff h2 {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.reviewHunk {
+  margin: 0 0 12px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.reviewLineAdd {
+  display: block;
+  background: rgba(182, 212, 117, 0.12);
+}
+
+.reviewLineDel {
+  display: block;
+  background: var(--danger-dim);
+}
+
+.reviewLineCtx {
+  display: block;
+  color: var(--text-3);
+}
+
+.reviewComment {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.reviewComment input,
+.reviewShip input,
+.reviewShip textarea {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #101010;
+  color: var(--text);
+}
+
+.reviewShip textarea {
+  min-height: 64px;
+}
+
+.reviewComments li,
+.reviewChecks li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.reviewChecks em {
+  color: var(--accent-bright);
+  font-style: normal;
+}
+
+.reviewShip section {
+  margin-bottom: 16px;
+}
+
+.reviewShip a {
+  display: block;
+  margin: 6px 0;
+  color: var(--accent-bright);
+  font-size: 12px;
 }

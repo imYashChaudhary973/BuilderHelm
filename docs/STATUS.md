@@ -17,9 +17,22 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 - Space setup with real xterm.js terminals backed by node-pty.
 - Per-pane installed-agent selection and plain-shell mode.
 - Board project selection, persistence, stages, and drag-and-drop.
+- GitHub issue intake: assigned `gh` issues, one Board card per source ID,
+  Swarm start from an imported card, and explicit close/reopen with a receipt.
+  Covered by service tests. The Board GitHub panel has not been clicked live.
 - Memory vault selection, local Markdown indexing, answers, and citations.
 - Editor tree, tabs, save, save-all, autosave, and word wrap.
 - Git status, history, stage, unstage, and commit.
+- Git panel: branch, tracking, multi-line commit box, staged / change sections
+  with folder grouping and per-file `+N`/`−N` counts, a commit graph with
+  lazy-expand rows, file filtering, and a selectable base ref.
+- Review, a top-level side-panel tab: unified diffs, line comments routed to
+  the seat that owns the file, checks recorded with their exact command and
+  revision, draft pull requests and CI status through the GitHub CLI, and
+  landing that refuses a head the reviewer did not approve. Landing takes two
+  presses so the approved commit is the merged commit. The service is covered
+  by tests; the sidebar view has been driven against a real repository, but its
+  check, pull-request, and land buttons have not been clicked live.
 - Swarm mission, roster, CLI seats, live state, directives, budgets, and worktree flow.
 - Voice dictation: on-device models never send audio off-device; cloud models
   require a stored key and first-run consent before any upload.
@@ -55,7 +68,7 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 
 ## Partial or needing hardening
 
-- Swarm verification, review, landing, stop/reconnect, and failure recovery.
+- Swarm stop/reconnect and failure recovery.
 - Terminal output is batched in Electron main, startup scanning is incremental,
   and reconnect reconciles the drain snapshot against live output by stream
   offset. Verified on macOS at 1, 2, 4, 8, and 12 panes. Renderer-side write
@@ -77,9 +90,8 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 
 ## Planned, not shipped
 
-- Unified diff, test, CI, conflict, commit, and pull-request review surface.
 - Unsigned or auto-approved whole-desktop computer-use.
-- GitHub and Linear task integrations.
+- Linear task intake, GitHub pull-request intake, and a BuilderHelm OAuth app.
 - Global search across worktrees, files, agents, commands, and artifacts.
 - Rich development notes with slash commands and inline logs.
 - Usage, quota, rate-limit, and account-switching UI.

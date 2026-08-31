@@ -43,6 +43,8 @@ import {
   swarmCreateRequestSchema,
   swarmDirectIpcResponseSchema,
   swarmDirectRequestSchema,
+  swarmLandTaskIpcResponseSchema,
+  swarmLandTaskRequestSchema,
   swarmStateIpcResponseSchema,
   swarmStateRequestSchema,
   swarmStopIpcResponseSchema,
@@ -58,6 +60,8 @@ import {
   kanbanDeleteInputSchema,
   kanbanDeleteIpcResponseSchema,
   kanbanListInputSchema,
+  kanbanLinkRunInputSchema,
+  kanbanLinkRunIpcResponseSchema,
   kanbanListIpcResponseSchema,
   kanbanMoveInputSchema,
   kanbanMoveIpcResponseSchema,
@@ -68,6 +72,15 @@ import {
   kanbanUpdateInputSchema,
   kanbanUpdateIpcResponseSchema,
 } from '@builderhelm/protocol/kanban';
+import {
+  githubIssueImportInputSchema,
+  githubIssueImportIpcResponseSchema,
+  githubIssueListInputSchema,
+  githubIssueListIpcResponseSchema,
+  githubIssueSyncInputSchema,
+  githubIssueSyncIpcResponseSchema,
+} from '@builderhelm/protocol/integrations';
+
 import {
   ipcChannels,
   systemHealthResponseSchema,
@@ -110,6 +123,8 @@ import {
   editorCreateIpcResponseSchema,
   editorGitCommitInputSchema,
   editorGitCommitIpcResponseSchema,
+  editorGitCommitFilesInputSchema,
+  editorGitCommitFilesIpcResponseSchema,
   editorGitInputSchema,
   editorGitIpcResponseSchema,
   editorGitStageInputSchema,
@@ -124,6 +139,24 @@ import {
   editorWriteInputSchema,
   editorWriteIpcResponseSchema,
 } from '@builderhelm/protocol/editor';
+import {
+  reviewCheckListIpcResponseSchema,
+  reviewCheckListInputSchema,
+  reviewCheckRunIpcResponseSchema,
+  reviewCheckRunInputSchema,
+  reviewCiIpcResponseSchema,
+  reviewCiInputSchema,
+  reviewCommentCreateIpcResponseSchema,
+  reviewCommentCreateInputSchema,
+  reviewCommentListIpcResponseSchema,
+  reviewCommentListInputSchema,
+  reviewDiffIpcResponseSchema,
+  reviewDiffInputSchema,
+  reviewLandInspectIpcResponseSchema,
+  reviewLandInspectInputSchema,
+  reviewPrDraftIpcResponseSchema,
+  reviewPrDraftInputSchema,
+} from '@builderhelm/protocol/review';
 import {
   voiceHotkeyEventSchema,
   voiceKeyDeleteIpcResponseSchema,
@@ -442,6 +475,13 @@ const api: BuilderHelmDesktopApi = {
       );
       return unwrap(swarmDirectIpcResponseSchema.parse(response));
     },
+    async landTask(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.swarmLandTask,
+        swarmLandTaskRequestSchema.parse(input),
+      );
+      return unwrap(swarmLandTaskIpcResponseSchema.parse(response));
+    },
     async stop(input) {
       const response: unknown = await ipcRenderer.invoke(
         ipcChannels.swarmStop,
@@ -625,6 +665,13 @@ const api: BuilderHelmDesktopApi = {
       });
       return unwrap(kanbanUpdateIpcResponseSchema.parse(response));
     },
+    async linkCardRun(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.kanbanLinkRun, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: kanbanLinkRunInputSchema.parse(input),
+      });
+      return unwrap(kanbanLinkRunIpcResponseSchema.parse(response));
+    },
     async deleteCard(input) {
       const response: unknown = await ipcRenderer.invoke(ipcChannels.kanbanDelete, {
         correlationId: globalThis.crypto.randomUUID(),
@@ -643,6 +690,29 @@ const api: BuilderHelmDesktopApi = {
         listeners.delete(listener);
         if (listeners.size === 0) boardListeners.delete(sessionId);
       };
+    },
+  },
+  integrations: {
+    async listGitHubIssues(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.githubIssueList, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: githubIssueListInputSchema.parse(input),
+      });
+      return unwrap(githubIssueListIpcResponseSchema.parse(response));
+    },
+    async importGitHubIssue(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.githubIssueImport, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: githubIssueImportInputSchema.parse(input),
+      });
+      return unwrap(githubIssueImportIpcResponseSchema.parse(response));
+    },
+    async syncGitHubIssue(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.githubIssueSync, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: githubIssueSyncInputSchema.parse(input),
+      });
+      return unwrap(githubIssueSyncIpcResponseSchema.parse(response));
     },
   },
   projects: {
@@ -887,12 +957,22 @@ const api: BuilderHelmDesktopApi = {
       });
       return unwrap(editorListIpcResponseSchema.parse(response));
     },
-    async git(root) {
+    async git(root, base = null) {
       const response: unknown = await ipcRenderer.invoke(ipcChannels.editorGit, {
         correlationId: globalThis.crypto.randomUUID(),
-        input: editorGitInputSchema.parse({ root }),
+        input: editorGitInputSchema.parse({ root, base }),
       });
       return unwrap(editorGitIpcResponseSchema.parse(response));
+    },
+    async gitCommitFiles(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.editorGitCommitFiles,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          input: editorGitCommitFilesInputSchema.parse(input),
+        },
+      );
+      return unwrap(editorGitCommitFilesIpcResponseSchema.parse(response));
     },
     async write(input) {
       const response: unknown = await ipcRenderer.invoke(ipcChannels.editorWrite, {
@@ -928,6 +1008,67 @@ const api: BuilderHelmDesktopApi = {
         input: editorGitCommitInputSchema.parse(input),
       });
       return unwrap(editorGitCommitIpcResponseSchema.parse(response));
+    },
+  },
+  review: {
+    async diff(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.reviewDiff, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: reviewDiffInputSchema.parse(input),
+      });
+      return unwrap(reviewDiffIpcResponseSchema.parse(response));
+    },
+    async comment(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.reviewCommentCreate,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          input: reviewCommentCreateInputSchema.parse(input),
+        },
+      );
+      return unwrap(reviewCommentCreateIpcResponseSchema.parse(response));
+    },
+    async comments(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.reviewCommentList, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: reviewCommentListInputSchema.parse(input),
+      });
+      return unwrap(reviewCommentListIpcResponseSchema.parse(response));
+    },
+    async check(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.reviewCheckRun, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: reviewCheckRunInputSchema.parse(input),
+      });
+      return unwrap(reviewCheckRunIpcResponseSchema.parse(response));
+    },
+    async checks(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.reviewCheckList, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: reviewCheckListInputSchema.parse(input),
+      });
+      return unwrap(reviewCheckListIpcResponseSchema.parse(response));
+    },
+    async prDraft(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.reviewPrDraft, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: reviewPrDraftInputSchema.parse(input),
+      });
+      return unwrap(reviewPrDraftIpcResponseSchema.parse(response));
+    },
+    async ci(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.reviewCi, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: reviewCiInputSchema.parse(input),
+      });
+      return unwrap(reviewCiIpcResponseSchema.parse(response));
+    },
+    async inspectLand(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.reviewLandInspect, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: reviewLandInspectInputSchema.parse(input),
+      });
+      return unwrap(reviewLandInspectIpcResponseSchema.parse(response));
     },
   },
   voice: {

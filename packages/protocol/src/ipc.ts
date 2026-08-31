@@ -24,20 +24,30 @@ import type {
 import type {
   SwarmCreateInput,
   SwarmDirectInput,
+  SwarmLandTaskInput,
   SwarmRunRecord,
   SwarmState,
+  SwarmTaskRecord,
 } from './swarm.js';
 import type {
   KanbanCard,
   KanbanCreateInput,
   KanbanDeleteInput,
   KanbanListInput,
+  KanbanLinkRunInput,
   KanbanMoveInput,
   KanbanProject,
   KanbanProjectCreateInput,
   KanbanProjectListInput,
   KanbanUpdateInput,
 } from './kanban.js';
+import type {
+  GitHubIssue,
+  GitHubIssueImportInput,
+  GitHubIssueListInput,
+  GitHubIssueSyncInput,
+  GitHubIssueSyncResult,
+} from './integrations.js';
 
 import type {
   BrowserCommandInput,
@@ -72,12 +82,30 @@ import type {
   EditorFile,
   EditorGit,
   EditorGitCommitInput,
+  EditorGitCommitFile,
+  EditorGitCommitFilesInput,
   EditorGitStageInput,
   EditorListInput,
   EditorReadInput,
   EditorSearchInput,
   EditorWriteInput,
 } from './editor.js';
+import type {
+  ReviewCheck,
+  ReviewCheckListInput,
+  ReviewCheckRunInput,
+  ReviewCi,
+  ReviewCiInput,
+  ReviewComment,
+  ReviewCommentCreateInput,
+  ReviewCommentListInput,
+  ReviewDiffFile,
+  ReviewDiffInput,
+  ReviewLandInspect,
+  ReviewLandInspectInput,
+  ReviewPr,
+  ReviewPrDraftInput,
+} from './review.js';
 import type {
   ActionCommandInput,
   ActionCommandOutcome,
@@ -194,6 +222,10 @@ export const ipcChannels = {
   kanbanMove: 'builderhelm:kanban:move',
   kanbanUpdate: 'builderhelm:kanban:update',
   kanbanDelete: 'builderhelm:kanban:delete',
+  kanbanLinkRun: 'builderhelm:kanban:link-run',
+  githubIssueList: 'builderhelm:integration:github-issue-list',
+  githubIssueImport: 'builderhelm:integration:github-issue-import',
+  githubIssueSync: 'builderhelm:integration:github-issue-sync',
   browserCommand: 'builderhelm:browser:command',
   browserOrigins: 'builderhelm:browser:origins',
   browserSnapshot: 'builderhelm:browser:snapshot',
@@ -223,11 +255,21 @@ export const ipcChannels = {
   editorRead: 'builderhelm:editor:read',
   editorList: 'builderhelm:editor:list',
   editorGit: 'builderhelm:editor:git',
+  editorGitCommitFiles: 'builderhelm:editor:git-commit-files',
   editorWrite: 'builderhelm:editor:write',
   editorCreate: 'builderhelm:editor:create',
   editorSearch: 'builderhelm:editor:search',
   editorGitStage: 'builderhelm:editor:git-stage',
   editorGitCommit: 'builderhelm:editor:git-commit',
+  swarmLandTask: 'builderhelm:swarm:land-task',
+  reviewDiff: 'builderhelm:review:diff',
+  reviewCommentCreate: 'builderhelm:review:comment-create',
+  reviewCommentList: 'builderhelm:review:comment-list',
+  reviewCheckRun: 'builderhelm:review:check-run',
+  reviewCheckList: 'builderhelm:review:check-list',
+  reviewPrDraft: 'builderhelm:review:pr-draft',
+  reviewCi: 'builderhelm:review:ci',
+  reviewLandInspect: 'builderhelm:review:land-inspect',
   voiceStatus: 'builderhelm:voice:status',
   voiceSettingsUpdate: 'builderhelm:voice:settings-update',
   voiceKeySave: 'builderhelm:voice:key-save',
@@ -324,6 +366,10 @@ export interface BuilderHelmDesktopApi {
       readonly correlationId: CorrelationId;
       readonly input: SwarmDirectInput;
     }): Promise<{ queued: true }>;
+    landTask(input: {
+      readonly correlationId: CorrelationId;
+      readonly input: SwarmLandTaskInput;
+    }): Promise<SwarmTaskRecord>;
     stop(input: {
       readonly correlationId: CorrelationId;
       readonly runId: string;
@@ -361,11 +407,17 @@ export interface BuilderHelmDesktopApi {
     createCard(input: KanbanCreateInput): Promise<KanbanCard>;
     moveCard(input: KanbanMoveInput): Promise<KanbanCard>;
     updateCard(input: KanbanUpdateInput): Promise<KanbanCard>;
+    linkCardRun(input: KanbanLinkRunInput): Promise<KanbanCard>;
     deleteCard(input: KanbanDeleteInput): Promise<{ readonly deleted: true }>;
     onPaneEvent(
       sessionId: string,
       listener: (event: BoardPaneEventEnvelope) => void,
     ): () => void;
+  };
+  readonly integrations: {
+    listGitHubIssues(input: GitHubIssueListInput): Promise<GitHubIssue[]>;
+    importGitHubIssue(input: GitHubIssueImportInput): Promise<KanbanCard>;
+    syncGitHubIssue(input: GitHubIssueSyncInput): Promise<GitHubIssueSyncResult>;
   };
   readonly projects: {
     dashboard(): Promise<ProjectDashboardSnapshot>;
@@ -413,12 +465,23 @@ export interface BuilderHelmDesktopApi {
     pick(): Promise<EditorFile | null>;
     read(input: EditorReadInput): Promise<EditorFile>;
     list(input: EditorListInput): Promise<EditorEntry[]>;
-    git(root: string): Promise<EditorGit | null>;
+    git(root: string, base?: string | null): Promise<EditorGit | null>;
+    gitCommitFiles(input: EditorGitCommitFilesInput): Promise<EditorGitCommitFile[]>;
     write(input: EditorWriteInput): Promise<EditorFile>;
     create(input: EditorCreateInput): Promise<EditorEntry>;
     search(input: EditorSearchInput): Promise<EditorEntry[]>;
     gitStage(input: EditorGitStageInput): Promise<EditorGit>;
     gitCommit(input: EditorGitCommitInput): Promise<EditorGit>;
+  };
+  readonly review: {
+    diff(input: ReviewDiffInput): Promise<ReviewDiffFile[]>;
+    comment(input: ReviewCommentCreateInput): Promise<ReviewComment>;
+    comments(input: ReviewCommentListInput): Promise<ReviewComment[]>;
+    check(input: ReviewCheckRunInput): Promise<ReviewCheck>;
+    checks(input: ReviewCheckListInput): Promise<ReviewCheck[]>;
+    prDraft(input: ReviewPrDraftInput): Promise<ReviewPr>;
+    ci(input: ReviewCiInput): Promise<ReviewCi>;
+    inspectLand(input: ReviewLandInspectInput): Promise<ReviewLandInspect>;
   };
   readonly voice: {
     status(): Promise<VoiceStatus>;
