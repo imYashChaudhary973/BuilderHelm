@@ -884,19 +884,17 @@ html.is-fullscreen .shell {
   background: color-mix(in srgb, var(--accent-dim) 45%, transparent);
 }
 
-/* An outer shell holding an inner field, as in the reference chrome: the shell
-   carries the rounding, the field carries the text. Import uses the same
-   metrics so the two sit as a pair. */
+/* One pill, not a field inside a field. Import shares the same metrics. */
 .browserOmnibox,
 .browserImport {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   height: 36px;
-  padding: 0 4px 0 12px;
+  padding: 0 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
-  background: #0d0d0d;
+  background: #171717;
 }
 
 .browserOmnibox {
@@ -921,21 +919,6 @@ html.is-fullscreen .shell {
   color: var(--accent-bright);
 }
 
-.browserOmniboxField,
-.browserImportLabel {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  height: 28px;
-  padding: 0 12px;
-  border-radius: 8px;
-  background: #171717;
-}
-
-.browserOmniboxField {
-  flex: 1;
-}
-
 .browserOmnibox input {
   flex: 1;
   min-width: 0;
@@ -957,10 +940,6 @@ html.is-fullscreen .shell {
 }
 
 .browserImport:hover {
-  background: #141414;
-}
-
-.browserImport:hover .browserImportLabel {
   background: #1c1c1c;
 }
 
@@ -970,7 +949,7 @@ html.is-fullscreen .shell {
   }
 
   .browserImport {
-    padding: 0 12px;
+    padding: 0 10px;
   }
 }
 

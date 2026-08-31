@@ -481,24 +481,22 @@ export function BrowserSidebar({
           >
             {secure ? <IconLock /> : <IconWeb />}
           </span>
-          <div className="browserOmniboxField">
-            <input
-              ref={omniboxRef}
-              aria-label="Address and search"
-              value={draft}
-              placeholder="Enter a URL or search"
-              spellCheck={false}
-              autoComplete="off"
-              onFocus={(event) => event.currentTarget.select()}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key !== 'Escape') return;
-                event.preventDefault();
-                setDraft(page ?? '');
-                event.currentTarget.blur();
-              }}
-            />
-          </div>
+          <input
+            ref={omniboxRef}
+            aria-label="Address and search"
+            value={draft}
+            placeholder="Enter a URL or search"
+            spellCheck={false}
+            autoComplete="off"
+            onFocus={(event) => event.currentTarget.select()}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Escape') return;
+              event.preventDefault();
+              setDraft(page ?? '');
+              event.currentTarget.blur();
+            }}
+          />
         </div>
         <button
           type="button"
