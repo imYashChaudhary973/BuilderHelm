@@ -47,6 +47,13 @@ import type {
   GitHubIssueListInput,
   GitHubIssueSyncInput,
   GitHubIssueSyncResult,
+  LinearIssue,
+  LinearIssueImportInput,
+  LinearIssueListInput,
+  LinearIssueSyncInput,
+  LinearIssueSyncResult,
+  LinearKeySaveInput,
+  LinearStatus,
 } from './integrations.js';
 
 import type {
@@ -226,6 +233,12 @@ export const ipcChannels = {
   githubIssueList: 'builderhelm:integration:github-issue-list',
   githubIssueImport: 'builderhelm:integration:github-issue-import',
   githubIssueSync: 'builderhelm:integration:github-issue-sync',
+  linearIssueList: 'builderhelm:integration:linear-issue-list',
+  linearIssueImport: 'builderhelm:integration:linear-issue-import',
+  linearIssueSync: 'builderhelm:integration:linear-issue-sync',
+  linearStatus: 'builderhelm:integration:linear-status',
+  linearKeySave: 'builderhelm:integration:linear-key-save',
+  linearKeyDelete: 'builderhelm:integration:linear-key-delete',
   browserCommand: 'builderhelm:browser:command',
   browserOrigins: 'builderhelm:browser:origins',
   browserSnapshot: 'builderhelm:browser:snapshot',
@@ -418,6 +431,12 @@ export interface BuilderHelmDesktopApi {
     listGitHubIssues(input: GitHubIssueListInput): Promise<GitHubIssue[]>;
     importGitHubIssue(input: GitHubIssueImportInput): Promise<KanbanCard>;
     syncGitHubIssue(input: GitHubIssueSyncInput): Promise<GitHubIssueSyncResult>;
+    listLinearIssues(input: LinearIssueListInput): Promise<LinearIssue[]>;
+    importLinearIssue(input: LinearIssueImportInput): Promise<KanbanCard>;
+    syncLinearIssue(input: LinearIssueSyncInput): Promise<LinearIssueSyncResult>;
+    linearStatus(): Promise<LinearStatus>;
+    saveLinearKey(input: LinearKeySaveInput): Promise<LinearStatus>;
+    deleteLinearKey(): Promise<LinearStatus>;
   };
   readonly projects: {
     dashboard(): Promise<ProjectDashboardSnapshot>;

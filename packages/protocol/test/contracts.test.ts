@@ -36,6 +36,9 @@ import {
   githubIssueImportInputSchema,
   githubIssueSchema,
   githubIssueSyncInputSchema,
+  linearIssueImportInputSchema,
+  linearIssueSchema,
+  linearIssueSyncInputSchema,
 } from '../src/index.js';
 
 describe('event envelope', () => {
@@ -422,6 +425,37 @@ describe('GitHub issue contracts', () => {
     ).toContain('/issues/41');
     expect(
       githubIssueSyncInputSchema.parse({
+        cardId: '00000000-0000-4000-8000-000000000002',
+        state: 'closed',
+        requestId: '00000000-0000-4000-8000-000000000003',
+      }).state,
+    ).toBe('closed');
+  });
+});
+
+describe('Linear issue contracts', () => {
+  it('accepts an assigned issue and an explicit status write', () => {
+    expect(
+      linearIssueSchema.parse({
+        id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+        identifier: 'ENG-41',
+        title: 'Ship Linear issue intake',
+        body: '',
+        url: 'https://linear.app/acme/issue/ENG-41',
+        state: 'open',
+        updatedAt: '2026-08-31T12:00:00.000Z',
+        importedCardId: null,
+        importedWorkspaceId: null,
+      }).identifier,
+    ).toBe('ENG-41');
+    expect(
+      linearIssueImportInputSchema.parse({
+        workspace: '00000000-0000-4000-8000-000000000001',
+        url: 'https://linear.app/acme/issue/ENG-41',
+      }).url,
+    ).toContain('/issue/ENG-41');
+    expect(
+      linearIssueSyncInputSchema.parse({
         cardId: '00000000-0000-4000-8000-000000000002',
         state: 'closed',
         requestId: '00000000-0000-4000-8000-000000000003',

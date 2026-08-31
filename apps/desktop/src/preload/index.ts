@@ -79,6 +79,16 @@ import {
   githubIssueListIpcResponseSchema,
   githubIssueSyncInputSchema,
   githubIssueSyncIpcResponseSchema,
+  linearIssueImportInputSchema,
+  linearIssueImportIpcResponseSchema,
+  linearIssueListInputSchema,
+  linearIssueListIpcResponseSchema,
+  linearIssueSyncInputSchema,
+  linearIssueSyncIpcResponseSchema,
+  linearKeyDeleteIpcResponseSchema,
+  linearKeySaveInputSchema,
+  linearKeySaveIpcResponseSchema,
+  linearStatusIpcResponseSchema,
 } from '@builderhelm/protocol/integrations';
 
 import {
@@ -713,6 +723,48 @@ const api: BuilderHelmDesktopApi = {
         input: githubIssueSyncInputSchema.parse(input),
       });
       return unwrap(githubIssueSyncIpcResponseSchema.parse(response));
+    },
+    async listLinearIssues(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.linearIssueList, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: linearIssueListInputSchema.parse(input),
+      });
+      return unwrap(linearIssueListIpcResponseSchema.parse(response));
+    },
+    async importLinearIssue(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.linearIssueImport, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: linearIssueImportInputSchema.parse(input),
+      });
+      return unwrap(linearIssueImportIpcResponseSchema.parse(response));
+    },
+    async syncLinearIssue(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.linearIssueSync, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: linearIssueSyncInputSchema.parse(input),
+      });
+      return unwrap(linearIssueSyncIpcResponseSchema.parse(response));
+    },
+    async linearStatus() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.linearStatus, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: {},
+      });
+      return unwrap(linearStatusIpcResponseSchema.parse(response));
+    },
+    async saveLinearKey(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.linearKeySave, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: linearKeySaveInputSchema.parse(input),
+      });
+      return unwrap(linearKeySaveIpcResponseSchema.parse(response));
+    },
+    async deleteLinearKey() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.linearKeyDelete, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: {},
+      });
+      return unwrap(linearKeyDeleteIpcResponseSchema.parse(response));
     },
   },
   projects: {

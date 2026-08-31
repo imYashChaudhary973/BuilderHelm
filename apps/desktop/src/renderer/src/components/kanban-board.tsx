@@ -2,10 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import type {
   KanbanCard,
+  KanbanCardSource,
   KanbanColumn,
   KanbanProject,
 } from '@builderhelm/protocol/kanban';
-import type { GitHubIssue } from '@builderhelm/protocol/integrations';
+import type { GitHubIssue, LinearIssue } from '@builderhelm/protocol/integrations';
 import { useEffect, useState } from 'react';
 
 import { useBoards } from '../board-store.js';
@@ -18,6 +19,12 @@ const COLUMNS: readonly { id: KanbanColumn; label: string }[] = [
   { id: 'shipped', label: 'Complete' },
   { id: 'cancelled', label: 'Cancelled' },
 ];
+
+function sourceLabel(source: KanbanCardSource): string {
+  return source.provider === 'github'
+    ? `${source.repository} #${source.number}`
+    : source.identifier;
+}
 
 function neighbor(id: KanbanColumn, delta: -1 | 1): KanbanColumn | undefined {
   return COLUMNS[COLUMNS.findIndex((column) => column.id === id) + delta]?.id;
@@ -259,6 +266,135 @@ function GitHubIntakePanel({
   );
 }
 
+
+function LinearIntakePanel({
+  issues,
+  loading,
+  refreshing,
+  busy,
+  configured,
+  error,
+  currentWorkspace,
+  keyDraft,
+  onKeyDraft,
+  onSaveKey,
+  onDisconnect,
+  onRefresh,
+  onClose,
+  onImport,
+  onOpen,
+}: {
+  readonly issues: readonly LinearIssue[];
+  readonly loading: boolean;
+  readonly refreshing: boolean;
+  readonly busy: boolean;
+  readonly configured: boolean;
+  readonly error: string | null;
+  readonly currentWorkspace: string;
+  readonly keyDraft: string;
+  readonly onKeyDraft: (value: string) => void;
+  readonly onSaveKey: () => void;
+  readonly onDisconnect: () => void;
+  readonly onRefresh: () => void;
+  readonly onClose: () => void;
+  readonly onImport: (issue: LinearIssue) => void;
+  readonly onOpen: (url: string) => void;
+}): React.JSX.Element {
+  return (
+    <section className="githubIntake" aria-labelledby="linear-intake-title">
+      <header>
+        <div>
+          <h2 id="linear-intake-title">Assigned Linear issues</h2>
+          <p>Import work explicitly. BuilderHelm never starts an agent from this list.</p>
+        </div>
+        <div>
+          {configured ? (
+            <button type="button" disabled={busy} onClick={onDisconnect}>
+              Disconnect
+            </button>
+          ) : null}
+          <button type="button" disabled={refreshing || !configured} onClick={onRefresh}>
+            {refreshing ? 'Refreshing…' : 'Refresh'}
+          </button>
+          <button type="button" aria-label="Close Linear issue list" onClick={onClose}>
+            ×
+          </button>
+        </div>
+      </header>
+      {configured ? null : (
+        <form
+          className="kanbanAdd"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSaveKey();
+          }}
+        >
+          <input
+            type="password"
+            autoComplete="off"
+            aria-label="Linear API key"
+            placeholder="Linear API key"
+            value={keyDraft}
+            disabled={busy}
+            onChange={(event) => onKeyDraft(event.target.value)}
+          />
+          <button type="submit" disabled={busy || keyDraft.trim().length < 20}>
+            Save key
+          </button>
+        </form>
+      )}
+      {error !== null ? (
+        <p className="githubIntakeError" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {configured && loading ? (
+        <ul aria-label="Loading assigned Linear issues">
+          {[0, 1, 2].map((row) => (
+            <li className="githubIssueSkeleton" key={row} aria-hidden="true">
+              <span />
+              <span />
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {configured && !loading && issues.length === 0 && error === null ? (
+        <p className="githubIntakeEmpty">
+          No open issues are assigned to the Linear account for this key.
+        </p>
+      ) : null}
+      {configured && issues.length > 0 ? (
+        <ul>
+          {issues.map((issue) => {
+            const imported = issue.importedCardId !== null;
+            const importedHere = issue.importedWorkspaceId === currentWorkspace;
+            return (
+              <li key={issue.id}>
+                <button
+                  className="githubIssueIdentity"
+                  type="button"
+                  title={`Open ${issue.identifier}`}
+                  onClick={() => onOpen(issue.url)}
+                >
+                  <span>{issue.identifier}</span>
+                  <strong>{issue.title}</strong>
+                </button>
+                <button
+                  className="githubIssueImport"
+                  type="button"
+                  disabled={busy || imported}
+                  onClick={() => onImport(issue)}
+                >
+                  {imported ? (importedHere ? 'Added' : 'On another board') : 'Import'}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </section>
+  );
+}
 export function KanbanBoard(): React.JSX.Element {
   const boards = useBoards();
   const navigate = useNavigate();
@@ -282,11 +418,24 @@ export function KanbanBoard(): React.JSX.Element {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [githubOpen, setGithubOpen] = useState(false);
+  const [linearOpen, setLinearOpen] = useState(false);
+  const [linearKey, setLinearKey] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
   const githubIssues = useQuery({
     queryKey: ['github-assigned-issues'],
     enabled: githubOpen,
     queryFn: () => window.builderHelm.integrations.listGitHubIssues({}),
+  });
+  const linearStatus = useQuery({
+    queryKey: ['linear-status'],
+    enabled: linearOpen,
+    queryFn: () => window.builderHelm.integrations.linearStatus(),
+  });
+  const linearConfigured = linearStatus.data?.configured === true;
+  const linearIssues = useQuery({
+    queryKey: ['linear-assigned-issues'],
+    enabled: linearOpen && linearConfigured,
+    queryFn: () => window.builderHelm.integrations.listLinearIssues({}),
   });
 
   useEffect(() => {
@@ -450,24 +599,97 @@ export function KanbanBoard(): React.JSX.Element {
     }
   }
 
-  async function syncGitHubIssue(card: KanbanCard): Promise<void> {
+  async function importLinearIssue(issue: LinearIssue): Promise<void> {
+    if (selectedProject === undefined) return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const card = await window.builderHelm.integrations.importLinearIssue({
+        workspace: selectedProject.id,
+        url: issue.url,
+      });
+      if (card.workspace === selectedProject.id) {
+        setCards((current) => {
+          const exists = current.some((item) => item.id === card.id);
+          return exists
+            ? current.map((item) => (item.id === card.id ? card : item))
+            : [...current, card];
+        });
+        setNotice(
+          issue.importedCardId === null
+            ? `Imported ${issue.identifier}`
+            : 'That issue is already on this Board.',
+        );
+      } else {
+        setNotice('That issue is already on another Board.');
+      }
+      await Promise.all([refreshProjects(), linearIssues.refetch()]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not import that issue');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveLinearKey(): Promise<void> {
+    setBusy(true);
+    setError(null);
+    try {
+      await window.builderHelm.integrations.saveLinearKey({ key: linearKey });
+      setLinearKey('');
+      await linearStatus.refetch();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not save that Linear key');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function disconnectLinear(): Promise<void> {
+    setBusy(true);
+    setError(null);
+    try {
+      await window.builderHelm.integrations.deleteLinearKey();
+      await linearStatus.refetch();
+      await queryClient.removeQueries({ queryKey: ['linear-assigned-issues'] });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not disconnect Linear');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function syncLinkedIssue(card: KanbanCard): Promise<void> {
     const source = card.source;
     if (source === null) return;
     setBusy(true);
     setError(null);
     setNotice(null);
     try {
-      const result = await window.builderHelm.integrations.syncGitHubIssue({
-        cardId: card.id,
-        state: source.state === 'open' ? 'closed' : 'open',
-        requestId: crypto.randomUUID(),
-      });
+      const nextState = source.state === 'open' ? 'closed' : 'open';
+      const requestId = crypto.randomUUID();
+      const result =
+        source.provider === 'linear'
+          ? await window.builderHelm.integrations.syncLinearIssue({
+              cardId: card.id,
+              state: nextState,
+              requestId,
+            })
+          : await window.builderHelm.integrations.syncGitHubIssue({
+              cardId: card.id,
+              state: nextState,
+              requestId,
+            });
       setCards((current) =>
         current.map((item) => (item.id === result.card.id ? result.card : item)),
       );
       if (result.receipt.outcome === 'succeeded') {
         setNotice(`${result.receipt.detail} · Receipt ${result.receipt.id.slice(0, 8)}`);
-        await Promise.all([refreshProjects(), githubIssues.refetch()]);
+        await Promise.all([
+          refreshProjects(),
+          source.provider === 'linear' ? linearIssues.refetch() : githubIssues.refetch(),
+        ]);
       } else {
         setError(result.receipt.detail);
       }
@@ -548,11 +770,25 @@ export function KanbanBoard(): React.JSX.Element {
             aria-expanded={githubOpen}
             onClick={() => {
               setGithubOpen((current) => !current);
+              setLinearOpen(false);
               setError(null);
               setNotice(null);
             }}
           >
             GitHub issues
+          </button>
+          <button
+            className="secondaryButton"
+            type="button"
+            aria-expanded={linearOpen}
+            onClick={() => {
+              setLinearOpen((current) => !current);
+              setGithubOpen(false);
+              setError(null);
+              setNotice(null);
+            }}
+          >
+            Linear issues
           </button>
           <form
             className="kanbanAdd"
@@ -595,6 +831,31 @@ export function KanbanBoard(): React.JSX.Element {
           onRefresh={() => void githubIssues.refetch()}
           onClose={() => setGithubOpen(false)}
           onImport={(issue) => void importGitHubIssue(issue)}
+          onOpen={openGitHubIssue}
+        />
+      ) : null}
+      {linearOpen ? (
+        <LinearIntakePanel
+          issues={linearIssues.data ?? []}
+          loading={linearIssues.isLoading}
+          refreshing={linearIssues.isFetching}
+          busy={busy}
+          configured={linearConfigured}
+          error={
+            linearIssues.error instanceof Error
+              ? linearIssues.error.message
+              : linearStatus.error instanceof Error
+                ? linearStatus.error.message
+                : null
+          }
+          currentWorkspace={selectedProject.id}
+          keyDraft={linearKey}
+          onKeyDraft={setLinearKey}
+          onSaveKey={() => void saveLinearKey()}
+          onDisconnect={() => void disconnectLinear()}
+          onRefresh={() => void linearIssues.refetch()}
+          onClose={() => setLinearOpen(false)}
+          onImport={(issue) => void importLinearIssue(issue)}
           onOpen={openGitHubIssue}
         />
       ) : null}
@@ -748,7 +1009,7 @@ export function KanbanBoard(): React.JSX.Element {
                             if (source !== null) openGitHubIssue(source.url);
                           }}
                         >
-                          {card.source.repository} #{card.source.number}
+                          {sourceLabel(card.source)}
                         </button>
                         <span data-state={card.source.state}>{card.source.state}</span>
                         {card.linkedRunId !== null ? <span>Swarm linked</span> : null}
@@ -763,7 +1024,7 @@ export function KanbanBoard(): React.JSX.Element {
                           <button
                             type="button"
                             disabled={busy}
-                            onClick={() => void syncGitHubIssue(card)}
+                            onClick={() => void syncLinkedIssue(card)}
                           >
                             {card.source.state === 'open'
                               ? 'Close issue'

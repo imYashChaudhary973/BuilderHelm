@@ -85,6 +85,18 @@ import {
   githubIssueListRequestSchema,
   githubIssueSyncIpcResponseSchema,
   githubIssueSyncRequestSchema,
+  linearIssueImportIpcResponseSchema,
+  linearIssueImportRequestSchema,
+  linearIssueListIpcResponseSchema,
+  linearIssueListRequestSchema,
+  linearIssueSyncIpcResponseSchema,
+  linearIssueSyncRequestSchema,
+  linearKeyDeleteIpcResponseSchema,
+  linearKeyDeleteRequestSchema,
+  linearKeySaveIpcResponseSchema,
+  linearKeySaveRequestSchema,
+  linearStatusIpcResponseSchema,
+  linearStatusRequestSchema,
 } from '@builderhelm/protocol/integrations';
 
 import {
@@ -1387,6 +1399,94 @@ export function registerIpcHandlers(
       });
     } catch (error) {
       return githubIssueSyncIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.linearIssueList, async (_event, input: unknown) => {
+    try {
+      linearIssueListRequestSchema.parse(input);
+      return linearIssueListIpcResponseSchema.parse({
+        ok: true,
+        value: await core.linearIssues.listAssigned(),
+      });
+    } catch (error) {
+      return linearIssueListIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.linearIssueImport, async (_event, input: unknown) => {
+    try {
+      const request = linearIssueImportRequestSchema.parse(input);
+      return linearIssueImportIpcResponseSchema.parse({
+        ok: true,
+        value: await core.linearIssues.importIssue(
+          request.input.workspace,
+          request.input.url,
+          request.correlationId,
+        ),
+      });
+    } catch (error) {
+      return linearIssueImportIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.linearIssueSync, async (_event, input: unknown) => {
+    try {
+      const request = linearIssueSyncRequestSchema.parse(input);
+      return linearIssueSyncIpcResponseSchema.parse({
+        ok: true,
+        value: await core.linearIssues.syncIssue(request.input, request.correlationId),
+      });
+    } catch (error) {
+      return linearIssueSyncIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.linearStatus, async (_event, input: unknown) => {
+    try {
+      linearStatusRequestSchema.parse(input);
+      return linearStatusIpcResponseSchema.parse({
+        ok: true,
+        value: await core.linearIssues.status(),
+      });
+    } catch (error) {
+      return linearStatusIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.linearKeySave, async (_event, input: unknown) => {
+    try {
+      const request = linearKeySaveRequestSchema.parse(input);
+      return linearKeySaveIpcResponseSchema.parse({
+        ok: true,
+        value: await core.linearIssues.saveKey(request.input.key, request.correlationId),
+      });
+    } catch (error) {
+      return linearKeySaveIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.linearKeyDelete, async (_event, input: unknown) => {
+    try {
+      const request = linearKeyDeleteRequestSchema.parse(input);
+      return linearKeyDeleteIpcResponseSchema.parse({
+        ok: true,
+        value: await core.linearIssues.deleteKey(request.correlationId),
+      });
+    } catch (error) {
+      return linearKeyDeleteIpcResponseSchema.parse({
         ok: false,
         error: ipcError(error),
       });
