@@ -969,36 +969,49 @@ html.is-fullscreen .shell {
 }
 
 .browserStageIdle {
+  display: grid;
+  place-items: center;
   overflow: auto;
 }
 
 .browserHome {
-  max-width: 360px;
-  margin: 36px auto;
-  padding: 0 20px 32px;
+  box-sizing: border-box;
+  display: flex;
+  width: min(100%, 36rem);
+  flex-direction: column;
+  align-items: center;
+  margin: 0;
+  padding: clamp(16px, 8vh, 72px) clamp(16px, 5cqi, 48px);
+  text-align: center;
 }
 
 .browserHomeMark {
   display: grid;
-  width: 36px;
-  height: 36px;
+  width: clamp(40px, 8cqi, 72px);
+  height: clamp(40px, 8cqi, 72px);
   place-items: center;
-  margin-bottom: 14px;
+  margin-bottom: clamp(12px, 2.4vh, 24px);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 12px;
   color: var(--text-2);
+}
+
+.browserHomeMark svg {
+  width: 48%;
+  height: 48%;
 }
 
 .browserHome h2 {
   margin: 0 0 8px;
-  font-size: 22px;
+  font-size: clamp(1.25rem, 3.2cqi, 2rem);
   letter-spacing: -0.03em;
 }
 
 .browserHome p {
   margin: 0 0 16px;
+  max-width: 42ch;
   color: var(--text-2);
-  font-size: 13px;
+  font-size: clamp(13px, 1.8cqi, 16px);
   line-height: 1.45;
 }
 
@@ -1022,7 +1035,8 @@ html.is-fullscreen .shell {
 }
 
 .browserRecents {
-  margin-top: 28px;
+  width: min(100%, 28rem);
+  margin-top: clamp(16px, 4vh, 32px);
 }
 
 .browserRecents > span {
@@ -1095,13 +1109,47 @@ html.is-fullscreen .shell {
 .browserPorts {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 8px;
   margin: 0 0 16px;
 }
 
 .browserHint {
   color: var(--text-3);
-  font-size: 12px;
+  font-size: clamp(12px, 1.6cqi, 14px);
+}
+
+@container (max-width: 420px) {
+  .browserHome {
+    align-items: stretch;
+    padding: 16px 14px 24px;
+    text-align: left;
+  }
+
+  .browserHomeMark {
+    width: 32px;
+    height: 32px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+  }
+
+  .browserHome h2 {
+    font-size: 18px;
+  }
+
+  .browserHome p,
+  .browserHint {
+    font-size: 13px;
+  }
+
+  .browserPorts {
+    justify-content: flex-start;
+  }
+
+  .browserRecents {
+    width: 100%;
+    margin-top: 16px;
+  }
 }
 
 .browserSnapshot {
@@ -7212,23 +7260,25 @@ html.is-fullscreen .spaceHome {
 
 .sideTabs {
   display: flex;
-  gap: 4px;
-  margin: 10px 10px 0;
-  padding: 3px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
   background: var(--bg-1);
 }
 
 .sideTab {
   display: inline-flex;
+  flex: 1;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-width: 32px;
-  padding: 6px 8px;
+  min-width: 0;
+  padding: 8px 10px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 0;
   color: var(--text-3);
   background: transparent;
   font-size: 12px;
@@ -7237,6 +7287,7 @@ html.is-fullscreen .spaceHome {
 
 .sideTab:hover:not(:disabled) {
   color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .sideTab:disabled {
@@ -7259,7 +7310,7 @@ html.is-fullscreen .spaceHome {
 .editorSide {
   display: grid;
   flex: 1;
-  grid-template-columns: 32px 148px 1fr;
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
   background: #070707;
@@ -7270,38 +7321,15 @@ html.is-fullscreen .spaceHome {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
+}
+
+.editorSide.editorSideFileOn {
+  grid-template-columns: minmax(220px, 0.42fr) minmax(0, 1fr);
+}
+
+.editorSide.editorSideFileOn .editorTreeCol {
   border-right: 1px solid var(--line);
-}
-
-.editorSide.editorSideTreeOff {
-  grid-template-columns: 32px 1fr;
-}
-
-.editorTreeRail {
-  display: flex;
-  width: 32px;
-  min-width: 32px;
-  align-items: center;
-  justify-content: center;
-  background: #0c0c0c;
-  border-right: 1px solid var(--line);
-}
-
-.editorTreeRail button {
-  display: grid;
-  width: 24px;
-  height: 24px;
-  place-items: center;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #141414;
-  color: var(--text-2);
-}
-
-.editorTreeRail button:hover {
-  color: var(--text);
-  border-color: var(--accent-line);
 }
 
 .editorTreeHead {
@@ -7352,17 +7380,27 @@ html.is-fullscreen .spaceHome {
 
 .editorTree {
   list-style: none;
+  flex: 1;
+  min-height: 0;
   margin: 0;
-  padding: 0 6px 8px;
+  padding: 0 8px 10px;
   overflow: auto;
 }
 
 .editorTree .editorTree {
-  padding: 0 0 0 10px;
+  padding: 0 0 0 14px;
+}
+
+.editorTreeEmpty {
+  margin: 0;
+  padding: 12px 14px;
+  color: var(--text-3);
+  font-size: 12px;
 }
 
 .editorNode {
   display: flex;
+  align-items: center;
   gap: 6px;
   width: 100%;
   padding: 4px 6px;
@@ -7372,6 +7410,29 @@ html.is-fullscreen .spaceHome {
   color: var(--text-2);
   font-size: 12px;
   text-align: left;
+}
+
+.editorNodeTwist {
+  display: grid;
+  width: 10px;
+  flex: 0 0 10px;
+  place-items: center;
+  color: var(--text-3);
+  font-size: 9px;
+}
+
+.editorNodeGlyph {
+  display: grid;
+  flex: 0 0 14px;
+  place-items: center;
+  color: var(--text-3);
+}
+
+.editorNodeName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .editorNode:hover {
@@ -7399,14 +7460,45 @@ html.is-fullscreen .spaceHome {
   border-bottom: 1px solid var(--line);
 }
 
-.editorTab,
-.editorTabGhost {
+.editorTab {
+  display: flex;
   flex-shrink: 0;
-  padding: 8px 10px;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px 0 10px;
   border: 0;
   background: transparent;
   color: var(--text-3);
   font-size: 12px;
+}
+
+.editorTab > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+}
+
+.editorTab > button:first-child {
+  height: 34px;
+}
+
+.editorTabClose {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.editorTabClose:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .editorTabOn {
@@ -7451,10 +7543,13 @@ html.is-fullscreen .spaceHome {
   flex: 1;
   grid-template-columns: 36px 1fr;
   min-height: 0;
+  overflow: hidden;
 }
 
 .codeGutter,
 .codeInput {
+  min-height: 0;
+  height: 100%;
   margin: 0;
   padding: 10px 8px;
   border: 0;
@@ -7475,6 +7570,7 @@ html.is-fullscreen .spaceHome {
 .codeInput {
   resize: none;
   outline: none;
+  overflow: auto;
 }
 
 .codeInputWrap {
