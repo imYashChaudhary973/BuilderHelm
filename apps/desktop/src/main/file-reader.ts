@@ -184,15 +184,20 @@ export function listGitChanges(root: string): ReadonlyArray<{
   readonly staged: boolean;
 }> {
   try {
+    // Deliberately not trimmed: porcelain rows are `XY<space>path`, and an
+    // unstaged change starts with a space. Trimming the output ate the first
+    // row's leading space, so its status shifted left by one — an unstaged
+    // edit read as staged and its filename lost its first character.
     const status = execFileSync('git', ['status', '--porcelain=v1'], {
       cwd: root,
       encoding: 'utf8',
       timeout: 8_000,
       windowsHide: true,
-    }).trim();
+    }).replace(/\n+$/, '');
     if (status.length === 0) return [];
     const rows: Array<{ path: string; code: string; staged: boolean }> = [];
     for (const line of status.split('\n').slice(0, 80)) {
+      if (line.length < 4) continue;
       const path = line.slice(3).split(' -> ').at(-1) ?? line.slice(3);
       const index = line[0] ?? ' ';
       const work = line[1] ?? ' ';

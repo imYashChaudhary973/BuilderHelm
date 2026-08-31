@@ -8,7 +8,9 @@ vi.mock('electron', () => ({
   dialog: { showOpenDialog: vi.fn() },
 }));
 
-import { readEditorFile } from '../src/main/file-reader.js';
+import { execFileSync } from 'node:child_process';
+
+import { listGitChanges, readEditorFile } from '../src/main/file-reader.js';
 
 describe('readEditorFile', () => {
   it('reads utf-8 text and rejects files over 1 MB', () => {
@@ -26,6 +28,34 @@ describe('readEditorFile', () => {
       expect(() => readEditorFile(big)).toThrow(/larger than 1 MB/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('git change listing', () => {
+  /**
+   * Porcelain rows are `XY<space>path`, so an unstaged edit begins with a
+   * space. Trimming the whole output shifted the first row left by one, which
+   * reported it as staged and dropped the first character of its name.
+   */
+  it('reports an unstaged first row with its whole path', () => {
+    const root = mkdtempSync(join(tmpdir(), 'builderhelm-gitstatus-'));
+    try {
+      execFileSync('git', ['init', '-b', 'main'], { cwd: root });
+      execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: root });
+      execFileSync('git', ['config', 'user.email', 'fixture@example.test'], {
+        cwd: root,
+      });
+      writeFileSync(join(root, 'notes.md'), 'one\n');
+      execFileSync('git', ['add', 'notes.md'], { cwd: root });
+      execFileSync('git', ['commit', '-m', 'start'], { cwd: root });
+      writeFileSync(join(root, 'notes.md'), 'one\ntwo\n');
+
+      const changes = listGitChanges(root);
+
+      expect(changes).toEqual([{ path: 'notes.md', code: 'M', staged: false }]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
     }
   });
 });
