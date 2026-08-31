@@ -6827,13 +6827,248 @@ html.is-fullscreen .swarmWizardFoot {
 
 .kanbanCol li {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 10px;
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #121312;
+}
+
+.kanbanCardMain,
+.kanbanCardMoves {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kanbanCardMain {
+  justify-content: space-between;
+}
+
+.kanbanCardMoves {
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.kanbanCardSource {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.kanbanSourceLink {
+  width: auto;
+  height: auto;
+  padding: 0;
+  border: 0;
+  color: var(--accent-bright);
+  background: transparent;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.kanbanSourceLink:hover {
+  text-decoration: underline;
+}
+
+.kanbanCardSource [data-state='open'] {
+  color: #72b869;
+}
+
+.kanbanCardSource [data-state='closed'] {
+  color: #a5a5a5;
+}
+
+.kanbanSourceActions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.kanbanSourceActions button {
+  flex: 1 1 auto;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--bg-1);
+  font-size: 11px;
+  font-weight: 600;
+}
+.kanbanSourceActions button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent-bright);
+  background: var(--accent-dim);
+}
+
+.kanbanNotice {
+  margin: 0;
+  padding: 8px 11px;
+  border-radius: 8px;
+  color: #b6d475;
+  background: rgba(182, 212, 117, 0.1);
+  font-size: 12px;
+}
+
+.githubIntake {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 360px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #0c0d0c;
+  overflow: hidden;
+}
+
+.githubIntake header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.githubIntake header h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.githubIntake header p {
+  margin: 3px 0 0;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.githubIntake header div:last-child {
+  display: flex;
+  gap: 6px;
+}
+
+.githubIntake header button,
+.githubIssueImport {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--bg-1);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.githubIntake header button:hover:not(:disabled),
+.githubIssueImport:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent-bright);
+  background: var(--accent-dim);
+}
+
+.githubIntake ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.githubIntake li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #121312;
+}
+
+.githubIssueIdentity {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.githubIssueIdentity span {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.githubIssueIdentity strong {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.githubIssueImport {
+  flex: 0 0 auto;
+  font-size: 11px;
+}
+
+.githubIssueImport:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.githubIntakeEmpty,
+.githubIntakeError {
+  margin: 0;
+  padding: 16px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.githubIntakeError {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.githubIntakeEmpty {
+  color: var(--text-3);
+}
+
+.githubIssueSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.githubIssueSkeleton span {
+  height: 10px;
+  border-radius: 3px;
+  background: var(--line);
+}
+
+.githubIssueSkeleton span:first-child {
+  width: 30%;
+}
+
+.githubIssueSkeleton span:last-child {
+  width: 70%;
 }
 
 .kanbanCard {
@@ -6895,13 +7130,7 @@ html.is-fullscreen .swarmWizardFoot {
 .kanbanCompose form {
   width: 100%;
 }
-
-.kanbanCol li > div {
-  display: flex;
-  gap: 4px;
-}
-
-.kanbanCol li button {
+.kanbanCardMoves button {
   display: grid;
   width: 24px;
   height: 24px;
@@ -6913,7 +7142,7 @@ html.is-fullscreen .swarmWizardFoot {
   background: transparent;
 }
 
-.kanbanCol li button:hover:not(:disabled) {
+.kanbanCardMoves button:hover:not(:disabled) {
   border-color: var(--accent);
   color: var(--accent-bright);
   background: var(--accent-dim);
@@ -7201,7 +7430,8 @@ html.is-fullscreen .swarmWizardFoot {
   .presetNameInput,
   .spaceMode::before,
   .kanbanCard,
-  .kanbanCol {
+  .kanbanCol,
+  .githubIssueSkeleton span {
     animation: none;
     transition: none;
   }

@@ -17,6 +17,9 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 - Space setup with real xterm.js terminals backed by node-pty.
 - Per-pane installed-agent selection and plain-shell mode.
 - Board project selection, persistence, stages, and drag-and-drop.
+- GitHub issue intake: assigned `gh` issues, one Board card per source ID,
+  Swarm start from an imported card, and explicit close/reopen with a receipt.
+  Covered by service tests. The Board GitHub panel has not been clicked live.
 - Memory vault selection, local Markdown indexing, answers, and citations.
 - Editor tree, tabs, save, save-all, autosave, and word wrap.
 - Git status, history, stage, unstage, and commit.
@@ -88,7 +91,7 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 ## Planned, not shipped
 
 - Unsigned or auto-approved whole-desktop computer-use.
-- GitHub and Linear task integrations.
+- Linear task intake, GitHub pull-request intake, and a BuilderHelm OAuth app.
 - Global search across worktrees, files, agents, commands, and artifacts.
 - Rich development notes with slash commands and inline logs.
 - Usage, quota, rate-limit, and account-switching UI.

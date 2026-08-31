@@ -30,6 +30,7 @@ import { createWorkToolRegistry, PermissionEngine } from '@builderhelm/tools';
 import { ProjectService } from './projects/project-service.js';
 import { GitReviewService } from './projects/git-review.js';
 import { BoardService } from './board/board-service.js';
+import { GitHubIssuesService } from './integrations/github-issues.js';
 import { PnpmTaskVerifier } from './swarm/pnpm-verifier.js';
 import {
   SwarmService,
@@ -65,6 +66,7 @@ export interface CoreRuntime {
   readonly board: BoardService;
   readonly swarm: SwarmService;
   readonly review: GitReviewService;
+  readonly githubIssues: GitHubIssuesService;
   readonly previewArtifacts: PreviewArtifactService;
   readonly browserSettings: BrowserSettingsService;
   readonly voice: VoiceService;
@@ -130,6 +132,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     new OpenAITranscriptionAdapter(options.modelGatewayFetch ?? fetch),
   );
   const review = new GitReviewService(new ReviewRepository(database));
+  const githubIssues = new GitHubIssuesService(database, board, logger);
   const previewArtifacts = new PreviewArtifactService(
     new PreviewArtifactRepository(database),
   );
@@ -172,6 +175,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     board,
     swarm,
     review,
+    githubIssues,
     previewArtifacts,
     browserSettings,
     voice,

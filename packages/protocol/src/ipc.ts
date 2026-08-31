@@ -34,12 +34,20 @@ import type {
   KanbanCreateInput,
   KanbanDeleteInput,
   KanbanListInput,
+  KanbanLinkRunInput,
   KanbanMoveInput,
   KanbanProject,
   KanbanProjectCreateInput,
   KanbanProjectListInput,
   KanbanUpdateInput,
 } from './kanban.js';
+import type {
+  GitHubIssue,
+  GitHubIssueImportInput,
+  GitHubIssueListInput,
+  GitHubIssueSyncInput,
+  GitHubIssueSyncResult,
+} from './integrations.js';
 
 import type {
   BrowserCommandInput,
@@ -214,6 +222,10 @@ export const ipcChannels = {
   kanbanMove: 'builderhelm:kanban:move',
   kanbanUpdate: 'builderhelm:kanban:update',
   kanbanDelete: 'builderhelm:kanban:delete',
+  kanbanLinkRun: 'builderhelm:kanban:link-run',
+  githubIssueList: 'builderhelm:integration:github-issue-list',
+  githubIssueImport: 'builderhelm:integration:github-issue-import',
+  githubIssueSync: 'builderhelm:integration:github-issue-sync',
   browserCommand: 'builderhelm:browser:command',
   browserOrigins: 'builderhelm:browser:origins',
   browserSnapshot: 'builderhelm:browser:snapshot',
@@ -395,11 +407,17 @@ export interface BuilderHelmDesktopApi {
     createCard(input: KanbanCreateInput): Promise<KanbanCard>;
     moveCard(input: KanbanMoveInput): Promise<KanbanCard>;
     updateCard(input: KanbanUpdateInput): Promise<KanbanCard>;
+    linkCardRun(input: KanbanLinkRunInput): Promise<KanbanCard>;
     deleteCard(input: KanbanDeleteInput): Promise<{ readonly deleted: true }>;
     onPaneEvent(
       sessionId: string,
       listener: (event: BoardPaneEventEnvelope) => void,
     ): () => void;
+  };
+  readonly integrations: {
+    listGitHubIssues(input: GitHubIssueListInput): Promise<GitHubIssue[]>;
+    importGitHubIssue(input: GitHubIssueImportInput): Promise<KanbanCard>;
+    syncGitHubIssue(input: GitHubIssueSyncInput): Promise<GitHubIssueSyncResult>;
   };
   readonly projects: {
     dashboard(): Promise<ProjectDashboardSnapshot>;

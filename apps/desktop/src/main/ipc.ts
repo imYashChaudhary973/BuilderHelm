@@ -66,6 +66,8 @@ import {
   kanbanDeleteIpcResponseSchema,
   kanbanDeleteRequestSchema,
   kanbanListIpcResponseSchema,
+  kanbanLinkRunIpcResponseSchema,
+  kanbanLinkRunRequestSchema,
   kanbanListRequestSchema,
   kanbanMoveIpcResponseSchema,
   kanbanMoveRequestSchema,
@@ -76,6 +78,15 @@ import {
   kanbanUpdateIpcResponseSchema,
   kanbanUpdateRequestSchema,
 } from '@builderhelm/protocol/kanban';
+import {
+  githubIssueImportIpcResponseSchema,
+  githubIssueImportRequestSchema,
+  githubIssueListIpcResponseSchema,
+  githubIssueListRequestSchema,
+  githubIssueSyncIpcResponseSchema,
+  githubIssueSyncRequestSchema,
+} from '@builderhelm/protocol/integrations';
+
 import {
   chatCreateRequestSchema,
   chatGetRequestSchema,
@@ -1317,6 +1328,70 @@ export function registerIpcHandlers(
       return kanbanDeleteIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
     }
   });
+  ipcMain.handle(ipcChannels.kanbanLinkRun, (_event, input: unknown) => {
+    try {
+      const request = kanbanLinkRunRequestSchema.parse(input);
+      return kanbanLinkRunIpcResponseSchema.parse({
+        ok: true,
+        value: core.board.linkCardRun(
+          request.input.cardId,
+          request.input.runId,
+          request.correlationId,
+        ),
+      });
+    } catch (error) {
+      return kanbanLinkRunIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.githubIssueList, async (_event, input: unknown) => {
+    try {
+      githubIssueListRequestSchema.parse(input);
+      return githubIssueListIpcResponseSchema.parse({
+        ok: true,
+        value: await core.githubIssues.listAssigned(),
+      });
+    } catch (error) {
+      return githubIssueListIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.githubIssueImport, async (_event, input: unknown) => {
+    try {
+      const request = githubIssueImportRequestSchema.parse(input);
+      return githubIssueImportIpcResponseSchema.parse({
+        ok: true,
+        value: await core.githubIssues.importIssue(
+          request.input.workspace,
+          request.input.url,
+          request.correlationId,
+        ),
+      });
+    } catch (error) {
+      return githubIssueImportIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.githubIssueSync, async (_event, input: unknown) => {
+    try {
+      const request = githubIssueSyncRequestSchema.parse(input);
+      return githubIssueSyncIpcResponseSchema.parse({
+        ok: true,
+        value: await core.githubIssues.syncIssue(request.input, request.correlationId),
+      });
+    } catch (error) {
+      return githubIssueSyncIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
 
   ipcMain.handle(ipcChannels.browserCommand, async (event, input: unknown) => {
     try {
@@ -2232,6 +2307,10 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.kanbanMove);
     ipcMain.removeHandler(ipcChannels.kanbanUpdate);
     ipcMain.removeHandler(ipcChannels.kanbanDelete);
+    ipcMain.removeHandler(ipcChannels.kanbanLinkRun);
+    ipcMain.removeHandler(ipcChannels.githubIssueList);
+    ipcMain.removeHandler(ipcChannels.githubIssueImport);
+    ipcMain.removeHandler(ipcChannels.githubIssueSync);
     ipcMain.removeHandler(ipcChannels.browserCommand);
     ipcMain.removeHandler(ipcChannels.browserOrigins);
     ipcMain.removeHandler(ipcChannels.browserSnapshot);

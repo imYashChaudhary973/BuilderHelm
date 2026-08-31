@@ -14,7 +14,9 @@ an isolated workspace when it is ready to build.
 - Create, edit, move, archive, and restore tasks.
 - Persist ordering and project membership.
 - Start a Space or Swarm from a selected task.
+- Start Swarm from a GitHub-imported card with the issue URL in the mission.
 - Link tasks to runs, branches, artifacts, and pull requests.
+- Link a started Swarm run back to its imported GitHub card.
 
 ## Rules
 

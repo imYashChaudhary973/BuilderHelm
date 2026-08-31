@@ -16,6 +16,18 @@ export const kanbanColumnSchema = z.enum([
   'cancelled',
 ]);
 export type KanbanColumn = z.infer<typeof kanbanColumnSchema>;
+export const kanbanCardSourceSchema = z
+  .object({
+    provider: z.literal('github'),
+    id: z.string().min(1).max(200),
+    url: z.string().url().max(2_048),
+    repository: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/),
+    number: z.number().int().positive(),
+    state: z.enum(['open', 'closed']),
+    syncedAt: z.string().datetime(),
+  })
+  .strict();
+export type KanbanCardSource = z.infer<typeof kanbanCardSourceSchema>;
 
 export const kanbanProjectSchema = z
   .object({
@@ -33,7 +45,10 @@ export const kanbanCardSchema = z
     id: z.string().uuid(),
     workspace: z.string().min(1).max(4096),
     title: z.string().trim().min(1).max(200),
+    detail: z.string().max(10_000).nullable(),
     column: kanbanColumnSchema,
+    source: kanbanCardSourceSchema.nullable(),
+    linkedRunId: z.string().uuid().nullable(),
     createdAt: z.string().min(1),
   })
   .strict();
@@ -87,6 +102,13 @@ export const kanbanMoveInputSchema = z
   })
   .strict();
 export type KanbanMoveInput = z.infer<typeof kanbanMoveInputSchema>;
+export const kanbanLinkRunInputSchema = z
+  .object({
+    cardId: z.string().uuid(),
+    runId: z.string().uuid(),
+  })
+  .strict();
+export type KanbanLinkRunInput = z.infer<typeof kanbanLinkRunInputSchema>;
 
 export const kanbanProjectListRequestSchema = z
   .object({
@@ -131,6 +153,12 @@ export const kanbanDeleteRequestSchema = z
     input: kanbanDeleteInputSchema,
   })
   .strict();
+export const kanbanLinkRunRequestSchema = z
+  .object({
+    correlationId: correlationIdSchema,
+    input: kanbanLinkRunInputSchema,
+  })
+  .strict();
 
 function ipcResult<T extends z.ZodType>(value: T) {
   return z.discriminatedUnion('ok', [
@@ -146,6 +174,7 @@ export const kanbanListIpcResponseSchema = ipcResult(z.array(kanbanCardSchema));
 export const kanbanCreateIpcResponseSchema = ipcResult(kanbanCardSchema);
 export const kanbanMoveIpcResponseSchema = ipcResult(kanbanCardSchema);
 export const kanbanUpdateIpcResponseSchema = ipcResult(kanbanCardSchema);
+export const kanbanLinkRunIpcResponseSchema = ipcResult(kanbanCardSchema);
 export const kanbanDeleteIpcResponseSchema = ipcResult(
   z.object({ deleted: z.literal(true) }).strict(),
 );

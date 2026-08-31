@@ -35,8 +35,8 @@ describe('migration runner', () => {
     const result = runMigrations(database, migrations);
 
     expect(result).toEqual({
-      applied: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
-      currentVersion: 18,
+      applied: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+      currentVersion: 19,
     });
     expect(
       database.queryOne<{ count: number }>(
@@ -61,8 +61,8 @@ describe('migration runner', () => {
     );
 
     expect(runMigrations(database, migrations)).toEqual({
-      applied: [10, 11, 12, 13, 14, 15, 16, 17, 18],
-      currentVersion: 18,
+      applied: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+      currentVersion: 19,
     });
     expect(
       database.queryOne<{ id: string; name: string }>(
@@ -95,13 +95,39 @@ describe('migration runner', () => {
     ).toEqual(['cancelled', 'idea', 'review']);
   });
 
+  it('adds GitHub source identity without rewriting existing cards', () => {
+    const database = createTestDatabase();
+    runMigrations(database, migrations.slice(0, 18));
+    database.run(
+      `INSERT INTO kanban_cards (id, workspace, title, column_name, created_at)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        '00000000-0000-4000-8000-000000000011',
+        'global',
+        'Unlinked task',
+        'idea',
+        '2026-08-31T00:00:00.000Z',
+      ],
+    );
+    expect(runMigrations(database, migrations)).toEqual({
+      applied: [19],
+      currentVersion: 19,
+    });
+    expect(
+      database.queryOne<{ source_id: string | null; source_provider: string | null }>(
+        `SELECT source_id, source_provider FROM kanban_cards WHERE id = ?`,
+        ['00000000-0000-4000-8000-000000000011'],
+      ),
+    ).toEqual({ source_id: null, source_provider: null });
+  });
+
   it('is idempotent after the latest migration', () => {
     const database = createTestDatabase();
     runMigrations(database, migrations);
 
     expect(runMigrations(database, migrations)).toEqual({
       applied: [],
-      currentVersion: 18,
+      currentVersion: 19,
     });
   });
 
@@ -117,7 +143,7 @@ describe('migration runner', () => {
     openDatabases.push(reopened);
     expect(runMigrations(reopened, migrations)).toEqual({
       applied: [],
-      currentVersion: 18,
+      currentVersion: 19,
     });
   });
 

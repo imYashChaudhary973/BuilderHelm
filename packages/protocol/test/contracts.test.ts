@@ -33,6 +33,9 @@ import {
   zeroEventSchema,
   reviewDiffIpcResponseSchema,
   reviewLandInspectSchema,
+  githubIssueImportInputSchema,
+  githubIssueSchema,
+  githubIssueSyncInputSchema,
 } from '../src/index.js';
 
 describe('event envelope', () => {
@@ -392,5 +395,37 @@ describe('review contracts', () => {
         kind: 'clean',
       }).kind,
     ).toBe('clean');
+  });
+});
+
+describe('GitHub issue contracts', () => {
+  it('accepts an assigned issue and an explicit status write', () => {
+    expect(
+      githubIssueSchema.parse({
+        id: 'I_kwDOBuilderHelm1',
+        repository: 'acme/builderhelm',
+        number: 41,
+        title: 'Ship GitHub issue intake',
+        body: '',
+        url: 'https://github.com/acme/builderhelm/issues/41',
+        state: 'open',
+        updatedAt: '2026-08-31T12:00:00Z',
+        importedCardId: null,
+        importedWorkspaceId: null,
+      }).number,
+    ).toBe(41);
+    expect(
+      githubIssueImportInputSchema.parse({
+        workspace: '00000000-0000-4000-8000-000000000001',
+        url: 'https://github.com/acme/builderhelm/issues/41',
+      }).url,
+    ).toContain('/issues/41');
+    expect(
+      githubIssueSyncInputSchema.parse({
+        cardId: '00000000-0000-4000-8000-000000000002',
+        state: 'closed',
+        requestId: '00000000-0000-4000-8000-000000000003',
+      }).state,
+    ).toBe('closed');
   });
 });

@@ -60,6 +60,8 @@ import {
   kanbanDeleteInputSchema,
   kanbanDeleteIpcResponseSchema,
   kanbanListInputSchema,
+  kanbanLinkRunInputSchema,
+  kanbanLinkRunIpcResponseSchema,
   kanbanListIpcResponseSchema,
   kanbanMoveInputSchema,
   kanbanMoveIpcResponseSchema,
@@ -70,6 +72,15 @@ import {
   kanbanUpdateInputSchema,
   kanbanUpdateIpcResponseSchema,
 } from '@builderhelm/protocol/kanban';
+import {
+  githubIssueImportInputSchema,
+  githubIssueImportIpcResponseSchema,
+  githubIssueListInputSchema,
+  githubIssueListIpcResponseSchema,
+  githubIssueSyncInputSchema,
+  githubIssueSyncIpcResponseSchema,
+} from '@builderhelm/protocol/integrations';
+
 import {
   ipcChannels,
   systemHealthResponseSchema,
@@ -654,6 +665,13 @@ const api: BuilderHelmDesktopApi = {
       });
       return unwrap(kanbanUpdateIpcResponseSchema.parse(response));
     },
+    async linkCardRun(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.kanbanLinkRun, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: kanbanLinkRunInputSchema.parse(input),
+      });
+      return unwrap(kanbanLinkRunIpcResponseSchema.parse(response));
+    },
     async deleteCard(input) {
       const response: unknown = await ipcRenderer.invoke(ipcChannels.kanbanDelete, {
         correlationId: globalThis.crypto.randomUUID(),
@@ -672,6 +690,29 @@ const api: BuilderHelmDesktopApi = {
         listeners.delete(listener);
         if (listeners.size === 0) boardListeners.delete(sessionId);
       };
+    },
+  },
+  integrations: {
+    async listGitHubIssues(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.githubIssueList, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: githubIssueListInputSchema.parse(input),
+      });
+      return unwrap(githubIssueListIpcResponseSchema.parse(response));
+    },
+    async importGitHubIssue(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.githubIssueImport, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: githubIssueImportInputSchema.parse(input),
+      });
+      return unwrap(githubIssueImportIpcResponseSchema.parse(response));
+    },
+    async syncGitHubIssue(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.githubIssueSync, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: githubIssueSyncInputSchema.parse(input),
+      });
+      return unwrap(githubIssueSyncIpcResponseSchema.parse(response));
     },
   },
   projects: {

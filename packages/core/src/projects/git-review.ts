@@ -177,7 +177,7 @@ export type GhRunner = (
   args: readonly string[],
 ) => Promise<{ readonly stdout: string }>;
 
-const defaultGhRunner: GhRunner = (cwd, args) =>
+export const defaultGhRunner: GhRunner = (cwd, args) =>
   execFileAsync('gh', [...args], {
     cwd,
     encoding: 'utf8',
