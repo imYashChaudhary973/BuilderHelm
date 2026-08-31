@@ -1311,6 +1311,9 @@ html.is-fullscreen .shell {
 
 .drawColor {
   position: relative;
+  display: flex;
+  height: 36px;
+  align-items: center;
 }
 
 .drawSwatch {
@@ -1340,8 +1343,11 @@ html.is-fullscreen .shell {
 }
 
 .drawSize {
+  display: flex;
   width: auto;
-  gap: 2px;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
   padding: 0 8px;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
