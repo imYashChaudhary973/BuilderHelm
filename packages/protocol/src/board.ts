@@ -52,6 +52,8 @@ export interface BoardAgentCatalogEntry {
   readonly label: string;
   readonly command: string;
   readonly capabilities: BoardAgentCapabilities;
+  /** Documented isolated-config env var. Absent = no supported switch. */
+  readonly configDirEnv?: string;
 }
 
 const interactiveOnly: BoardAgentCapabilities = {
@@ -74,6 +76,7 @@ export const BOARD_AGENT_CATALOG: readonly BoardAgentCatalogEntry[] = [
     id: 'claude',
     label: 'Claude',
     command: 'claude',
+    configDirEnv: 'CLAUDE_CONFIG_DIR',
     capabilities: capabilities({
       headless: true,
       structuredOutput: 'json-schema',
@@ -86,6 +89,7 @@ export const BOARD_AGENT_CATALOG: readonly BoardAgentCatalogEntry[] = [
     id: 'codex',
     label: 'Codex',
     command: 'codex',
+    configDirEnv: 'CODEX_HOME',
     capabilities: capabilities({
       headless: true,
       structuredOutput: 'json-schema',

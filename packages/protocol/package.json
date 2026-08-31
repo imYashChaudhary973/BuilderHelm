@@ -75,6 +75,14 @@
     "./search": {
       "types": "./dist/search.d.ts",
       "import": "./src/search.ts"
+    },
+    "./notes": {
+      "types": "./dist/notes.d.ts",
+      "import": "./src/notes.ts"
+    },
+    "./accounts": {
+      "types": "./dist/accounts.d.ts",
+      "import": "./src/accounts.ts"
     }
   },
   "dependencies": {

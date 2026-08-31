@@ -95,6 +95,21 @@ import {
   searchQueryInputSchema,
   searchQueryIpcResponseSchema,
 } from '@builderhelm/protocol/search';
+import {
+  noteCreateInputSchema,
+  noteCreateIpcResponseSchema,
+  noteDeleteInputSchema,
+  noteDeleteIpcResponseSchema,
+  noteListInputSchema,
+  noteListIpcResponseSchema,
+  noteSaveInputSchema,
+  noteSaveIpcResponseSchema,
+} from '@builderhelm/protocol/notes';
+import {
+  accountSetRootInputSchema,
+  accountSetRootIpcResponseSchema,
+  accountSnapshotIpcResponseSchema,
+} from '@builderhelm/protocol/accounts';
 
 import {
   ipcChannels,
@@ -786,6 +801,52 @@ const api: BuilderHelmDesktopApi = {
         input: {},
       });
       return unwrap(searchCancelIpcResponseSchema.parse(response));
+    },
+  },
+  notes: {
+    async list(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.noteList, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: noteListInputSchema.parse(input),
+      });
+      return unwrap(noteListIpcResponseSchema.parse(response));
+    },
+    async create(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.noteCreate, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: noteCreateInputSchema.parse(input),
+      });
+      return unwrap(noteCreateIpcResponseSchema.parse(response));
+    },
+    async save(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.noteSave, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: noteSaveInputSchema.parse(input),
+      });
+      return unwrap(noteSaveIpcResponseSchema.parse(response));
+    },
+    async delete(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.noteDelete, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: noteDeleteInputSchema.parse(input),
+      });
+      return unwrap(noteDeleteIpcResponseSchema.parse(response));
+    },
+  },
+  accounts: {
+    async snapshot() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.accountSnapshot, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: {},
+      });
+      return unwrap(accountSnapshotIpcResponseSchema.parse(response));
+    },
+    async setRoot(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.accountSetRoot, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: accountSetRootInputSchema.parse(input),
+      });
+      return unwrap(accountSetRootIpcResponseSchema.parse(response));
     },
   },
   projects: {

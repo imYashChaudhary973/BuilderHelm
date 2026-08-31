@@ -28,7 +28,14 @@ export const SEARCH_COMMANDS: readonly SearchCommand[] = [
   },
   { id: 'board', title: 'BuilderHelm Board', hint: 'Tasks and intake', to: '/board' },
   { id: 'memory', title: 'BuilderHelm Memory', hint: 'Cited local vault', to: '/memory' },
+  { id: 'notes', title: 'Notes', hint: 'Project notes beside the Board', to: '/notes' },
   { id: 'settings', title: 'Settings', hint: 'Voice and browser', to: '/settings/voice' },
+  {
+    id: 'usage',
+    title: 'Accounts and usage',
+    hint: 'Installed CLIs and reported usage',
+    to: '/settings/usage',
+  },
   {
     id: 'tools',
     title: 'Tools panel',
@@ -68,6 +75,15 @@ export const searchMemoryHitSchema = z
   .strict();
 export type SearchMemoryHit = z.infer<typeof searchMemoryHitSchema>;
 
+export const searchNoteHitSchema = z
+  .object({
+    id: z.string().uuid(),
+    title: z.string().min(1).max(200),
+    workspace: z.string().min(1).max(4_096),
+  })
+  .strict();
+export type SearchNoteHit = z.infer<typeof searchNoteHitSchema>;
+
 export const searchQueryInputSchema = z
   .object({
     query: z.string().trim().min(1).max(200),
@@ -82,6 +98,7 @@ export const searchQueryResultSchema = z
     files: z.array(searchFileHitSchema).max(80),
     cards: z.array(searchCardHitSchema).max(40),
     memory: z.array(searchMemoryHitSchema).max(40),
+    notes: z.array(searchNoteHitSchema).max(40),
   })
   .strict();
 export type SearchQueryResult = z.infer<typeof searchQueryResultSchema>;

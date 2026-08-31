@@ -44,6 +44,13 @@ export interface SwarmTaskWrite {
   readonly updatedAt: string;
 }
 
+export interface SwarmAgentUsage {
+  readonly agentId: string;
+  readonly tokensUsed: number;
+  readonly costUsd: number;
+  readonly occurredAt: string;
+}
+
 export interface SwarmMessageWrite {
   readonly id: string;
   readonly runId: string;
@@ -350,5 +357,30 @@ export class SwarmRepository {
       )
       .map(toMessageWrite)
       .reverse();
+  }
+
+  listAgentUsage(): SwarmAgentUsage[] {
+    return this.database
+      .queryAll<{
+        agentId: string;
+        tokensUsed: number;
+        costUsd: number;
+        occurredAt: string;
+      }>(
+        `SELECT s.agent_id AS agentId,
+                SUM(s.tokens_used) AS tokensUsed,
+                SUM(s.cost_usd) AS costUsd,
+                MAX(COALESCE(r.ended_at, r.started_at)) AS occurredAt
+         FROM swarm_seats s
+         INNER JOIN swarm_runs r ON r.id = s.run_id
+         GROUP BY s.agent_id
+         HAVING SUM(s.tokens_used) > 0 OR SUM(s.cost_usd) > 0`,
+      )
+      .map((row) => ({
+        agentId: row.agentId,
+        tokensUsed: Math.max(0, Math.round(Number(row.tokensUsed) || 0)),
+        costUsd: Math.max(0, Number(row.costUsd) || 0),
+        occurredAt: row.occurredAt,
+      }));
   }
 }

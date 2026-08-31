@@ -1,6 +1,6 @@
 # Development notes
 
-Status: planned.
+Status: shipped in v1.
 
 ## Goal
 

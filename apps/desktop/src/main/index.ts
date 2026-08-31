@@ -265,6 +265,7 @@ app
       swarmRunner,
       voiceInventory: voiceModels,
     });
+    boardPty.accountEnv = () => core?.accounts.cliEnv() ?? {};
     if (
       process.env.BUILDERHELM_PTY_PROBE !== undefined &&
       process.env.BUILDERHELM_PTY_PROBE.length > 0

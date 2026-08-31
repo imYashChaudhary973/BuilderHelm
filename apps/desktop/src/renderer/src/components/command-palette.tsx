@@ -5,6 +5,7 @@ import {
   type SearchCommand,
   type SearchFileHit,
   type SearchMemoryHit,
+  type SearchNoteHit,
 } from '@builderhelm/protocol/search';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -17,6 +18,7 @@ type PaletteRow =
   | { readonly kind: 'file'; readonly file: SearchFileHit }
   | { readonly kind: 'card'; readonly card: SearchCardHit }
   | { readonly kind: 'memory'; readonly memory: SearchMemoryHit }
+  | { readonly kind: 'note'; readonly note: SearchNoteHit }
   | { readonly kind: 'space'; readonly sessionId: string; readonly label: string };
 
 function matches(haystack: string, needle: string): boolean {
@@ -34,6 +36,7 @@ export function CommandPalette(): React.JSX.Element | null {
   const [files, setFiles] = useState<SearchFileHit[]>([]);
   const [cards, setCards] = useState<SearchCardHit[]>([]);
   const [memory, setMemory] = useState<SearchMemoryHit[]>([]);
+  const [notes, setNotes] = useState<SearchNoteHit[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const root =
     spaces.draft || spaces.activeId === null
@@ -71,9 +74,10 @@ export function CommandPalette(): React.JSX.Element | null {
     for (const file of files) next.push({ kind: 'file', file });
     for (const card of cards) next.push({ kind: 'card', card });
     for (const hit of memory) next.push({ kind: 'memory', memory: hit });
+    for (const note of notes) next.push({ kind: 'note', note });
     next.push(...spaceHits);
     return next;
-  }, [commands, files, cards, memory, spaceHits]);
+  }, [commands, files, cards, memory, notes, spaceHits]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -93,6 +97,7 @@ export function CommandPalette(): React.JSX.Element | null {
     setFiles([]);
     setCards([]);
     setMemory([]);
+    setNotes([]);
     const handle = window.setTimeout(() => inputRef.current?.focus(), 0);
     const onKey = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') {
@@ -113,6 +118,7 @@ export function CommandPalette(): React.JSX.Element | null {
       setFiles([]);
       setCards([]);
       setMemory([]);
+      setNotes([]);
       void window.builderHelm.search.cancel().catch(() => undefined);
       return;
     }
@@ -125,12 +131,14 @@ export function CommandPalette(): React.JSX.Element | null {
           setFiles(result.files);
           setCards(result.cards);
           setMemory(result.memory);
+          setNotes(result.notes);
         })
         .catch(() => {
           if (!alive) return;
           setFiles([]);
           setCards([]);
           setMemory([]);
+          setNotes([]);
         });
     }, 120);
     return () => {
@@ -163,6 +171,9 @@ export function CommandPalette(): React.JSX.Element | null {
       void navigate({ to: '/board' });
     } else if (row.kind === 'memory') {
       void navigate({ to: '/memory' });
+    } else if (row.kind === 'note') {
+      boards.open(row.note.workspace);
+      void navigate({ to: '/notes' });
     } else {
       spaces.activate(row.sessionId);
       void navigate({ to: '/' });
@@ -230,6 +241,7 @@ function rowKey(row: PaletteRow): string {
   if (row.kind === 'file') return `f-${row.file.path}`;
   if (row.kind === 'card') return `t-${row.card.id}`;
   if (row.kind === 'memory') return `m-${row.memory.vaultId}-${row.memory.path}`;
+  if (row.kind === 'note') return `n-${row.note.id}`;
   return `s-${row.sessionId}`;
 }
 
@@ -238,6 +250,7 @@ function rowKind(row: PaletteRow): string {
   if (row.kind === 'file') return row.file.kind === 'dir' ? 'Folder' : 'File';
   if (row.kind === 'card') return 'Task';
   if (row.kind === 'memory') return 'Memory';
+  if (row.kind === 'note') return 'Note';
   return 'Space';
 }
 
@@ -246,5 +259,6 @@ function rowTitle(row: PaletteRow): string {
   if (row.kind === 'file') return row.file.name;
   if (row.kind === 'card') return `${row.card.projectName} · ${row.card.title}`;
   if (row.kind === 'memory') return `${row.memory.vaultName} · ${row.memory.title}`;
+  if (row.kind === 'note') return row.note.title;
   return row.label;
 }

@@ -2724,6 +2724,117 @@ fieldset legend {
   background: #070807;
 }
 
+.notesPage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  padding: 16px 18px 18px;
+  overflow: hidden;
+  background: #070807;
+}
+
+.notesHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.notesSplit {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+  flex: 1;
+}
+
+.notesList {
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.notesList button {
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.notesListOn {
+  background: var(--accent-dim);
+}
+
+.notesEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.notesEditor input,
+.notesEditor textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0c0d0c;
+  color: var(--text);
+}
+
+.notesEditor textarea {
+  flex: 1;
+  min-height: 240px;
+  resize: none;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.notesEmpty,
+.notesEditor p {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.usageTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.usageTable th,
+.usageTable td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.usageRoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.usageRoot span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.content:has(.notesPage) {
+  padding: 0;
+  background: #070807;
+}
+
 .memoryHeader {
   display: flex;
   align-items: center;

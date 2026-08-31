@@ -7,6 +7,7 @@ import {
   openDatabase,
   PreviewArtifactRepository,
   SettingsRepository,
+  SwarmRepository,
   ProviderRepository,
   ProjectRepositoryStore,
   ReviewRepository,
@@ -32,6 +33,8 @@ import { GitReviewService } from './projects/git-review.js';
 import { BoardService } from './board/board-service.js';
 import { GitHubIssuesService } from './integrations/github-issues.js';
 import { LinearIssuesService } from './integrations/linear-issues.js';
+import { NotesService } from './notes/notes-service.js';
+import { AccountsService } from './accounts/accounts-service.js';
 import { PnpmTaskVerifier } from './swarm/pnpm-verifier.js';
 import {
   SwarmService,
@@ -69,6 +72,8 @@ export interface CoreRuntime {
   readonly review: GitReviewService;
   readonly githubIssues: GitHubIssuesService;
   readonly linearIssues: LinearIssuesService;
+  readonly notes: NotesService;
+  readonly accounts: AccountsService;
   readonly previewArtifacts: PreviewArtifactService;
   readonly browserSettings: BrowserSettingsService;
   readonly voice: VoiceService;
@@ -141,10 +146,17 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     logger,
     options.secretStore,
   );
+  const notes = new NotesService(database, logger);
   const previewArtifacts = new PreviewArtifactService(
     new PreviewArtifactRepository(database),
   );
   const browserSettings = new BrowserSettingsService(new SettingsRepository(database));
+  const accounts = new AccountsService(
+    new SettingsRepository(database),
+    new SwarmRepository(database),
+    board,
+    logger,
+  );
   const swarmRunner: SwarmSeatRunner = options.swarmRunner ?? {
     async execute() {
       return {
@@ -185,6 +197,8 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     review,
     githubIssues,
     linearIssues,
+    notes,
+    accounts,
     previewArtifacts,
     browserSettings,
     voice,

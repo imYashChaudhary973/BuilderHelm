@@ -1,6 +1,6 @@
 # Accounts and usage
 
-Status: planned.
+Status: shipped in v1 (installed state, Swarm-reported usage, Claude/Codex config roots).
 
 ## Goal
 

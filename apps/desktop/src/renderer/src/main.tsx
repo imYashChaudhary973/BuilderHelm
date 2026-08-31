@@ -16,8 +16,10 @@ import { ActionsPage } from './routes/actions.js';
 import { BoardPage } from './routes/board.js';
 import { ChatPage } from './routes/chat.js';
 import { MemoryPage } from './routes/memory.js';
+import { NotesPage } from './routes/notes.js';
 import { VoicePage } from './routes/settings/voice.js';
 import { BrowserSettingsPage } from './routes/settings/browser.js';
+import { UsagePage } from './routes/settings/usage.js';
 import { SwarmPage } from './routes/swarm.js';
 import { TodayPage } from './routes/today.js';
 import { ProjectsPage } from './routes/projects.js';
@@ -43,6 +45,16 @@ const browserSettingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings/browser',
   component: BrowserSettingsPage,
+});
+const usageRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/usage',
+  component: UsagePage,
+});
+const notesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/notes',
+  component: NotesPage,
 });
 const chatRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -84,6 +96,7 @@ const routeTree = rootRoute.addChildren([
   todayRoute,
   chatRoute,
   memoryRoute,
+  notesRoute,
   actionsRoute,
   projectsRoute,
   spaceRoute,
@@ -91,6 +104,7 @@ const routeTree = rootRoute.addChildren([
   swarmRoute,
   voiceRoute,
   browserSettingsRoute,
+  usageRoute,
 ]);
 const router = createRouter({
   routeTree,

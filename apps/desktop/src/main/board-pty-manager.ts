@@ -157,6 +157,7 @@ function spawnArgvPty(
   argv: BoardPaneArgv,
   cols: number,
   rows: number,
+  extraEnv: Record<string, string> = {},
 ): IPty {
   ensureHelper();
   const workdir = resolveWorkdir(cwd);
@@ -165,11 +166,16 @@ function spawnArgvPty(
     cols,
     rows,
     cwd: workdir,
-    env: { ...terminalEnv(), PWD: workdir },
+    env: { ...terminalEnv(), ...extraEnv, PWD: workdir },
   });
 }
 
-function spawnPty(cwd: string, cols: number, rows: number): IPty {
+function spawnPty(
+  cwd: string,
+  cols: number,
+  rows: number,
+  extraEnv: Record<string, string> = {},
+): IPty {
   const shell = existsSync('/bin/zsh') ? '/bin/zsh' : '/bin/bash';
   const workdir = resolveWorkdir(cwd);
   // Agent panes are a real interactive shell that the command is typed into,
@@ -180,7 +186,7 @@ function spawnPty(cwd: string, cols: number, rows: number): IPty {
     cols,
     rows,
     cwd: workdir,
-    env: { ...terminalEnv(), PWD: workdir },
+    env: { ...terminalEnv(), ...extraEnv, PWD: workdir },
   });
 }
 
@@ -197,6 +203,7 @@ export function probePty(cwd: string): string {
 }
 
 export class BoardPtyManager {
+  accountEnv: () => Record<string, string> = () => ({});
   private readonly sessions = new Map<string, SessionRecord>();
   private readonly closing = new Set<string>();
   private readonly exitWaiters = new Map<
@@ -376,8 +383,8 @@ export class BoardPtyManager {
     try {
       pty =
         argv !== undefined
-          ? spawnArgvPty(location.cwd, argv, 120, 30)
-          : spawnPty(location.cwd, 120, 30);
+          ? spawnArgvPty(location.cwd, argv, 120, 30, this.accountEnv())
+          : spawnPty(location.cwd, 120, 30, this.accountEnv());
     } catch (error) {
       // The worktree exists but this pane never joined the session, so the
       // caller's rollback cannot see it. Undo it here or it leaks silently.

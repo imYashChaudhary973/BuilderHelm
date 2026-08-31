@@ -56,6 +56,14 @@ import type {
   LinearStatus,
 } from './integrations.js';
 import type { SearchQueryInput, SearchQueryResult } from './search.js';
+import type {
+  Note,
+  NoteCreateInput,
+  NoteDeleteInput,
+  NoteListInput,
+  NoteSaveInput,
+} from './notes.js';
+import type { AccountSetRootInput, AccountSnapshot } from './accounts.js';
 
 import type {
   BrowserCommandInput,
@@ -242,6 +250,12 @@ export const ipcChannels = {
   linearKeyDelete: 'builderhelm:integration:linear-key-delete',
   searchQuery: 'builderhelm:search:query',
   searchCancel: 'builderhelm:search:cancel',
+  noteList: 'builderhelm:notes:list',
+  noteCreate: 'builderhelm:notes:create',
+  noteSave: 'builderhelm:notes:save',
+  noteDelete: 'builderhelm:notes:delete',
+  accountSnapshot: 'builderhelm:accounts:snapshot',
+  accountSetRoot: 'builderhelm:accounts:set-root',
   browserCommand: 'builderhelm:browser:command',
   browserOrigins: 'builderhelm:browser:origins',
   browserSnapshot: 'builderhelm:browser:snapshot',
@@ -365,6 +379,16 @@ export interface BuilderHelmDesktopApi {
   readonly search: {
     query(input: SearchQueryInput): Promise<SearchQueryResult>;
     cancel(): Promise<{ readonly cancelled: true }>;
+  };
+  readonly notes: {
+    list(input: NoteListInput): Promise<Note[]>;
+    create(input: NoteCreateInput): Promise<Note>;
+    save(input: NoteSaveInput): Promise<Note>;
+    delete(input: NoteDeleteInput): Promise<{ readonly deleted: true }>;
+  };
+  readonly accounts: {
+    snapshot(): Promise<AccountSnapshot>;
+    setRoot(input: AccountSetRootInput): Promise<AccountSnapshot>;
   };
   readonly actions: {
     snapshot(input: ActionSnapshotInput): Promise<ActionSnapshot>;

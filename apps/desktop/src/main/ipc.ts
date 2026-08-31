@@ -104,6 +104,22 @@ import {
   searchQueryIpcResponseSchema,
   searchQueryRequestSchema,
 } from '@builderhelm/protocol/search';
+import {
+  noteCreateIpcResponseSchema,
+  noteCreateRequestSchema,
+  noteDeleteIpcResponseSchema,
+  noteDeleteRequestSchema,
+  noteListIpcResponseSchema,
+  noteListRequestSchema,
+  noteSaveIpcResponseSchema,
+  noteSaveRequestSchema,
+} from '@builderhelm/protocol/notes';
+import {
+  accountSetRootIpcResponseSchema,
+  accountSetRootRequestSchema,
+  accountSnapshotIpcResponseSchema,
+  accountSnapshotRequestSchema,
+} from '@builderhelm/protocol/accounts';
 
 import {
   chatCreateRequestSchema,
@@ -1524,6 +1540,7 @@ export function registerIpcHandlers(
           files,
           cards: core.board.searchCards(request.input.query, limit),
           memory: core.knowledge.searchNotes(request.input.query, limit),
+          notes: core.notes.search(request.input.query, limit),
         },
       });
     } catch (error) {
@@ -1540,6 +1557,88 @@ export function registerIpcHandlers(
       });
     } catch (error) {
       return searchCancelIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.noteList, (_event, input: unknown) => {
+    try {
+      const request = noteListRequestSchema.parse(input);
+      return noteListIpcResponseSchema.parse({
+        ok: true,
+        value: core.notes.list(request.input.workspace),
+      });
+    } catch (error) {
+      return noteListIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.noteCreate, (_event, input: unknown) => {
+    try {
+      const request = noteCreateRequestSchema.parse(input);
+      return noteCreateIpcResponseSchema.parse({
+        ok: true,
+        value: core.notes.create(
+          request.input.workspace,
+          request.correlationId,
+          request.input.title,
+        ),
+      });
+    } catch (error) {
+      return noteCreateIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.noteSave, (_event, input: unknown) => {
+    try {
+      const request = noteSaveRequestSchema.parse(input);
+      return noteSaveIpcResponseSchema.parse({
+        ok: true,
+        value: core.notes.save(
+          request.input.id,
+          request.input.title,
+          request.input.body,
+          request.correlationId,
+        ),
+      });
+    } catch (error) {
+      return noteSaveIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.noteDelete, (_event, input: unknown) => {
+    try {
+      const request = noteDeleteRequestSchema.parse(input);
+      return noteDeleteIpcResponseSchema.parse({
+        ok: true,
+        value: core.notes.delete(request.input.id, request.correlationId),
+      });
+    } catch (error) {
+      return noteDeleteIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.accountSnapshot, async (_event, input: unknown) => {
+    try {
+      accountSnapshotRequestSchema.parse(input);
+      return accountSnapshotIpcResponseSchema.parse({
+        ok: true,
+        value: await core.accounts.snapshot(),
+      });
+    } catch (error) {
+      return accountSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.accountSetRoot, async (_event, input: unknown) => {
+    try {
+      const request = accountSetRootRequestSchema.parse(input);
+      return accountSetRootIpcResponseSchema.parse({
+        ok: true,
+        value: await core.accounts.setRoot(
+          request.input.agentId,
+          request.input.configRoot,
+          request.correlationId,
+        ),
+      });
+    } catch (error) {
+      return accountSetRootIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
     }
   });
 
