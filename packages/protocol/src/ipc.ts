@@ -74,6 +74,8 @@ import type {
   EditorFile,
   EditorGit,
   EditorGitCommitInput,
+  EditorGitCommitFile,
+  EditorGitCommitFilesInput,
   EditorGitStageInput,
   EditorListInput,
   EditorReadInput,
@@ -241,6 +243,7 @@ export const ipcChannels = {
   editorRead: 'builderhelm:editor:read',
   editorList: 'builderhelm:editor:list',
   editorGit: 'builderhelm:editor:git',
+  editorGitCommitFiles: 'builderhelm:editor:git-commit-files',
   editorWrite: 'builderhelm:editor:write',
   editorCreate: 'builderhelm:editor:create',
   editorSearch: 'builderhelm:editor:search',
@@ -444,7 +447,8 @@ export interface BuilderHelmDesktopApi {
     pick(): Promise<EditorFile | null>;
     read(input: EditorReadInput): Promise<EditorFile>;
     list(input: EditorListInput): Promise<EditorEntry[]>;
-    git(root: string): Promise<EditorGit | null>;
+    git(root: string, base?: string | null): Promise<EditorGit | null>;
+    gitCommitFiles(input: EditorGitCommitFilesInput): Promise<EditorGitCommitFile[]>;
     write(input: EditorWriteInput): Promise<EditorFile>;
     create(input: EditorCreateInput): Promise<EditorEntry>;
     search(input: EditorSearchInput): Promise<EditorEntry[]>;

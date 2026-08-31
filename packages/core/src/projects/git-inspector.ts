@@ -10,14 +10,19 @@ export interface GitSnapshot {
   readonly directoryName: string;
   readonly branch: string;
   readonly headSha: string;
+  readonly detached: boolean;
+  readonly upstream: string | null;
   readonly dirtyCount: number;
   readonly aheadCount: number;
   readonly behindCount: number;
+  readonly commitTotal: number;
   readonly commits: readonly GitCommit[];
+  /** Selectable base refs: local branches first, then remote-tracking ones. */
+  readonly branches: readonly string[];
 }
 
 export interface GitInspector {
-  inspect(selectedPath: string): GitSnapshot;
+  inspect(selectedPath: string, base?: string | null): GitSnapshot;
 }
 
 const gitOptions = {
@@ -50,31 +55,83 @@ function bounded(value: string, maximum: number, fallback: string): string {
   return clean.length === 0 ? fallback : clean.slice(0, maximum);
 }
 
-function readCommits(rootPath: string): GitCommit[] {
-  const hashes = runGit(rootPath, ['log', '-n', '30', '--format=%H'])
-    .split('\n')
-    .map((value) => value.trim())
-    .filter((value) => /^[0-9a-f]{40,64}$/.test(value));
+const COMMIT_LIMIT = 50;
+/** Field and record separators no commit subject can contain. */
+const FIELD = '\u001f';
+const RECORD = '\u001e';
 
-  return hashes.map((hash) => {
-    const [sha, shortSha, authorName, authoredAt, ...subjectParts] = runGit(rootPath, [
-      'show',
-      '-s',
-      '--format=%H%n%h%n%an%n%aI%n%s',
-      hash,
-    ]).split('\n');
-    return gitCommitSchema.parse({
-      sha,
-      shortSha,
-      authorName: bounded(authorName ?? '', 200, 'Unknown author'),
-      authoredAt: new Date(authoredAt ?? '').toISOString(),
-      subject: bounded(subjectParts.join(' '), 500, 'Untitled commit'),
-    });
-  });
+/**
+ * One `git log` for the whole list.
+ *
+ * This used to run `git log` for the hashes and then a `git show` per commit —
+ * 31 processes for 30 commits, on every panel refresh. A single call with
+ * explicit separators returns the same fields.
+ */
+function readCommits(rootPath: string, base: string | null): GitCommit[] {
+  const format = `--format=%H${FIELD}%h${FIELD}%an${FIELD}%aI${FIELD}%s${RECORD}`;
+  // With a base, the list is what HEAD adds on top of it. `--` ends option
+  // parsing so a ref can never be read as a flag.
+  const raw =
+    base === null
+      ? runGit(rootPath, ['log', '-n', String(COMMIT_LIMIT), format])
+      : runGit(rootPath, [
+          'log',
+          '-n',
+          String(COMMIT_LIMIT),
+          format,
+          `${base}..HEAD`,
+          '--',
+        ]);
+  const commits: GitCommit[] = [];
+  for (const record of raw.split(RECORD)) {
+    const row = record.trim();
+    if (row.length === 0) continue;
+    const [sha, shortSha, authorName, authoredAt, subject] = row.split(FIELD);
+    if (sha === undefined || !/^[0-9a-f]{40,64}$/.test(sha)) continue;
+    const when = new Date(authoredAt ?? '');
+    commits.push(
+      gitCommitSchema.parse({
+        sha,
+        shortSha: shortSha ?? sha.slice(0, 7),
+        authorName: bounded(authorName ?? '', 200, 'Unknown author'),
+        authoredAt: (Number.isNaN(when.getTime()) ? new Date(0) : when).toISOString(),
+        subject: bounded(subject ?? '', 500, 'Untitled commit'),
+      }),
+    );
+  }
+  return commits;
+}
+
+/**
+ * Local branches first, then remote-tracking ones, so the base-ref picker opens
+ * on the names a reviewer most likely wants. Detached HEAD appears in
+ * `git branch` output as `(HEAD detached at …)`, which the ref filter drops.
+ */
+function readBranches(rootPath: string): string[] {
+  const names: string[] = [];
+  for (const pattern of ['refs/heads', 'refs/remotes']) {
+    try {
+      const raw = execFileSync(
+        'git',
+        ['for-each-ref', '--format=%(refname:short)', '--count=100', pattern],
+        { ...gitOptions, cwd: rootPath, stdio: ['ignore', 'pipe', 'ignore'] },
+      );
+      for (const line of raw.split('\n')) {
+        const name = line.trim();
+        // Matches gitRefSchema in the protocol, and skips `origin/HEAD`.
+        if (!/^[A-Za-z0-9._/-]+$/.test(name)) continue;
+        if (name.endsWith('/HEAD') || names.includes(name)) continue;
+        names.push(name);
+      }
+    } catch {
+      // A repository with no refs of that kind contributes none.
+    }
+  }
+  return names.slice(0, 200);
 }
 
 export class LocalGitInspector implements GitInspector {
-  inspect(selectedPath: string): GitSnapshot {
+  inspect(selectedPath: string, base: string | null = null): GitSnapshot {
     let selectedRoot: string;
     try {
       selectedRoot = realpathSync.native(selectedPath);
@@ -123,16 +180,46 @@ export class LocalGitInspector implements GitInspector {
     } catch {
       // A local-only branch has no upstream; this is valid and reports zero divergence.
     }
+    // Named separately from ahead/behind: the panel prints "→ origin/main", and
+    // a branch can track a remote while being exactly level with it.
+    let upstream: string | null = null;
+    try {
+      const value = execFileSync(
+        'git',
+        ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'],
+        { ...gitOptions, cwd: rootPath, stdio: ['ignore', 'pipe', 'ignore'] },
+      ).trim();
+      upstream = value.length === 0 ? null : bounded(value, 255, 'unknown');
+    } catch {
+      // Local-only branch, or detached HEAD. Both report no upstream.
+    }
+
+    let commitTotal = 0;
+    try {
+      const value = execFileSync('git', ['rev-list', '--count', 'HEAD'], {
+        ...gitOptions,
+        cwd: rootPath,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+      const parsed = Number(value);
+      commitTotal = Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0;
+    } catch {
+      // An empty repository has no reachable commits.
+    }
 
     return {
       rootPath,
       directoryName: bounded(basename(rootPath), 255, 'Repository'),
       branch: bounded(branch, 255, 'unknown'),
       headSha,
+      detached: branchValue === 'HEAD',
+      upstream,
       dirtyCount: status.length === 0 ? 0 : status.split('\n').length,
       aheadCount,
       behindCount,
-      commits: readCommits(rootPath),
+      commitTotal,
+      commits: readCommits(rootPath, base),
+      branches: readBranches(rootPath),
     };
   }
 }

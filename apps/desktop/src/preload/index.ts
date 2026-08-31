@@ -112,6 +112,8 @@ import {
   editorCreateIpcResponseSchema,
   editorGitCommitInputSchema,
   editorGitCommitIpcResponseSchema,
+  editorGitCommitFilesInputSchema,
+  editorGitCommitFilesIpcResponseSchema,
   editorGitInputSchema,
   editorGitIpcResponseSchema,
   editorGitStageInputSchema,
@@ -914,12 +916,22 @@ const api: BuilderHelmDesktopApi = {
       });
       return unwrap(editorListIpcResponseSchema.parse(response));
     },
-    async git(root) {
+    async git(root, base = null) {
       const response: unknown = await ipcRenderer.invoke(ipcChannels.editorGit, {
         correlationId: globalThis.crypto.randomUUID(),
-        input: editorGitInputSchema.parse({ root }),
+        input: editorGitInputSchema.parse({ root, base }),
       });
       return unwrap(editorGitIpcResponseSchema.parse(response));
+    },
+    async gitCommitFiles(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.editorGitCommitFiles,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          input: editorGitCommitFilesInputSchema.parse(input),
+        },
+      );
+      return unwrap(editorGitCommitFilesIpcResponseSchema.parse(response));
     },
     async write(input) {
       const response: unknown = await ipcRenderer.invoke(ipcChannels.editorWrite, {

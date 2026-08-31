@@ -4,12 +4,13 @@ import { usePreview, type SideTab } from '../preview-store.js';
 import { BrowserSidebar } from './browser-sidebar.js';
 import { EditorSidebar } from './editor-sidebar.js';
 import { GitSidebar } from './git-sidebar.js';
+import { ReviewPane } from './review-pane.js';
 
-const TABS: readonly { id: SideTab | 'skills'; label: string; live: boolean }[] = [
+const TABS: readonly { id: SideTab; label: string; live: boolean }[] = [
   { id: 'browser', label: 'Browser', live: true },
   { id: 'editor', label: 'Editor', live: true },
   { id: 'git', label: 'Git', live: true },
-  { id: 'skills', label: 'Skills', live: false },
+  { id: 'review', label: 'Review', live: true },
 ];
 
 const WIDTH_KEY = 'exeum.panel.ratio';
@@ -87,13 +88,22 @@ function TabIcon({ id }: { readonly id: string }): React.JSX.Element {
       </svg>
     );
   }
+  // Only 'review' reaches here: a comment bubble with an approving tick.
   return (
     <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
       <path
-        d="M8 3.2 9.2 6h3.1l-2.5 1.9.9 2.9L8 9.2 5.3 10.8l.9-2.9L3.7 6h3.1z"
+        d="M2.6 3.4h10.8v7.2H7.4L4.4 13V10.6H2.6z"
         fill="none"
         stroke="currentColor"
-        strokeWidth="1.2"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M5.6 6.9 7.3 8.6l3.1-3.1"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
       />
     </svg>
   );
@@ -156,7 +166,6 @@ export function SidePanel(): React.JSX.Element {
               }}
             >
               <TabIcon id={item.id} />
-              {on ? item.label : null}
             </button>
           );
         })}
@@ -165,6 +174,7 @@ export function SidePanel(): React.JSX.Element {
         {preview.tab === 'browser' ? <BrowserSidebar startUrl={preview.url} /> : null}
         {preview.tab === 'editor' ? <EditorSidebar /> : null}
         {preview.tab === 'git' ? <GitSidebar /> : null}
+        {preview.tab === 'review' ? <ReviewPane /> : null}
       </div>
     </aside>
   );

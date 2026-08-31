@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 
-export type SideTab = 'browser' | 'editor' | 'git';
+export type SideTab = 'browser' | 'editor' | 'git' | 'review';
 
 export interface PreviewStore {
   readonly open: boolean;

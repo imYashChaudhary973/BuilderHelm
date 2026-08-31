@@ -136,6 +136,8 @@ import {
   editorCreateRequestSchema,
   editorGitCommitIpcResponseSchema,
   editorGitCommitRequestSchema,
+  editorGitCommitFilesIpcResponseSchema,
+  editorGitCommitFilesRequestSchema,
   editorGitIpcResponseSchema,
   editorGitRequestSchema,
   editorGitStageIpcResponseSchema,
@@ -241,6 +243,7 @@ import {
   createEditorEntry,
   listEditorDir,
   listGitChanges,
+  readCommitFiles,
   pickEditorFile,
   readEditorFile,
   searchEditorFiles,
@@ -1767,7 +1770,10 @@ export function registerIpcHandlers(
       const request = editorGitRequestSchema.parse(input);
       let value = null;
       try {
-        const snap = new LocalGitInspector().inspect(request.input.root);
+        const snap = new LocalGitInspector().inspect(
+          request.input.root,
+          request.input.base,
+        );
         value = { ...snap, changes: [...listGitChanges(snap.rootPath)] };
       } catch {
         value = null;
@@ -1775,6 +1781,21 @@ export function registerIpcHandlers(
       return editorGitIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
       return editorGitIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.editorGitCommitFiles, (_event, input: unknown) => {
+    try {
+      const request = editorGitCommitFilesRequestSchema.parse(input);
+      return editorGitCommitFilesIpcResponseSchema.parse({
+        ok: true,
+        value: readCommitFiles(request.input.root, request.input.sha),
+      });
+    } catch (error) {
+      return editorGitCommitFilesIpcResponseSchema.parse({
         ok: false,
         error: ipcError(error),
       });
@@ -2238,7 +2259,7 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.editorRead);
     ipcMain.removeHandler(ipcChannels.editorList);
     ipcMain.removeHandler(ipcChannels.editorGit);
-    ipcMain.removeHandler(ipcChannels.editorWrite);
+    ipcMain.removeHandler(ipcChannels.editorGitCommitFiles);
     ipcMain.removeHandler(ipcChannels.editorCreate);
     ipcMain.removeHandler(ipcChannels.editorSearch);
     ipcMain.removeHandler(ipcChannels.editorGitStage);

@@ -53,7 +53,37 @@ describe('git change listing', () => {
 
       const changes = listGitChanges(root);
 
-      expect(changes).toEqual([{ path: 'notes.md', code: 'M', staged: false }]);
+      expect(changes).toEqual([
+        { path: 'notes.md', code: 'M', staged: false, added: 1, removed: 0 },
+      ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  /** Staged and unstaged edits to one file are separate rows with separate counts. */
+  it('counts staged and unstaged lines separately', () => {
+    const root = mkdtempSync(join(tmpdir(), 'builderhelm-numstat-'));
+    try {
+      execFileSync('git', ['init', '-b', 'main'], { cwd: root });
+      execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: root });
+      execFileSync('git', ['config', 'user.email', 'fixture@example.test'], {
+        cwd: root,
+      });
+      writeFileSync(join(root, 'notes.md'), 'one\n');
+      execFileSync('git', ['add', 'notes.md'], { cwd: root });
+      execFileSync('git', ['commit', '-m', 'start'], { cwd: root });
+
+      writeFileSync(join(root, 'notes.md'), 'one\ntwo\nthree\n');
+      execFileSync('git', ['add', 'notes.md'], { cwd: root });
+      writeFileSync(join(root, 'notes.md'), 'one\ntwo\nthree\nfour\n');
+
+      const rows = listGitChanges(root);
+
+      expect(rows).toEqual([
+        { path: 'notes.md', code: 'M', staged: true, added: 2, removed: 0 },
+        { path: 'notes.md', code: 'M', staged: false, added: 1, removed: 0 },
+      ]);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

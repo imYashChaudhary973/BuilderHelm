@@ -4,9 +4,12 @@ Status: the service is covered by tests on macOS — unified diffs, line comment
 routed to the owning seat, checks recorded with command and revision, draft
 pull requests, CI status, and land refusal when the reviewed head moved.
 
-Review is a view in the Git sidebar, not a page of its own. It has been driven
-against a real repository: the file list, the unified diff, and the comment box
-render. Its check, pull-request, and land buttons have not been clicked live.
+Review is a top-level side-panel tab now, not a page of its own. The Git tab
+displays branch, tracking, a multi-line commit box, staged and change sections
+with folder grouping and per-file `+N`/`-N` counts, a commit graph with
+lazy-expand rows, and a selectable base ref. It has been driven against a real
+repository. The review check, pull-request, and land buttons have not been
+clicked live.
 
 ## Requires the GitHub CLI
 
