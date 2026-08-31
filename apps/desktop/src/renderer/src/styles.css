@@ -8099,13 +8099,17 @@ html.is-fullscreen .swarmWizardFoot {
   }
 }
 
+/* Lives inside the Git sidebar now, not on a page of its own: no outer
+   padding, and it scrolls within whatever width the panel is dragged to. */
 .reviewPage {
   display: flex;
   flex: 1;
   flex-direction: column;
   min-height: 0;
-  padding: 18px 20px 16px;
-  gap: 12px;
+  padding: 0;
+  gap: 10px;
+  overflow: auto;
+  container-type: inline-size;
 }
 
 .reviewHeader h1 {
@@ -8126,6 +8130,20 @@ html.is-fullscreen .swarmWizardFoot {
   gap: 12px;
   min-height: 0;
   flex: 1;
+}
+
+/* The sidebar is narrower than any three-column layout can survive, so the
+   file list, the diff, and the ship panel stack instead of being clipped. */
+@container (max-width: 720px) {
+  .reviewWorkspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .reviewFiles,
+  .reviewShip {
+    max-height: 220px;
+    overflow: auto;
+  }
 }
 
 .reviewFiles,

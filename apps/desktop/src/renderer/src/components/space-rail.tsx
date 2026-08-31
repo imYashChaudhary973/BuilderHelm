@@ -142,10 +142,7 @@ export function SpaceRail({
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const featureOpen =
-    pathname === '/board' ||
-    pathname === '/memory' ||
-    pathname === '/swarm' ||
-    pathname === '/review';
+    pathname === '/board' || pathname === '/memory' || pathname === '/swarm';
   const boards = useBoards();
   const boardProjects = useQuery({
     queryKey: ['kanban-projects'],
@@ -194,7 +191,6 @@ export function SpaceRail({
   const showBoard = pathname === '/board';
   const showSwarm = pathname === '/swarm' || (run !== null && run.status === 'running');
   const showMemory = pathname === '/memory';
-  const showReview = pathname === '/review';
 
   return (
     <aside
@@ -314,28 +310,6 @@ export function SpaceRail({
                           liveVault.noteCount === 1 ? 'note' : 'notes'
                         }`}
                   </small>
-                </span>
-              )}
-            </button>
-          </div>
-        )}
-        {showReview && (
-          <div
-            className={pathname === '/review' ? 'railRow railItemOn' : 'railRow'}
-            style={{ '--tile': '#f2c94c' } as React.CSSProperties}
-          >
-            <button
-              type="button"
-              className={collapsed ? 'railTile' : 'railItem'}
-              title="Review"
-              aria-current={pathname === '/review' ? 'page' : undefined}
-              onClick={() => void navigate({ to: '/review' })}
-            >
-              <BoardGlyph />
-              {collapsed ? null : (
-                <span className="railCopy">
-                  <strong>Review</strong>
-                  <small>Diff, checks, and land</small>
                 </span>
               )}
             </button>

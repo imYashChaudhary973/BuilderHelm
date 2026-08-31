@@ -69,14 +69,6 @@ const MODES = [
     promise:
       'A living knowledge graph. Persistent memory your agents read and write as they build. Context that compounds.',
   },
-  {
-    id: 'review',
-    name: 'BuilderHelm Review',
-    shortcut: '⌘R',
-    enabled: true,
-    promise:
-      'Diff, comments, checks, and land. Agent output becomes a reviewed Git change.',
-  },
 ] as const;
 
 function SpaceStepper({ step }: { readonly step: 1 | 2 | 3 }): React.JSX.Element {
@@ -405,10 +397,6 @@ export function BoardPage(): React.JSX.Element {
       if (event.key.toLowerCase() === 's') {
         event.preventDefault();
         void navigate({ to: '/swarm' });
-      }
-      if (event.key.toLowerCase() === 'r') {
-        event.preventDefault();
-        void navigate({ to: '/review' });
       }
     };
     window.addEventListener('keydown', onKey);
@@ -776,10 +764,6 @@ export function BoardPage(): React.JSX.Element {
                     }
                     if (mode.id === 'swarm') {
                       void navigate({ to: '/swarm' });
-                      return;
-                    }
-                    if (mode.id === 'review') {
-                      void navigate({ to: '/review' });
                       return;
                     }
                     if (mode.enabled) setPhase('workspace');

@@ -18,7 +18,7 @@ function lineClass(type: ReviewDiffLine['type']): string {
   return 'reviewLineCtx';
 }
 
-export function ReviewPage(): React.JSX.Element {
+export function ReviewPane(): React.JSX.Element {
   const spaces = useSpaces();
   const root = workspaceFolder(spaces);
   const queryClient = useQueryClient();

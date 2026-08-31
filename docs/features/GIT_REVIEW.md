@@ -2,9 +2,11 @@
 
 Status: the service is covered by tests on macOS — unified diffs, line comments
 routed to the owning seat, checks recorded with command and revision, draft
-pull requests, CI status, and land refusal when the reviewed head moved. The
-`/review` route renders against those calls but has not been driven end to end,
-because opening a Space needs the OS folder picker.
+pull requests, CI status, and land refusal when the reviewed head moved.
+
+Review is a view in the Git sidebar, not a page of its own. It has been driven
+against a real repository: the file list, the unified diff, and the comment box
+render. Its check, pull-request, and land buttons have not been clicked live.
 
 ## Requires the GitHub CLI
 

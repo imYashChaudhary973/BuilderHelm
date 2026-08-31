@@ -1,9 +1,9 @@
 import type { PreviewArtifact } from '@builderhelm/protocol/browser';
 import type { EditorGit } from '@builderhelm/protocol/editor';
-import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
 import { useSpaces } from '../space-store.js';
+import { ReviewPane } from './review-pane.js';
 function workspaceFolder(spaces: ReturnType<typeof useSpaces>): string | null {
   if (spaces.draft || spaces.activeId === null) return null;
   return (
@@ -22,11 +22,10 @@ function dirLabel(path: string): string {
 
 export function GitSidebar(): React.JSX.Element {
   const spaces = useSpaces();
-  const navigate = useNavigate();
   const root = workspaceFolder(spaces);
   const [git, setGit] = useState<EditorGit | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<'changes' | 'history'>('changes');
+  const [view, setView] = useState<'changes' | 'history' | 'review'>('changes');
   const [picked, setPicked] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -156,6 +155,13 @@ export function GitSidebar(): React.JSX.Element {
         >
           History
         </button>
+        <button
+          type="button"
+          className={view === 'review' ? 'gitViewOn' : undefined}
+          onClick={() => setView('review')}
+        >
+          Review
+        </button>
       </div>
       {error !== null && (
         <p className="browserError" role="alert">
@@ -231,6 +237,8 @@ export function GitSidebar(): React.JSX.Element {
             )}
           </section>
         </div>
+      ) : view === 'review' ? (
+        <ReviewPane />
       ) : (
         <ol className="gitLog">
           {git.commits.map((commit) => (
@@ -303,13 +311,6 @@ export function GitSidebar(): React.JSX.Element {
         <p className="browserHint">No preview proof on this revision.</p>
       )}
       <div className="gitFooter">
-        <button
-          type="button"
-          className="gitAct"
-          onClick={() => void navigate({ to: '/review' })}
-        >
-          Open Review
-        </button>
         {picked === null ? 'Select a file to inspect it.' : fileName(picked)}
       </div>
     </aside>

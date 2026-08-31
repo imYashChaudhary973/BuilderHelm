@@ -20,13 +20,13 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 - Memory vault selection, local Markdown indexing, answers, and citations.
 - Editor tree, tabs, save, save-all, autosave, and word wrap.
 - Git status, history, stage, unstage, and commit.
-- Review: unified diffs, line comments routed to the seat that owns the file,
+- Review, in the Git sidebar: unified diffs, line comments routed to the seat that owns the file,
   checks recorded with their exact command and revision, draft pull requests
   and CI status through the GitHub CLI, and landing that refuses a head the
   reviewer did not approve. Landing takes two presses so the approved commit
-  is the merged commit. The service is covered by tests; the `/review` route
-  has been opened against a real repository once, but its comment, check, and
-  land buttons have not been exercised live.
+  is the merged commit. The service is covered by tests; the sidebar view
+  has been driven against a real repository, but its check, pull-request, and
+  land buttons have not been clicked live.
 - Swarm mission, roster, CLI seats, live state, directives, budgets, and worktree flow.
 - Voice dictation: on-device models never send audio off-device; cloud models
   require a stored key and first-run consent before any upload.
