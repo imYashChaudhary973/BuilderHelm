@@ -39,6 +39,8 @@ import {
   linearIssueImportInputSchema,
   linearIssueSchema,
   linearIssueSyncInputSchema,
+  searchQueryInputSchema,
+  SEARCH_COMMANDS,
 } from '../src/index.js';
 
 describe('event envelope', () => {
@@ -461,5 +463,21 @@ describe('Linear issue contracts', () => {
         requestId: '00000000-0000-4000-8000-000000000003',
       }).state,
     ).toBe('closed');
+  });
+});
+
+describe('search contracts', () => {
+  it('rejects empty queries and keeps commands registered', () => {
+    expect(searchQueryInputSchema.safeParse({ query: '', root: null }).success).toBe(
+      false,
+    );
+    expect(
+      searchQueryInputSchema.parse({
+        query: 'board',
+        root: '/tmp/project',
+        limit: 24,
+      }).query,
+    ).toBe('board');
+    expect(SEARCH_COMMANDS.some((command) => command.id === 'board')).toBe(true);
   });
 });

@@ -12,6 +12,7 @@ export * from './model.js';
 export * from './providers.js';
 export * from './projects.js';
 export * from './kanban.js';
+export * from './search.js';
 export * from './swarm.js';
 export * from './voice.js';
 export * from './review.js';

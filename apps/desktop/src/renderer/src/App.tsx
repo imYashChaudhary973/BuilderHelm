@@ -5,6 +5,7 @@ import { BoardProvider } from './board-store.js';
 import logo from './assets/logo.png';
 import { SidePanel } from './components/side-panel.js';
 import { SpaceRail } from './components/space-rail.js';
+import { CommandPalette } from './components/command-palette.js';
 import { DictationHud } from './components/dictation-hud.js';
 import { SettingsNav } from './routes/settings/nav.js';
 import { PreviewProvider, usePreview } from './preview-store.js';
@@ -120,6 +121,7 @@ function Shell(): React.JSX.Element {
         <Outlet />
       </main>
       {preview.open ? <SidePanel /> : null}
+      <CommandPalette />
       <DictationHud />
     </div>
   );

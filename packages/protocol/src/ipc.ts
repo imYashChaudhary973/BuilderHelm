@@ -55,6 +55,7 @@ import type {
   LinearKeySaveInput,
   LinearStatus,
 } from './integrations.js';
+import type { SearchQueryInput, SearchQueryResult } from './search.js';
 
 import type {
   BrowserCommandInput,
@@ -239,6 +240,8 @@ export const ipcChannels = {
   linearStatus: 'builderhelm:integration:linear-status',
   linearKeySave: 'builderhelm:integration:linear-key-save',
   linearKeyDelete: 'builderhelm:integration:linear-key-delete',
+  searchQuery: 'builderhelm:search:query',
+  searchCancel: 'builderhelm:search:cancel',
   browserCommand: 'builderhelm:browser:command',
   browserOrigins: 'builderhelm:browser:origins',
   browserSnapshot: 'builderhelm:browser:snapshot',
@@ -358,6 +361,10 @@ export interface BuilderHelmDesktopApi {
     syncVault(input: KnowledgeVaultSyncInput): Promise<KnowledgeVault>;
     answer(input: KnowledgeQueryInput): Promise<KnowledgeAnswer>;
     getSource(input: KnowledgeSourceInput): Promise<KnowledgeSourceView>;
+  };
+  readonly search: {
+    query(input: SearchQueryInput): Promise<SearchQueryResult>;
+    cancel(): Promise<{ readonly cancelled: true }>;
   };
   readonly actions: {
     snapshot(input: ActionSnapshotInput): Promise<ActionSnapshot>;

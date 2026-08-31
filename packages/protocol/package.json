@@ -71,6 +71,10 @@
     "./integrations": {
       "types": "./dist/integrations.d.ts",
       "import": "./src/integrations.ts"
+    },
+    "./search": {
+      "types": "./dist/search.d.ts",
+      "import": "./src/search.ts"
     }
   },
   "dependencies": {
