@@ -495,6 +495,7 @@ export class BoardService {
     repoPath: string,
     branch: string,
     correlationId: CorrelationId,
+    reviewedHead?: string,
   ): Promise<{ readonly landed: true; readonly head: string }> {
     assertExeumBranch(branch);
     const current = await this.readBranch(repoPath);
@@ -506,6 +507,18 @@ export class BoardService {
     }
     if (current === branch) {
       throw new BuilderHelmError('VALIDATION_FAILED', 'Cannot land a branch into itself');
+    }
+    if (reviewedHead !== undefined) {
+      const { stdout } = await execFileAsync('git', ['rev-parse', branch], {
+        cwd: repoPath,
+        timeout: 5_000,
+      });
+      if (stdout.trim() !== reviewedHead) {
+        throw new BuilderHelmError(
+          'VALIDATION_FAILED',
+          'Reviewed head moved; land refused',
+        );
+      }
     }
     try {
       await execFileAsync(

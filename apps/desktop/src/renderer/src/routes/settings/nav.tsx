@@ -9,6 +9,11 @@ const SECTIONS = [
     title: 'Voice',
     active: (path: string) => path === '/settings/voice',
   },
+  {
+    to: '/settings/browser',
+    title: 'Browser',
+    active: (path: string) => path === '/settings/browser',
+  },
 ] as const;
 
 /**

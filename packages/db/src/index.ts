@@ -27,3 +27,5 @@ export * from './provider-repository.js';
 export * from './project-repository.js';
 export * from './swarm-repository.js';
 export * from './voice-repository.js';
+export * from './preview-artifact-repository.js';
+export * from './settings-repository.js';

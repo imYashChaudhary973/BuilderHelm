@@ -1,6 +1,6 @@
 # Implementation status
 
-Last reviewed: 2026-08-30.
+Last reviewed: 2026-08-31.
 
 This document distinguishes working code from planned product scope. A feature
 is not shipped merely because a route, mock, fixture, or documentation page exists.
@@ -34,6 +34,24 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
   canonical interactive, headless, structured-output, resume, usage, and Swarm
   permission capabilities. Provider-specific launch, schema-output, and usage
   behavior is isolated in the core CLI adapters.
+- Browser: sandboxed `WebContentsView` preview per profile, loopback port
+  import, omnibox that navigates or searches, element grab and annotation with
+  pins, screenshot markup copied to the clipboard and stored on HEAD, detached
+  page DevTools, and viewport presets. Desktop fills the panel; tablet and
+  phone letterbox and still report the preset width. ⌘+/⌘-/⌘0 zoom the page,
+  not the chrome. Land fails closed if the reviewed head moved. Cart/checkout/
+  send never silent. WebMCP declared tools are not shipped.
+- Browser evidence — snapshot refs, click/fill by ref, console and network rows,
+  and the artifact list on HEAD — is recorded in the main process and read over
+  IPC. The panel deliberately shows no debug list for it, so today it is
+  reachable by an agent and by tests, not by eye.
+- Browser settings: home page, search engine, zoom, link routing, terminal link
+  actions, localhost worktree labels, and profiles with isolated cookies. Stored
+  in the existing settings table and verified to survive a restart. Cookie
+  import is a main-process picker; cookie values never reach the renderer and
+  there is no export path.
+- macOS whole-desktop click/type remains permissioned in the main process and
+  always prompts. It has no entry point in the browser toolbar.
 
 ## Partial or needing hardening
 
@@ -48,11 +66,19 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 - Packaged desktop verification is thin: the packaged arm64 app starts, reports
   renderer ready, and exits cleanly, but it is unsigned, unnotarized, and has
   had no real user session run against it.
+- Two OS dialogs stay click-only: the cookie file picker and the confirm prompts
+  for import and profile deletion. What they gate is covered — file size, JSON
+  parse, and export shape in `readCookieExport`, the per-domain plan and the
+  dropped-row count in `planCookieImport`, and the default-profile and
+  active-profile rules in the settings service. The toolbar menus are a child
+  window rather than a native menu, so they are driveable end to end.
+- A capture taken while the window is occluded returns no pixels, so evidence
+  recorded from a background window carries metadata without a picture.
 
 ## Planned, not shipped
 
-- Built-in browser interaction and UI-element handoff.
 - Unified diff, test, CI, conflict, commit, and pull-request review surface.
+- Unsigned or auto-approved whole-desktop computer-use.
 - GitHub and Linear task integrations.
 - Global search across worktrees, files, agents, commands, and artifacts.
 - Rich development notes with slash commands and inline logs.

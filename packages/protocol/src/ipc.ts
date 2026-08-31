@@ -39,7 +39,33 @@ import type {
   KanbanUpdateInput,
 } from './kanban.js';
 
-import type { BrowserCommandInput, BrowserState } from './browser.js';
+import type {
+  BrowserCommandInput,
+  BrowserCookieImportResult,
+  BrowserMenuInput,
+  BrowserMenuPayload,
+  BrowserMenuResult,
+  BrowserProfileCreateInput,
+  BrowserProfileDeleteInput,
+  BrowserSettings,
+  BrowserSettingsUpdateInput,
+  BrowserState,
+  PreviewAnnotationInput,
+  PreviewArtifact,
+  PreviewArtifactListInput,
+  PreviewDrawSaveInput,
+  PreviewDriveInput,
+  PreviewDriveResult,
+  PreviewEvent,
+  PreviewOrigin,
+  PreviewPick,
+  PreviewPickInput,
+  PreviewDriveReceipt,
+  DesktopActInput,
+  DesktopActResult,
+  PreviewScreenshotInput,
+  PreviewSnapshot,
+} from './browser.js';
 import type {
   EditorCreateInput,
   EditorEntry,
@@ -169,6 +195,30 @@ export const ipcChannels = {
   kanbanUpdate: 'builderhelm:kanban:update',
   kanbanDelete: 'builderhelm:kanban:delete',
   browserCommand: 'builderhelm:browser:command',
+  browserOrigins: 'builderhelm:browser:origins',
+  browserSnapshot: 'builderhelm:browser:snapshot',
+  browserScreenshot: 'builderhelm:browser:screenshot',
+  browserArtifacts: 'builderhelm:browser:artifacts',
+  browserDrive: 'builderhelm:browser:drive',
+  browserApprove: 'builderhelm:browser:approve',
+  browserEvents: 'builderhelm:browser:events',
+  browserPick: 'builderhelm:browser:pick',
+  browserPickSend: 'builderhelm:browser:pick-send',
+  browserReceipts: 'builderhelm:browser:receipts',
+  browserSettings: 'builderhelm:browser:settings',
+  browserSettingsUpdate: 'builderhelm:browser:settings-update',
+  browserProfileCreate: 'builderhelm:browser:profile-create',
+  browserProfileDelete: 'builderhelm:browser:profile-delete',
+  browserCookieImport: 'builderhelm:browser:cookie-import',
+  browserMenu: 'builderhelm:browser:menu',
+  browserMenuPayload: 'builderhelm:browser:menu-payload',
+  browserMenuPick: 'builderhelm:browser:menu-pick',
+  browserAnnotate: 'builderhelm:browser:annotate',
+  browserStateEvent: 'builderhelm:browser:state-event',
+  browserDrawSave: 'builderhelm:browser:draw-save',
+  desktopScreenshot: 'builderhelm:desktop:screenshot',
+  desktopAct: 'builderhelm:desktop:act',
+  desktopApprove: 'builderhelm:desktop:approve',
   editorPick: 'builderhelm:editor:pick',
   editorRead: 'builderhelm:editor:read',
   editorList: 'builderhelm:editor:list',
@@ -326,6 +376,38 @@ export interface BuilderHelmDesktopApi {
   };
   readonly browser: {
     command(input: BrowserCommandInput): Promise<BrowserState>;
+    origins(): Promise<PreviewOrigin[]>;
+    snapshot(input: PreviewScreenshotInput): Promise<PreviewSnapshot>;
+    screenshot(input: PreviewScreenshotInput): Promise<PreviewArtifact>;
+    artifacts(input: PreviewArtifactListInput): Promise<PreviewArtifact[]>;
+    drive(input: PreviewDriveInput): Promise<PreviewDriveResult>;
+    approve(input: {
+      readonly id: string;
+      readonly allow: boolean;
+    }): Promise<PreviewDriveResult>;
+    events(): Promise<PreviewEvent[]>;
+    pick(input: PreviewPickInput): Promise<PreviewPick>;
+    sendPick(input: { readonly note: string }): Promise<{ readonly sent: boolean }>;
+    annotate(input: PreviewAnnotationInput): Promise<PreviewArtifact>;
+    saveDrawing(input: PreviewDrawSaveInput): Promise<PreviewArtifact>;
+    menu(input: BrowserMenuInput): Promise<BrowserMenuResult>;
+    onMenuPayload(listener: (payload: BrowserMenuPayload) => void): () => void;
+    pickMenu(choice: string | null): void;
+    settings(): Promise<BrowserSettings>;
+    updateSettings(input: BrowserSettingsUpdateInput): Promise<BrowserSettings>;
+    createProfile(input: BrowserProfileCreateInput): Promise<BrowserSettings>;
+    deleteProfile(input: BrowserProfileDeleteInput): Promise<BrowserSettings>;
+    importCookies(input: BrowserProfileDeleteInput): Promise<BrowserCookieImportResult>;
+    receipts(): Promise<PreviewDriveReceipt[]>;
+    onState(listener: (state: BrowserState) => void): () => void;
+  };
+  readonly desktop: {
+    screenshot(): Promise<{ readonly pngBase64: string }>;
+    act(input: DesktopActInput): Promise<DesktopActResult>;
+    approve(input: {
+      readonly id: string;
+      readonly allow: boolean;
+    }): Promise<DesktopActResult>;
   };
   readonly editor: {
     pick(): Promise<EditorFile | null>;

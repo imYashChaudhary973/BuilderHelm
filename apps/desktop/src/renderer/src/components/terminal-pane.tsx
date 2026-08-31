@@ -6,10 +6,13 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import type { BoardPaneStatus, BoardPaneSummary } from '@builderhelm/protocol/board';
+import type { BrowserSettings } from '@builderhelm/protocol/browser';
 import type { CorrelationId } from '@builderhelm/shared';
 import { useEffect, useRef, useState } from 'react';
 
 import { chunkTailAfter } from '../pane-stream.js';
+import { usePreview } from '../preview-store.js';
+import { resolveTerminalLinkTarget, TERMINAL_LINK_PATTERN } from '../terminal-links.js';
 import { setTerminalFocus } from '../voice/insert.js';
 
 const MIN_COLS = 2;
@@ -57,10 +60,49 @@ export function TerminalPane({
   const [focused, setFocused] = useState(false);
   const [dragging, setDragging] = useState(false);
 
+  const preview = usePreview();
+  const [linkPrompt, setLinkPrompt] = useState<{
+    readonly url: string;
+    readonly x: number;
+    readonly y: number;
+  } | null>(null);
+  const settingsRef = useRef<BrowserSettings | null>(null);
+  const openLinkRef = useRef<(url: string, event: MouseEvent) => void>(() => undefined);
+
+  // The link provider is registered once with the terminal, so the click
+  // handler reads the current settings through a ref instead of closing over a
+  // snapshot that would freeze at the value present when the pane mounted.
+  useEffect(() => {
+    let cancelled = false;
+    void window.builderHelm.browser
+      .settings()
+      .then((value) => {
+        if (!cancelled) settingsRef.current = value;
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  openLinkRef.current = (url, event) => {
+    const target = resolveTerminalLinkTarget(settingsRef.current, event);
+    if (target === 'ask') {
+      setLinkPrompt({ url, x: event.clientX, y: event.clientY });
+      return;
+    }
+    if (target === 'app') {
+      preview.preview(url);
+      return;
+    }
+    void window.builderHelm.browser
+      .command({ action: 'external', url })
+      .catch(() => undefined);
+  };
+
   useEffect(() => {
     const host = hostRef.current;
     if (host === null) return;
-
     const term = new Terminal({
       convertEol: false,
       fontFamily: TERMINAL_FONT_FAMILY,
@@ -85,6 +127,34 @@ export function TerminalPane({
     serializeRef.current = serialize;
     termRef.current = term;
     term.open(host);
+
+    // Terminal output is untrusted text: a link is only ever handed to the
+    // validated open path, never executed, and the pattern deliberately stops
+    // at trailing punctuation so a printed URL resolves to what the tool meant.
+    const linkProvider = term.registerLinkProvider({
+      provideLinks(lineNumber, callback) {
+        const line = term.buffer.active.getLine(lineNumber - 1);
+        if (line === undefined) {
+          callback(undefined);
+          return;
+        }
+        const text = line.translateToString(true);
+        const links = [...text.matchAll(TERMINAL_LINK_PATTERN)].map((match) => {
+          const start = (match.index ?? 0) + 1;
+          return {
+            range: {
+              start: { x: start, y: lineNumber },
+              end: { x: start + match[0].length - 1, y: lineNumber },
+            },
+            text: match[0],
+            activate: (event: MouseEvent) => {
+              openLinkRef.current(match[0], event);
+            },
+          };
+        });
+        callback(links.length > 0 ? links : undefined);
+      },
+    });
 
     // A cell-accurate renderer is required, not an optimisation. The DOM
     // renderer lays each row out as flowing text, so any glyph the font does not
@@ -231,6 +301,7 @@ export function TerminalPane({
       term.dispose();
       termRef.current = null;
       serializeRef.current = null;
+      linkProvider.dispose();
     };
   }, [sessionId, pane.paneId]);
 
@@ -390,6 +461,39 @@ export function TerminalPane({
         ref={hostRef}
         onMouseDown={() => termRef.current?.focus()}
       />
+      {linkPrompt !== null && (
+        <div
+          className="linkActions"
+          role="dialog"
+          aria-label="Open link"
+          style={{ left: linkPrompt.x, top: linkPrompt.y }}
+        >
+          <small>{linkPrompt.url}</small>
+          <button
+            type="button"
+            onClick={() => {
+              preview.preview(linkPrompt.url);
+              setLinkPrompt(null);
+            }}
+          >
+            Built-in Browser
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              void window.builderHelm.browser
+                .command({ action: 'external', url: linkPrompt.url })
+                .catch(() => undefined);
+              setLinkPrompt(null);
+            }}
+          >
+            Default Browser
+          </button>
+          <button type="button" onClick={() => setLinkPrompt(null)}>
+            Cancel
+          </button>
+        </div>
+      )}
     </div>
   );
 }

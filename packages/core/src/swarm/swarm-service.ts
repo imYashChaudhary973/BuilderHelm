@@ -560,10 +560,15 @@ export class SwarmService {
         }
       }
 
+      const { stdout: reviewedHead } = await execFileAsync('git', ['rev-parse', branch], {
+        cwd: run.folderPath,
+        timeout: 5_000,
+      });
       const landed = await this.board.landBranch(
         run.folderPath,
         branch,
         createCorrelationId(),
+        reviewedHead.trim(),
       );
       this.repository.updateTask({
         ...active,
