@@ -11,6 +11,7 @@ import type {
 } from '@builderhelm/protocol/board';
 import {
   BOARD_AGENT_CATALOG,
+  BOARD_WORKTREE_BRANCH_PREFIX,
   boardGridLayouts,
   gridForCount,
 } from '@builderhelm/protocol/board';
@@ -248,13 +249,19 @@ function folderName(path: string): string {
   return path.split('/').filter(Boolean).at(-1) ?? path;
 }
 
+function usableRecent(path: string): boolean {
+  return path.startsWith('/') && !/^\/Users\/[^/]+\/private\//.test(path);
+}
+
 function readRecents(): string[] {
   try {
     const raw = localStorage.getItem(RECENTS_KEY);
     if (raw === null) return [];
     const parsed: unknown = JSON.parse(raw);
     return Array.isArray(parsed)
-      ? parsed.filter((item): item is string => typeof item === 'string').slice(0, 8)
+      ? parsed
+          .filter((item): item is string => typeof item === 'string' && usableRecent(item))
+          .slice(0, 8)
       : [];
   } catch {
     return [];
@@ -262,6 +269,7 @@ function readRecents(): string[] {
 }
 
 function writeRecents(folderPath: string): string[] {
+  if (!usableRecent(folderPath)) return readRecents();
   const next = [folderPath, ...readRecents().filter((item) => item !== folderPath)].slice(
     0,
     8,
@@ -706,7 +714,8 @@ export function BoardPage(): React.JSX.Element {
                 setDraggedPaneId(null);
               }}
               onLand={
-                pane.branch === null
+                pane.branch === null ||
+                !pane.branch.startsWith(BOARD_WORKTREE_BRANCH_PREFIX)
                   ? undefined
                   : () => {
                       const branch = pane.branch as string;
@@ -826,7 +835,6 @@ export function BoardPage(): React.JSX.Element {
         aria-labelledby="space-agents-title"
         data-core-status="ready"
       >
-        <SignalField />
         <div className="boardPage spaceWizard spaceAgents">
           <SpaceStepper step={3} />
           <h1 id="space-agents-title">Add AI coding agents</h1>
@@ -1002,7 +1010,6 @@ export function BoardPage(): React.JSX.Element {
       aria-labelledby="space-setup-title"
       data-core-status="ready"
     >
-      <SignalField />
       <div className="boardPage spaceWizard">
         <SpaceStepper step={2} />
         <h1 id="space-setup-title">Set up your workspace</h1>

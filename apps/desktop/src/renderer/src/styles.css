@@ -787,6 +787,8 @@ html.is-fullscreen .shell {
   min-height: 0;
   overflow: auto;
   padding: 24px 28px 36px;
+  container-type: inline-size;
+  container-name: workspace;
 }
 
 .content:has(.boardChooser),
@@ -805,7 +807,106 @@ html.is-fullscreen .shell {
   height: 100%;
   padding: 0;
   overflow: auto;
-  background: #050505;
+  background: #0a0a0a;
+}
+
+.content:has(.spaceWizard) {
+  background: #070807;
+}
+
+@container workspace (max-width: 560px) {
+  .spaceHome {
+    width: 100%;
+    padding: 20px 14px 24px;
+  }
+
+  .spaceHomeBrand {
+    gap: 8px;
+    margin-bottom: 16px;
+    font-size: 22px;
+  }
+
+  .spaceHomeLogo {
+    width: 32px;
+    height: 32px;
+  }
+
+  .spaceHome h1 {
+    font-size: clamp(22px, 9cqi, 36px);
+    line-height: 1.12;
+  }
+
+  .spaceHomeLead {
+    margin: 10px 0 18px;
+    font-size: 13px;
+  }
+
+  .spaceMode {
+    min-height: 56px;
+    padding: 10px 12px;
+    gap: 10px;
+    border-radius: 14px;
+  }
+
+  .spaceMode kbd,
+  .spaceModeOpen,
+  .spaceModeSoon,
+  .spaceModeHint,
+  .spaceHomeKeys {
+    display: none;
+  }
+
+  .swarmWizard {
+    justify-content: safe center;
+    padding: 20px 12px 12px;
+  }
+
+  .swarmWizardHero {
+    margin-bottom: 16px;
+  }
+
+  .swarmWizardHero h1,
+  .spaceWizard h1,
+  .boardPage.spaceWizard h1 {
+    font-size: clamp(20px, 8cqi, 28px);
+  }
+
+  .swarmSteps {
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .spaceWizard {
+    width: 100%;
+    max-width: none;
+    padding: 16px 12px;
+  }
+
+  .memoryPage,
+  .kanbanPage,
+  .swarmPage {
+    overflow: auto;
+    padding: 10px;
+  }
+
+  .memoryHeader,
+  .kanbanHead {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .paneHeader {
+    flex-wrap: wrap;
+  }
+
+  .layoutGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .editorSide.editorSideFileOn {
+    grid-template-columns: minmax(140px, 0.38fr) minmax(0, 1fr);
+  }
 }
 
 .content:has(.boardGrid) {
@@ -1605,7 +1706,7 @@ h3 {
 }
 
 h1 {
-  font-size: clamp(30px, 3.6vw, 42px);
+  font-size: clamp(22px, 6.5cqi, 42px);
   font-weight: 700;
 }
 
@@ -3273,7 +3374,7 @@ fieldset legend {
   display: flex;
   flex: 1;
   flex-direction: column;
-  justify-content: center;
+  justify-content: safe center;
   min-height: 100%;
   padding: 28px 24px 18px;
   overflow: auto;
@@ -3324,8 +3425,9 @@ fieldset legend {
 
 .swarmWizardHero h1 {
   margin: 0 0 8px;
-  font-size: clamp(28px, 3.4vw, 40px);
+  font-size: clamp(22px, 6cqi, 40px);
   letter-spacing: -0.04em;
+  overflow-wrap: anywhere;
 }
 
 .swarmWizardHero em {
@@ -5415,6 +5517,12 @@ fieldset legend {
   background: #0a0a0a;
 }
 
+.spaceStage:has(.spaceWizard) {
+  height: auto;
+  align-items: flex-start;
+  background: #070807;
+}
+
 .signalField {
   position: absolute;
   inset: 0;
@@ -5435,12 +5543,12 @@ fieldset legend {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  width: min(720px, calc(100% - 64px));
+  justify-content: safe center;
+  width: min(720px, 100%);
   min-height: 100%;
   box-sizing: border-box;
   margin: 0 auto;
-  padding: clamp(32px, 5vh, 72px) 0 clamp(40px, 6vh, 80px);
+  padding: clamp(24px, 5vh, 72px) 16px clamp(32px, 6vh, 80px);
   background: transparent;
 }
 
@@ -5452,9 +5560,16 @@ html.is-fullscreen .spaceStage {
   height: 100%;
 }
 
+html.is-fullscreen .spaceStage:has(.spaceWizard) {
+  height: auto;
+  min-height: 100%;
+  align-items: flex-start;
+}
+
 html.is-fullscreen .spaceWizard {
   width: min(920px, calc(100% - 96px));
-  padding: clamp(28px, 5vh, 64px) 0 clamp(32px, 5vh, 72px);
+  min-height: auto;
+  padding: clamp(28px, 4vh, 48px) 16px 24px;
   gap: clamp(16px, 2.2vh, 28px);
 }
 
@@ -5478,25 +5593,26 @@ html.is-fullscreen .swarmWizardFoot {
   align-items: center;
   gap: 14px;
   margin-bottom: clamp(24px, 3.4vh, 40px);
-  font-size: clamp(32px, 3.4vw, 48px);
+  font-size: clamp(24px, 6cqi, 48px);
   font-weight: 720;
   letter-spacing: -0.045em;
 }
 
 .spaceHomeLogo {
   display: block;
-  width: clamp(44px, 4.2vw, 64px);
-  height: clamp(44px, 4.2vw, 64px);
+  width: clamp(36px, 8cqi, 64px);
+  height: clamp(36px, 8cqi, 64px);
   object-fit: contain;
 }
 
 .spaceHome h1 {
   margin: 0;
-  font-size: clamp(44px, 5.4vw, 76px);
+  font-size: clamp(28px, 9cqi, 76px);
   font-weight: 750;
   letter-spacing: -0.05em;
-  line-height: 1.02;
+  line-height: 1.08;
   text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .spaceHomeLead {
@@ -6066,13 +6182,12 @@ html.is-fullscreen .swarmWizardFoot {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  justify-content: center;
-  width: min(920px, calc(100% - 64px));
+  justify-content: flex-start;
+  width: min(920px, 100%);
   max-width: 920px;
-  min-height: 100%;
   box-sizing: border-box;
   margin: 0 auto;
-  padding: 28px 0 24px;
+  padding: 28px 16px 24px;
   gap: 16px;
 }
 
@@ -6082,17 +6197,19 @@ html.is-fullscreen .swarmWizardFoot {
 }
 
 .spaceWizardFooter {
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   margin-top: 8px;
   padding: 12px 0 4px;
-  background: linear-gradient(180deg, transparent, #0a0a0a 28%);
+  background: transparent;
 }
 
 .spaceWizard h1 {
-  font-size: clamp(28px, 3.4vw, 40px);
+  font-size: clamp(22px, 6cqi, 40px);
   letter-spacing: -0.04em;
+  overflow-wrap: anywhere;
 }
 
 .spaceWizard .lede {
@@ -6192,7 +6309,7 @@ html.is-fullscreen .swarmWizardFoot {
 }
 
 .boardPage.spaceWizard h1 {
-  font-size: clamp(28px, 3.4vw, 40px);
+  font-size: clamp(22px, 6cqi, 40px);
   letter-spacing: -0.04em;
 }
 
@@ -7597,9 +7714,9 @@ html.is-fullscreen .swarmWizardFoot {
 }
 
 .editorTreeHead strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
   font-size: 12px;
 }
 

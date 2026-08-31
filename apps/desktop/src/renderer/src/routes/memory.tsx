@@ -296,7 +296,7 @@ export function MemoryPage(): React.JSX.Element {
                 <strong>No compatible model</strong>
                 <p>
                   Connect a text-streaming model to answer from your vault. Add a provider
-                  in Model settings first.
+                  in Voice settings first.
                 </p>
                 <Link to="/settings/voice">Open Voice settings</Link>
               </div>

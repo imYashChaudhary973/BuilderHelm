@@ -393,7 +393,7 @@ export function ChatPage(): React.JSX.Element {
             )}
           {!loading && models.length === 0 && (
             <div className="modelEmpty">
-              <p>No streaming model is ready. Add a provider in Model settings first.</p>
+              <p>No streaming model is ready. Add a provider in Voice settings first.</p>
               <Link to="/settings/voice">Open Voice settings</Link>
             </div>
           )}

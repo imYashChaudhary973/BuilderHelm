@@ -10,7 +10,7 @@ vi.mock('electron', () => ({
 
 import { execFileSync } from 'node:child_process';
 
-import { listGitChanges, readEditorFile } from '../src/main/file-reader.js';
+import { listGitChanges, readEditorFile, stageGitPath } from '../src/main/file-reader.js';
 
 describe('readEditorFile', () => {
   it('reads utf-8 text and rejects files over 1 MB', () => {
@@ -85,6 +85,34 @@ describe('git change listing', () => {
         { path: 'notes.md', code: 'M', staged: false, added: 1, removed: 0 },
       ]);
     } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('stageGitPath', () => {
+  it('stages a relative path from outside the workspace cwd', () => {
+    const root = mkdtempSync(join(tmpdir(), 'builderhelm-stage-'));
+    const previous = process.cwd();
+    try {
+      execFileSync('git', ['init', '-b', 'main'], { cwd: root });
+      execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: root });
+      execFileSync('git', ['config', 'user.email', 'fixture@example.test'], {
+        cwd: root,
+      });
+      writeFileSync(join(root, 'notes.md'), 'one\n');
+      execFileSync('git', ['add', 'notes.md'], { cwd: root });
+      execFileSync('git', ['commit', '-m', 'start'], { cwd: root });
+      writeFileSync(join(root, 'notes.md'), 'one\ntwo\n');
+
+      process.chdir(tmpdir());
+      stageGitPath(root, 'notes.md', true);
+
+      expect(listGitChanges(root)).toEqual([
+        { path: 'notes.md', code: 'M', staged: true, added: 1, removed: 0 },
+      ]);
+    } finally {
+      process.chdir(previous);
       rmSync(root, { recursive: true, force: true });
     }
   });
