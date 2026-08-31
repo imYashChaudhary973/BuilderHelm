@@ -6,6 +6,7 @@ import { relative, resolve, sep } from 'node:path';
 import type { ReviewRepository } from '@builderhelm/db';
 import type {
   ReviewCheck,
+  ReviewCi,
   ReviewCiCheck,
   ReviewComment,
   ReviewDiffFile,
@@ -167,8 +168,29 @@ function readGhChecks(raw: string): ReviewCiCheck[] {
   return checks;
 }
 
+/**
+ * How `gh` is invoked. Injectable so the pull-request and CI paths are
+ * testable without a network, a token, or a real repository on GitHub.
+ */
+export type GhRunner = (
+  cwd: string,
+  args: readonly string[],
+) => Promise<{ readonly stdout: string }>;
+
+const defaultGhRunner: GhRunner = (cwd, args) =>
+  execFileAsync('gh', [...args], {
+    cwd,
+    encoding: 'utf8',
+    timeout: 30_000,
+    maxBuffer: 1_000_000,
+    windowsHide: true,
+  });
+
 export class GitReviewService {
-  constructor(private readonly repository: ReviewRepository) {}
+  constructor(
+    private readonly repository: ReviewRepository,
+    private readonly runGh: GhRunner = defaultGhRunner,
+  ) {}
 
   async diff(query: ReviewDiffQuery): Promise<ReviewDiffFile[]> {
     const root = await this.resolveRoot(query.root);
@@ -297,14 +319,46 @@ export class GitReviewService {
     };
   }
 
-  async ci(root: string): Promise<ReviewCiCheck[]> {
+  /**
+   * CI for the branch's pull request. `reviewedHead` is compared against the
+   * head the pull request actually points at, so a green run against a commit
+   * that is no longer the reviewed one is reported as stale.
+   */
+  async ci(root: string, reviewedHead?: string): Promise<ReviewCi> {
     const resolved = await this.resolveRoot(root);
     const raw = await this.gh(
       resolved,
       ['pr', 'checks', '--json', 'name,state,link'],
       'Install the GitHub CLI (gh) to read CI status',
     );
-    return readGhChecks(raw);
+    const prHead = await this.prHead(resolved);
+    return {
+      reviewedHead: reviewedHead ?? null,
+      prHead,
+      stale: reviewedHead !== undefined && prHead !== null && prHead !== reviewedHead,
+      checks: readGhChecks(raw),
+    };
+  }
+
+  /** Null when the branch has no pull request or gh cannot say. */
+  private async prHead(cwd: string): Promise<string | null> {
+    let raw: string;
+    try {
+      raw = await this.gh(cwd, ['pr', 'view', '--json', 'headRefOid'], 'gh is required');
+    } catch {
+      return null;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+    if (parsed === null || typeof parsed !== 'object' || !('headRefOid' in parsed)) {
+      return null;
+    }
+    const oid = parsed.headRefOid;
+    return typeof oid === 'string' && /^[0-9a-f]{40,64}$/.test(oid) ? oid : null;
   }
 
   async inspectLand(
@@ -401,25 +455,32 @@ export class GitReviewService {
     missing: string,
   ): Promise<string> {
     try {
-      const { stdout } = await execFileAsync('gh', [...args], {
-        cwd,
-        encoding: 'utf8',
-        timeout: 30_000,
-        maxBuffer: 1_000_000,
-        windowsHide: true,
-      });
+      const { stdout } = await this.runGh(cwd, args);
       return stdout;
     } catch (cause) {
       if (isMissingExecutable(cause)) {
         throw new BuilderHelmError('INTEGRATION_OFFLINE', missing, { cause });
       }
-      throw new BuilderHelmError(
-        'TOOL_EXECUTION_FAILED',
-        gitDetail(cause).slice(0, 300),
-        {
-          cause,
-        },
-      );
+      const detail = gitDetail(cause);
+      // The common first-run case: reviewing a branch nobody has opened a pull
+      // request for. Raw gh stderr reads like a crash, so name it instead.
+      if (/no pull requests?  ?found|no open pull requests/i.test(detail)) {
+        throw new BuilderHelmError(
+          'VALIDATION_FAILED',
+          'This branch has no pull request yet. Draft one first.',
+          { cause },
+        );
+      }
+      if (/not logged into|gh auth login/i.test(detail)) {
+        throw new BuilderHelmError(
+          'INTEGRATION_OFFLINE',
+          'Run `gh auth login` to let BuilderHelm read GitHub.',
+          { cause },
+        );
+      }
+      throw new BuilderHelmError('TOOL_EXECUTION_FAILED', detail.slice(0, 300), {
+        cause,
+      });
     }
   }
 }

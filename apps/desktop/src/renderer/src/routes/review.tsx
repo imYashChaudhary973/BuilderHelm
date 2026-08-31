@@ -28,6 +28,10 @@ export function ReviewPage(): React.JSX.Element {
   const [prBody, setPrBody] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [checkCommand, setCheckCommand] = useState('pnpm test');
+  const [pendingLand, setPendingLand] = useState<{
+    readonly taskId: string;
+    readonly headSha: string;
+  } | null>(null);
 
   const git = useQuery({
     queryKey: ['review-git', root],
@@ -137,6 +141,13 @@ export function ReviewPage(): React.JSX.Element {
     },
     onError: (cause: Error) => setError(cause.message),
   });
+  /**
+   * Landing is two steps on purpose. The first inspects the branch and shows
+   * the exact SHA to be landed; the second lands that SHA. A single click that
+   * read the tip and immediately landed it would certify nothing — the human
+   * would be approving whatever the agent pushed a moment ago. Between the
+   * confirmation and the merge, `landBranch` re-reads the tip and fails closed.
+   */
   const landTask = useMutation({
     mutationFn: async (taskId: string) => {
       const run = swarm.data;
@@ -149,20 +160,28 @@ export function ReviewPage(): React.JSX.Element {
       if (root === null || seat?.branch === null || seat === undefined) {
         throw new Error('Task has no branch');
       }
-      const inspect = await window.builderHelm.review.inspectLand({
-        root,
-        branch: seat.branch,
-        reviewedHead: 'a'.repeat(40),
-      });
-      if (inspect.unmerged.length > 0) {
-        throw new Error(`Unmerged files: ${inspect.unmerged.join(', ')}`);
+      const confirmed = pendingLand;
+      if (confirmed === null || confirmed.taskId !== taskId) {
+        const found = await window.builderHelm.review.inspectLand({
+          root,
+          branch: seat.branch,
+          reviewedHead: git.data?.headSha ?? '0'.repeat(40),
+        });
+        if (found.unmerged.length > 0) {
+          throw new Error(`Unmerged files: ${found.unmerged.join(', ')}`);
+        }
+        setPendingLand({ taskId, headSha: found.headSha });
+        throw new Error(
+          `Review ${found.headSha.slice(0, 7)} on ${found.branch}, then press Land again to merge that commit.`,
+        );
       }
       return window.builderHelm.swarm.landTask({
         correlationId: crypto.randomUUID() as CorrelationId,
-        input: { runId: run.id, taskId, reviewedHead: inspect.headSha },
+        input: { runId: run.id, taskId, reviewedHead: confirmed.headSha },
       });
     },
     onSuccess: async () => {
+      setPendingLand(null);
       await queryClient.invalidateQueries({ queryKey: ['review-swarm-state'] });
     },
     onError: (cause: Error) => setError(cause.message),
@@ -323,8 +342,14 @@ export function ReviewPage(): React.JSX.Element {
             >
               Refresh CI
             </button>
+            {ci.data?.stale === true && (
+              <p className="reviewStale" role="status">
+                These checks ran against {ci.data.prHead?.slice(0, 7)}, not the reviewed{' '}
+                {ci.data.reviewedHead?.slice(0, 7)}.
+              </p>
+            )}
             <ul className="reviewChecks">
-              {(ci.data ?? []).map((item) => (
+              {(ci.data?.checks ?? []).map((item) => (
                 <li key={item.name}>
                   <span>{item.name}</span>
                   <em>{item.state}</em>

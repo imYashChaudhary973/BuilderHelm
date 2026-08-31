@@ -720,3 +720,31 @@ describe('workspaceTargetsForFiles', () => {
     expect(workspaceTargetsForFiles(['README.md', 'scripts/worktree-add'])).toEqual([]);
   });
 });
+
+describe('SwarmService comment routing', () => {
+  /**
+   * Review comments reach an agent only if the path the reviewer clicked
+   * matches the path the task recorded. The renderer sends the repo-relative
+   * path from git status, so that is what has to match — an absolute path, or a
+   * path from a different repo, must route nowhere rather than to the wrong seat.
+   */
+  it('matches the repo-relative path a task owns and nothing else', async () => {
+    const { service, repo } = setup(committingRunner([]));
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    const task = service.addTask(
+      run.id,
+      { title: 'Alpha', files: ['src/a.ts'] },
+      createCorrelationId(),
+    );
+    await service.pump(run.id);
+
+    const owner = service.ownerForFile(repo, 'src/a.ts');
+    expect(owner).not.toBeNull();
+    expect(owner?.runId).toBe(run.id);
+
+    expect(service.ownerForFile(repo, join(repo, 'src/a.ts'))).toBeNull();
+    expect(service.ownerForFile(repo, 'src/other.ts')).toBeNull();
+    expect(service.ownerForFile('/somewhere/else', 'src/a.ts')).toBeNull();
+    expect(task.files).toEqual(['src/a.ts']);
+  });
+});

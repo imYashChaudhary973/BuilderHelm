@@ -11,7 +11,11 @@ import {
 } from '@builderhelm/db';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { GitReviewService, parseUnifiedDiff } from '../src/projects/git-review.js';
+import {
+  GitReviewService,
+  parseUnifiedDiff,
+  type GhRunner,
+} from '../src/projects/git-review.js';
 
 const directories: string[] = [];
 const databases: ReturnType<typeof openDatabase>[] = [];
@@ -35,13 +39,24 @@ function createRepo(): string {
   return root;
 }
 
-function service(): { review: GitReviewService; repo: string } {
+function service(gh?: GhRunner): { review: GitReviewService; repo: string } {
   const database = openDatabase(':memory:');
   databases.push(database);
   runMigrations(database, migrations);
   return {
-    review: new GitReviewService(new ReviewRepository(database)),
+    review: new GitReviewService(new ReviewRepository(database), gh),
     repo: createRepo(),
+  };
+}
+
+/** Replays canned `gh` output keyed by the subcommand under test. */
+function fakeGh(replies: Record<string, string | Error>): GhRunner {
+  return (_cwd, args) => {
+    const key = args.slice(0, 2).join(' ');
+    const reply = replies[key];
+    if (reply === undefined) throw new Error(`unexpected gh call: ${args.join(' ')}`);
+    if (reply instanceof Error) return Promise.reject(reply);
+    return Promise.resolve({ stdout: reply });
   };
 }
 
@@ -139,5 +154,77 @@ describe('GitReviewService', () => {
     const clean = await review.inspectLand(repo, 'exeum/task', head);
     expect(clean.kind).toBe('clean');
     expect(clean.ahead).toBe(1);
+  });
+});
+
+describe('GitReviewService pull requests and CI', () => {
+  const oid = 'b'.repeat(40);
+
+  it('drafts a pull request and returns the URL gh printed', async () => {
+    const { review, repo } = service(
+      fakeGh({ 'pr create': 'https://github.com/o/r/pull/7\n' }),
+    );
+
+    const pr = await review.draftPr(repo, 'Title', 'Body');
+
+    expect(pr.draft).toBe(true);
+    expect(pr.url).toBe('https://github.com/o/r/pull/7');
+    expect(pr.base).toBe('main');
+  });
+
+  it('names the missing pull request instead of leaking gh stderr', async () => {
+    const { review, repo } = service(
+      fakeGh({
+        'pr checks': new Error('no pull requests found for branch "exeum/task"'),
+      }),
+    );
+
+    await expect(review.ci(repo)).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+      message: expect.stringContaining('no pull request yet'),
+    });
+  });
+
+  it('asks for gh auth login when the CLI is not signed in', async () => {
+    const { review, repo } = service(
+      fakeGh({
+        'pr checks': new Error(
+          'gh: To get started with GitHub CLI, please run: gh auth login',
+        ),
+      }),
+    );
+
+    await expect(review.ci(repo)).rejects.toMatchObject({
+      code: 'INTEGRATION_OFFLINE',
+      message: expect.stringContaining('gh auth login'),
+    });
+  });
+
+  it('reports CI as stale when the pull request head is not the reviewed head', async () => {
+    const { review, repo } = service(
+      fakeGh({
+        'pr checks': JSON.stringify([{ name: 'verify', state: 'SUCCESS', link: 'u' }]),
+        'pr view': JSON.stringify({ headRefOid: oid }),
+      }),
+    );
+
+    const stale = await review.ci(repo, 'c'.repeat(40));
+    expect(stale.stale).toBe(true);
+    expect(stale.prHead).toBe(oid);
+    expect(stale.checks.map((check) => check.name)).toEqual(['verify']);
+
+    const fresh = await review.ci(repo, oid);
+    expect(fresh.stale).toBe(false);
+  });
+
+  it('does not claim staleness when no head was reviewed', async () => {
+    const { review, repo } = service(
+      fakeGh({ 'pr checks': '[]', 'pr view': JSON.stringify({ headRefOid: oid }) }),
+    );
+
+    const result = await review.ci(repo);
+
+    expect(result.reviewedHead).toBeNull();
+    expect(result.stale).toBe(false);
   });
 });

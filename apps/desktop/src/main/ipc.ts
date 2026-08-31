@@ -1955,7 +1955,7 @@ export function registerIpcHandlers(
   ipcMain.handle(ipcChannels.reviewCi, async (_event, input: unknown) => {
     try {
       const request = reviewCiRequestSchema.parse(input);
-      const value = await core.review.ci(request.input.root);
+      const value = await core.review.ci(request.input.root, request.input.reviewedHead);
       return reviewCiIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
       return reviewCiIpcResponseSchema.parse({ ok: false, error: ipcError(error) });

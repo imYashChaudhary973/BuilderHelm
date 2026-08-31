@@ -84,7 +84,7 @@ import type {
   ReviewCheck,
   ReviewCheckListInput,
   ReviewCheckRunInput,
-  ReviewCiCheck,
+  ReviewCi,
   ReviewCiInput,
   ReviewComment,
   ReviewCommentCreateInput,
@@ -458,7 +458,7 @@ export interface BuilderHelmDesktopApi {
     check(input: ReviewCheckRunInput): Promise<ReviewCheck>;
     checks(input: ReviewCheckListInput): Promise<ReviewCheck[]>;
     prDraft(input: ReviewPrDraftInput): Promise<ReviewPr>;
-    ci(input: ReviewCiInput): Promise<ReviewCiCheck[]>;
+    ci(input: ReviewCiInput): Promise<ReviewCi>;
     inspectLand(input: ReviewLandInspectInput): Promise<ReviewLandInspect>;
   };
   readonly voice: {

@@ -112,6 +112,22 @@ export const reviewCiCheckSchema = z
   .strict();
 export type ReviewCiCheck = z.infer<typeof reviewCiCheckSchema>;
 
+/**
+ * CI is read through the pull request for the branch, so the head GitHub
+ * tested is not automatically the head that was reviewed. Both are reported
+ * and `stale` says they disagree, rather than showing green for a commit
+ * nobody looked at.
+ */
+export const reviewCiSchema = z
+  .object({
+    reviewedHead: gitShaSchema.nullable(),
+    prHead: gitShaSchema.nullable(),
+    stale: z.boolean(),
+    checks: z.array(reviewCiCheckSchema).max(100),
+  })
+  .strict();
+export type ReviewCi = z.infer<typeof reviewCiSchema>;
+
 export const reviewDiffInputSchema = z
   .object({
     root: pathSchema,
@@ -168,7 +184,9 @@ export const reviewPrDraftInputSchema = z
   .strict();
 export type ReviewPrDraftInput = z.infer<typeof reviewPrDraftInputSchema>;
 
-export const reviewCiInputSchema = z.object({ root: pathSchema }).strict();
+export const reviewCiInputSchema = z
+  .object({ root: pathSchema, reviewedHead: gitShaSchema.optional() })
+  .strict();
 export type ReviewCiInput = z.infer<typeof reviewCiInputSchema>;
 
 export const reviewLandInspectInputSchema = z
@@ -212,5 +230,5 @@ export const reviewCheckListIpcResponseSchema = ipcResult(
   z.array(reviewCheckSchema).max(100),
 );
 export const reviewPrDraftIpcResponseSchema = ipcResult(reviewPrSchema);
-export const reviewCiIpcResponseSchema = ipcResult(z.array(reviewCiCheckSchema).max(100));
+export const reviewCiIpcResponseSchema = ipcResult(reviewCiSchema);
 export const reviewLandInspectIpcResponseSchema = ipcResult(reviewLandInspectSchema);
