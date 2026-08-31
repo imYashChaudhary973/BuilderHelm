@@ -1,6 +1,6 @@
 # Implementation status
 
-Last reviewed: 2026-08-30.
+Last reviewed: 2026-08-31.
 
 This document distinguishes working code from planned product scope. A feature
 is not shipped merely because a route, mock, fixture, or documentation page exists.
@@ -35,11 +35,16 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
   permission capabilities. Provider-specific launch, schema-output, and usage
   behavior is isolated in the core CLI adapters.
 - Browser: sandboxed `WebContentsView` preview per profile, loopback port
-  import, omnibox that navigates or searches, click/fill by ref, element grab
-  and annotation with pins, screenshot markup, detached page DevTools, viewport
-  presets that report the preset width, and a Git evidence gallery on HEAD.
-  Land fails closed if the reviewed head moved. Cart/checkout/send never
-  silent. WebMCP declared tools are not shipped.
+  import, omnibox that navigates or searches, element grab and annotation with
+  pins, screenshot markup copied to the clipboard and stored on HEAD, detached
+  page DevTools, and viewport presets. Desktop fills the panel; tablet and
+  phone letterbox and still report the preset width. ⌘+/⌘-/⌘0 zoom the page,
+  not the chrome. Land fails closed if the reviewed head moved. Cart/checkout/
+  send never silent. WebMCP declared tools are not shipped.
+- Browser evidence — snapshot refs, click/fill by ref, console and network rows,
+  and the artifact list on HEAD — is recorded in the main process and read over
+  IPC. The panel deliberately shows no debug list for it, so today it is
+  reachable by an agent and by tests, not by eye.
 - Browser settings: home page, search engine, zoom, link routing, terminal link
   actions, localhost worktree labels, and profiles with isolated cookies. Stored
   in the existing settings table and verified to survive a restart. Cookie
