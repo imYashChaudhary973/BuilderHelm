@@ -110,6 +110,46 @@ export class KnowledgeService {
     }
   }
 
+  searchNotes(
+    query: string,
+    limit = 20,
+  ): {
+    readonly vaultId: string;
+    readonly vaultName: string;
+    readonly title: string;
+    readonly path: string;
+    readonly excerpt: string;
+  }[] {
+    let match: string;
+    try {
+      match = ftsQuery(query);
+    } catch {
+      return [];
+    }
+    const cap = Math.min(Math.max(limit, 1), 40);
+    const hits: {
+      vaultId: string;
+      vaultName: string;
+      title: string;
+      path: string;
+      excerpt: string;
+    }[] = [];
+    for (const vault of this.repository.listVaults()) {
+      if (hits.length >= cap) break;
+      const rows = this.repository.search(vault.id, match, cap - hits.length);
+      for (const row of rows) {
+        hits.push({
+          vaultId: vault.id,
+          vaultName: vault.name,
+          title: row.title,
+          path: row.relativePath,
+          excerpt: excerpt(row.text),
+        });
+      }
+    }
+    return hits;
+  }
+
   registerVault(rawPath: string, correlationId: CorrelationId): KnowledgeVault {
     const selected = resolveVaultRoot(rawPath);
     const existing = this.repository.findVaultByRootPath(selected.rootPath);

@@ -98,6 +98,12 @@ import {
   linearStatusIpcResponseSchema,
   linearStatusRequestSchema,
 } from '@builderhelm/protocol/integrations';
+import {
+  searchCancelIpcResponseSchema,
+  searchCancelRequestSchema,
+  searchQueryIpcResponseSchema,
+  searchQueryRequestSchema,
+} from '@builderhelm/protocol/search';
 
 import {
   chatCreateRequestSchema,
@@ -273,6 +279,7 @@ import {
   stageGitPath,
   writeEditorFile,
 } from './file-reader.js';
+import { FileSearchHost } from './file-search-host.js';
 import {
   BrowserWindow,
   clipboard,
@@ -331,6 +338,7 @@ export function registerIpcHandlers(
 ): () => void {
   const preview = new PreviewBrowser(core.browserSettings);
   const desktop = new DesktopControl();
+  const fileSearch = new FileSearchHost();
   registerBrowserMenuIpc();
   setPreviewZoomHandlers({
     in: () => preview.nudgeZoom(1),
@@ -1492,6 +1500,48 @@ export function registerIpcHandlers(
       });
     }
   });
+  ipcMain.handle(ipcChannels.searchQuery, async (_event, input: unknown) => {
+    try {
+      const request = searchQueryRequestSchema.parse(input);
+      const limit = request.input.limit ?? 40;
+      const files =
+        request.input.root === null
+          ? []
+          : await fileSearch
+              .query(request.input.root, request.input.query, limit)
+              .catch((error: unknown) => {
+                if (
+                  error instanceof BuilderHelmError &&
+                  error.message === 'Search cancelled'
+                ) {
+                  return [];
+                }
+                throw error;
+              });
+      return searchQueryIpcResponseSchema.parse({
+        ok: true,
+        value: {
+          files,
+          cards: core.board.searchCards(request.input.query, limit),
+          memory: core.knowledge.searchNotes(request.input.query, limit),
+        },
+      });
+    } catch (error) {
+      return searchQueryIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.searchCancel, (_event, input: unknown) => {
+    try {
+      searchCancelRequestSchema.parse(input);
+      fileSearch.cancel();
+      return searchCancelIpcResponseSchema.parse({
+        ok: true,
+        value: { cancelled: true },
+      });
+    } catch (error) {
+      return searchCancelIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
 
   ipcMain.handle(ipcChannels.browserCommand, async (event, input: unknown) => {
     try {
@@ -2350,7 +2400,9 @@ export function registerIpcHandlers(
   return () => {
     for (const active of activeStreams.values()) active.controller.abort();
     activeStreams.clear();
-    preview.dispose();
+    fileSearch.cancel();
+    ipcMain.removeHandler(ipcChannels.searchQuery);
+    ipcMain.removeHandler(ipcChannels.searchCancel);
     ipcMain.removeHandler(ipcChannels.systemHealth);
     ipcMain.removeHandler(ipcChannels.providerList);
     ipcMain.removeHandler(ipcChannels.providerCreate);

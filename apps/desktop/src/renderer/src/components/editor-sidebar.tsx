@@ -278,6 +278,15 @@ export function EditorSidebar(): React.JSX.Element {
     }
   }
 
+  useEffect(() => {
+    const onOpen = (event: Event): void => {
+      const path = (event as CustomEvent<{ path?: string }>).detail?.path;
+      if (typeof path === 'string') void openFile(path);
+    };
+    window.addEventListener('builderhelm:open-editor', onOpen);
+    return () => window.removeEventListener('builderhelm:open-editor', onOpen);
+  });
+
   async function saveOne(path: string): Promise<void> {
     if (root === null) return;
     const doc = docs.find((item) => item.file.path === path);

@@ -90,6 +90,11 @@ import {
   linearKeySaveIpcResponseSchema,
   linearStatusIpcResponseSchema,
 } from '@builderhelm/protocol/integrations';
+import {
+  searchCancelIpcResponseSchema,
+  searchQueryInputSchema,
+  searchQueryIpcResponseSchema,
+} from '@builderhelm/protocol/search';
 
 import {
   ipcChannels,
@@ -765,6 +770,22 @@ const api: BuilderHelmDesktopApi = {
         input: {},
       });
       return unwrap(linearKeyDeleteIpcResponseSchema.parse(response));
+    },
+  },
+  search: {
+    async query(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.searchQuery, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: searchQueryInputSchema.parse(input),
+      });
+      return unwrap(searchQueryIpcResponseSchema.parse(response));
+    },
+    async cancel() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.searchCancel, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: {},
+      });
+      return unwrap(searchCancelIpcResponseSchema.parse(response));
     },
   },
   projects: {

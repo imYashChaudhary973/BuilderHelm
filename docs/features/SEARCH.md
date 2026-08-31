@@ -1,6 +1,7 @@
 # Global search
 
-Status: planned.
+Status: command palette working for files, Board cards, Memory notes, and
+registered commands. Persistent incremental index is not shipped.
 
 ## Goal
 

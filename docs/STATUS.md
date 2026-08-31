@@ -25,6 +25,8 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
   with a receipt. Covered by service tests. The Board Linear panel has not
   been clicked live.
 - Memory vault selection, local Markdown indexing, answers, and citations.
+- Command palette (⌘K): files in the active Space via a worker thread, Board
+  cards, Memory notes, registered commands, and live Spaces. No persistent index.
 - Editor tree, tabs, save, save-all, autosave, and word wrap.
 - Git status, history, stage, unstage, and commit.
 - Git panel: branch, tracking, multi-line commit box, staged / change sections
@@ -96,7 +98,7 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 
 - Unsigned or auto-approved whole-desktop computer-use.
 - GitHub pull-request intake and a BuilderHelm OAuth app.
-- Global search across worktrees, files, agents, commands, and artifacts.
+- Persistent incremental search index across archived workspaces.
 - Rich development notes with slash commands and inline logs.
 - Usage, quota, rate-limit, and account-switching UI.
 - Optional encrypted relay and remote host pairing.

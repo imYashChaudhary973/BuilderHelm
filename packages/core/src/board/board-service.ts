@@ -706,6 +706,48 @@ export class BoardService {
       .map(toKanbanCard);
   }
 
+  searchCards(
+    query: string,
+    limit = 20,
+  ): {
+    readonly id: string;
+    readonly title: string;
+    readonly workspace: string;
+    readonly projectName: string;
+    readonly column: string;
+  }[] {
+    const needle = query.trim().toLowerCase();
+    if (needle.length === 0) return [];
+    return this.database
+      .queryAll<{
+        id: string;
+        title: string;
+        workspace: string;
+        projectName: string;
+        columnName: string;
+      }>(
+        `SELECT
+           cards.id,
+           cards.title,
+           cards.workspace,
+           projects.name AS projectName,
+           cards.column_name AS columnName
+         FROM kanban_cards AS cards
+         INNER JOIN kanban_projects AS projects ON projects.id = cards.workspace
+         WHERE instr(lower(cards.title), ?) > 0
+         ORDER BY projects.updated_at DESC, cards.created_at DESC
+         LIMIT ?`,
+        [needle, Math.min(Math.max(limit, 1), 40)],
+      )
+      .map((row) => ({
+        id: row.id,
+        title: row.title,
+        workspace: row.workspace,
+        projectName: row.projectName,
+        column: row.columnName,
+      }));
+  }
+
   getCard(id: string): KanbanCard {
     const row = this.database.queryOne<StoredKanbanCard>(
       `SELECT ${kanbanCardColumns} FROM kanban_cards WHERE id = ?`,
