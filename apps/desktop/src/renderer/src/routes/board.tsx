@@ -260,7 +260,9 @@ function readRecents(): string[] {
     const parsed: unknown = JSON.parse(raw);
     return Array.isArray(parsed)
       ? parsed
-          .filter((item): item is string => typeof item === 'string' && usableRecent(item))
+          .filter(
+            (item): item is string => typeof item === 'string' && usableRecent(item),
+          )
           .slice(0, 8)
       : [];
   } catch {

@@ -238,9 +238,9 @@ describe('LinearIssuesService', () => {
     }));
 
     await expect(linear.status()).resolves.toEqual({ configured: false });
-    await expect(
-      linear.saveKey(apiKey, createCorrelationId()),
-    ).resolves.toEqual({ configured: true });
+    await expect(linear.saveKey(apiKey, createCorrelationId())).resolves.toEqual({
+      configured: true,
+    });
     await expect(secrets.get(LINEAR_SECRET_REF)).resolves.toBe(apiKey);
   });
 });

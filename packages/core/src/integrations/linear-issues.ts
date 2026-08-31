@@ -122,7 +122,10 @@ function parseIssueNode(value: unknown): LinearIssue {
 
 export function parseLinearIssues(nodes: unknown): LinearIssue[] {
   if (!Array.isArray(nodes)) {
-    throw new BuilderHelmError('VALIDATION_FAILED', 'Linear returned an invalid issue list');
+    throw new BuilderHelmError(
+      'VALIDATION_FAILED',
+      'Linear returned an invalid issue list',
+    );
   }
   return nodes.map((node) => parseIssueNode(node));
 }
@@ -154,9 +157,9 @@ function pickStateId(
   const match =
     wanted === 'closed'
       ? states.find((state) => state.type === 'completed')
-      : states.find((state) => state.type === 'unstarted') ??
+      : (states.find((state) => state.type === 'unstarted') ??
         states.find((state) => state.type === 'backlog') ??
-        states.find((state) => state.type === 'started');
+        states.find((state) => state.type === 'started'));
   if (match === undefined) {
     throw new BuilderHelmError(
       'VALIDATION_FAILED',
@@ -313,8 +316,7 @@ export class LinearIssuesService {
             if (observed.state === input.state) {
               outcome = 'succeeded';
               changed = true;
-              detail =
-                `Linear issue ${input.state === 'closed' ? 'completed' : 'reopened'}`;
+              detail = `Linear issue ${input.state === 'closed' ? 'completed' : 'reopened'}`;
             } else {
               outcome = 'failed';
               detail = `Linear kept the issue ${observed.state}`;
@@ -367,7 +369,10 @@ export class LinearIssuesService {
     });
     const issue = asRecord(data)?.issue;
     if (issue === null || issue === undefined) {
-      throw new BuilderHelmError('VALIDATION_FAILED', 'That Linear issue no longer exists');
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'That Linear issue no longer exists',
+      );
     }
     return parseIssueNode(issue);
   }
@@ -385,7 +390,10 @@ export class LinearIssuesService {
     });
     const issue = asRecord(asRecord(data)?.issue);
     if (issue === null) {
-      throw new BuilderHelmError('VALIDATION_FAILED', 'That Linear issue no longer exists');
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'That Linear issue no longer exists',
+      );
     }
     if (linearState(asRecord(issue.state)?.type) === state) return;
     const team = asRecord(issue.team);
@@ -480,11 +488,10 @@ export class LinearIssuesService {
     try {
       result = await this.transport(apiKey, body);
     } catch (cause) {
-      throw new BuilderHelmError(
-        'INTEGRATION_OFFLINE',
-        'Linear could not be reached',
-        { cause, retryable: true },
-      );
+      throw new BuilderHelmError('INTEGRATION_OFFLINE', 'Linear could not be reached', {
+        cause,
+        retryable: true,
+      });
     }
     const message = result.errors[0]?.message ?? '';
     if (result.status === 401 || /authenticat|unauthorized|invalid api/i.test(message)) {
