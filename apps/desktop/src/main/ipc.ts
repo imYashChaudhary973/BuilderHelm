@@ -213,7 +213,7 @@ import type { VoiceModelManager } from './voice-models.js';
 import type { VoiceRuntime } from './voice-runtime.js';
 import { PreviewBrowser } from './preview-browser.js';
 import { DesktopControl } from './desktop-control.js';
-import { popupBrowserMenu } from './browser-menu.js';
+import { popupBrowserMenu, registerBrowserMenuIpc } from './browser-menu.js';
 import { setPreviewZoomHandlers } from './legal-menu.js';
 import { importProfileCookies } from './browser-cookies.js';
 import {
@@ -285,6 +285,7 @@ export function registerIpcHandlers(
 ): () => void {
   const preview = new PreviewBrowser(core.browserSettings);
   const desktop = new DesktopControl();
+  registerBrowserMenuIpc();
   setPreviewZoomHandlers({
     in: () => preview.nudgeZoom(1),
     out: () => preview.nudgeZoom(-1),

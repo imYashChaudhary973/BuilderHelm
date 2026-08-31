@@ -768,10 +768,11 @@ const api: BuilderHelmDesktopApi = {
       };
     },
     pickMenu(choice) {
-      void ipcRenderer.invoke(
-        ipcChannels.browserMenuPick,
-        browserMenuPickSchema.parse({ choice }),
-      );
+      // The window can be torn down between the click and the reply; a
+      // rejected invoke here must not surface as an unhandled rejection.
+      void ipcRenderer
+        .invoke(ipcChannels.browserMenuPick, browserMenuPickSchema.parse({ choice }))
+        .catch(() => undefined);
     },
     async settings() {
       const response: unknown = await ipcRenderer.invoke(ipcChannels.browserSettings, {

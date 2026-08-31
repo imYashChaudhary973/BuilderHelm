@@ -51,6 +51,24 @@ function loadPopup(popup: BrowserWindow): Promise<void> {
   return ready;
 }
 
+const pendingPicks = new Map<number, (choice: string | null) => void>();
+
+/**
+ * One handler for every popup, registered alongside the other IPC handlers.
+ * A per-call register/remove pair on this shared channel would let a closing
+ * menu tear down the handler a newly opened one is already using — reachable
+ * via New Profile…, which reopens the overflow menu.
+ */
+export function registerBrowserMenuIpc(): void {
+  ipcMain.handle(ipcChannels.browserMenuPick, (event, raw: unknown) => {
+    const settle = pendingPicks.get(event.sender.id);
+    if (settle === undefined) return { ok: true };
+    const parsed = browserMenuPickSchema.safeParse(raw);
+    settle(parsed.success ? parsed.data.choice : null);
+    return { ok: true };
+  });
+}
+
 /**
  * Toolbar menus are a child window for a structural reason: the embedded page
  * is a child view composited above the renderer, so an HTML popover anchored in
@@ -115,18 +133,11 @@ export async function popupBrowserMenu(
     }
   });
 
-  const onPick = (event: Electron.IpcMainInvokeEvent, raw: unknown): { ok: true } => {
-    if (event.sender === popup.webContents) {
-      const parsed = browserMenuPickSchema.safeParse(raw);
-      finish(parsed.success ? parsed.data.choice : null);
-    }
-    return { ok: true };
-  };
-  ipcMain.removeHandler(ipcChannels.browserMenuPick);
-  ipcMain.handle(ipcChannels.browserMenuPick, onPick);
+  const contentsId = popup.webContents.id;
+  pendingPicks.set(contentsId, finish);
   popup.on('blur', () => finish(null));
   popup.on('closed', () => {
-    ipcMain.removeHandler(ipcChannels.browserMenuPick);
+    pendingPicks.delete(contentsId);
     finish(null);
   });
 
