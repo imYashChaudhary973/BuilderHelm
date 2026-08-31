@@ -91,8 +91,45 @@ import {
   type ChatClientStreamEvent,
 } from '@builderhelm/protocol/chat';
 import {
+  browserAnnotateRequestSchema,
+  browserApproveRequestSchema,
+  browserArtifactsIpcResponseSchema,
+  browserArtifactsRequestSchema,
   browserCommandIpcResponseSchema,
   browserCommandRequestSchema,
+  browserCookieImportIpcResponseSchema,
+  browserCookieImportRequestSchema,
+  browserDrawSaveRequestSchema,
+  browserDriveIpcResponseSchema,
+  browserDriveRequestSchema,
+  browserEventsIpcResponseSchema,
+  browserEventsRequestSchema,
+  browserMenuIpcResponseSchema,
+  browserMenuRequestSchema,
+  browserOriginsIpcResponseSchema,
+  browserOriginsRequestSchema,
+  browserProfilePartition,
+  browserPickIpcResponseSchema,
+  browserPickRequestSchema,
+  browserPickSendIpcResponseSchema,
+  browserPickSendRequestSchema,
+  browserProfileCreateRequestSchema,
+  browserProfileDeleteRequestSchema,
+  browserReceiptsIpcResponseSchema,
+  browserScreenshotIpcResponseSchema,
+  browserScreenshotRequestSchema,
+  browserSettingsIpcResponseSchema,
+  browserSettingsRequestSchema,
+  browserSettingsUpdateRequestSchema,
+  browserSnapshotIpcResponseSchema,
+  browserSnapshotRequestSchema,
+  browserStateSchema,
+  desktopActIpcResponseSchema,
+  desktopActRequestSchema,
+  desktopApproveRequestSchema,
+  desktopScreenshotIpcResponseSchema,
+  desktopScreenshotRequestSchema,
+  formatAnnotationDetail,
 } from '@builderhelm/protocol/browser';
 import {
   editorCreateIpcResponseSchema,
@@ -195,6 +232,10 @@ import type { PtySwarmRunner } from './swarm-runner.js';
 import type { VoiceModelManager } from './voice-models.js';
 import type { VoiceRuntime } from './voice-runtime.js';
 import { PreviewBrowser } from './preview-browser.js';
+import { DesktopControl } from './desktop-control.js';
+import { popupBrowserMenu, registerBrowserMenuIpc } from './browser-menu.js';
+import { setPreviewZoomHandlers } from './legal-menu.js';
+import { importProfileCookies } from './browser-cookies.js';
 import {
   commitGit,
   createEditorEntry,
@@ -206,7 +247,15 @@ import {
   stageGitPath,
   writeEditorFile,
 } from './file-reader.js';
-import { dialog, ipcMain, type WebContents } from 'electron';
+import {
+  BrowserWindow,
+  clipboard,
+  dialog,
+  ipcMain,
+  nativeImage,
+  session,
+  type WebContents,
+} from 'electron';
 import { ZodError } from 'zod';
 
 function ipcError(error: unknown): {
@@ -254,7 +303,25 @@ export function registerIpcHandlers(
     onSettings?: (settings: VoiceSettings) => void;
   },
 ): () => void {
-  const preview = new PreviewBrowser();
+  const preview = new PreviewBrowser(core.browserSettings);
+  const desktop = new DesktopControl();
+  registerBrowserMenuIpc();
+  setPreviewZoomHandlers({
+    in: () => preview.nudgeZoom(1),
+    out: () => preview.nudgeZoom(-1),
+    reset: () => preview.nudgeZoom(0),
+  });
+  // Navigation the page starts itself must reach the toolbar, so main pushes
+  // state instead of waiting for the renderer's next command.
+  preview.onState((state) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (win.webContents.isDestroyed()) continue;
+      win.webContents.send(
+        ipcChannels.browserStateEvent,
+        browserStateSchema.parse(state),
+      );
+    }
+  });
   const activeStreams = new Map<
     string,
     { readonly controller: AbortController; readonly senderId: number }
@@ -1261,6 +1328,398 @@ export function registerIpcHandlers(
     }
   });
 
+  function previewHeadSha(root: string | undefined): string {
+    if (root === undefined) return 'unversioned';
+    try {
+      return new LocalGitInspector().inspect(root).headSha;
+    } catch {
+      return 'unversioned';
+    }
+  }
+
+  ipcMain.handle(ipcChannels.browserOrigins, (_event, input: unknown) => {
+    try {
+      browserOriginsRequestSchema.parse(input);
+      const value = board?.listPreviewOrigins() ?? [];
+      return browserOriginsIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return browserOriginsIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserSnapshot, async (_event, input: unknown) => {
+    try {
+      const request = browserSnapshotRequestSchema.parse(input);
+      const snap = await preview.snapshot();
+      core.previewArtifacts.record({
+        runId: request.input.runId ?? null,
+        headSha: previewHeadSha(request.input.root),
+        kind: 'snapshot',
+        url: snap.url,
+        viewport: snap.viewport,
+        nodes: snap.nodes,
+      });
+      return browserSnapshotIpcResponseSchema.parse({
+        ok: true,
+        value: snap,
+      });
+    } catch (error) {
+      return browserSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserScreenshot, async (_event, input: unknown) => {
+    try {
+      const request = browserScreenshotRequestSchema.parse(input);
+      const shot = await preview.screenshot();
+      const value = core.previewArtifacts.record({
+        runId: request.input.runId ?? null,
+        headSha: previewHeadSha(request.input.root),
+        kind: 'screenshot',
+        url: shot.url,
+        viewport: shot.viewport,
+        png: shot.png,
+      });
+      return browserScreenshotIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return browserScreenshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserArtifacts, (_event, input: unknown) => {
+    try {
+      const request = browserArtifactsRequestSchema.parse(input);
+      const value = core.previewArtifacts.list({
+        headSha: previewHeadSha(request.input.root),
+        runId: request.input.runId ?? null,
+      });
+      return browserArtifactsIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return browserArtifactsIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserDrive, async (_event, input: unknown) => {
+    try {
+      const request = browserDriveRequestSchema.parse(input);
+      const value = await preview.drive(request.input);
+      return browserDriveIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return browserDriveIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserApprove, async (_event, input: unknown) => {
+    try {
+      const request = browserApproveRequestSchema.parse(input);
+      const value = await preview.resolveDrive(request.input.id, request.input.allow);
+      return browserDriveIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return browserDriveIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserEvents, (_event, input: unknown) => {
+    try {
+      browserEventsRequestSchema.parse(input);
+      return browserEventsIpcResponseSchema.parse({
+        ok: true,
+        value: preview.listEvents(),
+      });
+    } catch (error) {
+      return browserEventsIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserPick, async (_event, input: unknown) => {
+    try {
+      const request = browserPickRequestSchema.parse(input);
+      const value = await preview.pick(request.input.mode);
+      return browserPickIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return browserPickIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserAnnotate, async (_event, input: unknown) => {
+    try {
+      const request = browserAnnotateRequestSchema.parse(input);
+      const { index, pick } = await preview.pinAnnotation();
+      const value = core.previewArtifacts.record({
+        runId: request.input.runId ?? null,
+        headSha: previewHeadSha(request.input.root),
+        kind: 'annotation',
+        url: pick.url,
+        viewport: pick.viewport,
+        detail: formatAnnotationDetail({ index, note: request.input.note, pick }),
+        ...(pick.pngBase64 === null
+          ? {}
+          : { png: new Uint8Array(Buffer.from(pick.pngBase64, 'base64')) }),
+      });
+      return browserScreenshotIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return browserScreenshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserDrawSave, (_event, input: unknown) => {
+    try {
+      const request = browserDrawSaveRequestSchema.parse(input);
+      const png = Buffer.from(request.input.png);
+      clipboard.writeImage(nativeImage.createFromBuffer(png));
+      const value = core.previewArtifacts.record({
+        runId: request.input.runId ?? null,
+        headSha: previewHeadSha(request.input.root),
+        kind: 'screenshot',
+        url: preview.currentUrl(),
+        viewport: preview.currentViewport(),
+        png: new Uint8Array(png),
+      });
+      return browserScreenshotIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return browserScreenshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserMenu, async (event, input: unknown) => {
+    try {
+      const request = browserMenuRequestSchema.parse(input);
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (win === null) {
+        throw new BuilderHelmError('VALIDATION_FAILED', 'No window for the menu');
+      }
+      const value = await popupBrowserMenu(win, request.input, {
+        origins: board?.listPreviewOrigins() ?? [],
+        settings: core.browserSettings.read(),
+        viewport: preview.currentViewport(),
+      });
+      return browserMenuIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return browserMenuIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserSettings, (_event, input: unknown) => {
+    try {
+      browserSettingsRequestSchema.parse(input);
+      return browserSettingsIpcResponseSchema.parse({
+        ok: true,
+        value: core.browserSettings.read(),
+      });
+    } catch (error) {
+      return browserSettingsIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserSettingsUpdate, (_event, input: unknown) => {
+    try {
+      const request = browserSettingsUpdateRequestSchema.parse(input);
+      return browserSettingsIpcResponseSchema.parse({
+        ok: true,
+        value: core.browserSettings.update(request.input),
+      });
+    } catch (error) {
+      return browserSettingsIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserProfileCreate, (_event, input: unknown) => {
+    try {
+      const request = browserProfileCreateRequestSchema.parse(input);
+      return browserSettingsIpcResponseSchema.parse({
+        ok: true,
+        value: core.browserSettings.createProfile(request.input.name),
+      });
+    } catch (error) {
+      return browserSettingsIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserProfileDelete, async (event, input: unknown) => {
+    try {
+      const request = browserProfileDeleteRequestSchema.parse(input);
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (win === null) {
+        throw new BuilderHelmError('VALIDATION_FAILED', 'No window for the prompt');
+      }
+      const settings = core.browserSettings.read();
+      const profile = settings.profiles.find((entry) => entry.id === request.input.id);
+      if (profile === undefined) {
+        throw new BuilderHelmError('VALIDATION_FAILED', 'No such browser profile');
+      }
+      // Deleting a profile destroys its cookies and cache, so the confirmation
+      // is a trusted main-process dialog rather than a renderer prompt.
+      const confirmed = await dialog.showMessageBox(win, {
+        type: 'warning',
+        buttons: ['Cancel', 'Delete'],
+        defaultId: 0,
+        cancelId: 0,
+        title: 'Delete browser profile',
+        message: `Delete ${profile.name}?`,
+        detail: 'Its cookies, cache, and stored sign-ins are erased.',
+      });
+      if (confirmed.response !== 1) {
+        return browserSettingsIpcResponseSchema.parse({ ok: true, value: settings });
+      }
+      const next = core.browserSettings.deleteProfile(profile.id);
+      await session.fromPartition(browserProfilePartition(profile.id)).clearStorageData();
+      return browserSettingsIpcResponseSchema.parse({ ok: true, value: next });
+    } catch (error) {
+      return browserSettingsIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserCookieImport, async (event, input: unknown) => {
+    try {
+      const request = browserCookieImportRequestSchema.parse(input);
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (win === null) {
+        throw new BuilderHelmError('VALIDATION_FAILED', 'No window for the picker');
+      }
+      const profile = core.browserSettings
+        .read()
+        .profiles.find((entry) => entry.id === request.input.id);
+      if (profile === undefined) {
+        throw new BuilderHelmError('VALIDATION_FAILED', 'No such browser profile');
+      }
+      const value = await importProfileCookies(win, profile);
+      if (!value.cancelled) {
+        core.browserSettings.recordCookieImport(
+          profile.id,
+          value.domains,
+          value.imported,
+        );
+      }
+      return browserCookieImportIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return browserCookieImportIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserPickSend, (_event, input: unknown) => {
+    try {
+      const request = browserPickSendRequestSchema.parse(input);
+      const picked = preview.lastPicked();
+      if (picked === null) {
+        throw new BuilderHelmError('VALIDATION_FAILED', 'Pick an element first');
+      }
+      const run = core.swarm.latestRun();
+      if (run === null) {
+        return browserPickSendIpcResponseSchema.parse({
+          ok: true,
+          value: { sent: false },
+        });
+      }
+      const builders = core.swarm
+        .state(run.id)
+        .seats.filter((seat) => seat.role === 'builder')
+        .map((seat) => seat.id);
+      if (builders.length === 0) {
+        return browserPickSendIpcResponseSchema.parse({
+          ok: true,
+          value: { sent: false },
+        });
+      }
+      core.swarm.direct(
+        run.id,
+        builders,
+        `Preview pick ${picked.role} "${picked.name}" at ${picked.locator}\n` +
+          `${request.input.note}\n${picked.url}`,
+        request.correlationId,
+      );
+      return browserPickSendIpcResponseSchema.parse({ ok: true, value: { sent: true } });
+    } catch (error) {
+      return browserPickSendIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.browserReceipts, (_event, input: unknown) => {
+    try {
+      browserEventsRequestSchema.parse(input);
+      return browserReceiptsIpcResponseSchema.parse({
+        ok: true,
+        value: preview.listReceipts(),
+      });
+    } catch (error) {
+      return browserReceiptsIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.desktopScreenshot, async (_event, input: unknown) => {
+    try {
+      desktopScreenshotRequestSchema.parse(input);
+      return desktopScreenshotIpcResponseSchema.parse({
+        ok: true,
+        value: await desktop.screenshot(),
+      });
+    } catch (error) {
+      return desktopScreenshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.desktopAct, async (_event, input: unknown) => {
+    try {
+      const request = desktopActRequestSchema.parse(input);
+      return desktopActIpcResponseSchema.parse({
+        ok: true,
+        value: await desktop.act(request.input),
+      });
+    } catch (error) {
+      return desktopActIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.desktopApprove, async (_event, input: unknown) => {
+    try {
+      const request = desktopApproveRequestSchema.parse(input);
+      return desktopActIpcResponseSchema.parse({
+        ok: true,
+        value: await desktop.resolve(request.input.id, request.input.allow),
+      });
+    } catch (error) {
+      return desktopActIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
   ipcMain.handle(ipcChannels.editorPick, async (_event, input: unknown) => {
     try {
       editorPickRequestSchema.parse(input);
@@ -1753,6 +2212,28 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.kanbanUpdate);
     ipcMain.removeHandler(ipcChannels.kanbanDelete);
     ipcMain.removeHandler(ipcChannels.browserCommand);
+    ipcMain.removeHandler(ipcChannels.browserOrigins);
+    ipcMain.removeHandler(ipcChannels.browserSnapshot);
+    ipcMain.removeHandler(ipcChannels.browserScreenshot);
+    ipcMain.removeHandler(ipcChannels.browserArtifacts);
+    ipcMain.removeHandler(ipcChannels.browserDrive);
+    ipcMain.removeHandler(ipcChannels.browserApprove);
+    ipcMain.removeHandler(ipcChannels.browserEvents);
+    ipcMain.removeHandler(ipcChannels.browserPick);
+    ipcMain.removeHandler(ipcChannels.browserPickSend);
+    ipcMain.removeHandler(ipcChannels.browserAnnotate);
+    ipcMain.removeHandler(ipcChannels.browserDrawSave);
+    ipcMain.removeHandler(ipcChannels.browserMenu);
+    ipcMain.removeHandler(ipcChannels.browserMenuPick);
+    ipcMain.removeHandler(ipcChannels.browserSettings);
+    ipcMain.removeHandler(ipcChannels.browserSettingsUpdate);
+    ipcMain.removeHandler(ipcChannels.browserProfileCreate);
+    ipcMain.removeHandler(ipcChannels.browserProfileDelete);
+    ipcMain.removeHandler(ipcChannels.browserCookieImport);
+    ipcMain.removeHandler(ipcChannels.browserReceipts);
+    ipcMain.removeHandler(ipcChannels.desktopScreenshot);
+    ipcMain.removeHandler(ipcChannels.desktopAct);
+    ipcMain.removeHandler(ipcChannels.desktopApprove);
     ipcMain.removeHandler(ipcChannels.editorPick);
     ipcMain.removeHandler(ipcChannels.editorRead);
     ipcMain.removeHandler(ipcChannels.editorList);

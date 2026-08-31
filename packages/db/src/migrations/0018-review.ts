@@ -1,7 +1,7 @@
 import type { Migration } from '../migration-runner.js';
 
 export const reviewPersistenceMigration: Migration = {
-  version: 15,
+  version: 18,
   name: 'review-persistence',
   up(database) {
     database.execute(`

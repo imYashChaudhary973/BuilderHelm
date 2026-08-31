@@ -2,6 +2,12 @@ import { createCorrelationId } from '@builderhelm/shared';
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildPageSnapshot,
+  extractPreviewOrigins,
+  previewTargetNeedsApproval,
+  redactPreviewUrl,
+  desktopActNeedsApproval,
+  escapeAppleScript,
   actionCommandRequestSchema,
   approvalResolveRequestSchema,
   BOARD_AGENT_CATALOG,
@@ -253,6 +259,64 @@ describe('preview URLs', () => {
     expect(parsePreviewUrl('file:///etc/passwd')).toBeNull();
     expect(parsePreviewUrl('javascript:alert(1)')).toBeNull();
     expect(parsePreviewUrl('http://user:pass@host/')).toBeNull();
+  });
+
+  it('extracts loopback ports from Vite-style logs', () => {
+    const text = '  ➜  Local:   http://localhost:5173/\nready';
+    expect(extractPreviewOrigins(text)).toEqual(['http://127.0.0.1:5173/']);
+    expect(extractPreviewOrigins('open file:///etc/passwd')).toEqual([]);
+  });
+
+  it('keeps snapshot refs and drops extra keys', () => {
+    const nodes = buildPageSnapshot([
+      { role: 'button', name: 'Sign up', cookie: 'secret', href: 'javascript:alert(1)' },
+      { role: '', name: 'ignore' },
+    ]);
+    expect(nodes).toEqual([{ ref: 'e1', role: 'button', name: 'Sign up' }]);
+  });
+
+  it('requires approval for submit and off-origin links', () => {
+    expect(
+      previewTargetNeedsApproval({
+        tag: 'button',
+        type: 'submit',
+        name: 'Save',
+        href: '',
+        pageOrigin: 'http://127.0.0.1:5173',
+      }),
+    ).toBe(true);
+    expect(
+      previewTargetNeedsApproval({
+        tag: 'button',
+        type: 'button',
+        name: 'Search',
+        href: '',
+        pageOrigin: 'http://127.0.0.1:5173',
+      }),
+    ).toBe(false);
+    expect(
+      previewTargetNeedsApproval({
+        tag: 'a',
+        type: '',
+        name: 'Docs',
+        href: 'https://example.com/docs',
+        pageOrigin: 'http://127.0.0.1:5173',
+      }),
+    ).toBe(true);
+  });
+
+  it('redacts secrets in preview URLs', () => {
+    expect(redactPreviewUrl('http://127.0.0.1:5173/api?token=abc&q=1')).toContain(
+      'token=redacted',
+    );
+    expect(redactPreviewUrl('http://127.0.0.1:5173/api?token=abc&q=1')).not.toContain(
+      'abc',
+    );
+  });
+
+  it('never silent-runs whole-desktop actions', () => {
+    expect(desktopActNeedsApproval()).toBe(true);
+    expect(escapeAppleScript('say "hi"\\')).toBe('say \\"hi\\"\\\\');
   });
 });
 

@@ -1,6 +1,9 @@
 # Git and review
 
-Status: working on macOS. Unified diffs, line comments, recorded checks, draft PRs via `gh`, CI status, conflict inspect, and fail-closed landing.
+Status: basic Git actions working; preview screenshots, snapshots, tool calls,
+and console slices list next to changes. Unified diffs, line comments, recorded
+checks, draft PRs via `gh`, CI status, and fail-closed landing are mid-
+integration and not yet verified.
 
 ## Goal
 
