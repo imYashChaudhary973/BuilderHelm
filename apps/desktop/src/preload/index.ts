@@ -834,10 +834,10 @@ const api: BuilderHelmDesktopApi = {
     },
   },
   accounts: {
-    async snapshot() {
+    async snapshot(input) {
       const response: unknown = await ipcRenderer.invoke(ipcChannels.accountSnapshot, {
         correlationId: globalThis.crypto.randomUUID(),
-        input: {},
+        input: input?.live === true ? { live: true } : {},
       });
       return unwrap(accountSnapshotIpcResponseSchema.parse(response));
     },

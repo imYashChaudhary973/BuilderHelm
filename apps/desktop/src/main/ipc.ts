@@ -1614,10 +1614,10 @@ export function registerIpcHandlers(
   });
   ipcMain.handle(ipcChannels.accountSnapshot, async (_event, input: unknown) => {
     try {
-      accountSnapshotRequestSchema.parse(input);
+      const request = accountSnapshotRequestSchema.parse(input);
       return accountSnapshotIpcResponseSchema.parse({
         ok: true,
-        value: await core.accounts.snapshot(),
+        value: await core.accounts.snapshot(request.input.live === true),
       });
     } catch (error) {
       return accountSnapshotIpcResponseSchema.parse({

@@ -56,13 +56,17 @@ export function NotesPage(): React.JSX.Element {
   useEffect(() => {
     if (active === null) return;
     if (title === active.title && body === active.body) return;
+    const sentTitle = title.trim() || 'Untitled note';
+    const sentBody = body;
     const handle = window.setTimeout(() => {
       void window.builderHelm.notes
-        .save({ id: active.id, title: title.trim() || 'Untitled note', body })
+        .save({ id: active.id, title: sentTitle, body: sentBody })
         .then((saved) => {
           setNotes((current) =>
             current.map((note) => (note.id === saved.id ? saved : note)),
           );
+          setTitle((current) => (current.trim() === sentTitle ? saved.title : current));
+          setBody((current) => (current === sentBody ? saved.body : current));
         })
         .catch((cause: unknown) =>
           setError(cause instanceof Error ? cause.message : 'Save failed'),

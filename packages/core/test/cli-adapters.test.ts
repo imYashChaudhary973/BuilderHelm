@@ -10,6 +10,7 @@ import {
   CLI_FALLBACK_IDS,
   CliSwarmPlanner,
   parseAgentUsage,
+  setStructuredCliEnv,
   swarmSeatArgv,
 } from '../src/index.js';
 
@@ -95,6 +96,30 @@ describe('CLI capability adapters', () => {
       tokensUsed: 0,
       costUsd: 0,
     });
+  });
+  it('passes account config-root env into planner CLI processes', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'builderhelm-cli-env-'));
+    const executable = join(directory, 'fake-cli.cjs');
+    await writeFile(
+      executable,
+      `#!/usr/bin/env node
+process.stdout.write(JSON.stringify({
+  structured_output: { tasks: [{ title: process.env.CLAUDE_CONFIG_DIR ?? '' }] },
+}));
+`,
+      { mode: 0o755 },
+    );
+    setStructuredCliEnv(() => ({ CLAUDE_CONFIG_DIR: '/tmp/isolated-claude' }));
+    try {
+      await expect(
+        callStructuredAgent({ agentId: 'claude', cwd: directory, executable }, 'plan', {
+          type: 'object',
+        }),
+      ).resolves.toEqual({ tasks: [{ title: '/tmp/isolated-claude' }] });
+    } finally {
+      setStructuredCliEnv(() => ({}));
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 
   it('normalizes inline and file-based schema output behind one call', async () => {

@@ -1,6 +1,6 @@
 # Accounts and usage
 
-Status: shipped in v1 (installed state, Swarm-reported usage, Claude/Codex config roots).
+Status: shipped in v1 (Claude statusLine, Codex app-server, Grok empty-until-run).
 
 ## Goal
 

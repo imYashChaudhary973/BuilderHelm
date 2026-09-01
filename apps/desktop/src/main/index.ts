@@ -13,6 +13,7 @@ import { KeyringSecretStore } from './keyring-secret-store.js';
 import { VoiceModelManager } from './voice-models.js';
 import { VoiceRuntime } from './voice-runtime.js';
 import { VoiceHotkeys } from './voice-hotkeys.js';
+import { startQuotaIngest } from './quota-ingest.js';
 import { installApplicationMenu } from './legal-menu.js';
 import {
   buildContentSecurityPolicy,
@@ -25,6 +26,7 @@ let unregisterIpc: (() => void) | undefined;
 let boardPty: BoardPtyManager | undefined;
 let swarmRunner: PtySwarmRunner | undefined;
 let voiceHotkeys: VoiceHotkeys | undefined;
+let quotaIngest: { close(): void } | undefined;
 let smokeDatabasePath: string | undefined;
 
 async function completeSmokeWhenRendererIsReady(window: BrowserWindow): Promise<void> {
@@ -266,6 +268,12 @@ app
       voiceInventory: voiceModels,
     });
     boardPty.accountEnv = () => core?.accounts.cliEnv() ?? {};
+    if (process.env.BUILDERHELM_SMOKE_TEST !== '1') {
+      quotaIngest = startQuotaIngest({
+        userData: app.getPath('userData'),
+        ingestClaude: (payload) => core?.accounts.ingestClaude(payload) ?? null,
+      });
+    }
     if (
       process.env.BUILDERHELM_PTY_PROBE !== undefined &&
       process.env.BUILDERHELM_PTY_PROBE.length > 0
@@ -301,10 +309,11 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
-
 app.on('before-quit', () => {
   voiceHotkeys?.dispose();
   voiceHotkeys = undefined;
+  quotaIngest?.close();
+  quotaIngest = undefined;
   unregisterIpc?.();
   unregisterIpc = undefined;
   boardPty?.dispose();

@@ -44,6 +44,7 @@ function execCli(
         timeout,
         maxBuffer: 16 * 1024 * 1024,
         encoding: 'utf8',
+        env: { ...process.env, ...structuredCliEnv() },
       },
       (error, stdout, stderr) => {
         if (error !== null) {
@@ -56,6 +57,17 @@ function execCli(
     // Agent CLIs otherwise wait for optional piped context forever.
     child.stdin?.end();
   });
+}
+
+let extraEnv: () => Record<string, string> = () => ({});
+
+/** Account config-root env for planner/reviewer CLIs. */
+export function setStructuredCliEnv(get: () => Record<string, string>): void {
+  extraEnv = get;
+}
+
+export function structuredCliEnv(): Record<string, string> {
+  return extraEnv();
 }
 const SWARM_PROMPT_MAX = 100_000;
 const OPENCODE_MODEL = 'openrouter/stealth/ox-alpha';

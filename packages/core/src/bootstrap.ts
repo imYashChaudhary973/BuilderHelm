@@ -7,7 +7,6 @@ import {
   openDatabase,
   PreviewArtifactRepository,
   SettingsRepository,
-  SwarmRepository,
   ProviderRepository,
   ProjectRepositoryStore,
   ReviewRepository,
@@ -36,6 +35,7 @@ import { LinearIssuesService } from './integrations/linear-issues.js';
 import { NotesService } from './notes/notes-service.js';
 import { AccountsService } from './accounts/accounts-service.js';
 import { PnpmTaskVerifier } from './swarm/pnpm-verifier.js';
+import { setStructuredCliEnv } from './swarm/cli-adapters.js';
 import {
   SwarmService,
   type SwarmSeatRunner,
@@ -151,12 +151,8 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     new PreviewArtifactRepository(database),
   );
   const browserSettings = new BrowserSettingsService(new SettingsRepository(database));
-  const accounts = new AccountsService(
-    new SettingsRepository(database),
-    new SwarmRepository(database),
-    board,
-    logger,
-  );
+  const accounts = new AccountsService(new SettingsRepository(database), board, logger);
+  setStructuredCliEnv(() => accounts.cliEnv());
   const swarmRunner: SwarmSeatRunner = options.swarmRunner ?? {
     async execute() {
       return {

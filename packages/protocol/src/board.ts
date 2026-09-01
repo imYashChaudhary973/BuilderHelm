@@ -102,6 +102,7 @@ export const BOARD_AGENT_CATALOG: readonly BoardAgentCatalogEntry[] = [
     id: 'grok',
     label: 'Grok',
     command: 'grok',
+    configDirEnv: 'GROK_HOME',
     capabilities: capabilities({
       headless: true,
       structuredOutput: 'json-schema',
@@ -112,6 +113,7 @@ export const BOARD_AGENT_CATALOG: readonly BoardAgentCatalogEntry[] = [
     id: 'gemini',
     label: 'Gemini',
     command: 'gemini',
+    configDirEnv: 'GEMINI_CONFIG_DIR',
     capabilities: capabilities({
       headless: true,
       structuredOutput: 'json',
@@ -129,6 +131,7 @@ export const BOARD_AGENT_CATALOG: readonly BoardAgentCatalogEntry[] = [
     id: 'opencode',
     label: 'OpenCode',
     command: 'opencode',
+    configDirEnv: 'OPENCODE_CONFIG_DIR',
     capabilities: capabilities({
       headless: true,
       structuredOutput: 'json',
@@ -152,6 +155,7 @@ export const BOARD_AGENT_CATALOG: readonly BoardAgentCatalogEntry[] = [
     id: 'omp',
     label: 'Oh My Pi',
     command: 'omp',
+    configDirEnv: 'PI_CONFIG_DIR',
     capabilities: capabilities({
       headless: true,
       structuredOutput: 'json',
@@ -163,6 +167,7 @@ export const BOARD_AGENT_CATALOG: readonly BoardAgentCatalogEntry[] = [
     id: 'pi',
     label: 'Pi',
     command: 'pi',
+    configDirEnv: 'PI_CONFIG_DIR',
     capabilities: capabilities({
       headless: true,
       structuredOutput: 'json',
@@ -174,6 +179,7 @@ export const BOARD_AGENT_CATALOG: readonly BoardAgentCatalogEntry[] = [
     id: 'kimi',
     label: 'Kimi',
     command: 'kimi',
+    configDirEnv: 'KIMI_CODE_HOME',
     capabilities: capabilities({
       headless: true,
       swarmModes: [...boardAgentLaunchModes],
@@ -183,6 +189,7 @@ export const BOARD_AGENT_CATALOG: readonly BoardAgentCatalogEntry[] = [
     id: 'kiro',
     label: 'Kiro',
     command: 'kiro-cli',
+    configDirEnv: 'KIRO_HOME',
     capabilities: capabilities({
       headless: true,
       structuredOutput: 'json',

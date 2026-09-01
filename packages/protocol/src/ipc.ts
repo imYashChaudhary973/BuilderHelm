@@ -387,7 +387,7 @@ export interface BuilderHelmDesktopApi {
     delete(input: NoteDeleteInput): Promise<{ readonly deleted: true }>;
   };
   readonly accounts: {
-    snapshot(): Promise<AccountSnapshot>;
+    snapshot(input?: { readonly live?: boolean }): Promise<AccountSnapshot>;
     setRoot(input: AccountSetRootInput): Promise<AccountSnapshot>;
   };
   readonly actions: {

@@ -31,9 +31,9 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 - Project notes: local Markdown beside a Board project, autosave, slash
   commands, secret redaction, and command-palette hits. Deleting a task does
   not delete the note.
-- Accounts and usage: installed/missing state, Swarm-reported tokens and cost
-  with source and timestamp, and isolated Claude/Codex config roots injected
-  into Space and Swarm PTY launches. No billing scrape.
+- Usage: Claude, Codex, and Grok subscription windows (5h/weekly %). Claude
+  from statusLine ingest, Codex from app-server `account/rateLimits/read`,
+  Grok stays “run to refresh” until a run writes windows. No billing scrape.
 - Editor tree, tabs, save, save-all, autosave, and word wrap.
 - Git status, history, stage, unstage, and commit.
 - Git panel: branch, tracking, multi-line commit box, staged / change sections
@@ -106,7 +106,7 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 - Unsigned or auto-approved whole-desktop computer-use.
 - GitHub pull-request intake and a BuilderHelm OAuth app.
 - Persistent incremental search index across archived workspaces.
-- Live quota/reset from provider APIs beyond Swarm-reported tokens.
+- Live quota/reset from CLIs that do not document a non-interactive stats command.
 - Optional encrypted relay and remote host pairing.
 - React Native iOS and Android companion.
 - Verified Windows and Linux desktop distributions.

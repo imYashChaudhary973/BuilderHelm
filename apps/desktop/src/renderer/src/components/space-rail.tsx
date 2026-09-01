@@ -134,6 +134,29 @@ function SwarmGlyph(): React.JSX.Element {
   );
 }
 
+function NotesGlyph(): React.JSX.Element {
+  return (
+    <svg className="railTerm" viewBox="0 0 24 24" aria-hidden="true">
+      <rect
+        x="6"
+        y="4.5"
+        width="12"
+        height="15"
+        rx="1.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M9 9h6M9 12.5h6M9 16h4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
+}
+
 export function SpaceRail({
   collapsed,
 }: {
@@ -142,7 +165,10 @@ export function SpaceRail({
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const featureOpen =
-    pathname === '/board' || pathname === '/memory' || pathname === '/swarm';
+    pathname === '/board' ||
+    pathname === '/memory' ||
+    pathname === '/swarm' ||
+    pathname === '/notes';
   const boards = useBoards();
   const boardProjects = useQuery({
     queryKey: ['kanban-projects'],
@@ -191,6 +217,7 @@ export function SpaceRail({
   const showBoard = pathname === '/board';
   const showSwarm = pathname === '/swarm' || (run !== null && run.status === 'running');
   const showMemory = pathname === '/memory';
+  const showNotes = pathname === '/notes';
 
   return (
     <aside
@@ -310,6 +337,28 @@ export function SpaceRail({
                           liveVault.noteCount === 1 ? 'note' : 'notes'
                         }`}
                   </small>
+                </span>
+              )}
+            </button>
+          </div>
+        )}
+        {showNotes && (
+          <div
+            className="railRow railItemOn"
+            style={{ '--tile': '#e6c07b' } as React.CSSProperties}
+          >
+            <button
+              type="button"
+              className={collapsed ? 'railTile' : 'railItem'}
+              title="Notes"
+              aria-current="page"
+              onClick={() => void navigate({ to: '/notes' })}
+            >
+              <NotesGlyph />
+              {collapsed ? null : (
+                <span className="railCopy">
+                  <strong>{activeBoard?.name ?? 'Notes'}</strong>
+                  <small>Project notes</small>
                 </span>
               )}
             </button>
