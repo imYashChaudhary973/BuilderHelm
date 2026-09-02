@@ -9575,6 +9575,20 @@ html.is-fullscreen .swarmWizardFoot {
 .usageRefresh {
   width: auto;
   margin-top: 0;
+  min-width: 96px;
+  text-align: center;
+  border-color: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-size: 12px;
+}
+
+.usageRefresh:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.usageRefresh:disabled {
+  color: var(--text-3);
 }
 
 /*
@@ -9588,12 +9602,43 @@ html.is-fullscreen .swarmWizardFoot {
   margin-inline: auto;
 }
 
-.usagePage .settingsHeader {
-  margin-bottom: 22px;
+.usagePageHead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
-.usagePage .voiceLede {
-  max-width: 68ch;
+.usagePageTitle h1 {
+  margin: 0;
+  font-size: clamp(24px, 2.2vw, 30px);
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+/* The lede is a sentence, not a column: hold it to one comfortable measure. */
+.usagePageTitle p {
+  margin: 8px 0 0;
+  max-width: 62ch;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.usagePageActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.usagePageState {
+  color: var(--text-3);
+  font-size: 12px;
+  text-align: right;
 }
 
 .usageProviderList {
@@ -9840,10 +9885,18 @@ html.is-fullscreen .swarmWizardFoot {
  * than this once the side panel is open. Stack everything rather than squeeze.
  */
 @container workspace (max-width: 720px) {
-  .usagePage .settingsHeader {
+  .usagePageHead {
     flex-direction: column;
     align-items: stretch;
-    gap: 10px;
+    gap: 12px;
+  }
+
+  .usagePageActions {
+    justify-content: space-between;
+  }
+
+  .usagePageState {
+    text-align: left;
   }
 
   .usageProviderList {

@@ -24,6 +24,17 @@ function formatReset(iso: string | null): string | null {
   return hoursLeft === 0 ? `${days}d` : `${days}d ${hoursLeft}h`;
 }
 
+function formatAgo(iso: string | undefined): string | null {
+  if (iso === undefined) return null;
+  const stamp = new Date(iso).getTime();
+  if (Number.isNaN(stamp)) return null;
+  const minutes = Math.floor(Math.max(0, Date.now() - stamp) / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  return hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
+}
+
 /** One labelled meter: a quota window for Claude/Codex, an account for Grok. */
 type Meter = {
   readonly key: string;
@@ -149,6 +160,9 @@ export function AccountsPage(): React.JSX.Element {
   const snapshot = useQuery({
     queryKey: ['accounts-snapshot'],
     queryFn: () => window.builderHelm.accounts.snapshot(),
+    // Re-reads the stored windows and billing logs the bar's live polling
+    // writes, which also keeps the "updated" line in the header honest.
+    refetchInterval: 30_000,
   });
   const mutate = useMutation({
     mutationFn: async (
@@ -184,25 +198,36 @@ export function AccountsPage(): React.JSX.Element {
   });
   const busy = mutate.isPending || snapshot.isFetching;
   const hookOn = snapshot.data?.hookSystemDefault ?? false;
+  const providers = snapshot.data?.providers ?? [];
+  const accountCount = providers.reduce((total, entry) => total + entry.homes.length, 0);
+  const updated = formatAgo(snapshot.data?.occurredAt);
 
   return (
     <section className="usagePage" aria-labelledby="accounts-title">
-      <header className="settingsHeader">
-        <div>
+      <header className="usagePageHead">
+        <div className="usagePageTitle">
           <h1 id="accounts-title">Accounts &amp; usage</h1>
-          <p className="voiceLede">
+          <p>
             BuilderHelm reads the CLI logins already on this device. Add an account to run
             a second login side by side without copying credentials.
           </p>
         </div>
-        <button
-          type="button"
-          className="usageRefresh"
-          disabled={busy}
-          onClick={() => mutate.mutate({ type: 'refresh' })}
-        >
-          {busy ? 'Refreshing…' : 'Refresh'}
-        </button>
+        <div className="usagePageActions">
+          <span className="usagePageState">
+            {providers.length === 0
+              ? 'Loading…'
+              : `${accountCount} account${accountCount === 1 ? '' : 's'} across ${providers.length} providers`}
+            {updated === null ? '' : ` · updated ${updated}`}
+          </span>
+          <button
+            type="button"
+            className="usageRefresh"
+            disabled={busy}
+            onClick={() => mutate.mutate({ type: 'refresh' })}
+          >
+            {busy ? 'Refreshing…' : 'Refresh'}
+          </button>
+        </div>
       </header>
       {snapshot.error instanceof Error ? (
         <p className="wizardError" role="alert">
@@ -215,7 +240,7 @@ export function AccountsPage(): React.JSX.Element {
         </p>
       ) : null}
       <ul className="usageProviderList">
-        {(snapshot.data?.providers ?? []).map((provider) => (
+        {providers.map((provider) => (
           <li
             key={provider.id}
             className={
