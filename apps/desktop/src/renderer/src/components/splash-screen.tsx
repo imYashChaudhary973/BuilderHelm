@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import logo from '../assets/logo.png';
 import { ElementsCollection } from '../shaders/elements/ElementsBackground.js';
 
 /** How long the storm holds at full opacity before it starts to leave. */
@@ -58,7 +57,6 @@ export function SplashScreen({ onDone }: { onDone: () => void }): React.JSX.Elem
         />
       </div>
       <div className="splashMark">
-        <img className="splashLogo" src={logo} width={40} height={40} alt="" />
         <span className="splashName">BuilderHelm</span>
         <span className="splashHint">Press any key</span>
       </div>

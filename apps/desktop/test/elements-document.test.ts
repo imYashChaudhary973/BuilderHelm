@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { BUILDERHELM_MARK_PATH } from '../src/renderer/src/shaders/elements/builderhelm-mark.js';
 import { buildFocusedDocument } from '../src/renderer/src/shaders/elements/ElementsBackground.js';
 
 const canonicalPath = resolve(
@@ -67,5 +68,26 @@ describe('elemental-lightning document', () => {
 
     expect(denser).toContain('zoom: 1.1067');
     expect(denser).toContain('count: 720');
+  });
+
+  // The lightning panel rasterizes the `anthropic` entry upstream, so the
+  // BuilderHelm mark is substituted into it. A missed anchor would silently
+  // put someone else's logo on our launch screen.
+  it('rasterizes the BuilderHelm mark instead of the vendored logo', () => {
+    const document = buildFocusedDocument('lightning', 1, 1);
+
+    expect(document).toContain(`anthropic: "${BUILDERHELM_MARK_PATH}"`);
+    // Opening command of the upstream Anthropic mark.
+    expect(document).not.toContain('M17.3041 3.541h-3.6718');
+    // Six subpaths: three rim arcs, spokes with hub, the hub hole, the dot.
+    expect(BUILDERHELM_MARK_PATH.match(/M/g)).toHaveLength(6);
+
+    // Each variant swaps only the entry its own panel draws.
+    expect(buildFocusedDocument('water', 1, 1)).toContain(
+      `openai: "${BUILDERHELM_MARK_PATH}"`,
+    );
+    expect(buildFocusedDocument('fire', 1, 1)).toContain(
+      `claude: "${BUILDERHELM_MARK_PATH}"`,
+    );
   });
 });

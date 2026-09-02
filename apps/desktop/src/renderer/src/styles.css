@@ -9130,13 +9130,8 @@ html.is-fullscreen .swarmWizardFoot {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   pointer-events: none;
-}
-
-.splashLogo {
-  opacity: 0.92;
-  filter: drop-shadow(0 0 18px rgba(150, 160, 255, 0.35));
 }
 
 .splashName {

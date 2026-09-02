@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
+import { BUILDERHELM_MARK_PATH } from "./builderhelm-mark.js";
 import elementalMarksSource from "./sources/elemental-marks.html?raw";
 
 export const ELEMENT_VARIANTS = ["water", "lightning", "fire"] as const;
@@ -57,6 +58,16 @@ const SOURCE_ZOOM: Record<ElementVariant, string> = {
   water: "1.06",
   lightning: "1.10",
   fire: "1.16",
+};
+
+/**
+ * Which `LOGO_PATHS` entry each variant's panel rasterizes upstream. The mark
+ * is replaced in place, so the panel wiring and the SDF build stay untouched.
+ */
+const SOURCE_LOGO: Record<ElementVariant, string> = {
+  water: "openai",
+  lightning: "anthropic",
+  fire: "claude",
 };
 
 const BASE_PARTICLES: Record<ElementVariant, number> = {
@@ -286,6 +297,10 @@ main { display: block; }
     .replace("</head>", `${focusStyles}${controls}</head>`)
     .replace(new RegExp(`count: ${SOURCE_PARTICLES[variant]}`), `count: ${particleCount}`)
     .replace(`zoom: ${SOURCE_ZOOM[variant]}`, `zoom: ${zoom.toFixed(4)}`)
+    .replace(
+      new RegExp(`${SOURCE_LOGO[variant]}: "[^"]*"`),
+      `${SOURCE_LOGO[variant]}: "${BUILDERHELM_MARK_PATH}"`,
+    )
     .replace(
       "for (const p of panels) p.draw(t);",
       "if (!window.__ELEMENTS_PAUSED) for (const p of panels) p.draw(t);",
