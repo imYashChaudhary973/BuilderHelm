@@ -2,11 +2,15 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ElementsCollection } from '../shaders/elements/ElementsBackground.js';
 
-/** How long the storm holds at full opacity before it starts to leave. */
-const HOLD_MS = 2600;
+/** How long the storm holds steady before the exit push begins. */
+const HOLD_MS = 1800;
 
-/** Must match the `.splashLeaving` transition in styles.css. */
-const FADE_MS = 700;
+/**
+ * The exit: the frame scales up throughout while the fade runs over its back
+ * half, so the mark pushes toward the viewer and dissolves into the shell.
+ * Must match the `.splash` transitions in styles.css.
+ */
+const EXIT_MS = 1500;
 
 /**
  * The launch animation is decoration. A reader who asked for less motion gets
@@ -19,9 +23,9 @@ export function splashEnabled(): boolean {
 
 /**
  * Opening animation: ThreeUI's `elemental-lightning` element, held over the
- * shell while the window settles, then faded out. Any key skips the rest of
- * the hold; pointer events are left to the shader, which pulls the arcs toward
- * the cursor.
+ * shell while the window settles, then pushed toward the viewer and faded out
+ * to reveal the app. Any key skips straight to the exit; pointer events are
+ * left to the shader, which pulls the arcs toward the cursor.
  */
 export function SplashScreen({ onDone }: { onDone: () => void }): React.JSX.Element {
   const [leaving, setLeaving] = useState(false);
@@ -38,8 +42,8 @@ export function SplashScreen({ onDone }: { onDone: () => void }): React.JSX.Elem
 
   useEffect(() => {
     if (!leaving) return undefined;
-    const fade = window.setTimeout(onDone, FADE_MS);
-    return () => window.clearTimeout(fade);
+    const exit = window.setTimeout(onDone, EXIT_MS);
+    return () => window.clearTimeout(exit);
   }, [leaving, onDone]);
 
   return (
