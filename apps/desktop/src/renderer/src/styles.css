@@ -9602,7 +9602,7 @@ html.is-fullscreen .swarmWizardFoot {
   padding: 0;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
-  align-items: start;
+  align-items: stretch;
   gap: 14px;
 }
 
@@ -9612,6 +9612,8 @@ html.is-fullscreen .swarmWizardFoot {
 }
 
 .usageProviderCard {
+  display: flex;
+  flex-direction: column;
   padding: 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
@@ -9633,6 +9635,14 @@ html.is-fullscreen .swarmWizardFoot {
 
 .usageProviderHead strong {
   font-size: 14px;
+}
+
+/*
+ * Two lines of room whether the note wraps or not, so the meters and account
+ * lists of two cards sharing a row start at the same height.
+ */
+.usageProviderHead p {
+  min-height: 2.9em;
 }
 
 .usageProviderCard p,
@@ -9703,19 +9713,26 @@ html.is-fullscreen .swarmWizardFoot {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  /* Pushed to the bottom so paired cards line their account lists up. */
   margin: 16px 0 8px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
   font-size: 12px;
   color: var(--text-3);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
+/*
+ * Rows wrap into columns on a wide card so an account is not a 1200px strip
+ * with its buttons stranded at the far edge.
+ */
 .usageAccountList {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
   gap: 6px;
 }
 
@@ -9785,15 +9802,20 @@ html.is-fullscreen .swarmWizardFoot {
 }
 
 .usageHookCard {
-  display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   margin-top: 14px;
 }
 
+.usageHookCard p,
+.usageHookCard strong {
+  max-width: 76ch;
+}
+
 .usageHookCard p {
-  max-width: 88ch;
+  min-height: 0;
 }
 
 .usageToggle {

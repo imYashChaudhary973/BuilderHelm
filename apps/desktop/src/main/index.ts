@@ -88,7 +88,10 @@ function createWindow(): BrowserWindow {
     minWidth: 900,
     minHeight: 600,
     show: false,
-    backgroundColor: '#10120f',
+    // Matches the status bar the shell paints at the bottom edge, so a strip
+    // the web contents has not painted yet (resize, first frame) reads as the
+    // bar continuing rather than a seam of a different colour.
+    backgroundColor: '#0c0c0c',
     titleBarStyle: 'hiddenInset',
     ...(existsSync(icon) ? { icon } : {}),
     webPreferences: {
