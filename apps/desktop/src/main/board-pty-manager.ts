@@ -106,6 +106,12 @@ function resolveCommand(agentId: BoardAgentId, override: string | undefined): st
   return command;
 }
 
+let extraTerminalEnv: () => Record<string, string> = () => ({});
+
+export function setExtraTerminalEnv(get: () => Record<string, string>): void {
+  extraTerminalEnv = get;
+}
+
 function terminalEnv(): Record<string, string> {
   return {
     ...process.env,
@@ -121,6 +127,7 @@ function terminalEnv(): Record<string, string> {
       '/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin',
     TMPDIR: process.env.TMPDIR ?? '/tmp',
     PWD: process.env.PWD ?? homedir(),
+    ...extraTerminalEnv(),
   };
 }
 

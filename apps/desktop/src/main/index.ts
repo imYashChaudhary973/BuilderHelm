@@ -14,13 +14,14 @@ import {
 } from 'electron';
 
 import { registerIpcHandlers } from './ipc.js';
-import { BoardPtyManager, probePty } from './board-pty-manager.js';
+import { BoardPtyManager, probePty, setExtraTerminalEnv } from './board-pty-manager.js';
 import { PtySwarmRunner } from './swarm-runner.js';
 import { KeyringSecretStore } from './keyring-secret-store.js';
 import { VoiceModelManager } from './voice-models.js';
 import { VoiceRuntime } from './voice-runtime.js';
 import { VoiceHotkeys } from './voice-hotkeys.js';
 import { installApplicationMenu } from './legal-menu.js';
+import { installClaudeStatusLine, startQuotaIngest } from './quota-ingest.js';
 import {
   buildContentSecurityPolicy,
   buildElementsHostPolicy,
@@ -34,6 +35,7 @@ let unregisterIpc: (() => void) | undefined;
 let boardPty: BoardPtyManager | undefined;
 let swarmRunner: PtySwarmRunner | undefined;
 let voiceHotkeys: VoiceHotkeys | undefined;
+let quotaIngest: { scriptPath(): string | null; close(): void } | undefined;
 let smokeDatabasePath: string | undefined;
 
 async function completeSmokeWhenRendererIsReady(window: BrowserWindow): Promise<void> {
@@ -288,7 +290,22 @@ app
       secretStore: new KeyringSecretStore(),
       swarmRunner,
       voiceInventory: voiceModels,
+      accountsRoot: join(app.getPath('userData'), 'accounts'),
     });
+    setExtraTerminalEnv(() => core?.accounts.cliEnv() ?? {});
+    if (process.env.BUILDERHELM_SMOKE_TEST !== '1') {
+      quotaIngest = startQuotaIngest({
+        userData: app.getPath('userData'),
+        ingestClaude: (payload) => core?.accounts.ingestClaude(payload) ?? null,
+      });
+    }
+    const hookClaude = (): void => {
+      const script = quotaIngest?.scriptPath();
+      if (script === null || script === undefined) return;
+      for (const root of core?.accounts.claudeHookRoots() ?? []) {
+        installClaudeStatusLine(root, script);
+      }
+    };
     if (
       process.env.BUILDERHELM_PTY_PROBE !== undefined &&
       process.env.BUILDERHELM_PTY_PROBE.length > 0
@@ -299,11 +316,18 @@ app
         data: { result: probePty(process.env.BUILDERHELM_PTY_PROBE) },
       });
     }
-    unregisterIpc = registerIpcHandlers(core, boardPty, swarmRunner, {
-      models: voiceModels,
-      runtime: voiceRuntime,
-      onSettings: (settings) => voiceHotkeys?.sync(settings),
-    });
+    unregisterIpc = registerIpcHandlers(
+      core,
+      boardPty,
+      swarmRunner,
+      {
+        models: voiceModels,
+        runtime: voiceRuntime,
+        onSettings: (settings) => voiceHotkeys?.sync(settings),
+      },
+      hookClaude,
+    );
+    setTimeout(hookClaude, 400);
     installApplicationMenu();
     createWindow();
     // No session is live yet, so any pane worktree still on disk was left by a
@@ -328,6 +352,8 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   voiceHotkeys?.dispose();
   voiceHotkeys = undefined;
+  quotaIngest?.close();
+  quotaIngest = undefined;
   unregisterIpc?.();
   unregisterIpc = undefined;
   boardPty?.dispose();

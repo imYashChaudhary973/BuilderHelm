@@ -1,4 +1,10 @@
 import {
+  accountAddInputSchema,
+  accountRemoveInputSchema,
+  accountSetActiveInputSchema,
+  accountSnapshotIpcResponseSchema,
+} from '@builderhelm/protocol/accounts';
+import {
   actionCommandInputSchema,
   actionCommandIpcResponseSchema,
   actionSnapshotInputSchema,
@@ -1202,6 +1208,36 @@ const api: BuilderHelmDesktopApi = {
       };
       ipcRenderer.on(ipcChannels.voiceHotkey, subscription);
       return () => ipcRenderer.removeListener(ipcChannels.voiceHotkey, subscription);
+    },
+  },
+  accounts: {
+    async snapshot(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.accountSnapshot, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: input?.live === true ? { live: true } : {},
+      });
+      return unwrap(accountSnapshotIpcResponseSchema.parse(response));
+    },
+    async add(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.accountAdd, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: accountAddInputSchema.parse(input),
+      });
+      return unwrap(accountSnapshotIpcResponseSchema.parse(response));
+    },
+    async remove(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.accountRemove, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: accountRemoveInputSchema.parse(input),
+      });
+      return unwrap(accountSnapshotIpcResponseSchema.parse(response));
+    },
+    async setActive(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.accountSetActive, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: accountSetActiveInputSchema.parse(input),
+      });
+      return unwrap(accountSnapshotIpcResponseSchema.parse(response));
     },
   },
 };

@@ -2,6 +2,13 @@ import type { CorrelationId } from '@builderhelm/shared';
 import { z } from 'zod';
 
 import type {
+  AccountAddInput,
+  AccountRemoveInput,
+  AccountSetActiveInput,
+  AccountSnapshot,
+  AccountSnapshotInput,
+} from './accounts.js';
+import type {
   BoardAddPaneInput,
   BoardAgentDetection,
   BoardCreateInput,
@@ -293,6 +300,10 @@ export const ipcChannels = {
   voiceModelEvent: 'builderhelm:voice:model-event',
   voiceTranscribe: 'builderhelm:voice:transcribe',
   voiceHotkey: 'builderhelm:voice:hotkey',
+  accountSnapshot: 'builderhelm:accounts:snapshot',
+  accountAdd: 'builderhelm:accounts:add',
+  accountRemove: 'builderhelm:accounts:remove',
+  accountSetActive: 'builderhelm:accounts:set-active',
 } as const;
 
 export const systemHealthRequestSchema = z
@@ -513,5 +524,11 @@ export interface BuilderHelmDesktopApi {
     transcribe(input: VoiceTranscribeInput): Promise<VoiceTranscribeResult>;
     onModelEvent(listener: (event: VoiceModelEvent) => void): () => void;
     onHotkey(listener: (event: VoiceHotkeyEvent) => void): () => void;
+  };
+  readonly accounts: {
+    snapshot(input?: AccountSnapshotInput): Promise<AccountSnapshot>;
+    add(input: AccountAddInput): Promise<AccountSnapshot>;
+    remove(input: AccountRemoveInput): Promise<AccountSnapshot>;
+    setActive(input: AccountSetActiveInput): Promise<AccountSnapshot>;
   };
 }

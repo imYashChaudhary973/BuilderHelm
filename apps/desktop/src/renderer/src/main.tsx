@@ -18,6 +18,7 @@ import { ChatPage } from './routes/chat.js';
 import { MemoryPage } from './routes/memory.js';
 import { VoicePage } from './routes/settings/voice.js';
 import { BrowserSettingsPage } from './routes/settings/browser.js';
+import { AccountsPage } from './routes/settings/accounts.js';
 import { SwarmPage } from './routes/swarm.js';
 import { TodayPage } from './routes/today.js';
 import { ProjectsPage } from './routes/projects.js';
@@ -44,6 +45,11 @@ const browserSettingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings/browser',
   component: BrowserSettingsPage,
+});
+const usageSettingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/usage',
+  component: AccountsPage,
 });
 const chatRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -92,6 +98,7 @@ const routeTree = rootRoute.addChildren([
   swarmRoute,
   voiceRoute,
   browserSettingsRoute,
+  usageSettingsRoute,
 ]);
 const router = createRouter({
   routeTree,

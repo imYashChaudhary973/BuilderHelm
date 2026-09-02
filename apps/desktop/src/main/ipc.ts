@@ -5,6 +5,13 @@ import { join } from 'node:path';
 
 import type { CoreRuntime } from '@builderhelm/core';
 import {
+  accountAddRequestSchema,
+  accountRemoveRequestSchema,
+  accountSetActiveRequestSchema,
+  accountSnapshotIpcResponseSchema,
+  accountSnapshotRequestSchema,
+} from '@builderhelm/protocol/accounts';
+import {
   actionCommandIpcResponseSchema,
   actionCommandRequestSchema,
   actionSnapshotIpcResponseSchema,
@@ -328,6 +335,7 @@ export function registerIpcHandlers(
     runtime: VoiceRuntime;
     onSettings?: (settings: VoiceSettings) => void;
   },
+  onAccountsChanged?: () => void,
 ): () => void {
   const preview = new PreviewBrowser(core.browserSettings);
   const desktop = new DesktopControl();
@@ -2338,6 +2346,63 @@ export function registerIpcHandlers(
     }
   });
 
+  ipcMain.handle(ipcChannels.accountSnapshot, async (_event, input: unknown) => {
+    try {
+      const request = accountSnapshotRequestSchema.parse(input);
+      return accountSnapshotIpcResponseSchema.parse({
+        ok: true,
+        value: await core.accounts.snapshot(request.input.live === true),
+      });
+    } catch (error) {
+      return accountSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.accountAdd, async (_event, input: unknown) => {
+    try {
+      const request = accountAddRequestSchema.parse(input);
+      const value = await core.accounts.add(request.input.provider);
+      onAccountsChanged?.();
+      return accountSnapshotIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return accountSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.accountRemove, async (_event, input: unknown) => {
+    try {
+      const request = accountRemoveRequestSchema.parse(input);
+      const value = await core.accounts.remove(request.input.provider, request.input.id);
+      onAccountsChanged?.();
+      return accountSnapshotIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return accountSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.accountSetActive, async (_event, input: unknown) => {
+    try {
+      const request = accountSetActiveRequestSchema.parse(input);
+      const value = await core.accounts.setActive(
+        request.input.provider,
+        request.input.id,
+      );
+      onAccountsChanged?.();
+      return accountSnapshotIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return accountSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
   if (typeof core.voice?.status === 'function') {
     void core.voice
       .status()
@@ -2450,8 +2515,11 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.reviewCheckList);
     ipcMain.removeHandler(ipcChannels.reviewPrDraft);
     ipcMain.removeHandler(ipcChannels.reviewCi);
-    ipcMain.removeHandler(ipcChannels.reviewLandInspect);
-    ipcMain.removeHandler(ipcChannels.voiceStatus);
+    ipcMain.removeHandler(ipcChannels.voiceTranscribe);
+    ipcMain.removeHandler(ipcChannels.accountSnapshot);
+    ipcMain.removeHandler(ipcChannels.accountAdd);
+    ipcMain.removeHandler(ipcChannels.accountRemove);
+    ipcMain.removeHandler(ipcChannels.accountSetActive);
     ipcMain.removeHandler(ipcChannels.voiceSettingsUpdate);
     ipcMain.removeHandler(ipcChannels.voiceKeySave);
     ipcMain.removeHandler(ipcChannels.voiceKeyDelete);

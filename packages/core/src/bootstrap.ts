@@ -20,7 +20,7 @@ import {
 import { createLogger, type LogSink, type Logger } from '@builderhelm/observability';
 import type { SystemHealthResponse } from '@builderhelm/protocol';
 import { createCorrelationId, utcNow, type CorrelationId } from '@builderhelm/shared';
-
+import { dirname, join } from 'node:path';
 import { ProviderService } from './providers/provider-service.js';
 import { ChatService } from './chat/chat-service.js';
 import { ModelService } from './models/model-service.js';
@@ -43,6 +43,7 @@ import type { SecretStore } from './secrets/secret-store.js';
 import { PreviewArtifactService } from './preview/preview-artifact-service.js';
 import { BrowserSettingsService } from './browser/browser-settings-service.js';
 import { VoiceService, type VoiceModelInventory } from './voice/voice-service.js';
+import { AccountsService } from './accounts/accounts-service.js';
 
 export interface CoreOptions {
   readonly databasePath: string;
@@ -54,6 +55,7 @@ export interface CoreOptions {
   readonly swarmVerifier?: SwarmTaskVerifier;
   readonly swarmReviewer?: SwarmReviewer;
   readonly voiceInventory?: VoiceModelInventory;
+  readonly accountsRoot?: string;
 }
 
 export interface CoreRuntime {
@@ -72,6 +74,7 @@ export interface CoreRuntime {
   readonly previewArtifacts: PreviewArtifactService;
   readonly browserSettings: BrowserSettingsService;
   readonly voice: VoiceService;
+  readonly accounts: AccountsService;
   health(correlationId: CorrelationId): SystemHealthResponse;
   close(): void;
 }
@@ -145,6 +148,12 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     new PreviewArtifactRepository(database),
   );
   const browserSettings = new BrowserSettingsService(new SettingsRepository(database));
+  const accounts = new AccountsService(
+    new SettingsRepository(database),
+    board,
+    logger,
+    options.accountsRoot ?? join(dirname(options.databasePath), 'accounts'),
+  );
   const swarmRunner: SwarmSeatRunner = options.swarmRunner ?? {
     async execute() {
       return {
@@ -188,6 +197,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     previewArtifacts,
     browserSettings,
     voice,
+    accounts,
     health(correlationId) {
       return {
         status: 'ok',

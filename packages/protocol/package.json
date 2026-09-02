@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./accounts": {
+      "types": "./dist/accounts.d.ts",
+      "import": "./src/accounts.ts"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./src/index.ts"

@@ -5,6 +5,7 @@ import { BoardProvider } from './board-store.js';
 import logo from './assets/logo.png';
 import { SidePanel } from './components/side-panel.js';
 import { SpaceRail } from './components/space-rail.js';
+import { UsageBar } from './components/usage-bar.js';
 import { SplashScreen, splashEnabled } from './components/splash-screen.js';
 import { DictationHud } from './components/dictation-hud.js';
 import { SettingsNav } from './routes/settings/nav.js';
@@ -121,6 +122,7 @@ function Shell(): React.JSX.Element {
         <Outlet />
       </main>
       {preview.open ? <SidePanel /> : null}
+      <UsageBar />
       <DictationHud />
     </div>
   );

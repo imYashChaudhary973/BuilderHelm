@@ -78,6 +78,10 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
   runs the same `pnpm verify` locally, so a red tree fails in seconds instead of
   after a CI round trip. Both paths were exercised by attempting a rejected
   push.
+- Usage bar: Claude / Codex / Grok 5h and weekly windows, compact/detailed
+  popover, isolated extra homes, Grok email only. Claude reads the OAuth usage
+  endpoint on a 30s live poll; Codex refreshes live via app-server. Grok weekly
+  % stays blank until a non-interactive stats command exists.
 
 ## Partial or needing hardening
 
@@ -107,7 +111,7 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 - GitHub pull-request intake and a BuilderHelm OAuth app.
 - Global search across worktrees, files, agents, commands, and artifacts.
 - Rich development notes with slash commands and inline logs.
-- Usage, quota, rate-limit, and account-switching UI.
+- Local token/cost analytics heatmap (Swarm receipts).
 - Optional encrypted relay and remote host pairing.
 - React Native iOS and Android companion.
 - Verified Windows and Linux desktop distributions.
