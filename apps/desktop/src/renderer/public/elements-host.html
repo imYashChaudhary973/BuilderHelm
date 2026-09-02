@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Mirrors buildElementsHostPolicy in src/main/security.ts. The header is
+         only applied to http responses, so this keeps the packaged file:// load
+         under the same constraints: inline script and style for the vendored
+         shader document, and no network of any kind. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'none'; font-src 'none'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>ThreeUI element host</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #060708;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      'use strict';
+      /*
+       * Delivery frame for a ThreeUI element document.
+       *
+       * The shell builds the document at runtime (variant patches, focus
+       * styles, particle count, zoom) and posts it here. `about:srcdoc`
+       * inherits the shell's `script-src 'self'` policy, which blocks every
+       * inline script in that document; this page is a real same-origin asset,
+       * so it carries no inherited policy and the shader source runs.
+       *
+       * The frame is sandboxed with `allow-scripts` only, so it stays on an
+       * opaque origin and cannot read the shell's DOM or storage.
+       *
+       * `document.write` replaces the document, which drops this listener, so
+       * one document is accepted per load. The shell remounts the frame when it
+       * needs a different one.
+       */
+      addEventListener('message', function (event) {
+        if (event.source !== parent) return;
+        var data = event.data;
+        if (!data || data.type !== 'elements-document') return;
+        if (typeof data.html !== 'string') return;
+        document.open();
+        document.write(data.html);
+        document.close();
+      });
+    </script>
+  </body>
+</html>

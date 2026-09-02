@@ -8,3 +8,10 @@ pnpm-lock.yaml
 *.tsbuildinfo
 [0-9][0-9]_*.md
 assets/
+
+# Vendored ThreeUI source, kept byte-exact against its registered revision so
+# the SHA-256 in test/elements-document.test.ts stays verifiable and the files
+# remain diffable against upstream. Our own additions beside them are checked.
+apps/desktop/src/renderer/src/shaders/threeui.css
+apps/desktop/src/renderer/src/shaders/elements/sources/
+apps/desktop/src/renderer/src/shaders/elements/ElementsBackground.tsx

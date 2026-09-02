@@ -9098,3 +9098,66 @@ html.is-fullscreen .swarmWizardFoot {
   color: var(--accent-bright);
   font-size: 12px;
 }
+
+/* Launch animation. Sits above every shell layer, including the dictation HUD
+   at z-index 100, and is unmounted once the exit completes.
+
+   The exit is a camera push: scale runs the full 1500ms on an ease-in curve so
+   it accelerates into the shell, while opacity waits 700ms and then fades over
+   the remaining 800ms. The mark is visibly closer before it starts to go, and
+   the fade hides the upscaling of the shader's fixed-size canvas.
+
+   Both are compositor properties, so this costs no layout and no per-frame JS.
+   Durations must match EXIT_MS in components/splash-screen.tsx. */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: #060708;
+  opacity: 1;
+  transform: scale(1);
+  transition:
+    transform 1500ms cubic-bezier(0.32, 0, 0.67, 0),
+    opacity 800ms cubic-bezier(0.4, 0, 1, 1) 700ms;
+}
+
+.splashLeaving {
+  opacity: 0;
+  transform: scale(1.16);
+}
+
+/* Frame the ThreeUI element fills. `.threeui-background` inside it is
+   width/height 100%, so the frame is what gives the shader its box. */
+.shader-frame {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* Pointer events stay with the shader below, which pulls the arcs toward the
+   cursor. */
+.splashMark {
+  position: absolute;
+  inset: auto 0 12%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.splashName {
+  color: #f2f3ff;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  text-shadow: 0 0 24px rgba(140, 150, 255, 0.45);
+}
+
+.splashHint {
+  color: rgba(226, 228, 255, 0.42);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}

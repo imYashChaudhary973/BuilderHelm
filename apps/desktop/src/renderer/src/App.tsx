@@ -5,6 +5,7 @@ import { BoardProvider } from './board-store.js';
 import logo from './assets/logo.png';
 import { SidePanel } from './components/side-panel.js';
 import { SpaceRail } from './components/space-rail.js';
+import { SplashScreen, splashEnabled } from './components/splash-screen.js';
 import { DictationHud } from './components/dictation-hud.js';
 import { SettingsNav } from './routes/settings/nav.js';
 import { PreviewProvider, usePreview } from './preview-store.js';
@@ -183,11 +184,16 @@ function GearIcon(): React.JSX.Element {
   );
 }
 export function App(): React.JSX.Element {
+  // Launch-only: App mounts once per window, so the storm never returns on a
+  // route change.
+  const [splashDone, setSplashDone] = useState(() => !splashEnabled());
+
   return (
     <BoardProvider>
       <SpaceProvider>
         <PreviewProvider>
           <Shell />
+          {splashDone ? null : <SplashScreen onDone={() => setSplashDone(true)} />}
         </PreviewProvider>
       </SpaceProvider>
     </BoardProvider>

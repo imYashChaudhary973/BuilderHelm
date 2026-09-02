@@ -21,6 +21,7 @@ import { BrowserSettingsPage } from './routes/settings/browser.js';
 import { SwarmPage } from './routes/swarm.js';
 import { TodayPage } from './routes/today.js';
 import { ProjectsPage } from './routes/projects.js';
+import './shaders/threeui.css';
 import './styles.css';
 
 const rootRoute = createRootRoute({ component: App });
