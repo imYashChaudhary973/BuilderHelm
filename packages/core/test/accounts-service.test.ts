@@ -305,6 +305,38 @@ describe('AccountsService', () => {
     }
   });
 
+  it('reports a pending login as pending until the identity lands', async () => {
+    const accounts = setup();
+    const added = await accounts.add('claude');
+    const home = added.providers
+      .find((provider) => provider.id === 'claude')
+      ?.homes.find((entry) => entry.id !== 'system');
+    const id = home?.id ?? '';
+    expect(accounts.accountEmail('claude', id)).toBeNull();
+    writeFileSync(
+      join(home?.configRoot ?? '', '.claude.json'),
+      JSON.stringify({ oauthAccount: { emailAddress: 'late@example.com' } }),
+    );
+    expect(accounts.accountEmail('claude', id)).toBe('late@example.com');
+    const confirmed = await accounts.confirmLogin('claude', id);
+    expect(
+      confirmed.providers
+        .find((provider) => provider.id === 'claude')
+        ?.homes.find((entry) => entry.id === id)?.label,
+    ).toBe('late@example.com');
+  });
+
+  it('makes the home it just created the active one', async () => {
+    const accounts = setup();
+    await accounts.add('grok');
+    const second = await accounts.add('grok');
+    const homes =
+      second.providers.find((provider) => provider.id === 'grok')?.homes ?? [];
+    const active = homes.filter((home) => home.active);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.configRoot).not.toBeNull();
+  });
+
   it('refuses to delete the system default', async () => {
     const accounts = setup();
     await expect(accounts.remove('codex', 'system')).rejects.toBeInstanceOf(

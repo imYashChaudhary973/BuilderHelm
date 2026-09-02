@@ -317,6 +317,10 @@ export class AccountsService {
   private lastClaudeFetch: number | null = null;
   /** Epoch ms timestamp while a fetch is in flight; null when idle. */
   private lastClaudeFetchStarted: number | null = null;
+  /** Epoch ms of the last Grok billing pull; the TUI spawn is not free. */
+  private lastGrokFetch: number | null = null;
+  /** Epoch ms while a Grok pull is in flight; null when idle. */
+  private grokFetchStarted: number | null = null;
 
   hookSystemDefault(): boolean {
     return this.settings.read(HOOK_SYSTEM_KEY) === 'true';
@@ -462,6 +466,17 @@ export class AccountsService {
     return this.snapshot();
   }
 
+  /**
+   * The identity a login wrote into a home, or null while it is still pending.
+   * Read-only: the caller polls this while the browser OAuth runs and only
+   * confirms once it lands, so a slow login is not mistaken for a failed one.
+   */
+  accountEmail(provider: QuotaProviderId, id: string): string | null {
+    const home = this.homes()[provider].find((entry) => entry.id === id);
+    if (home === undefined) return null;
+    return homeEmail(provider, home.configRoot);
+  }
+
   /** Rolls an un-logged-in home back; keeps a signed-in one. */
   async confirmLogin(provider: QuotaProviderId, id: string): Promise<AccountSnapshot> {
     const homes = this.homes();
@@ -578,53 +593,56 @@ export class AccountsService {
    * prompts never do. Spawn the TUI on a PTY with /usage piped, wait for the
    * billing line to land in the home log, then quit. No prompt tokens spent;
    * the /usage panel is a local render of the billing snapshot.
+   *
+   * Only signed-in homes are touched: a pending login would leave the TUI
+   * sitting on its own auth prompt until the timeout, stalling every refresh.
+   * A home whose entry is minutes old is left alone; the numbers are a meter,
+   * not a counter.
    */
   private async refreshGrok(): Promise<void> {
-    const grokHomes = this.homes().grok;
-    await Promise.all(
-      grokHomes
-        .filter((home) => home.configRoot !== null)
-        .map(async (home) => {
-          const configRoot = home.configRoot;
-          if (configRoot === null) return;
-          const before = this.grokBillingCount(configRoot);
-          await new Promise<void>((resolve) => {
-            const child = spawn(
-              'script',
-              [
-                '-q',
-                '/dev/null',
-                'sh',
-                '-c',
-                `printf '/usage\\n' | GROK_HOME='${configRoot.replace(/'/g, '')}' grok`,
-              ],
-              { stdio: 'ignore' },
-            );
-            const timer = setTimeout(() => {
-              child.kill();
-              resolve();
-            }, 30_000);
-            const poll = setInterval(() => {
-              if (this.grokBillingCount(configRoot) > before) {
-                clearTimeout(timer);
-                clearInterval(poll);
-                child.kill();
-                resolve();
-              }
-            }, 1_000);
-            child.on('exit', () => {
-              clearTimeout(timer);
-              clearInterval(poll);
-              resolve();
-            });
-            child.on('error', () => {
-              clearTimeout(timer);
-              clearInterval(poll);
-              resolve();
-            });
-          });
-        }),
-    );
+    if (this.grokFetchStarted !== null) return;
+    if (this.lastGrokFetch !== null && Date.now() - this.lastGrokFetch < 120_000) return;
+    this.grokFetchStarted = Date.now();
+    try {
+      const targets = this.homes().grok.flatMap((home) =>
+        home.configRoot !== null && readGrokEmail(home.configRoot) !== null
+          ? [home.configRoot]
+          : [],
+      );
+      await Promise.all(targets.map((configRoot) => this.pullGrokBilling(configRoot)));
+    } finally {
+      this.grokFetchStarted = null;
+      this.lastGrokFetch = Date.now();
+    }
+  }
+
+  private async pullGrokBilling(configRoot: string): Promise<void> {
+    const before = this.grokBillingCount(configRoot);
+    await new Promise<void>((resolve) => {
+      const child = spawn(
+        'script',
+        [
+          '-q',
+          '/dev/null',
+          'sh',
+          '-c',
+          `printf '/usage\\n' | GROK_HOME='${configRoot.replace(/'/g, '')}' grok`,
+        ],
+        { stdio: 'ignore' },
+      );
+      const done = (): void => {
+        clearTimeout(timer);
+        clearInterval(poll);
+        child.kill();
+        resolve();
+      };
+      const timer = setTimeout(done, 20_000);
+      const poll = setInterval(() => {
+        if (this.grokBillingCount(configRoot) > before) done();
+      }, 500);
+      child.on('exit', done);
+      child.on('error', done);
+    });
   }
 
   private grokBillingCount(configRoot: string): number {

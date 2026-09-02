@@ -215,9 +215,11 @@ export function AccountsPage(): React.JSX.Element {
                     const created = await window.builderHelm.accounts.add({
                       provider: provider.id,
                     });
+                    // add() makes the home it just created the active one; the
+                    // first configRoot in the list is an older account.
                     const home = created.providers
                       .find((entry) => entry.id === provider.id)
-                      ?.homes.find((entry) => entry.configRoot !== null);
+                      ?.homes.find((entry) => entry.active && entry.configRoot !== null);
                     if (home?.configRoot === undefined || home.configRoot === null)
                       return;
                     // Opens the provider's login TTY in a Terminal window scoped

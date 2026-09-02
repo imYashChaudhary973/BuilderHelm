@@ -2419,12 +2419,16 @@ export function registerIpcHandlers(
           `tell application "Terminal" to do script "${envName}='${configRoot.replace(/'/g, '')}' ${loginCommand}"`,
         ],
         () => {
-          // Terminal stays open after login; confirm on a delay so the CLI has
-          // time to write credentials, then label or roll back the home.
-          setTimeout(() => {
+          // A browser OAuth round trip takes far longer than the CLI takes to
+          // start, so poll the home until its identity lands and only then
+          // label it. Confirming on a fixed short delay reported a completed
+          // login as a failed one and rolled the account back.
+          const deadline = Date.now() + 300_000;
+          const settle = (): void => {
             void core.accounts
               .confirmLogin(provider, accountId)
               .then((value) => {
+                onAccountsChanged?.();
                 if (!sender.isDestroyed()) {
                   sender.send(
                     ipcChannels.accountSnapshot,
@@ -2433,9 +2437,15 @@ export function registerIpcHandlers(
                 }
               })
               .catch(() => {
-                // identity missing: home already rolled back
+                // The account was removed while the login ran.
               });
-          }, 5_000);
+          };
+          const tick = setInterval(() => {
+            const signedIn = core.accounts.accountEmail(provider, accountId) !== null;
+            if (!signedIn && Date.now() < deadline) return;
+            clearInterval(tick);
+            settle();
+          }, 2_000);
         },
       );
       return { opened: true } as const;

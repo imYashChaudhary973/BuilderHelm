@@ -77,7 +77,8 @@ type UsageSection = {
   readonly key: string;
   readonly title: string;
   readonly short: string;
-  readonly window: QuotaWindow;
+  /** null until the provider has reported this meter at least once. */
+  readonly window: QuotaWindow | null;
 };
 
 /** Active account first, so both the row summary and the flyout lead with it. */
@@ -87,18 +88,23 @@ function activeFirst(provider: AccountProvider): readonly AccountHome[] {
 
 function sectionsOf(provider: AccountProvider): readonly UsageSection[] {
   if (provider.id === 'grok') {
+    // A just-signed-in home has no billing entry until its first session, and
+    // hiding it made a finished login look like it never happened.
     return activeFirst(provider).flatMap((home) =>
-      home.billing === null
+      home.email === null && home.billing === null
         ? []
         : [
             {
               key: home.id,
               title: home.email ?? home.label,
               short: 'wk',
-              window: {
-                usedPercent: home.billing.usedPercent,
-                resetsAt: home.billing.periodEnd,
-              },
+              window:
+                home.billing === null
+                  ? null
+                  : {
+                      usedPercent: home.billing.usedPercent,
+                      resetsAt: home.billing.periodEnd,
+                    },
             },
           ],
     );
@@ -129,10 +135,13 @@ function lastUpdated(provider: AccountProvider): string | null {
 function rowStatus(provider: AccountProvider, sections: readonly UsageSection[]): string {
   if (sections.length === 0) return `Run ${provider.label} to refresh`;
   const reset = sections
-    .map((section) => section.window.resetsAt)
+    .map((section) => section.window?.resetsAt ?? null)
     .find((value): value is string => value !== null);
   const formatted = formatReset(reset ?? null);
-  return formatted === null ? 'No reset reported' : `Resets in ${formatted}`;
+  if (formatted !== null) return `Resets in ${formatted}`;
+  return sections.every((section) => section.window === null)
+    ? `Run ${provider.label} to refresh`
+    : 'No reset reported';
 }
 
 function MiniBar({
@@ -188,8 +197,20 @@ function ProviderFlyout({
           </p>
         ) : (
           sections.map((section) => {
-            const reset = formatReset(section.window.resetsAt);
-            const hot = section.window.usedPercent >= 90;
+            const meter = section.window;
+            if (meter === null) {
+              return (
+                <div key={section.key} className="usageFlyoutWindow">
+                  <span className="usageFlyoutTitle">{section.title}</span>
+                  <span className="usageTrack" aria-hidden="true" />
+                  <span className="usageFlyoutFoot">
+                    <span className="usageMeta">Signed in · no usage reported yet</span>
+                  </span>
+                </div>
+              );
+            }
+            const reset = formatReset(meter.resetsAt);
+            const hot = meter.usedPercent >= 90;
             return (
               <div key={section.key} className="usageFlyoutWindow">
                 <span className="usageFlyoutTitle">{section.title}</span>
@@ -197,13 +218,13 @@ function ProviderFlyout({
                   <span
                     className={hot ? 'usageFill usageFillHot' : 'usageFill'}
                     style={{
-                      width: `${Math.max(2, Math.min(100, section.window.usedPercent))}%`,
+                      width: `${Math.max(2, Math.min(100, meter.usedPercent))}%`,
                     }}
                   />
                 </span>
                 <span className="usageFlyoutFoot">
                   <span className={hot ? 'usageHot' : undefined}>
-                    {Math.round(section.window.usedPercent)}% used
+                    {Math.round(meter.usedPercent)}% used
                   </span>
                   <span className="usageMeta">
                     {reset === null ? '' : `Resets in ${reset}`}
@@ -361,13 +382,20 @@ export function UsageBar(): React.JSX.Element {
                       </span>
                       {mode === 'detailed' && sections.length > 0 ? (
                         <span className="usageRowBars">
-                          {sections.slice(0, 2).map((section) => (
-                            <MiniBar
-                              key={section.key}
-                              short={section.short}
-                              window={section.window}
-                            />
-                          ))}
+                          {sections
+                            .flatMap((section) =>
+                              section.window === null
+                                ? []
+                                : [{ ...section, meter: section.window }],
+                            )
+                            .slice(0, 2)
+                            .map((section) => (
+                              <MiniBar
+                                key={section.key}
+                                short={section.short}
+                                window={section.meter}
+                              />
+                            ))}
                         </span>
                       ) : null}
                     </span>
