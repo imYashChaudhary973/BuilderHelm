@@ -258,6 +258,9 @@ export function UsageBar(): React.JSX.Element {
   const [mode, setMode] = useState<'compact' | 'detailed'>('detailed');
   const [flyout, setFlyout] = useState<QuotaProviderId | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  /** Set while the panel was opened by hover, so leaving closes it again. */
+  const hoverOpened = useRef(false);
+  const timer = useRef<number | null>(null);
   const snapshot = useQuery({
     queryKey: ['accounts-snapshot'],
     queryFn: () => window.builderHelm.accounts.snapshot({ live: true }),
@@ -276,8 +279,43 @@ export function UsageBar(): React.JSX.Element {
     return () => window.removeEventListener('mousedown', onDown);
   }, [open]);
 
+  useEffect(() => () => clearTimer(), []);
+
+  const clearTimer = (): void => {
+    if (timer.current !== null) {
+      window.clearTimeout(timer.current);
+      timer.current = null;
+    }
+  };
+
+  /**
+   * Opening on hover needs a moment of intent: the bar sits on the bottom edge
+   * and the pointer crosses it on the way elsewhere.
+   */
+  const hoverOpen = (id: QuotaProviderId): void => {
+    clearTimer();
+    timer.current = window.setTimeout(() => {
+      timer.current = null;
+      hoverOpened.current = true;
+      setFlyout(id);
+      setOpen(true);
+    }, 220);
+  };
+
+  const hoverLeave = (): void => {
+    clearTimer();
+    if (!hoverOpened.current) return;
+    timer.current = window.setTimeout(() => {
+      timer.current = null;
+      hoverOpened.current = false;
+      setOpen(false);
+    }, 260);
+  };
+
   const providers = snapshot.data?.providers ?? [];
   const openAccounts = (): void => {
+    clearTimer();
+    hoverOpened.current = false;
     setOpen(false);
     setFlyout(null);
     void navigate({ to: '/settings/usage' });
@@ -289,18 +327,33 @@ export function UsageBar(): React.JSX.Element {
   };
 
   return (
-    <div className="usageBar" ref={rootRef}>
+    <div className="usageBar" ref={rootRef} onMouseLeave={hoverLeave}>
       <button
         type="button"
         className="usageBarMain"
         aria-expanded={open}
         aria-haspopup="dialog"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          clearTimer();
+          hoverOpened.current = false;
+          setOpen((value) => !value);
+        }}
       >
         {providers.map((provider) => {
           const peak = hottest(provider.quota);
           return (
-            <span key={provider.id} className="usageChip">
+            <span
+              key={provider.id}
+              className="usageChip"
+              // Hovering a chip reveals that provider's panel without a click.
+              onMouseEnter={() => {
+                if (open) {
+                  setFlyout(provider.id);
+                  return;
+                }
+                hoverOpen(provider.id);
+              }}
+            >
               <span className="usageChipMark" aria-hidden="true">
                 <AgentGlyph id={provider.id} />
               </span>
@@ -324,7 +377,13 @@ export function UsageBar(): React.JSX.Element {
         ↻
       </button>
       {open ? (
-        <div className="usagePopover" role="dialog" aria-label="Usage">
+        <div
+          className="usagePopover"
+          role="dialog"
+          aria-label="Usage"
+          // Reading the panel counts as staying, so a hover-open stays open.
+          onMouseEnter={clearTimer}
+        >
           <header className="usagePopoverHead">
             <strong>Usage</strong>
             <span className="usagePopoverHeadEnd">
