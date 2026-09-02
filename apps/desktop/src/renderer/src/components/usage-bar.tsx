@@ -194,14 +194,6 @@ export function UsageBar(): React.JSX.Element {
                 <li key={provider.id}>
                   <div className="usagePopoverId">
                     <strong>{provider.label}</strong>
-                    {(() => {
-                      const activeHome =
-                        provider.homes.find((home) => home.active) ?? provider.homes[0];
-                      return activeHome?.email !== null &&
-                        activeHome?.email !== undefined ? (
-                        <span>{activeHome.email}</span>
-                      ) : null;
-                    })()}
                     {reset !== null ? <span>Resets in {reset}</span> : null}
                     {reset === null && grokReset !== null ? (
                       <span>Resets in {grokReset}</span>
