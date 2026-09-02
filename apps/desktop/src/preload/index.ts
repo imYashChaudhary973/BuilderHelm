@@ -1,5 +1,7 @@
 import {
   accountAddInputSchema,
+  accountConfirmLoginInputSchema,
+  accountLoginTerminalInputSchema,
   accountRemoveInputSchema,
   accountSetActiveInputSchema,
   accountSnapshotIpcResponseSchema,
@@ -1224,6 +1226,26 @@ const api: BuilderHelmDesktopApi = {
         correlationId: globalThis.crypto.randomUUID(),
         input: accountAddInputSchema.parse(input),
       });
+      return unwrap(accountSnapshotIpcResponseSchema.parse(response));
+    },
+    async openLoginTerminal(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.accountLoginTerminal,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          input: accountLoginTerminalInputSchema.parse(input),
+        },
+      );
+      return response as { readonly opened: true };
+    },
+    async confirmLogin(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.accountConfirmLogin,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          input: accountConfirmLoginInputSchema.parse(input),
+        },
+      );
       return unwrap(accountSnapshotIpcResponseSchema.parse(response));
     },
     async remove(input) {

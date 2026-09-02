@@ -1,3 +1,4 @@
+import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
@@ -6,6 +7,8 @@ import { join } from 'node:path';
 import type { CoreRuntime } from '@builderhelm/core';
 import {
   accountAddRequestSchema,
+  accountConfirmLoginRequestSchema,
+  accountLoginTerminalRequestSchema,
   accountRemoveRequestSchema,
   accountSetActiveRequestSchema,
   accountSnapshotIpcResponseSchema,
@@ -2374,6 +2377,72 @@ export function registerIpcHandlers(
       });
     }
   });
+  ipcMain.handle(ipcChannels.accountConfirmLogin, async (_event, input: unknown) => {
+    try {
+      const request = accountConfirmLoginRequestSchema.parse(input);
+      const value = await core.accounts.confirmLogin(
+        request.input.provider,
+        request.input.id,
+      );
+      onAccountsChanged?.();
+      return accountSnapshotIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return accountSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.accountLoginTerminal, (event, input: unknown) => {
+    try {
+      const request = accountLoginTerminalRequestSchema.parse(input);
+      const { provider, configRoot, accountId } = request.input;
+      const envName =
+        provider === 'claude'
+          ? 'CLAUDE_CONFIG_DIR'
+          : provider === 'codex'
+            ? 'CODEX_HOME'
+            : 'GROK_HOME';
+      const loginCommand =
+        provider === 'claude'
+          ? 'claude auth login'
+          : provider === 'codex'
+            ? 'codex login'
+            : 'grok login';
+      const sender = event.sender;
+      // Terminal.app owns the TTY so the browser-based OAuth flow works; the
+      // user signs in with the provider, auth never passes through BuilderHelm.
+      execFile(
+        'osascript',
+        [
+          '-e',
+          `tell application "Terminal" to do script "${envName}='${configRoot.replace(/'/g, '')}' ${loginCommand}"`,
+        ],
+        () => {
+          // Terminal stays open after login; confirm on a delay so the CLI has
+          // time to write credentials, then label or roll back the home.
+          setTimeout(() => {
+            void core.accounts
+              .confirmLogin(provider, accountId)
+              .then((value) => {
+                if (!sender.isDestroyed()) {
+                  sender.send(
+                    ipcChannels.accountSnapshot,
+                    accountSnapshotIpcResponseSchema.parse({ ok: true, value }),
+                  );
+                }
+              })
+              .catch(() => {
+                // identity missing: home already rolled back
+              });
+          }, 5_000);
+        },
+      );
+      return { opened: true } as const;
+    } catch (error) {
+      throw ipcError(error);
+    }
+  });
   ipcMain.handle(ipcChannels.accountRemove, async (_event, input: unknown) => {
     try {
       const request = accountRemoveRequestSchema.parse(input);
@@ -2517,8 +2586,9 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.desktopAct);
     ipcMain.removeHandler(ipcChannels.desktopApprove);
     ipcMain.removeHandler(ipcChannels.editorPick);
-    ipcMain.removeHandler(ipcChannels.editorRead);
-    ipcMain.removeHandler(ipcChannels.editorList);
+    ipcMain.removeHandler(ipcChannels.accountAdd);
+    ipcMain.removeHandler(ipcChannels.accountConfirmLogin);
+    ipcMain.removeHandler(ipcChannels.accountRemove);
     ipcMain.removeHandler(ipcChannels.editorGit);
     ipcMain.removeHandler(ipcChannels.editorGitCommitFiles);
     ipcMain.removeHandler(ipcChannels.editorCreate);

@@ -3,6 +3,8 @@ import { z } from 'zod';
 
 import type {
   AccountAddInput,
+  AccountConfirmLoginInput,
+  AccountLoginTerminalInput,
   AccountRemoveInput,
   AccountSetActiveInput,
   AccountSnapshot,
@@ -302,10 +304,12 @@ export const ipcChannels = {
   voiceTranscribe: 'builderhelm:voice:transcribe',
   voiceHotkey: 'builderhelm:voice:hotkey',
   accountSnapshot: 'builderhelm:accounts:snapshot',
+  accountAdd: 'builderhelm:accounts:add',
+  accountConfirmLogin: 'builderhelm:accounts:confirm-login',
+  accountLoginTerminal: 'builderhelm:accounts:login-terminal',
+  accountRemove: 'builderhelm:accounts:remove',
   accountSetActive: 'builderhelm:accounts:set-active',
   accountToggleHook: 'builderhelm:accounts:toggle-hook',
-  accountAdd: 'builderhelm:accounts:add',
-  accountRemove: 'builderhelm:accounts:remove',
 } as const;
 
 export const systemHealthRequestSchema = z
@@ -530,6 +534,10 @@ export interface BuilderHelmDesktopApi {
   readonly accounts: {
     snapshot(input?: AccountSnapshotInput): Promise<AccountSnapshot>;
     add(input: AccountAddInput): Promise<AccountSnapshot>;
+    confirmLogin(input: AccountConfirmLoginInput): Promise<AccountSnapshot>;
+    openLoginTerminal(
+      input: AccountLoginTerminalInput,
+    ): Promise<{ readonly opened: true }>;
     remove(input: AccountRemoveInput): Promise<AccountSnapshot>;
     setActive(input: AccountSetActiveInput): Promise<AccountSnapshot>;
     toggleHook(input: AccountToggleHookInput): Promise<AccountSnapshot>;

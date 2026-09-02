@@ -87,6 +87,24 @@ export const accountSetActiveInputSchema = z
   .strict();
 export type AccountSetActiveInput = z.infer<typeof accountSetActiveInputSchema>;
 
+export const accountConfirmLoginInputSchema = z
+  .object({ provider: quotaProviderIdSchema, id: z.string().min(1).max(64) })
+  .strict();
+export type AccountConfirmLoginInput = z.infer<typeof accountConfirmLoginInputSchema>;
+
+export const accountLoginTerminalInputSchema = z
+  .object({
+    provider: quotaProviderIdSchema,
+    configRoot: z.string().min(1).max(4_096),
+    accountId: z.string().min(1).max(64),
+  })
+  .strict();
+export type AccountLoginTerminalInput = z.infer<typeof accountLoginTerminalInputSchema>;
+
+export const accountLoginTerminalRequestSchema = z
+  .object({ correlationId: correlationIdSchema, input: accountLoginTerminalInputSchema })
+  .strict();
+
 export const accountSnapshotRequestSchema = z
   .object({ correlationId: correlationIdSchema, input: accountSnapshotInputSchema })
   .strict();
@@ -95,6 +113,10 @@ export const accountAddRequestSchema = z
   .strict();
 export const accountToggleHookRequestSchema = z
   .object({ correlationId: correlationIdSchema, input: accountToggleHookInputSchema })
+  .strict();
+
+export const accountConfirmLoginRequestSchema = z
+  .object({ correlationId: correlationIdSchema, input: accountConfirmLoginInputSchema })
   .strict();
 export const accountRemoveRequestSchema = z
   .object({ correlationId: correlationIdSchema, input: accountRemoveInputSchema })

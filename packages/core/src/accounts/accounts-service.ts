@@ -173,6 +173,75 @@ export function readGrokEmail(configRoot: string | null): string | null {
   }
 }
 
+/** Allowlisted identity fields only; never returns tokens. */
+export function readProviderEmail(
+  provider: 'claude' | 'codex',
+  configRoot: string | null,
+): string | null {
+  if (provider === 'claude') {
+    // .claude.json oauthAccount.emailAddress, or .credentials.json claudeAiOauth.email
+    for (const file of ['.claude.json', '.config.json']) {
+      const path = configRoot === null ? null : join(configRoot, file);
+      if (path !== null && existsSync(path)) {
+        try {
+          const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
+          const oauth = (parsed as Record<string, unknown>).oauthAccount;
+          if (typeof oauth === 'object' && oauth !== null) {
+            const email = (oauth as Record<string, unknown>).emailAddress;
+            if (typeof email === 'string' && email.includes('@')) return email;
+          }
+        } catch {
+          // fall through
+        }
+      }
+    }
+    const credPath =
+      configRoot === null
+        ? join(homedir(), '.claude', '.credentials.json')
+        : join(configRoot, '.credentials.json');
+    if (existsSync(credPath)) {
+      try {
+        const parsed: unknown = JSON.parse(readFileSync(credPath, 'utf8'));
+        const oauth = (parsed as Record<string, unknown>).claudeAiOauth;
+        if (typeof oauth === 'object' && oauth !== null) {
+          const email = (oauth as Record<string, unknown>).email;
+          if (typeof email === 'string' && email.includes('@')) return email;
+        }
+      } catch {
+        // fall through
+      }
+    }
+    return null;
+  }
+  // Codex: decode the id_token JWT payload (email claim). Token itself never returned.
+  const authPath =
+    configRoot === null
+      ? join(homedir(), '.codex', 'auth.json')
+      : join(configRoot, 'auth.json');
+  if (!existsSync(authPath)) return null;
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(authPath, 'utf8'));
+    const tokens = (parsed as Record<string, unknown>).tokens;
+    const idToken =
+      typeof tokens === 'object' && tokens !== null
+        ? (tokens as Record<string, unknown>).id_token
+        : undefined;
+    if (typeof idToken !== 'string') return null;
+    const parts = idToken.split('.');
+    const payloadPart = parts[1];
+    if (payloadPart === undefined) return null;
+    const payload = JSON.parse(
+      Buffer.from(payloadPart.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString(
+        'utf8',
+      ),
+    ) as Record<string, unknown>;
+    const email = payload.email;
+    return typeof email === 'string' && email.includes('@') ? email : null;
+  } catch {
+    return null;
+  }
+}
+
 function findEmail(value: unknown): string | null {
   if (Array.isArray(value)) {
     for (const entry of value) {
@@ -295,6 +364,12 @@ export class AccountsService {
     });
   }
 
+  /**
+   * Creates an isolated home and returns it pending login. The renderer opens a
+   * pane with the provider's login command and this home's env; the user signs
+   * in there (never inside BuilderHelm). Call confirmLogin afterwards to label
+   * the account with the provider identity, or it is rolled back.
+   */
   async add(provider: QuotaProviderId): Promise<AccountSnapshot> {
     const id = quotaProviderIdSchema.parse(provider);
     const homeId = createId();
@@ -312,6 +387,39 @@ export class AccountsService {
       correlationId: createCorrelationId(),
       data: { provider: id },
     });
+    return this.snapshot();
+  }
+
+  /** Rolls an un-logged-in home back; keeps a signed-in one. */
+  async confirmLogin(provider: QuotaProviderId, id: string): Promise<AccountSnapshot> {
+    const homes = this.homes();
+    const home = homes[provider].find((entry) => entry.id === id);
+    if (home === undefined) {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'That account is gone');
+    }
+    let email: string | null = null;
+    if (provider === 'grok') email = readGrokEmail(home.configRoot);
+    else email = readProviderEmail(provider, home.configRoot);
+    if (email === null) {
+      // Not signed in yet: drop the empty home so the list stays honest.
+      homes[provider] = homes[provider].filter((entry) => entry.id !== id);
+      this.writeHomes(homes);
+      const active = this.active();
+      if (active[provider] === id) {
+        this.writeActive({ ...active, [provider]: SYSTEM_ACCOUNT_ID });
+      }
+      if (home.configRoot !== null && existsSync(home.configRoot)) {
+        rmSync(home.configRoot, { recursive: true, force: true });
+      }
+      return this.snapshot();
+    }
+    const labelled: Record<QuotaProviderId, StoredHome[]> = {
+      ...homes,
+      [provider]: homes[provider].map((entry) =>
+        entry.id === id ? { ...entry, label: email } : entry,
+      ),
+    };
+    this.writeHomes(labelled);
     return this.snapshot();
   }
 

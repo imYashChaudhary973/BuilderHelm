@@ -156,10 +156,10 @@ export function AccountsPage(): React.JSX.Element {
                 <strong>{provider.label}</strong>
                 <p>
                   {provider.id === 'grok'
-                    ? 'Weekly credits come from Grok when a non-interactive stats command exists. Email is read from the session file; tokens are not stored.'
+                    ? 'Weekly credits show when Grok ships a non-interactive stats command. Email is read from the session file; tokens are not stored.'
                     : provider.id === 'codex'
-                      ? '5-hour and weekly windows from Codex app-server. Extra accounts use a separate CODEX_HOME.'
-                      : '5-hour and weekly windows from Claude Code statusLine. Extra accounts use CLAUDE_CONFIG_DIR.'}
+                      ? '5-hour and weekly windows from Codex. Add Account opens codex login in a Terminal scoped to a separate CODEX_HOME.'
+                      : '5-hour and weekly windows from the official usage endpoint. Add Account opens claude auth login in a Terminal scoped to CLAUDE_CONFIG_DIR.'}
                 </p>
               </header>
               <div className="usageDetail">
@@ -185,7 +185,24 @@ export function AccountsPage(): React.JSX.Element {
                 <span>Accounts</span>
                 <button
                   type="button"
-                  onClick={() => mutate.mutate({ type: 'add', provider: provider.id })}
+                  onClick={async () => {
+                    const created = await window.builderHelm.accounts.add({
+                      provider: provider.id,
+                    });
+                    const home = created.providers
+                      .find((entry) => entry.id === provider.id)
+                      ?.homes.find((entry) => entry.configRoot !== null);
+                    if (home?.configRoot === undefined || home.configRoot === null)
+                      return;
+                    // Opens the provider's login TTY in a Terminal window scoped
+                    // to the new home; when it closes, BuilderHelm reads the
+                    // identity from the home and labels the account, or drops it.
+                    await window.builderHelm.accounts.openLoginTerminal({
+                      provider: provider.id,
+                      configRoot: home.configRoot,
+                      accountId: home.id,
+                    });
+                  }}
                 >
                   + Add Account
                 </button>
