@@ -23,9 +23,8 @@ import {
   createId,
   utcNow,
 } from '@builderhelm/shared';
-
 import { readClaudeOAuthUsage } from './claude-oauth-usage.js';
-import { readGrokBilling } from './grok-usage.js';
+import { readGrokBilling, type GrokBilling } from './grok-usage.js';
 import type { BoardService } from '../board/board-service.js';
 import { readCodexRateLimits } from './codex-rate-limits.js';
 import {
@@ -178,6 +177,19 @@ export function readGrokEmail(configRoot: string | null): string | null {
 function homeEmail(provider: QuotaProviderId, configRoot: string | null): string | null {
   if (provider === 'grok') return readGrokEmail(configRoot);
   return readProviderEmail(provider, configRoot);
+}
+
+function grokBillingPayload(billing: GrokBilling | null): {
+  usedPercent: number;
+  periodEnd: string | null;
+  tier: string | null;
+} | null {
+  if (billing === null) return null;
+  return {
+    usedPercent: billing.usedPercent,
+    periodEnd: billing.periodEnd,
+    tier: billing.tier,
+  };
 }
 
 /** Allowlisted identity fields only; never returns tokens. */
@@ -337,38 +349,29 @@ export class AccountsService {
         extra.some((home) => home.id === active[id]) || active[id] === SYSTEM_ACCOUNT_ID
           ? active[id]
           : SYSTEM_ACCOUNT_ID;
+      // System default for Grok reads the ~/.grok login's billing log.
       const system: AccountHome = {
         id: SYSTEM_ACCOUNT_ID,
         label: 'System default',
         configRoot: null,
         email: homeEmail(id, null),
         active: activeId === SYSTEM_ACCOUNT_ID,
-        billing: null,
+        billing: id === 'grok' ? grokBillingPayload(readGrokBilling(null)) : null,
       };
       const listed: AccountHome[] = [
         system,
         ...extra.map((home) => {
-          // System default for Grok reads the ~/.grok login's billing log.
           const billing =
-            id === 'grok' && home.id === SYSTEM_ACCOUNT_ID
-              ? readGrokBilling(null)
-              : id === 'grok' && home.configRoot !== null
-                ? readGrokBilling(home.configRoot)
-                : null;
+            id === 'grok' && home.configRoot !== null
+              ? readGrokBilling(home.configRoot)
+              : null;
           return {
             id: home.id,
             label: home.label,
             configRoot: home.configRoot,
             email: homeEmail(id, home.configRoot),
             active: home.id === activeId,
-            billing:
-              billing === null
-                ? null
-                : {
-                    usedPercent: billing.usedPercent,
-                    periodEnd: billing.periodEnd,
-                    tier: billing.tier,
-                  },
+            billing: grokBillingPayload(billing),
           };
         }),
       ];
