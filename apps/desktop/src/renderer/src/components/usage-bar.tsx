@@ -31,13 +31,22 @@ function windowLabel(window: QuotaWindow | null): string | null {
 
 function chipText(provider: AccountProvider): string {
   const quota = provider.quota;
-  if (quota === null) return '—';
-  const five = windowLabel(quota.fiveHour);
-  const week = windowLabel(quota.sevenDay);
-  if (five !== null && week !== null) return `${five} · ${week}`;
-  return five ?? week ?? '—';
+  if (quota !== null) {
+    const five = windowLabel(quota.fiveHour);
+    const week = windowLabel(quota.sevenDay);
+    if (five !== null && week !== null) return `${five} · ${week}`;
+    const fromWindows = five ?? week;
+    if (fromWindows !== null) return fromWindows;
+  }
+  // Grok: usage is per-home billing, not windowed quota. Show the active home,
+  // else the highest of the signed-in homes.
+  const withBilling = provider.homes.filter((home) => home.billing !== null);
+  const home = withBilling.find((entry) => entry.active) ?? withBilling[0];
+  if (home?.billing === undefined || home.billing === null) return '—';
+  const reset = formatReset(home.billing.periodEnd);
+  const used = `${Math.round(home.billing.usedPercent)}% used`;
+  return reset === null ? used : `${used} ${reset}`;
 }
-
 function QuotaBar({
   label,
   window,
@@ -175,20 +184,51 @@ export function UsageBar(): React.JSX.Element {
               const reset =
                 formatReset(provider.quota?.fiveHour?.resetsAt ?? null) ??
                 formatReset(provider.quota?.sevenDay?.resetsAt ?? null);
+              const grokBilling = provider.homes.filter((home) => home.billing !== null);
+              const grokReset =
+                grokBilling[0]?.billing?.periodEnd === undefined ||
+                grokBilling[0]?.billing === null
+                  ? null
+                  : formatReset(grokBilling[0].billing.periodEnd);
               return (
                 <li key={provider.id}>
                   <div className="usagePopoverId">
                     <strong>{provider.label}</strong>
                     {reset !== null ? <span>Resets in {reset}</span> : null}
+                    {reset === null && grokReset !== null ? (
+                      <span>Resets in {grokReset}</span>
+                    ) : null}
                   </div>
                   {mode === 'detailed' ? (
-                    <div className="usageDetail">
-                      <QuotaBar label="5h" window={provider.quota?.fiveHour ?? null} />
-                      <QuotaBar
-                        label="Weekly"
-                        window={provider.quota?.sevenDay ?? null}
-                      />
-                    </div>
+                    provider.id === 'grok' ? (
+                      <div className="usageDetail">
+                        {grokBilling.length === 0 ? (
+                          <p className="usageMeta">
+                            Refresh to start a tiny session per home; the CLI then reports
+                            usage.
+                          </p>
+                        ) : (
+                          grokBilling.map((home) => (
+                            <QuotaBar
+                              key={home.id}
+                              label={home.label}
+                              window={{
+                                usedPercent: home.billing?.usedPercent ?? 0,
+                                resetsAt: home.billing?.periodEnd ?? null,
+                              }}
+                            />
+                          ))
+                        )}
+                      </div>
+                    ) : (
+                      <div className="usageDetail">
+                        <QuotaBar label="5h" window={provider.quota?.fiveHour ?? null} />
+                        <QuotaBar
+                          label="Weekly"
+                          window={provider.quota?.sevenDay ?? null}
+                        />
+                      </div>
+                    )
                   ) : (
                     <span className="usageMeta">{chipText(provider)}</span>
                   )}
