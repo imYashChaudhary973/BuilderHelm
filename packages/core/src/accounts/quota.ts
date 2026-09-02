@@ -49,7 +49,13 @@ function windowMinutes(value: unknown): number | undefined {
   return finiteNumber((value as Record<string, unknown>).windowDurationMins);
 }
 
-/** Claude Code statusLine JSON: rate_limits.five_hour / seven_day. */
+/**
+ * Claude Code statusLine JSON. Field names have drifted across versions:
+ * five_hour/seven_day (2.1.80), current_session/weekly_limit, and per-model
+ * seven_day_* rows. The session window wins fiveHour; the widest weekly row
+ * (all-models) wins sevenDay so a boosted all-models limit is not shadowed by
+ * a per-model one.
+ */
 export function parseClaudeRateLimits(
   payload: unknown,
   occurredAt: string,
@@ -63,8 +69,27 @@ export function parseClaudeRateLimits(
     typeof root.rate_limits === 'object' && root.rate_limits !== null
       ? (root.rate_limits as Record<string, unknown>)
       : root;
-  const fiveHour = parseClaudeWindow(rateLimits.five_hour ?? rateLimits.fiveHour);
-  const sevenDay = parseClaudeWindow(rateLimits.seven_day ?? rateLimits.sevenDay);
+  const fiveHour =
+    parseClaudeWindow(rateLimits.five_hour) ??
+    parseClaudeWindow(rateLimits.fiveHour) ??
+    parseClaudeWindow(rateLimits.current_session);
+  const weeklyKeys = [
+    'seven_day',
+    'sevenDay',
+    'seven_day_all_models',
+    'weekly_limit',
+    'weekly',
+  ];
+  let sevenDay: QuotaWindow | null = null;
+  for (const key of weeklyKeys) {
+    const candidate = parseClaudeWindow(rateLimits[key]);
+    if (
+      candidate !== null &&
+      (sevenDay === null || candidate.usedPercent > sevenDay.usedPercent)
+    ) {
+      sevenDay = candidate;
+    }
+  }
   if (fiveHour === null && sevenDay === null) return null;
   return { fiveHour, sevenDay, source: 'statusline', occurredAt };
 }

@@ -77,6 +77,25 @@ describe('quota parsers', () => {
     });
   });
 
+  it('maps renamed session and weekly keys for newer Claude Code', () => {
+    expect(
+      parseClaudeRateLimits(
+        {
+          rate_limits: {
+            current_session: { used_percentage: 100, resets_at: 1_700_000_000 },
+            seven_day_all_models: { used_percentage: 19, resets_at: 1_700_500_000 },
+            seven_day_opus: { used_percentage: 60, resets_at: 1_700_500_000 },
+          },
+        },
+        '2026-08-31T00:00:00.000Z',
+      ),
+    ).toMatchObject({
+      fiveHour: { usedPercent: 100 },
+      sevenDay: { usedPercent: 19 },
+      source: 'statusline',
+    });
+  });
+
   it('reads Codex app-server primary and secondary windows', () => {
     expect(
       parseCodexRateLimits(
