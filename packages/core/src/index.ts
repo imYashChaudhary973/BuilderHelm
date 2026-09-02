@@ -11,6 +11,7 @@ export * from './integrations/github-issues.js';
 export * from './integrations/linear-issues.js';
 export * from './accounts/accounts-service.js';
 export * from './accounts/quota.js';
+export * from './accounts/claude-oauth-usage.js';
 export * from './providers/provider-service.js';
 export * from './projects/git-inspector.js';
 export * from './projects/project-service.js';

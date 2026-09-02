@@ -26,7 +26,7 @@ export const accountQuotaSchema = z
   .object({
     fiveHour: quotaWindowSchema.nullable(),
     sevenDay: quotaWindowSchema.nullable(),
-    source: z.enum(['statusline', 'app-server', 'run']),
+    source: z.enum(['statusline', 'app-server', 'run', 'oauth']),
     occurredAt: z.string().min(1),
     resetCreditsAvailable: z.number().int().min(0).optional(),
   })

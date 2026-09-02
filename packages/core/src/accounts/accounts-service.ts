@@ -23,9 +23,14 @@ import {
   utcNow,
 } from '@builderhelm/shared';
 
+import { readClaudeOAuthUsage } from './claude-oauth-usage.js';
 import type { BoardService } from '../board/board-service.js';
 import { readCodexRateLimits } from './codex-rate-limits.js';
-import { parseClaudeRateLimits, parseCodexRateLimits } from './quota.js';
+import {
+  parseClaudeOAuthUsage,
+  parseClaudeRateLimits,
+  parseCodexRateLimits,
+} from './quota.js';
 
 const HOMES_KEY = 'accounts.homes';
 const ACTIVE_KEY = 'accounts.active';
@@ -191,6 +196,9 @@ export class AccountsService {
     private readonly logger: Logger,
     private readonly accountsRoot: string,
     private readonly readCodex: CodexRateLimitReader = readCodexRateLimits,
+    private readonly readClaudeUsage: (
+      configRoot: string | null,
+    ) => Promise<unknown | null> = readClaudeOAuthUsage,
   ) {}
 
   hookSystemDefault(): boolean {
@@ -235,7 +243,10 @@ export class AccountsService {
   }
 
   async snapshot(live = false): Promise<AccountSnapshot> {
-    if (live) await this.refreshCodex();
+    if (live) {
+      await this.refreshCodex();
+      await this.refreshClaude();
+    }
     const detections = await this.board.detectAgents();
     const byId = new Map(detections.map((agent) => [agent.id, agent]));
     const homes = this.homes();
@@ -349,6 +360,16 @@ export class AccountsService {
         utcNow(),
       );
       if (live !== null) this.writeQuota('codex', live);
+    } catch {
+      // Keep last stored windows.
+    }
+  }
+
+  private async refreshClaude(): Promise<void> {
+    try {
+      const root = this.cliEnv().CLAUDE_CONFIG_DIR ?? null;
+      const live = parseClaudeOAuthUsage(await this.readClaudeUsage(root), utcNow());
+      if (live !== null) this.writeQuota('claude', live);
     } catch {
       // Keep last stored windows.
     }

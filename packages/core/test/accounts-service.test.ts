@@ -15,6 +15,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { AccountsService, readGrokEmail } from '../src/accounts/accounts-service.js';
 import {
+  parseClaudeOAuthUsage,
   parseClaudeRateLimits,
   parseCodexRateLimits,
   formatQuotaLine,
@@ -93,6 +94,29 @@ describe('quota parsers', () => {
       fiveHour: { usedPercent: 100 },
       sevenDay: { usedPercent: 19 },
       source: 'statusline',
+    });
+  });
+
+  it('maps the OAuth usage endpoint response with utilization percent', () => {
+    expect(
+      parseClaudeOAuthUsage(
+        {
+          five_hour: {
+            utilization: 100.0,
+            resets_at: '2026-09-02T19:10:00.071442+00:00',
+          },
+          seven_day: {
+            utilization: 19.0,
+            resets_at: '2026-09-02T16:00:00.071463+00:00',
+          },
+          seven_day_opus: null,
+        },
+        '2026-08-31T00:00:00.000Z',
+      ),
+    ).toMatchObject({
+      fiveHour: { usedPercent: 100 },
+      sevenDay: { usedPercent: 19 },
+      source: 'oauth',
     });
   });
 

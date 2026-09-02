@@ -94,6 +94,39 @@ export function parseClaudeRateLimits(
   return { fiveHour, sevenDay, source: 'statusline', occurredAt };
 }
 
+function toIsoFromString(value: unknown): string | null {
+  if (typeof value !== 'string' || value.trim().length === 0) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value.trim() : parsed.toISOString();
+}
+
+function mapOAuthWindow(raw: unknown): QuotaWindow | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const row = raw as Record<string, unknown>;
+  const utilization = finiteNumber(row.utilization);
+  const used = finiteNumber(row.used_percentage);
+  if (utilization === undefined && used === undefined) return null;
+  return {
+    usedPercent: clampPercent(utilization ?? used ?? 0),
+    resetsAt: toIsoFromString(row.resets_at),
+  };
+}
+
+/** OAuth usage endpoint response: five_hour / seven_day with utilization 0-100. */
+export function parseClaudeOAuthUsage(
+  payload: unknown,
+  occurredAt: string,
+): AccountQuota | null {
+  const root =
+    typeof payload === 'object' && payload !== null
+      ? (payload as Record<string, unknown>)
+      : null;
+  if (root === null) return null;
+  const fiveHour = mapOAuthWindow(root.five_hour) ?? parseClaudeWindow(root.five_hour);
+  const sevenDay = mapOAuthWindow(root.seven_day) ?? parseClaudeWindow(root.seven_day);
+  if (fiveHour === null && sevenDay === null) return null;
+  return { fiveHour, sevenDay, source: 'oauth', occurredAt };
+}
 /** Codex app-server account/rateLimits/read result. */
 export function parseCodexRateLimits(
   payload: unknown,
