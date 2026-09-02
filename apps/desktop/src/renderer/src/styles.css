@@ -370,7 +370,6 @@ textarea:focus-visible {
   }
 }
 
-
 .shell {
   position: relative;
   z-index: 1;
@@ -9408,4 +9407,3 @@ html.is-fullscreen .swarmWizardFoot {
   font-size: 10px;
   color: #b6d475;
 }
-
