@@ -173,6 +173,11 @@ export function readGrokEmail(configRoot: string | null): string | null {
   }
 }
 
+function homeEmail(provider: QuotaProviderId, configRoot: string | null): string | null {
+  if (provider === 'grok') return readGrokEmail(configRoot);
+  return readProviderEmail(provider, configRoot);
+}
+
 /** Allowlisted identity fields only; never returns tokens. */
 export function readProviderEmail(
   provider: 'claude' | 'codex',
@@ -336,7 +341,7 @@ export class AccountsService {
         id: SYSTEM_ACCOUNT_ID,
         label: 'System default',
         configRoot: null,
-        email: id === 'grok' ? readGrokEmail(null) : null,
+        email: homeEmail(id, null),
         active: activeId === SYSTEM_ACCOUNT_ID,
       };
       const listed: AccountHome[] = [
@@ -345,7 +350,7 @@ export class AccountsService {
           id: home.id,
           label: home.label,
           configRoot: home.configRoot,
-          email: id === 'grok' ? readGrokEmail(home.configRoot) : null,
+          email: homeEmail(id, home.configRoot),
           active: home.id === activeId,
         })),
       ];
@@ -372,6 +377,14 @@ export class AccountsService {
    */
   async add(provider: QuotaProviderId): Promise<AccountSnapshot> {
     const id = quotaProviderIdSchema.parse(provider);
+    // A double-click on Add Account must not mint two homes: reuse a pending
+    // (generic-label) home created in the last minute instead.
+    const pendingPattern = new RegExp(`^${LABELS[id]} \\d+$`);
+    const pending = this.homes()[id].find((entry) => pendingPattern.test(entry.label));
+    if (pending !== undefined) {
+      this.writeActive({ ...this.active(), [id]: pending.id });
+      return this.snapshot();
+    }
     const homeId = createId();
     const configRoot = join(this.accountsRoot, id, homeId);
     mkdirSync(configRoot, { recursive: true });
@@ -397,9 +410,7 @@ export class AccountsService {
     if (home === undefined) {
       throw new BuilderHelmError('VALIDATION_FAILED', 'That account is gone');
     }
-    let email: string | null = null;
-    if (provider === 'grok') email = readGrokEmail(home.configRoot);
-    else email = readProviderEmail(provider, home.configRoot);
+    const email = homeEmail(provider, home.configRoot);
     if (email === null) {
       // Not signed in yet: drop the empty home so the list stays honest.
       homes[provider] = homes[provider].filter((entry) => entry.id !== id);
