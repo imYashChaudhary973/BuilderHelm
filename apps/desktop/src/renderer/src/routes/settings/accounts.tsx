@@ -1,6 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AccountHome, QuotaProviderId } from '@builderhelm/protocol/accounts';
+import type {
+  AccountHome,
+  AccountProvider,
+  QuotaProviderId,
+  QuotaWindow,
+} from '@builderhelm/protocol/accounts';
 import { SYSTEM_ACCOUNT_ID } from '@builderhelm/protocol/accounts';
+
+import { AgentGlyph } from '../../components/agent-mark.js';
 
 function formatReset(iso: string | null): string | null {
   if (iso === null) return null;
@@ -17,6 +24,80 @@ function formatReset(iso: string | null): string | null {
   return hoursLeft === 0 ? `${days}d` : `${days}d ${hoursLeft}h`;
 }
 
+/** One labelled meter: a quota window for Claude/Codex, an account for Grok. */
+type Meter = {
+  readonly key: string;
+  readonly title: string;
+  readonly note: string | null;
+  readonly window: QuotaWindow | null;
+};
+
+function metersOf(provider: AccountProvider): readonly Meter[] {
+  if (provider.id === 'grok') {
+    return provider.homes.flatMap((home) =>
+      home.email === null && home.billing === null
+        ? []
+        : [
+            {
+              key: home.id,
+              title: home.email ?? home.label,
+              note: home.billing?.tier ?? null,
+              window:
+                home.billing === null
+                  ? null
+                  : {
+                      usedPercent: home.billing.usedPercent,
+                      resetsAt: home.billing.periodEnd,
+                    },
+            },
+          ],
+    );
+  }
+  const quota = provider.quota;
+  return [
+    { key: '5h', title: 'Session', note: '5 hours', window: quota?.fiveHour ?? null },
+    { key: 'wk', title: 'Weekly', note: '7 days', window: quota?.sevenDay ?? null },
+  ];
+}
+
+function MeterRow({ meter }: { readonly meter: Meter }): React.JSX.Element {
+  const window = meter.window;
+  const reset = window === null ? null : formatReset(window.resetsAt);
+  const hot = window !== null && window.usedPercent >= 90;
+  return (
+    <div className="usageMeterRow">
+      <div className="usageMeterHead">
+        <span className="usageMeterTitle">{meter.title}</span>
+        {meter.note !== null ? (
+          <span className="usageMeterNote">{meter.note}</span>
+        ) : null}
+      </div>
+      <span className="usageTrack" aria-hidden="true">
+        {window === null ? null : (
+          <span
+            className={hot ? 'usageFill usageFillHot' : 'usageFill'}
+            style={{ width: `${Math.max(2, Math.min(100, window.usedPercent))}%` }}
+          />
+        )}
+      </span>
+      <div className="usageMeterFoot">
+        {window === null ? (
+          <span className="usageMeta">No usage reported yet</span>
+        ) : (
+          <>
+            <span className={hot ? 'usageHot' : undefined}>
+              {Math.round(window.usedPercent)}% used
+            </span>
+            <span className="usageMeta">
+              {reset === null ? '' : `Resets in ${reset}`}
+            </span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function HomeRow({
   home,
   onActive,
@@ -26,29 +107,29 @@ function HomeRow({
   readonly onActive: () => void;
   readonly onRemove: () => void;
 }): React.JSX.Element {
+  const system = home.id === SYSTEM_ACCOUNT_ID;
+  const signedIn = home.email !== null;
+  const note = system
+    ? 'The login already on this device'
+    : signedIn
+      ? 'Isolated home'
+      : 'Waiting for the login to finish';
   return (
     <li className="usageAccountRow">
-      <div>
-        <strong>
-          {home.label}
-          {home.active ? <span className="usageBadge">Active</span> : null}
-        </strong>
-        <p>
-          {home.email !== null && home.email !== undefined && home.label !== home.email
-            ? home.email
-            : home.id === SYSTEM_ACCOUNT_ID
-              ? 'Use the login already on this device.'
-              : 'Open a pane with this CLI to sign in. Auth stays on this device.'}
-        </p>
+      <div className="usageAccountId">
+        <strong>{signedIn ? home.label : `${home.label} · signing in`}</strong>
+        <p>{note}</p>
       </div>
       <div className="usageAccountActions">
-        {home.active ? null : (
+        {home.active ? (
+          <span className="usageBadge">Active</span>
+        ) : (
           <button type="button" onClick={onActive}>
             Use
           </button>
         )}
-        {home.id === SYSTEM_ACCOUNT_ID ? null : (
-          <button type="button" onClick={onRemove}>
+        {system ? null : (
+          <button type="button" onClick={onRemove} aria-label={`Remove ${home.label}`}>
             Remove
           </button>
         )}
@@ -56,6 +137,12 @@ function HomeRow({
     </li>
   );
 }
+
+const PROVIDER_NOTE: Record<QuotaProviderId, string> = {
+  claude: 'Windows come from the official usage endpoint, refreshed every 30 seconds.',
+  codex: 'Windows come from the Codex app-server on every refresh.',
+  grok: "Read from each account's own billing log; the first read needs one session.",
+};
 
 export function AccountsPage(): React.JSX.Element {
   const queryClient = useQueryClient();
@@ -95,48 +182,28 @@ export function AccountsPage(): React.JSX.Element {
       queryClient.setQueryData(['accounts-snapshot'], next);
     },
   });
+  const busy = mutate.isPending || snapshot.isFetching;
+  const hookOn = snapshot.data?.hookSystemDefault ?? false;
 
   return (
-    <section className="voicePage" aria-labelledby="accounts-title">
+    <section className="usagePage" aria-labelledby="accounts-title">
       <header className="settingsHeader">
         <div>
-          <h1 id="accounts-title">AI Provider Accounts</h1>
+          <h1 id="accounts-title">Accounts &amp; usage</h1>
           <p className="voiceLede">
-            Optional. BuilderHelm uses the CLI login already on this device. Add extra
-            homes only to switch Claude, Codex, or Grok without copying credentials.
+            BuilderHelm reads the CLI logins already on this device. Add an account to run
+            a second login side by side without copying credentials.
           </p>
         </div>
         <button
           type="button"
           className="usageRefresh"
-          disabled={mutate.isPending || snapshot.isFetching}
+          disabled={busy}
           onClick={() => mutate.mutate({ type: 'refresh' })}
         >
-          Refresh
+          {busy ? 'Refreshing…' : 'Refresh'}
         </button>
       </header>
-      <div className="usageProviderCard">
-        <header>
-          <strong>Claude system default</strong>
-          <p>
-            Also feed usage from the login in ~/.claude. While enabled this replaces your
-            existing Claude Code status line command with BuilderHelm's.
-          </p>
-        </header>
-        <button
-          type="button"
-          className="usageRefresh"
-          disabled={mutate.isPending}
-          onClick={() =>
-            mutate.mutate({
-              type: 'hook',
-              enabled: !(snapshot.data?.hookSystemDefault ?? false),
-            })
-          }
-        >
-          {snapshot.data?.hookSystemDefault ? 'Stop reading' : 'Read usage'}
-        </button>
-      </div>
       {snapshot.error instanceof Error ? (
         <p className="wizardError" role="alert">
           {snapshot.error.message}
@@ -148,119 +215,96 @@ export function AccountsPage(): React.JSX.Element {
         </p>
       ) : null}
       <ul className="usageProviderList">
-        {(snapshot.data?.providers ?? []).map((provider) => {
-          const five = provider.quota?.fiveHour;
-          const week = provider.quota?.sevenDay;
-          return (
-            <li key={provider.id} className="usageProviderCard">
-              <header>
+        {(snapshot.data?.providers ?? []).map((provider) => (
+          <li key={provider.id} className="usageProviderCard">
+            <header className="usageProviderHead">
+              <span className="usageRowMark" aria-hidden="true">
+                <AgentGlyph id={provider.id} />
+              </span>
+              <div>
                 <strong>{provider.label}</strong>
-                <p>
-                  {provider.id === 'grok'
-                    ? 'Weekly credits show when Grok ships a non-interactive stats command. Email is read from the session file; tokens are not stored.'
-                    : provider.id === 'codex'
-                      ? '5-hour and weekly windows from Codex. Add Account opens codex login in a Terminal scoped to a separate CODEX_HOME.'
-                      : '5-hour and weekly windows from the official usage endpoint. Add Account opens claude auth login in a Terminal scoped to CLAUDE_CONFIG_DIR.'}
-                </p>
-              </header>
-              {provider.id === 'grok' ? (
-                <div className="usageDetail">
-                  {provider.homes
-                    .filter((home) => home.billing !== null)
-                    .map((home) => (
-                      <p key={home.id} className="usageMeta">
-                        {home.label}: {Math.round(home.billing?.usedPercent ?? 0)}% used
-                        {home.billing?.periodEnd !== null &&
-                        home.billing?.periodEnd !== undefined
-                          ? ` · resets ${formatReset(home.billing.periodEnd)}`
-                          : ''}
-                        {home.billing?.tier !== null && home.billing?.tier !== undefined
-                          ? ` · ${home.billing.tier}`
-                          : ''}
-                      </p>
-                    ))}
-                  {provider.homes.every((home) => home.billing === null) ? (
-                    <p className="usageMeta">
-                      No billing snapshot yet. Refresh starts a tiny session per home; the
-                      CLI then reports usage.
-                    </p>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="usageDetail">
-                  <p className="usageMeta">
-                    5h{' '}
-                    {five === null || five === undefined
-                      ? '—'
-                      : `${Math.round(five.usedPercent)}%`}
-                    {five?.resetsAt !== undefined && five.resetsAt !== null
-                      ? ` · ${formatReset(five.resetsAt)}`
-                      : ''}
-                    {' · '}
-                    Weekly{' '}
-                    {week === null || week === undefined
-                      ? '—'
-                      : `${Math.round(week.usedPercent)}%`}
-                    {week?.resetsAt !== undefined && week.resetsAt !== null
-                      ? ` · ${formatReset(week.resetsAt)}`
-                      : ''}
-                  </p>
-                </div>
-              )}
-              <div className="usageAccountHead">
-                <span>Accounts</span>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const created = await window.builderHelm.accounts.add({
-                      provider: provider.id,
-                    });
-                    // add() makes the home it just created the active one; the
-                    // first configRoot in the list is an older account.
-                    const home = created.providers
-                      .find((entry) => entry.id === provider.id)
-                      ?.homes.find((entry) => entry.active && entry.configRoot !== null);
-                    if (home?.configRoot === undefined || home.configRoot === null)
-                      return;
-                    // Opens the provider's login TTY in a Terminal window scoped
-                    // to the new home; when it closes, BuilderHelm reads the
-                    // identity from the home and labels the account, or drops it.
-                    await window.builderHelm.accounts.openLoginTerminal({
-                      provider: provider.id,
-                      configRoot: home.configRoot,
-                      accountId: home.id,
-                    });
-                  }}
-                >
-                  + Add Account
-                </button>
+                <p>{PROVIDER_NOTE[provider.id]}</p>
               </div>
-              <ul className="usageAccountList">
-                {provider.homes.map((home) => (
-                  <HomeRow
-                    key={home.id}
-                    home={home}
-                    onActive={() =>
-                      mutate.mutate({
-                        type: 'active',
-                        provider: provider.id,
-                        id: home.id,
-                      })
-                    }
-                    onRemove={() =>
-                      mutate.mutate({
-                        type: 'remove',
-                        provider: provider.id,
-                        id: home.id,
-                      })
-                    }
-                  />
-                ))}
-              </ul>
-            </li>
-          );
-        })}
+              {provider.installed ? null : (
+                <span className="usageBadgeMuted">Not installed</span>
+              )}
+            </header>
+            <div
+              className={
+                provider.id === 'grok'
+                  ? 'usageMeterGrid usageMeterStack'
+                  : 'usageMeterGrid'
+              }
+            >
+              {metersOf(provider).map((meter) => (
+                <MeterRow key={meter.key} meter={meter} />
+              ))}
+            </div>
+            <div className="usageAccountHead">
+              <span>Accounts</span>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={async () => {
+                  const created = await window.builderHelm.accounts.add({
+                    provider: provider.id,
+                  });
+                  queryClient.setQueryData(['accounts-snapshot'], created);
+                  // add() makes the home it just created the active one; the
+                  // first configRoot in the list is an older account.
+                  const home = created.providers
+                    .find((entry) => entry.id === provider.id)
+                    ?.homes.find((entry) => entry.active && entry.configRoot !== null);
+                  if (home?.configRoot === undefined || home.configRoot === null) return;
+                  // Opens the provider's login TTY in a Terminal window scoped
+                  // to the new home; BuilderHelm labels the account once the
+                  // CLI writes its identity there.
+                  await window.builderHelm.accounts.openLoginTerminal({
+                    provider: provider.id,
+                    configRoot: home.configRoot,
+                    accountId: home.id,
+                  });
+                }}
+              >
+                + Add account
+              </button>
+            </div>
+            <ul className="usageAccountList">
+              {provider.homes.map((home) => (
+                <HomeRow
+                  key={home.id}
+                  home={home}
+                  onActive={() =>
+                    mutate.mutate({ type: 'active', provider: provider.id, id: home.id })
+                  }
+                  onRemove={() =>
+                    mutate.mutate({ type: 'remove', provider: provider.id, id: home.id })
+                  }
+                />
+              ))}
+            </ul>
+          </li>
+        ))}
       </ul>
+      <div className="usageProviderCard usageHookCard">
+        <div>
+          <strong>Read the system Claude login&apos;s usage</strong>
+          <p>
+            Installs BuilderHelm&apos;s status line in ~/.claude so the login outside any
+            isolated home reports its windows too. This replaces an existing Claude Code
+            status line command while enabled.
+          </p>
+        </div>
+        <button
+          type="button"
+          className={hookOn ? 'usageToggle usageToggleOn' : 'usageToggle'}
+          aria-pressed={hookOn}
+          disabled={mutate.isPending}
+          onClick={() => mutate.mutate({ type: 'hook', enabled: !hookOn })}
+        >
+          {hookOn ? 'On' : 'Off'}
+        </button>
+      </div>
     </section>
   );
 }

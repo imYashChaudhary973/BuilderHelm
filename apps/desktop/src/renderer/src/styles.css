@@ -9577,72 +9577,214 @@ html.is-fullscreen .swarmWizardFoot {
   margin-top: 0;
 }
 
+.usagePage {
+  max-width: 820px;
+}
+
+.usagePage .settingsHeader {
+  margin-bottom: 22px;
+}
+
 .usageProviderList {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .usageProviderCard {
   padding: 16px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
   background: #0c0d0c;
 }
 
-.usageProviderCard > header p,
+.usageProviderHead {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: start;
+  gap: 10px;
+}
+
+.usageProviderHead .usageRowMark {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+.usageProviderHead strong {
+  font-size: 14px;
+}
+
+.usageProviderCard p,
 .usageAccountRow p {
-  margin: 4px 0 0;
+  margin: 3px 0 0;
   color: var(--text-3);
   font-size: 12px;
+  line-height: 1.45;
+}
+
+.usageMeterGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px 18px;
+  margin: 14px 0 4px;
+  padding: 12px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Account meters are titled by email; one per row keeps them readable. */
+.usageMeterStack {
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+.usageMeterRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.usageMeterHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.usageMeterTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usageMeterNote {
+  color: var(--text-3);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.usageMeterFoot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-2);
 }
 
 .usageAccountHead {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin: 14px 0 8px;
+  margin: 16px 0 8px;
+  font-size: 12px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .usageAccountList {
   list-style: none;
   margin: 0;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .usageAccountRow {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 10px;
-  margin-bottom: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.usageAccountId {
+  min-width: 0;
+}
+
+.usageAccountId strong {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
 }
 
 .usageAccountActions {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .usageAccountActions button,
 .usageAccountHead button {
-  border: 1px solid var(--line-strong);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   background: transparent;
   color: var(--text);
   padding: 4px 10px;
   border-radius: 8px;
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.usageAccountActions button:hover:not(:disabled),
+.usageAccountHead button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .usageBadge {
-  margin-left: 8px;
-  padding: 1px 6px;
-  border: 1px solid var(--line);
+  padding: 2px 8px;
+  border: 1px solid rgba(182, 212, 117, 0.35);
   border-radius: 999px;
   font-size: 10px;
+  letter-spacing: 0.04em;
+  color: #b6d475;
+}
+
+.usageBadgeMuted {
+  padding: 2px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  font-size: 10px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.usageHookCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.usageToggle {
+  flex-shrink: 0;
+  min-width: 58px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: var(--text-2);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.usageToggleOn {
+  border-color: rgba(182, 212, 117, 0.4);
+  background: rgba(182, 212, 117, 0.14);
   color: #b6d475;
 }
