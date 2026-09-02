@@ -348,10 +348,13 @@ export class AccountsService {
       const listed: AccountHome[] = [
         system,
         ...extra.map((home) => {
+          // System default for Grok reads the ~/.grok login's billing log.
           const billing =
-            id === 'grok' && home.configRoot !== null
-              ? readGrokBilling(home.configRoot)
-              : null;
+            id === 'grok' && home.id === SYSTEM_ACCOUNT_ID
+              ? readGrokBilling(null)
+              : id === 'grok' && home.configRoot !== null
+                ? readGrokBilling(home.configRoot)
+                : null;
           return {
             id: home.id,
             label: home.label,
