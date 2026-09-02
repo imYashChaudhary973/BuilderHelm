@@ -1,6 +1,6 @@
 # Implementation status
 
-Last reviewed: 2026-08-31.
+Last reviewed: 2026-09-02.
 
 This document distinguishes working code from planned product scope. A feature
 is not shipped merely because a route, mock, fixture, or documentation page exists.
@@ -69,6 +69,15 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
   there is no export path.
 - macOS whole-desktop click/type remains permissioned in the main process and
   always prompts. It has no entry point in the browser toolbar.
+- Launch animation on the BuilderHelm mark, held while the window settles and
+  then pushed toward the viewer and faded into the shell. Any key skips to the
+  exit, and a reader who asked for reduced motion gets the shell immediately
+  rather than a shortened storm. Driven and timed against the live renderer.
+- `main` is protected server-side: the CI `verify` check is required, the rule
+  applies to admins, and force-pushes and deletion are refused. A pre-push hook
+  runs the same `pnpm verify` locally, so a red tree fails in seconds instead of
+  after a CI round trip. Both paths were exercised by attempting a rejected
+  push.
 
 ## Partial or needing hardening
 
