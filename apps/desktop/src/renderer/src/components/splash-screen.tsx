@@ -3,14 +3,20 @@ import { useCallback, useEffect, useState } from 'react';
 import { ElementsCollection } from '../shaders/elements/ElementsBackground.js';
 
 /** How long the storm holds steady before the exit push begins. */
-const HOLD_MS = 1800;
+const HOLD_MS = 4200;
 
 /**
- * The exit: the frame scales up throughout while the fade runs over its back
- * half, so the mark pushes toward the viewer and dissolves into the shell.
- * Must match the `.splash` transitions in styles.css.
+ * The exit: the frame scales up on a symmetric ease-in-out while the fade runs
+ * over its back 60%, so the mark pushes toward the viewer and dissolves into
+ * the shell. Must match the `.splash` transitions in styles.css.
  */
-const EXIT_MS = 1500;
+const EXIT_MS = 1800;
+
+/**
+ * Unmount a few frames after the transition settles. Landing exactly on the
+ * end lets an early timer cut the frame at partial opacity, which pops.
+ */
+const UNMOUNT_MS = EXIT_MS + 80;
 
 /**
  * The launch animation is decoration. A reader who asked for less motion gets
@@ -42,7 +48,7 @@ export function SplashScreen({ onDone }: { onDone: () => void }): React.JSX.Elem
 
   useEffect(() => {
     if (!leaving) return undefined;
-    const exit = window.setTimeout(onDone, EXIT_MS);
+    const exit = window.setTimeout(onDone, UNMOUNT_MS);
     return () => window.clearTimeout(exit);
   }, [leaving, onDone]);
 

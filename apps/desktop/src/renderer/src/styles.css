@@ -9102,10 +9102,16 @@ html.is-fullscreen .swarmWizardFoot {
 /* Launch animation. Sits above every shell layer, including the dictation HUD
    at z-index 100, and is unmounted once the exit completes.
 
-   The exit is a camera push: scale runs the full 1500ms on an ease-in curve so
-   it accelerates into the shell, while opacity waits 700ms and then fades over
-   the remaining 800ms. The mark is visibly closer before it starts to go, and
-   the fade hides the upscaling of the shader's fixed-size canvas.
+   The exit is a camera push. Scale runs the full duration on a symmetric
+   ease-in-out, so it leaves rest and arrives at rest with no dead first half
+   and no snap at the end; opacity waits 720ms and then fades over the
+   remaining 1080ms, so both properties settle on the same frame. The scale
+   target rises with the duration to hold perceived velocity steady — a longer
+   push over the same 16% would read as creeping, not gliding.
+
+   `will-change` promotes the layer and locks its raster scale during the hold,
+   so the first exit frame is not also the frame that builds the layer for a
+   subtree containing the shader iframe.
 
    Both are compositor properties, so this costs no layout and no per-frame JS.
    Durations must match EXIT_MS in components/splash-screen.tsx. */
@@ -9116,14 +9122,16 @@ html.is-fullscreen .swarmWizardFoot {
   background: #060708;
   opacity: 1;
   transform: scale(1);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
   transition:
-    transform 1500ms cubic-bezier(0.32, 0, 0.67, 0),
-    opacity 800ms cubic-bezier(0.4, 0, 1, 1) 700ms;
+    transform 1800ms cubic-bezier(0.45, 0, 0.55, 1),
+    opacity 1080ms cubic-bezier(0.4, 0, 0.6, 1) 720ms;
 }
 
 .splashLeaving {
   opacity: 0;
-  transform: scale(1.16);
+  transform: scale(1.32);
 }
 
 /* Frame the ThreeUI element fills. `.threeui-background` inside it is
