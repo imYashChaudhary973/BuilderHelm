@@ -14,6 +14,7 @@ import {
   type AccountQuota,
   type AccountSnapshot,
   type QuotaProviderId,
+  type QuotaWindow,
 } from '@builderhelm/protocol';
 import {
   BuilderHelmError,
@@ -121,9 +122,24 @@ function parseQuota(
     const value: unknown = JSON.parse(raw);
     if (value === null || typeof value !== 'object' || Array.isArray(value)) return {};
     const next: Partial<Record<QuotaProviderId, AccountQuota>> = {};
+    const now = Date.now();
     for (const id of QUOTA_PROVIDER_IDS) {
       const parsed = accountQuotaSchema.safeParse((value as Record<string, unknown>)[id]);
-      if (parsed.success) next[id] = parsed.data;
+      if (!parsed.success) continue;
+      const quota = parsed.data;
+      // A window whose reset time has passed is a snapshot of a finished
+      // window, not a current limit. Showing it invents a fake limit.
+      const live = (window: QuotaWindow | null): QuotaWindow | null =>
+        window !== null &&
+        (window.resetsAt === null || new Date(window.resetsAt).getTime() > now)
+          ? window
+          : null;
+      const pruned: AccountQuota = {
+        ...quota,
+        fiveHour: live(quota.fiveHour),
+        sevenDay: live(quota.sevenDay),
+      };
+      if (pruned.fiveHour !== null || pruned.sevenDay !== null) next[id] = pruned;
     }
     return next;
   } catch {

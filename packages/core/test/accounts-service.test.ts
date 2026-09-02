@@ -157,9 +157,10 @@ describe('readGrokEmail', () => {
 describe('AccountsService', () => {
   it('keeps Claude ingest on the snapshot', async () => {
     const accounts = setup();
+    const future = new Date(Date.now() + 3_600_000).toISOString();
     expect(
       accounts.ingestClaude({
-        rate_limits: { five_hour: { used_percentage: 12, resets_at: 1_700_000_000 } },
+        rate_limits: { five_hour: { used_percentage: 12, resets_at: future } },
       })?.fiveHour?.usedPercent,
     ).toBe(12);
     const snapshot = await accounts.snapshot();
@@ -171,6 +172,22 @@ describe('AccountsService', () => {
     expect(
       snapshot.providers.find((provider) => provider.id === 'claude')?.quota?.source,
     ).toBe('statusline');
+  });
+
+  it('hides a window whose reset has passed instead of faking a limit', async () => {
+    const accounts = setup();
+    const past = new Date(Date.now() - 60_000).toISOString();
+    const future = new Date(Date.now() + 3_600_000).toISOString();
+    accounts.ingestClaude({
+      rate_limits: {
+        five_hour: { used_percentage: 100, resets_at: past },
+        seven_day: { used_percentage: 19, resets_at: future },
+      },
+    });
+    const snapshot = await accounts.snapshot();
+    const claude = snapshot.providers.find((provider) => provider.id === 'claude');
+    expect(claude?.quota?.fiveHour).toBeNull();
+    expect(claude?.quota?.sevenDay?.usedPercent).toBe(19);
   });
 
   it('adds an isolated home and points cliEnv at it', async () => {
