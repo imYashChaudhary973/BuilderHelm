@@ -16,6 +16,8 @@ import { VoiceHotkeys } from './voice-hotkeys.js';
 import { installApplicationMenu } from './legal-menu.js';
 import {
   buildContentSecurityPolicy,
+  buildElementsHostPolicy,
+  ELEMENTS_HOST_PATH,
   isAllowedNavigation,
   secureWebPreferences,
 } from './security.js';
@@ -221,14 +223,18 @@ app
     );
 
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      // The launch animation's frame runs a vendored document with inline
+      // shaders, so it gets its own tighter-but-inline-allowing policy. Every
+      // other response carries the shell policy.
+      const policy = details.url.split('?')[0]?.endsWith(ELEMENTS_HOST_PATH)
+        ? buildElementsHostPolicy()
+        : buildContentSecurityPolicy({
+            dev: Boolean(process.env.ELECTRON_RENDERER_URL),
+          });
       callback({
         responseHeaders: {
           ...details.responseHeaders,
-          'Content-Security-Policy': [
-            buildContentSecurityPolicy({
-              dev: Boolean(process.env.ELECTRON_RENDERER_URL),
-            }),
-          ],
+          'Content-Security-Policy': [policy],
         },
       });
     });
