@@ -371,11 +371,17 @@ export class AccountsService {
             id === 'grok' && home.configRoot !== null
               ? readGrokBilling(home.configRoot)
               : null;
+          const email = homeEmail(id, home.configRoot);
+          // A generic "Provider N" label is replaced by the account email once
+          // identity is readable, so rows always say which login they belong to.
+          const label = home.label.startsWith(LABELS[id])
+            ? (email ?? home.label)
+            : home.label;
           return {
             id: home.id,
-            label: home.label,
+            label,
             configRoot: home.configRoot,
-            email: homeEmail(id, home.configRoot),
+            email,
             active: home.id === activeId,
             billing: grokBillingPayload(billing),
           };
