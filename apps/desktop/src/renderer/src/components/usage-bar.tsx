@@ -172,15 +172,25 @@ function ProviderFlyout({
   provider,
   sections,
   onAccounts,
+  onStay,
+  onLeave,
 }: {
   readonly provider: AccountProvider;
   readonly sections: readonly UsageSection[];
   readonly onAccounts: () => void;
+  readonly onStay: () => void;
+  readonly onLeave: () => void;
 }): React.JSX.Element {
   const ago = formatAgo(lastUpdated(provider));
   const active = activeFirst(provider)[0];
   return (
-    <div className="usageFlyout" role="group" aria-label={`${provider.label} usage`}>
+    <div
+      className="usageFlyout"
+      role="group"
+      aria-label={`${provider.label} usage`}
+      onMouseEnter={onStay}
+      onMouseLeave={onLeave}
+    >
       <div className="usageFlyoutHead">
         <span className="usageRowMark" aria-hidden="true">
           <AgentGlyph id={provider.id} />
@@ -261,6 +271,8 @@ export function UsageBar(): React.JSX.Element {
   /** Set while the panel was opened by hover, so leaving closes it again. */
   const hoverOpened = useRef(false);
   const timer = useRef<number | null>(null);
+  /** Separate from the open timer: the panel and its detail hide on their own. */
+  const flyoutTimer = useRef<number | null>(null);
   const snapshot = useQuery({
     queryKey: ['accounts-snapshot'],
     queryFn: () => window.builderHelm.accounts.snapshot({ live: true }),
@@ -273,19 +285,53 @@ export function UsageBar(): React.JSX.Element {
     const onDown = (event: MouseEvent): void => {
       if (rootRef.current !== null && !rootRef.current.contains(event.target as Node)) {
         setOpen(false);
+        // Otherwise the next open shows a detail for a provider the pointer
+        // is nowhere near.
+        setFlyout(null);
       }
     };
     window.addEventListener('mousedown', onDown);
     return () => window.removeEventListener('mousedown', onDown);
   }, [open]);
 
-  useEffect(() => () => clearTimer(), []);
+  useEffect(
+    () => () => {
+      clearTimer();
+      clearFlyoutTimer();
+    },
+    [],
+  );
 
   const clearTimer = (): void => {
     if (timer.current !== null) {
       window.clearTimeout(timer.current);
       timer.current = null;
     }
+  };
+
+  const clearFlyoutTimer = (): void => {
+    if (flyoutTimer.current !== null) {
+      window.clearTimeout(flyoutTimer.current);
+      flyoutTimer.current = null;
+    }
+  };
+
+  /**
+   * The detail panel belongs to whatever the pointer is on: a provider chip, a
+   * provider row, or the panel itself. Anything else hides it.
+   */
+  const showFlyout = (id: QuotaProviderId): void => {
+    clearFlyoutTimer();
+    setFlyout(id);
+  };
+
+  /** Short grace so moving diagonally onto the panel does not drop it. */
+  const hideFlyout = (): void => {
+    clearFlyoutTimer();
+    flyoutTimer.current = window.setTimeout(() => {
+      flyoutTimer.current = null;
+      setFlyout(null);
+    }, 140);
   };
 
   /**
@@ -297,7 +343,7 @@ export function UsageBar(): React.JSX.Element {
     timer.current = window.setTimeout(() => {
       timer.current = null;
       hoverOpened.current = true;
-      setFlyout(id);
+      showFlyout(id);
       setOpen(true);
     }, 220);
   };
@@ -309,6 +355,7 @@ export function UsageBar(): React.JSX.Element {
       timer.current = null;
       hoverOpened.current = false;
       setOpen(false);
+      setFlyout(null);
     }, 260);
   };
 
@@ -336,7 +383,10 @@ export function UsageBar(): React.JSX.Element {
         onClick={() => {
           clearTimer();
           hoverOpened.current = false;
-          setOpen((value) => !value);
+          setOpen((value) => {
+            if (value) setFlyout(null);
+            return !value;
+          });
         }}
       >
         {providers.map((provider) => {
@@ -348,11 +398,12 @@ export function UsageBar(): React.JSX.Element {
               // Hovering a chip reveals that provider's panel without a click.
               onMouseEnter={() => {
                 if (open) {
-                  setFlyout(provider.id);
+                  showFlyout(provider.id);
                   return;
                 }
                 hoverOpen(provider.id);
               }}
+              onMouseLeave={hideFlyout}
             >
               <span className="usageChipMark" aria-hidden="true">
                 <AgentGlyph id={provider.id} />
@@ -424,12 +475,19 @@ export function UsageBar(): React.JSX.Element {
               const sections = sectionsOf(provider);
               const on = flyout === provider.id;
               return (
-                <li key={provider.id} onMouseEnter={() => setFlyout(provider.id)}>
+                <li
+                  key={provider.id}
+                  onMouseEnter={() => showFlyout(provider.id)}
+                  onMouseLeave={hideFlyout}
+                >
                   <button
                     type="button"
                     className={on ? 'usageRow usageRowOn' : 'usageRow'}
                     aria-expanded={on}
-                    onClick={() => setFlyout(on ? null : provider.id)}
+                    // Keyboard users get the same detail on focus.
+                    onFocus={() => showFlyout(provider.id)}
+                    onBlur={hideFlyout}
+                    onClick={() => showFlyout(provider.id)}
                   >
                     <span className="usageRowMark" aria-hidden="true">
                       <AgentGlyph id={provider.id} />
@@ -486,6 +544,8 @@ export function UsageBar(): React.JSX.Element {
                 provider={provider}
                 sections={sectionsOf(provider)}
                 onAccounts={openAccounts}
+                onStay={clearFlyoutTimer}
+                onLeave={hideFlyout}
               />
             );
           })()}
