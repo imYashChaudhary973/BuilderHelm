@@ -59,6 +59,7 @@ export const accountSnapshotSchema = z
   .object({
     providers: z.array(accountProviderSchema),
     occurredAt: z.string().min(1),
+    hookSystemDefault: z.boolean(),
   })
   .strict();
 export type AccountSnapshot = z.infer<typeof accountSnapshotSchema>;
@@ -78,6 +79,9 @@ export const accountRemoveInputSchema = z
   .strict();
 export type AccountRemoveInput = z.infer<typeof accountRemoveInputSchema>;
 
+export const accountToggleHookInputSchema = z.object({ enabled: z.boolean() }).strict();
+export type AccountToggleHookInput = z.infer<typeof accountToggleHookInputSchema>;
+
 export const accountSetActiveInputSchema = z
   .object({ provider: quotaProviderIdSchema, id: z.string().min(1).max(64) })
   .strict();
@@ -88,6 +92,9 @@ export const accountSnapshotRequestSchema = z
   .strict();
 export const accountAddRequestSchema = z
   .object({ correlationId: correlationIdSchema, input: accountAddInputSchema })
+  .strict();
+export const accountToggleHookRequestSchema = z
+  .object({ correlationId: correlationIdSchema, input: accountToggleHookInputSchema })
   .strict();
 export const accountRemoveRequestSchema = z
   .object({ correlationId: correlationIdSchema, input: accountRemoveInputSchema })

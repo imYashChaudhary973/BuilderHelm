@@ -10,6 +10,7 @@ import {
   accountSetActiveRequestSchema,
   accountSnapshotIpcResponseSchema,
   accountSnapshotRequestSchema,
+  accountToggleHookRequestSchema,
 } from '@builderhelm/protocol/accounts';
 import {
   actionCommandIpcResponseSchema,
@@ -2402,6 +2403,22 @@ export function registerIpcHandlers(
       });
     }
   });
+  ipcMain.handle(ipcChannels.accountToggleHook, async (_event, input: unknown) => {
+    try {
+      const request = accountToggleHookRequestSchema.parse(input);
+      core.accounts.setHookSystemDefault(request.input.enabled);
+      onAccountsChanged?.();
+      return accountSnapshotIpcResponseSchema.parse({
+        ok: true,
+        value: await core.accounts.snapshot(),
+      });
+    } catch (error) {
+      return accountSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
 
   if (typeof core.voice?.status === 'function') {
     void core.voice
@@ -2513,8 +2530,8 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.reviewCommentList);
     ipcMain.removeHandler(ipcChannels.reviewCheckRun);
     ipcMain.removeHandler(ipcChannels.reviewCheckList);
-    ipcMain.removeHandler(ipcChannels.reviewPrDraft);
-    ipcMain.removeHandler(ipcChannels.reviewCi);
+    ipcMain.removeHandler(ipcChannels.accountSetActive);
+    ipcMain.removeHandler(ipcChannels.accountToggleHook);
     ipcMain.removeHandler(ipcChannels.voiceTranscribe);
     ipcMain.removeHandler(ipcChannels.accountSnapshot);
     ipcMain.removeHandler(ipcChannels.accountAdd);

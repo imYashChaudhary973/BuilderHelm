@@ -6,8 +6,9 @@ function writeMessage(
   child: { stdin: { write(chunk: string): boolean } },
   value: unknown,
 ): void {
-  const body = JSON.stringify(value);
-  child.stdin.write(`Content-Length: ${Buffer.byteLength(body, 'utf8')}\r\n\r\n${body}`);
+  // Codex 0.152 answers newline-delimited JSON, not LSP-style envelopes; with
+  // Content-Length framing it answers initialize and then goes quiet.
+  child.stdin.write(`${JSON.stringify(value)}\n`);
 }
 
 function parseJson(text: string): Record<string, unknown> | null {
@@ -55,6 +56,11 @@ export async function readCodexRateLimits(
       if (message.id === 1 && message.result !== undefined) {
         writeMessage(child, {
           jsonrpc: '2.0',
+          method: 'initialized',
+          params: {},
+        });
+        writeMessage(child, {
+          jsonrpc: '2.0',
           id: 2,
           method: 'account/rateLimits/read',
           params: {},
@@ -73,19 +79,6 @@ export async function readCodexRateLimits(
     child.stdout.on('data', (chunk: string) => {
       buffer += chunk;
       while (buffer.length > 0) {
-        const headerEnd = buffer.indexOf('\r\n\r\n');
-        if (headerEnd !== -1) {
-          const lengthMatch = /Content-Length:\s*(\d+)/i.exec(buffer.slice(0, headerEnd));
-          if (lengthMatch !== null) {
-            const length = Number(lengthMatch[1]);
-            const start = headerEnd + 4;
-            if (buffer.length < start + length) return;
-            const body = buffer.slice(start, start + length);
-            buffer = buffer.slice(start + length);
-            handle(parseJson(body));
-            continue;
-          }
-        }
         const newline = buffer.indexOf('\n');
         if (newline === -1) return;
         const line = buffer.slice(0, newline).trim();

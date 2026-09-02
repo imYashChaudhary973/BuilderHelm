@@ -29,7 +29,7 @@ import { parseClaudeRateLimits, parseCodexRateLimits } from './quota.js';
 const HOMES_KEY = 'accounts.homes';
 const ACTIVE_KEY = 'accounts.active';
 const QUOTA_KEY = 'accounts.quota';
-
+const HOOK_SYSTEM_KEY = 'accounts.claudeHookSystem';
 const LABELS: Record<QuotaProviderId, string> = {
   claude: 'Claude',
   codex: 'Codex',
@@ -168,7 +168,6 @@ function findEmail(value: unknown): string | null {
   }
   return null;
 }
-
 export class AccountsService {
   constructor(
     private readonly settings: SettingsRepository,
@@ -177,6 +176,14 @@ export class AccountsService {
     private readonly accountsRoot: string,
     private readonly readCodex: CodexRateLimitReader = readCodexRateLimits,
   ) {}
+
+  hookSystemDefault(): boolean {
+    return this.settings.read(HOOK_SYSTEM_KEY) === 'true';
+  }
+
+  setHookSystemDefault(enabled: boolean): void {
+    this.settings.write(HOOK_SYSTEM_KEY, enabled ? 'true' : 'false', utcNow());
+  }
 
   ingestClaude(payload: unknown): AccountQuota | null {
     const quota = parseClaudeRateLimits(payload, utcNow());
@@ -203,10 +210,12 @@ export class AccountsService {
     return env;
   }
 
+  /** Roots to hook: BuilderHelm homes, plus ~/.claude when opted in. */
   claudeHookRoots(): string[] {
-    return this.homes()
+    const homes = this.homes()
       .claude.map((home) => home.configRoot)
       .filter((root): root is string => root !== null);
+    return this.hookSystemDefault() ? [...homes, join(homedir(), '.claude')] : homes;
   }
 
   async snapshot(live = false): Promise<AccountSnapshot> {
@@ -247,7 +256,11 @@ export class AccountsService {
         homes: listed,
       };
     });
-    return accountSnapshotSchema.parse({ providers, occurredAt: utcNow() });
+    return accountSnapshotSchema.parse({
+      providers,
+      occurredAt: utcNow(),
+      hookSystemDefault: this.hookSystemDefault(),
+    });
   }
 
   async add(provider: QuotaProviderId): Promise<AccountSnapshot> {

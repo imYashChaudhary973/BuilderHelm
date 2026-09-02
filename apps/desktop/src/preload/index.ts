@@ -3,6 +3,7 @@ import {
   accountRemoveInputSchema,
   accountSetActiveInputSchema,
   accountSnapshotIpcResponseSchema,
+  accountToggleHookInputSchema,
 } from '@builderhelm/protocol/accounts';
 import {
   actionCommandInputSchema,
@@ -1239,7 +1240,13 @@ const api: BuilderHelmDesktopApi = {
       });
       return unwrap(accountSnapshotIpcResponseSchema.parse(response));
     },
+    async toggleHook(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.accountToggleHook, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: accountToggleHookInputSchema.parse(input),
+      });
+      return unwrap(accountSnapshotIpcResponseSchema.parse(response));
+    },
   },
 };
-
 contextBridge.exposeInMainWorld('builderHelm', api);

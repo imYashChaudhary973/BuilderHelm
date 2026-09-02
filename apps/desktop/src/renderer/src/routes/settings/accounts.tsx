@@ -68,6 +68,7 @@ export function AccountsPage(): React.JSX.Element {
         | { type: 'add'; provider: QuotaProviderId }
         | { type: 'remove'; provider: QuotaProviderId; id: string }
         | { type: 'active'; provider: QuotaProviderId; id: string }
+        | { type: 'hook'; enabled: boolean }
         | { type: 'refresh' },
     ) => {
       if (action.type === 'add')
@@ -83,6 +84,9 @@ export function AccountsPage(): React.JSX.Element {
           provider: action.provider,
           id: action.id,
         });
+      }
+      if (action.type === 'hook') {
+        return window.builderHelm.accounts.toggleHook({ enabled: action.enabled });
       }
       return window.builderHelm.accounts.snapshot({ live: true });
     },
@@ -110,6 +114,28 @@ export function AccountsPage(): React.JSX.Element {
           Refresh
         </button>
       </header>
+      <div className="usageProviderCard">
+        <header>
+          <strong>Claude system default</strong>
+          <p>
+            Also feed usage from the login in ~/.claude. While enabled this replaces your
+            existing Claude Code status line command with BuilderHelm's.
+          </p>
+        </header>
+        <button
+          type="button"
+          className="usageRefresh"
+          disabled={mutate.isPending}
+          onClick={() =>
+            mutate.mutate({
+              type: 'hook',
+              enabled: !(snapshot.data?.hookSystemDefault ?? false),
+            })
+          }
+        >
+          {snapshot.data?.hookSystemDefault ? 'Stop reading' : 'Read usage'}
+        </button>
+      </div>
       {snapshot.error instanceof Error ? (
         <p className="wizardError" role="alert">
           {snapshot.error.message}
