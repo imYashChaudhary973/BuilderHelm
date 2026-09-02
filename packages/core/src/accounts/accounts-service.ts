@@ -321,6 +321,8 @@ export class AccountsService {
   private lastGrokFetch: number | null = null;
   /** Epoch ms while a Grok pull is in flight; null when idle. */
   private grokFetchStarted: number | null = null;
+  /** Epoch ms of the last pull for a home that has never reported usage. */
+  private lastGrokFirstPull: number | null = null;
 
   hookSystemDefault(): boolean {
     return this.settings.read(HOOK_SYSTEM_KEY) === 'true';
@@ -596,23 +598,33 @@ export class AccountsService {
    *
    * Only signed-in homes are touched: a pending login would leave the TUI
    * sitting on its own auth prompt until the timeout, stalling every refresh.
-   * A home whose entry is minutes old is left alone; the numbers are a meter,
-   * not a counter.
+   * A home that has never reported is pulled on the next refresh whatever the
+   * cadence, since that is the one case where the user watches an empty meter.
+   * Homes that already have numbers follow the two-minute cadence; the figures
+   * are a meter, not a counter.
    */
   private async refreshGrok(): Promise<void> {
     if (this.grokFetchStarted !== null) return;
-    if (this.lastGrokFetch !== null && Date.now() - this.lastGrokFetch < 120_000) return;
+    const signedIn = this.homes().grok.flatMap((home) =>
+      home.configRoot !== null && readGrokEmail(home.configRoot) !== null
+        ? [home.configRoot]
+        : [],
+    );
+    const due = this.lastGrokFetch === null || Date.now() - this.lastGrokFetch >= 120_000;
+    const firstEver = signedIn.filter((root) => this.grokBillingCount(root) === 0);
+    // Floor the first-ever retry so an account the CLI never reports for does
+    // not spawn a TUI on every poll.
+    const firstEverDue =
+      this.lastGrokFirstPull === null || Date.now() - this.lastGrokFirstPull >= 45_000;
+    const targets = due ? signedIn : firstEverDue ? firstEver : [];
+    if (targets.length === 0) return;
     this.grokFetchStarted = Date.now();
     try {
-      const targets = this.homes().grok.flatMap((home) =>
-        home.configRoot !== null && readGrokEmail(home.configRoot) !== null
-          ? [home.configRoot]
-          : [],
-      );
       await Promise.all(targets.map((configRoot) => this.pullGrokBilling(configRoot)));
     } finally {
       this.grokFetchStarted = null;
-      this.lastGrokFetch = Date.now();
+      if (due) this.lastGrokFetch = Date.now();
+      if (firstEver.length > 0) this.lastGrokFirstPull = Date.now();
     }
   }
 
