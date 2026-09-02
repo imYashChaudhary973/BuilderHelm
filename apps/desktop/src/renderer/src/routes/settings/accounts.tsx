@@ -30,14 +30,15 @@ function HomeRow({
     <li className="usageAccountRow">
       <div>
         <strong>
-          {home.id === SYSTEM_ACCOUNT_ID ? 'System default' : home.label}
+          {home.label}
           {home.active ? <span className="usageBadge">Active</span> : null}
         </strong>
         <p>
-          {home.email ??
-            (home.id === SYSTEM_ACCOUNT_ID
+          {home.email !== null && home.email !== undefined && home.label !== home.email
+            ? home.email
+            : home.id === SYSTEM_ACCOUNT_ID
               ? 'Use the login already on this device.'
-              : 'Open a pane with this CLI to sign in. Auth stays on this device.')}
+              : 'Open a pane with this CLI to sign in. Auth stays on this device.'}
         </p>
       </div>
       <div className="usageAccountActions">

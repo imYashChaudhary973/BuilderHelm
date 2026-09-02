@@ -349,18 +349,21 @@ export class AccountsService {
     const homes = this.homes();
     const active = this.active();
     const quota = this.storedQuota();
+    let relabeled = false;
     const providers = QUOTA_PROVIDER_IDS.map((id) => {
       const extra = homes[id];
       const activeId =
         extra.some((home) => home.id === active[id]) || active[id] === SYSTEM_ACCOUNT_ID
           ? active[id]
           : SYSTEM_ACCOUNT_ID;
-      // System default for Grok reads the ~/.grok login's billing log.
+      // Every row is labeled by its account email so it is obvious which login
+      // each usage figure belongs to. The system row reads ~/.grok's log.
+      const systemEmail = homeEmail(id, null);
       const system: AccountHome = {
         id: SYSTEM_ACCOUNT_ID,
-        label: 'System default',
+        label: systemEmail ?? 'System default',
         configRoot: null,
-        email: homeEmail(id, null),
+        email: systemEmail,
         active: activeId === SYSTEM_ACCOUNT_ID,
         billing: id === 'grok' ? grokBillingPayload(readGrokBilling(null)) : null,
       };
@@ -372,11 +375,15 @@ export class AccountsService {
               ? readGrokBilling(home.configRoot)
               : null;
           const email = homeEmail(id, home.configRoot);
-          // A generic "Provider N" label is replaced by the account email once
-          // identity is readable, so rows always say which login they belong to.
-          const label = home.label.startsWith(LABELS[id])
-            ? (email ?? home.label)
-            : home.label;
+          // Persist the resolved email as the label so the stored list stops
+          // carrying stale generic names after a login completes.
+          const label = email ?? home.label;
+          if (email !== null && home.label !== label) {
+            homes[id] = homes[id].map((entry) =>
+              entry.id === home.id ? { ...entry, label } : entry,
+            );
+            relabeled = true;
+          }
           return {
             id: home.id,
             label,
@@ -387,6 +394,7 @@ export class AccountsService {
           };
         }),
       ];
+      if (relabeled) this.writeHomes(homes);
       return {
         id,
         label: LABELS[id],
