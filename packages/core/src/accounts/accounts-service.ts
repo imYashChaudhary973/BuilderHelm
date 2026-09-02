@@ -1,5 +1,12 @@
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+} from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
@@ -179,16 +186,27 @@ function homeEmail(provider: QuotaProviderId, configRoot: string | null): string
   return readProviderEmail(provider, configRoot);
 }
 
+/** True when a login wrote anything into the home, even if not credentials yet. */
+function directoryHasEntries(path: string): boolean {
+  try {
+    return readdirSync(path).length > 0;
+  } catch {
+    return false;
+  }
+}
+
 function grokBillingPayload(billing: GrokBilling | null): {
   usedPercent: number;
   periodEnd: string | null;
   tier: string | null;
+  fetchedAt: string | null;
 } | null {
   if (billing === null) return null;
   return {
     usedPercent: billing.usedPercent,
     periodEnd: billing.periodEnd,
     tier: billing.tier,
+    fetchedAt: billing.fetchedAt,
   };
 }
 
@@ -453,7 +471,12 @@ export class AccountsService {
     }
     const email = homeEmail(provider, home.configRoot);
     if (email === null) {
-      // Not signed in yet: drop the empty home so the list stays honest.
+      // The CLI may still be writing its credentials when the window closes, so
+      // only a home the login never touched is dropped. A home with files stays
+      // and snapshot() relabels it once the identity lands.
+      if (home.configRoot !== null && directoryHasEntries(home.configRoot)) {
+        return this.snapshot();
+      }
       homes[provider] = homes[provider].filter((entry) => entry.id !== id);
       this.writeHomes(homes);
       const active = this.active();

@@ -46,6 +46,8 @@ export const accountHomeSchema = z
         usedPercent: z.number().min(0).max(100),
         periodEnd: z.string().min(1).nullable(),
         tier: z.string().min(1).max(80).nullable(),
+        /** When the CLI last logged this snapshot, for the "Updated x ago" line. */
+        fetchedAt: z.string().min(1).nullable(),
       })
       .strict()
       .nullable(),

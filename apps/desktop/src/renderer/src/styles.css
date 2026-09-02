@@ -9212,8 +9212,13 @@ html.is-fullscreen .swarmWizardFoot {
   height: 14px;
   place-items: center;
   border-radius: 4px;
-  border: 1px solid var(--line);
-  font-size: 9px;
+  color: var(--text-2);
+}
+
+.usageChipMark svg,
+.usageChipMark img {
+  width: 12px;
+  height: 12px;
 }
 
 .usageBarRefresh {
@@ -9226,11 +9231,13 @@ html.is-fullscreen .swarmWizardFoot {
   position: absolute;
   left: 8px;
   bottom: 32px;
-  width: min(360px, calc(100vw - 24px));
-  padding: 10px 12px 8px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #111111;
+  width: min(332px, calc(100vw - 24px));
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: #0b0b0b;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  font-size: 12px;
 }
 
 .usagePopoverHead {
@@ -9238,62 +9245,291 @@ html.is-fullscreen .swarmWizardFoot {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 8px;
+  padding: 12px 14px 10px;
+}
+
+.usagePopoverHead strong {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.usagePopoverHeadEnd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.usagePopoverHeadEnd button {
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px;
+  border-radius: 6px;
+}
+
+.usagePopoverHeadEnd button:hover:not(:disabled) {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.usageSpin {
+  animation: usageSpin 900ms linear infinite;
+}
+
+@keyframes usageSpin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .usageSeg {
-  display: flex;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  padding: 2px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  margin: 0 12px 8px;
+  padding: 3px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .usageSeg button {
   border: 0;
   background: transparent;
-  color: var(--text-2);
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 11px;
+  color: var(--text-3);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .usageSegOn {
-  background: var(--panel);
+  background: rgba(255, 255, 255, 0.1);
   color: var(--text);
 }
 
 .usagePopoverList {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 4px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .usagePopoverList li {
-  padding: 8px 0;
-  border-top: 1px solid var(--line);
+  padding: 0;
+  border: 0;
+  position: relative;
 }
 
-.usagePopoverId {
+.usageRow {
+  display: grid;
+  grid-template-columns: 24px 1fr 12px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.usageRow:hover,
+.usageRowOn {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.usageRowMark {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-2);
+}
+
+.usageRowMark svg,
+.usageRowMark img {
+  width: 15px;
+  height: 15px;
+}
+
+.usageRowBody {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 12px;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
-.usagePopoverId span,
-.usageMeta {
+.usageRowHead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.usageRowHead strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.usageRowHead .usageMeta {
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.usageRowBars {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.usageMini {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+}
+
+.usageMiniLabel {
   color: var(--text-3);
 }
 
-.usageHot {
-  color: var(--danger);
+.usageMiniTrack {
+  display: block;
+  width: 44px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
 }
 
-.usageDetail {
+.usageMiniFill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--text-2);
+}
+
+.usageMiniValue {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.usageChevron {
+  color: var(--text-3);
+  font-size: 15px;
+  line-height: 1;
+  text-align: right;
+}
+
+.usageFootRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+}
+
+.usagePopoverList + .usageFootRow {
+  border-top: 0;
+}
+
+.usageFootRow:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.usageFootLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usageFlyout {
+  position: absolute;
+  left: calc(100% + 8px);
+  bottom: 0;
+  width: min(300px, calc(100vw - 24px));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: #141414;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+}
+
+.usageFlyoutHead {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 14px 0;
+}
+
+.usageFlyoutHead strong {
+  font-size: 14px;
+}
+
+.usageFlyoutAgo {
+  margin: 2px 14px 10px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.usageFlyoutBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.usageFlyoutWindow {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-top: 6px;
+}
+
+.usageFlyoutTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usageFlyoutFoot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.usageFlyoutSection {
+  display: block;
+  padding: 10px 14px 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.usageFlyoutSection + .usageFootRow {
+  border-top: 0;
+  padding-top: 4px;
 }
 
 .usageWindowHead {
@@ -9305,13 +9541,15 @@ html.is-fullscreen .swarmWizardFoot {
 }
 
 .usageTrack {
-  height: 3px;
-  margin-top: 3px;
+  display: block;
+  height: 6px;
   border-radius: 999px;
-  background: var(--line-strong);
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
 }
 
 .usageFill {
+  display: block;
   height: 100%;
   border-radius: 999px;
   background: var(--text-2);

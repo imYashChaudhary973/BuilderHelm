@@ -82,12 +82,12 @@ export function AgentMark({
       aria-label={id}
       onClick={onClick}
     >
-      <Mark id={id} />
+      <AgentGlyph id={id} />
     </button>
   );
 }
 
-function Mark({ id }: { readonly id: BoardAgentId }): React.JSX.Element {
+export function AgentGlyph({ id }: { readonly id: BoardAgentId }): React.JSX.Element {
   if (id === 'omp') {
     return <img className="agentMarkImg" src={ompMark} width={18} height={18} alt="" />;
   }

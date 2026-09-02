@@ -260,6 +260,51 @@ describe('AccountsService', () => {
     expect(accounts.claudeHookRoots()).toEqual([extra?.configRoot]);
   });
 
+  it('keeps a home whose login is still writing, and drops an untouched one', async () => {
+    const accounts = setup();
+    const added = await accounts.add('claude');
+    const home = added.providers
+      .find((provider) => provider.id === 'claude')
+      ?.homes.find((entry) => entry.id !== 'system');
+    const configRoot = home?.configRoot ?? '';
+    // A login that wrote something but has no identity yet must survive.
+    writeFileSync(join(configRoot, 'partial.json'), '{}');
+    const kept = await accounts.confirmLogin('claude', home?.id ?? '');
+    expect(
+      kept.providers
+        .find((provider) => provider.id === 'claude')
+        ?.homes.some((entry) => entry.id === home?.id),
+    ).toBe(true);
+    rmSync(join(configRoot, 'partial.json'));
+    const rolled = await accounts.confirmLogin('claude', home?.id ?? '');
+    expect(
+      rolled.providers
+        .find((provider) => provider.id === 'claude')
+        ?.homes.some((entry) => entry.id === home?.id),
+    ).toBe(false);
+  });
+
+  it('relabels a stored home to its login email without dropping it', async () => {
+    const accounts = setup();
+    const added = await accounts.add('claude');
+    const home = added.providers
+      .find((provider) => provider.id === 'claude')
+      ?.homes.find((entry) => entry.id !== 'system');
+    writeFileSync(
+      join(home?.configRoot ?? '', '.claude.json'),
+      JSON.stringify({ oauthAccount: { emailAddress: 'user@example.com' } }),
+    );
+    const first = await accounts.snapshot();
+    const second = await accounts.snapshot();
+    for (const snapshot of [first, second]) {
+      const rows = snapshot.providers.find((provider) => provider.id === 'claude')?.homes;
+      expect(rows?.length).toBe(2);
+      expect(rows?.find((entry) => entry.id === home?.id)?.label).toBe(
+        'user@example.com',
+      );
+    }
+  });
+
   it('refuses to delete the system default', async () => {
     const accounts = setup();
     await expect(accounts.remove('codex', 'system')).rejects.toBeInstanceOf(
