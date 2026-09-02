@@ -1,10 +1,10 @@
-import { rmSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { bootstrapCore, type CoreRuntime } from '@builderhelm/core';
 import { ipcChannels } from '@builderhelm/protocol/ipc';
 import { createCorrelationId, normalizeError } from '@builderhelm/shared';
-import { app, BrowserWindow, dialog, globalShortcut, session } from 'electron';
+import { app, BrowserWindow, dialog, globalShortcut, nativeImage, session } from 'electron';
 
 import { registerIpcHandlers } from './ipc.js';
 import { BoardPtyManager, probePty } from './board-pty-manager.js';
@@ -58,7 +58,16 @@ async function completeSmokeWhenRendererIsReady(window: BrowserWindow): Promise<
   app.quit();
 }
 
+function applyAppIcon(): void {
+  const path = join(__dirname, '../../resources/icon.png');
+  if (!existsSync(path)) return;
+  const image = nativeImage.createFromPath(path);
+  if (image.isEmpty()) return;
+  if (process.platform === 'darwin') app.dock?.setIcon(image);
+}
+
 function createWindow(): BrowserWindow {
+  const icon = join(__dirname, '../../resources/icon.png');
   const window = new BrowserWindow({
     width: 1180,
     height: 760,
@@ -67,6 +76,7 @@ function createWindow(): BrowserWindow {
     show: false,
     backgroundColor: '#10120f',
     titleBarStyle: 'hiddenInset',
+    ...(existsSync(icon) ? { icon } : {}),
     webPreferences: {
       ...secureWebPreferences,
       preload: join(__dirname, '../preload/index.cjs'),
@@ -213,6 +223,7 @@ async function recoverOrphanedWorktrees(runtime: CoreRuntime): Promise<void> {
 app
   .whenReady()
   .then(() => {
+    applyAppIcon();
     session.defaultSession.setPermissionRequestHandler(
       (_webContents, permission, callback) => {
         callback(permission === 'media');
