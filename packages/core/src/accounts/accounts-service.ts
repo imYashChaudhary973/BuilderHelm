@@ -525,9 +525,10 @@ export class AccountsService {
   }
 
   /**
-   * The Grok CLI fetches its billing config on session start and logs it into
-   * the home; a tiny headless prompt triggers that fetch per signed-in home.
-   * Each refresh costs roughly one minimal prompt against the account.
+   * The Grok CLI logs its billing config on interactive session starts. A one-shot
+   * prompt in the home keeps the CLI's auth fresh; the billing entry itself lands
+   * in the home log after the account's first interactive session, which the
+   * billing parser picks up.
    */
   private async refreshGrok(): Promise<void> {
     const grokHomes = this.homes().grok;
@@ -537,15 +538,12 @@ export class AccountsService {
         .map(async (home) => {
           const configRoot = home.configRoot;
           if (configRoot === null) return;
+          if (readGrokBilling(configRoot) !== null) return; // fresh already
           await new Promise<void>((resolve) => {
-            const child = spawn(
-              'grok',
-              ['agent', 'headless', '--max-turns', '1', 'reply ok'],
-              {
-                env: { ...process.env, GROK_HOME: configRoot },
-                stdio: 'ignore',
-              },
-            );
+            const child = spawn('grok', ['-p', 'ok'], {
+              env: { ...process.env, GROK_HOME: configRoot },
+              stdio: 'ignore',
+            });
             const timer = setTimeout(() => {
               child.kill();
               resolve();
