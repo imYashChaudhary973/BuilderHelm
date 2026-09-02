@@ -198,10 +198,16 @@ export function readProviderEmail(
   configRoot: string | null,
 ): string | null {
   if (provider === 'claude') {
-    // .claude.json oauthAccount.emailAddress, or .credentials.json claudeAiOauth.email
-    for (const file of ['.claude.json', '.config.json']) {
-      const path = configRoot === null ? null : join(configRoot, file);
-      if (path !== null && existsSync(path)) {
+    // .claude.json lives in the HOME dir for the system login, and inside the
+    // config dir for isolated homes. Both shapes carry oauthAccount.emailAddress.
+    const claudeJsonPaths: string[] = [];
+    if (configRoot === null) claudeJsonPaths.push(join(homedir(), '.claude.json'));
+    else {
+      claudeJsonPaths.push(join(configRoot, '.claude.json'));
+      claudeJsonPaths.push(join(configRoot, '.config.json'));
+    }
+    for (const path of claudeJsonPaths) {
+      if (existsSync(path)) {
         try {
           const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
           const oauth = (parsed as Record<string, unknown>).oauthAccount;
