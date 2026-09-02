@@ -9305,7 +9305,7 @@ html.is-fullscreen .swarmWizardFoot {
   font-weight: 500;
 }
 
-.usageSegOn {
+.usageSeg .usageSegOn {
   background: rgba(255, 255, 255, 0.16);
   color: var(--text);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
