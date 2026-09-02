@@ -184,7 +184,6 @@ describe('readGrokBilling', () => {
     const dir = mkdtempSync(join(tmpdir(), 'builderhelm-grok-billing-'));
     folders.push(dir);
     mkdirSync(join(dir, 'logs'), { recursive: true });
-    const logPath = join(dir, 'logs', 'unified.jsonl');
     const fresh = new Date(Date.now() - 60_000).toISOString();
     const stale = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
     const entry = (ts: string, percent: number): string =>
