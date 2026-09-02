@@ -23,7 +23,9 @@ describe('elemental-lightning document', () => {
   it('carries the registered ThreeUI source revision', () => {
     const digest = createHash('sha256').update(readFileSync(canonicalPath)).digest('hex');
 
-    expect(digest).toBe('7a6871fe99fa5e1551b27b2601f2a22dd23320ea2c90b5432c9c8e071f0b1d1d');
+    expect(digest).toBe(
+      '7a6871fe99fa5e1551b27b2601f2a22dd23320ea2c90b5432c9c8e071f0b1d1d',
+    );
   });
 
   it('focuses the lightning panel and strips remote fonts', () => {
