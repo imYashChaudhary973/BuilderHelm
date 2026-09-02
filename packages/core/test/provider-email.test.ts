@@ -27,9 +27,9 @@ describe('readProviderEmail system homes', () => {
     const dir = mkdtempSync(join(tmpdir(), 'builderhelm-codex-'));
     folders.push(dir);
     const header = Buffer.from(JSON.stringify({ alg: 'RS256' })).toString('base64url');
-    const payload = Buffer.from(
-      JSON.stringify({ email: 'user@example.com' }),
-    ).toString('base64url');
+    const payload = Buffer.from(JSON.stringify({ email: 'user@example.com' })).toString(
+      'base64url',
+    );
     writeFileSync(
       join(dir, 'auth.json'),
       JSON.stringify({ tokens: { id_token: `${header}.${payload}.sig` } }),
