@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -24,6 +25,7 @@ import {
 } from '@builderhelm/shared';
 
 import { readClaudeOAuthUsage } from './claude-oauth-usage.js';
+import { readGrokBilling } from './grok-usage.js';
 import type { BoardService } from '../board/board-service.js';
 import { readCodexRateLimits } from './codex-rate-limits.js';
 import {
@@ -320,11 +322,9 @@ export class AccountsService {
       .filter((root): root is string => root !== null);
     return this.hookSystemDefault() ? [...homes, join(homedir(), '.claude')] : homes;
   }
-
   async snapshot(live = false): Promise<AccountSnapshot> {
     if (live) {
-      await this.refreshCodex();
-      await this.refreshClaude();
+      await Promise.all([this.refreshCodex(), this.refreshClaude(), this.refreshGrok()]);
     }
     const detections = await this.board.detectAgents();
     const byId = new Map(detections.map((agent) => [agent.id, agent]));
@@ -343,16 +343,31 @@ export class AccountsService {
         configRoot: null,
         email: homeEmail(id, null),
         active: activeId === SYSTEM_ACCOUNT_ID,
+        billing: null,
       };
       const listed: AccountHome[] = [
         system,
-        ...extra.map((home) => ({
-          id: home.id,
-          label: home.label,
-          configRoot: home.configRoot,
-          email: homeEmail(id, home.configRoot),
-          active: home.id === activeId,
-        })),
+        ...extra.map((home) => {
+          const billing =
+            id === 'grok' && home.configRoot !== null
+              ? readGrokBilling(home.configRoot)
+              : null;
+          return {
+            id: home.id,
+            label: home.label,
+            configRoot: home.configRoot,
+            email: homeEmail(id, home.configRoot),
+            active: home.id === activeId,
+            billing:
+              billing === null
+                ? null
+                : {
+                    usedPercent: billing.usedPercent,
+                    periodEnd: billing.periodEnd,
+                    tier: billing.tier,
+                  },
+          };
+        }),
       ];
       return {
         id,
@@ -507,6 +522,45 @@ export class AccountsService {
       this.lastClaudeFetchStarted = null;
       this.lastClaudeFetch = Date.now();
     }
+  }
+
+  /**
+   * The Grok CLI fetches its billing config on session start and logs it into
+   * the home; a tiny headless prompt triggers that fetch per signed-in home.
+   * Each refresh costs roughly one minimal prompt against the account.
+   */
+  private async refreshGrok(): Promise<void> {
+    const grokHomes = this.homes().grok;
+    await Promise.all(
+      grokHomes
+        .filter((home) => home.configRoot !== null)
+        .map(async (home) => {
+          const configRoot = home.configRoot;
+          if (configRoot === null) return;
+          await new Promise<void>((resolve) => {
+            const child = spawn(
+              'grok',
+              ['agent', 'headless', '--max-turns', '1', 'reply ok'],
+              {
+                env: { ...process.env, GROK_HOME: configRoot },
+                stdio: 'ignore',
+              },
+            );
+            const timer = setTimeout(() => {
+              child.kill();
+              resolve();
+            }, 45_000);
+            child.on('exit', () => {
+              clearTimeout(timer);
+              resolve();
+            });
+            child.on('error', () => {
+              clearTimeout(timer);
+              resolve();
+            });
+          });
+        }),
+    );
   }
 
   private writeQuota(id: QuotaProviderId, quota: AccountQuota): void {

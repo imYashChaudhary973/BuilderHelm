@@ -40,9 +40,17 @@ export const accountHomeSchema = z
     configRoot: z.string().min(1).max(4_096).nullable(),
     email: z.string().min(3).max(200).nullable(),
     active: z.boolean(),
+    /** Provider-reported usage for this home; Grok fills it from its billing log. */
+    billing: z
+      .object({
+        usedPercent: z.number().min(0).max(100),
+        periodEnd: z.string().min(1).nullable(),
+        tier: z.string().min(1).max(80).nullable(),
+      })
+      .strict()
+      .nullable(),
   })
   .strict();
-export type AccountHome = z.infer<typeof accountHomeSchema>;
 
 export const accountProviderSchema = z
   .object({
@@ -54,6 +62,7 @@ export const accountProviderSchema = z
   })
   .strict();
 export type AccountProvider = z.infer<typeof accountProviderSchema>;
+export type AccountHome = z.infer<typeof accountHomeSchema>;
 
 export const accountSnapshotSchema = z
   .object({

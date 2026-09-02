@@ -1,4 +1,4 @@
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -20,6 +20,7 @@ import {
   parseCodexRateLimits,
   formatQuotaLine,
 } from '../src/accounts/quota.js';
+import { readGrokBilling } from '../src/accounts/grok-usage.js';
 import { BoardService } from '../src/board/board-service.js';
 
 const databases: BuilderHelmDatabase[] = [];
@@ -175,6 +176,40 @@ describe('readGrokEmail', () => {
       }),
     );
     expect(readGrokEmail(dir)).toBe('dev@example.com');
+  });
+});
+
+describe('readGrokBilling', () => {
+  it('reads the freshest billing entry and drops stale ones', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'builderhelm-grok-billing-'));
+    folders.push(dir);
+    mkdirSync(join(dir, 'logs'), { recursive: true });
+    const logPath = join(dir, 'logs', 'unified.jsonl');
+    const fresh = new Date(Date.now() - 60_000).toISOString();
+    const stale = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    const entry = (ts: string, percent: number): string =>
+      `${JSON.stringify({
+        ts,
+        msg: 'billing: fetched credits config',
+        ctx: {
+          subscriptionTier: 'X Premium+',
+          config: {
+            creditUsagePercent: percent,
+            currentPeriod: {
+              type: 'USAGE_PERIOD_TYPE_WEEKLY',
+              end: '2026-09-05T16:36:20.827756+00:00',
+            },
+          },
+        },
+      })}\n`;
+    writeFileSync(
+      join(dir, 'logs', 'unified.jsonl'),
+      `${entry(stale, 40)}${entry(fresh, 100)}`,
+    );
+    const billing = readGrokBilling(dir);
+    expect(billing?.usedPercent).toBe(100);
+    expect(billing?.tier).toBe('X Premium+');
+    expect(billing?.periodEnd).toBe('2026-09-05T16:36:20.827756+00:00');
   });
 });
 

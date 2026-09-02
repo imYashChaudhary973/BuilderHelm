@@ -162,25 +162,50 @@ export function AccountsPage(): React.JSX.Element {
                       : '5-hour and weekly windows from the official usage endpoint. Add Account opens claude auth login in a Terminal scoped to CLAUDE_CONFIG_DIR.'}
                 </p>
               </header>
-              <div className="usageDetail">
-                <p className="usageMeta">
-                  5h{' '}
-                  {five === null || five === undefined
-                    ? '—'
-                    : `${Math.round(five.usedPercent)}%`}
-                  {five?.resetsAt !== undefined && five.resetsAt !== null
-                    ? ` · ${formatReset(five.resetsAt)}`
-                    : ''}
-                  {' · '}
-                  Weekly{' '}
-                  {week === null || week === undefined
-                    ? '—'
-                    : `${Math.round(week.usedPercent)}%`}
-                  {week?.resetsAt !== undefined && week.resetsAt !== null
-                    ? ` · ${formatReset(week.resetsAt)}`
-                    : ''}
-                </p>
-              </div>
+              {provider.id === 'grok' ? (
+                <div className="usageDetail">
+                  {provider.homes
+                    .filter((home) => home.billing !== null)
+                    .map((home) => (
+                      <p key={home.id} className="usageMeta">
+                        {home.label}: {Math.round(home.billing?.usedPercent ?? 0)}% used
+                        {home.billing?.periodEnd !== null &&
+                        home.billing?.periodEnd !== undefined
+                          ? ` · resets ${formatReset(home.billing.periodEnd)}`
+                          : ''}
+                        {home.billing?.tier !== null && home.billing?.tier !== undefined
+                          ? ` · ${home.billing.tier}`
+                          : ''}
+                      </p>
+                    ))}
+                  {provider.homes.every((home) => home.billing === null) ? (
+                    <p className="usageMeta">
+                      No billing snapshot yet. Refresh starts a tiny session per home; the
+                      CLI then reports usage.
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="usageDetail">
+                  <p className="usageMeta">
+                    5h{' '}
+                    {five === null || five === undefined
+                      ? '—'
+                      : `${Math.round(five.usedPercent)}%`}
+                    {five?.resetsAt !== undefined && five.resetsAt !== null
+                      ? ` · ${formatReset(five.resetsAt)}`
+                      : ''}
+                    {' · '}
+                    Weekly{' '}
+                    {week === null || week === undefined
+                      ? '—'
+                      : `${Math.round(week.usedPercent)}%`}
+                    {week?.resetsAt !== undefined && week.resetsAt !== null
+                      ? ` · ${formatReset(week.resetsAt)}`
+                      : ''}
+                  </p>
+                </div>
+              )}
               <div className="usageAccountHead">
                 <span>Accounts</span>
                 <button
