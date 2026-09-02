@@ -4,7 +4,14 @@ import { join } from 'node:path';
 import { bootstrapCore, type CoreRuntime } from '@builderhelm/core';
 import { ipcChannels } from '@builderhelm/protocol/ipc';
 import { createCorrelationId, normalizeError } from '@builderhelm/shared';
-import { app, BrowserWindow, dialog, globalShortcut, nativeImage, session } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  globalShortcut,
+  nativeImage,
+  session,
+} from 'electron';
 
 import { registerIpcHandlers } from './ipc.js';
 import { BoardPtyManager, probePty } from './board-pty-manager.js';
