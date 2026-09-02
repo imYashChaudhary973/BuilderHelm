@@ -11,6 +11,7 @@ const MAX_BODY = 64 * 1024;
 export function startQuotaIngest(options: {
   readonly userData: string;
   readonly ingestClaude: (payload: unknown) => AccountQuota | null;
+  readonly onReady?: (scriptPath: string) => void;
 }): { scriptPath(): string | null; close(): void } {
   const token = randomBytes(24).toString('hex');
   let scriptPath: string | null = null;
@@ -71,13 +72,14 @@ curl -sS -X POST "http://127.0.0.1:${address.port}/claude-statusline" \\
   --data-binary @- \\
   --connect-timeout 1 --max-time 1 || true
 `,
-      { mode: 0o755 },
+      { mode: 0o700 },
     );
     try {
-      chmodSync(scriptPath, 0o755);
+      chmodSync(scriptPath, 0o700);
     } catch {
       // ignore
     }
+    options.onReady?.(scriptPath);
   });
   return {
     scriptPath: () => scriptPath,
@@ -87,7 +89,17 @@ curl -sS -X POST "http://127.0.0.1:${address.port}/claude-statusline" \\
   };
 }
 
-/** Writes only into a BuilderHelm-owned config dir, never ~/.claude unless that is the root. */
+interface StashedStatusLine {
+  readonly previous: Record<string, unknown> | null;
+}
+
+const STASH_KEY = 'x-builderhelm-statusline-stash';
+
+/**
+ * Consent lives upstream (claudeHookRoots only returns ~/.claude when the user
+ * opted in), so a foreign statusLine command is stashed and replaced, never
+ * silently ignored. Removing the hook restores the stashed command.
+ */
 export function installClaudeStatusLine(configRoot: string, scriptPath: string): void {
   if (!existsSync(configRoot)) return;
   const settingsPath = join(configRoot, 'settings.json');
@@ -107,13 +119,39 @@ export function installClaudeStatusLine(configRoot: string, scriptPath: string):
     typeof current === 'object' && current !== null
       ? (current as Record<string, unknown>).command
       : undefined;
-  if (
-    typeof command === 'string' &&
-    command.length > 0 &&
-    !command.endsWith('claude-statusline.sh')
-  ) {
+  if (typeof command === 'string' && command.endsWith('claude-statusline.sh')) {
     return;
   }
-  settings.statusLine = { type: 'command', command: scriptPath };
+  if (typeof command === 'string' && command.length > 0) {
+    const stashed: StashedStatusLine = {
+      previous: (current ?? null) as Record<string, unknown> | null,
+    };
+    settings[STASH_KEY] = stashed;
+  } else {
+    delete settings[STASH_KEY];
+  }
+  settings.statusLine = { type: 'command', command: `"${scriptPath}"` };
+  writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
+}
+
+/** Restores a stashed statusLine written by installClaudeStatusLine. */
+export function uninstallClaudeStatusLine(configRoot: string): void {
+  const settingsPath = join(configRoot, 'settings.json');
+  if (!existsSync(settingsPath)) return;
+  let settings: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return;
+    settings = parsed as Record<string, unknown>;
+  } catch {
+    return;
+  }
+  const stash = settings[STASH_KEY] as StashedStatusLine | undefined;
+  if (stash !== undefined && stash.previous !== null && stash.previous !== undefined) {
+    settings.statusLine = stash.previous;
+  } else {
+    delete settings.statusLine;
+  }
+  delete settings[STASH_KEY];
   writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
 }

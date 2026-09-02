@@ -1,4 +1,5 @@
 import { existsSync, rmSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import { bootstrapCore, type CoreRuntime } from '@builderhelm/core';
@@ -21,7 +22,11 @@ import { VoiceModelManager } from './voice-models.js';
 import { VoiceRuntime } from './voice-runtime.js';
 import { VoiceHotkeys } from './voice-hotkeys.js';
 import { installApplicationMenu } from './legal-menu.js';
-import { installClaudeStatusLine, startQuotaIngest } from './quota-ingest.js';
+import {
+  installClaudeStatusLine,
+  startQuotaIngest,
+  uninstallClaudeStatusLine,
+} from './quota-ingest.js';
 import {
   buildContentSecurityPolicy,
   buildElementsHostPolicy,
@@ -293,19 +298,24 @@ app
       accountsRoot: join(app.getPath('userData'), 'accounts'),
     });
     setExtraTerminalEnv(() => core?.accounts.cliEnv() ?? {});
-    if (process.env.BUILDERHELM_SMOKE_TEST !== '1') {
-      quotaIngest = startQuotaIngest({
-        userData: app.getPath('userData'),
-        ingestClaude: (payload) => core?.accounts.ingestClaude(payload) ?? null,
-      });
-    }
     const hookClaude = (): void => {
       const script = quotaIngest?.scriptPath();
       if (script === null || script === undefined) return;
       for (const root of core?.accounts.claudeHookRoots() ?? []) {
         installClaudeStatusLine(root, script);
       }
+      // Consent off: give ~/.claude its previous statusLine back.
+      if (!core?.accounts.hookSystemDefault()) {
+        uninstallClaudeStatusLine(join(homedir(), '.claude'));
+      }
     };
+    if (process.env.BUILDERHELM_SMOKE_TEST !== '1') {
+      quotaIngest = startQuotaIngest({
+        userData: app.getPath('userData'),
+        ingestClaude: (payload) => core?.accounts.ingestClaude(payload) ?? null,
+        onReady: hookClaude,
+      });
+    }
     if (
       process.env.BUILDERHELM_PTY_PROBE !== undefined &&
       process.env.BUILDERHELM_PTY_PROBE.length > 0
