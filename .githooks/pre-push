@@ -1,0 +1,35 @@
+#!/bin/sh
+# Refuse to push a tree that CI would reject.
+#
+# main is unprotected: branch protection and rulesets both require GitHub Pro
+# on a private repository, so nothing server-side blocks a red push. cb4881e,
+# 75fbf89, and 69cd08b all landed on main with CI failing. This hook is the
+# only gate, so it runs the same checks CI runs, in the same order.
+#
+# `pnpm verify` is CI's seven steps: architecture, licences, format, lint,
+# typecheck, test, build. Keep it that way — a bespoke subset here would drift
+# from the workflow and hand back false greens.
+#
+# Bypass with `git push --no-verify` only when the push itself is the fix for a
+# broken check, and say so in the commit.
+
+set -e
+
+# Git exports GIT_DIR, GIT_INDEX_FILE, GIT_PREFIX and friends into hooks, and
+# `pnpm test` inherits them. Tests that build a throwaway repo as a fixture then
+# have their `git init` and `git commit` hijacked onto this repo and fail — a
+# false red, which is worse than no gate because it teaches --no-verify.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX \
+  GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_QUARANTINE_PATH
+
+# A green run on the wrong Node major is a false green: CI pins 24.18.0.
+want_node=24
+have_node=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo '?')
+if [ "$have_node" != "$want_node" ]; then
+  printf 'pre-push: warning: node %s, CI uses %s — local green does not guarantee CI green\n' \
+    "$have_node" "$want_node" >&2
+fi
+
+printf 'pre-push: running pnpm verify (CI parity)...\n' >&2
+pnpm verify
+printf 'pre-push: verify passed\n' >&2
