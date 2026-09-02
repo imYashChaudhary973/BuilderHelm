@@ -551,10 +551,10 @@ export class AccountsService {
   }
 
   /**
-   * The Grok CLI logs its billing config on interactive session starts. A one-shot
-   * prompt in the home keeps the CLI's auth fresh; the billing entry itself lands
-   * in the home log after the account's first interactive session, which the
-   * billing parser picks up.
+   * The Grok CLI fetches billing only inside an interactive session — one-shot
+   * prompts never do. Spawn the TUI on a PTY with /usage piped, wait for the
+   * billing line to land in the home log, then quit. No prompt tokens spent;
+   * the /usage panel is a local render of the billing snapshot.
    */
   private async refreshGrok(): Promise<void> {
     const grokHomes = this.homes().grok;
@@ -564,22 +564,39 @@ export class AccountsService {
         .map(async (home) => {
           const configRoot = home.configRoot;
           if (configRoot === null) return;
-          if (readGrokBilling(configRoot) !== null) return; // fresh already
+          const before = this.grokBillingCount(configRoot);
           await new Promise<void>((resolve) => {
-            const child = spawn('grok', ['-p', 'ok'], {
-              env: { ...process.env, GROK_HOME: configRoot },
-              stdio: 'ignore',
-            });
+            const child = spawn(
+              'script',
+              [
+                '-q',
+                '/dev/null',
+                'sh',
+                '-c',
+                `printf '/usage\\n' | GROK_HOME='${configRoot.replace(/'/g, '')}' grok`,
+              ],
+              { stdio: 'ignore' },
+            );
             const timer = setTimeout(() => {
               child.kill();
               resolve();
-            }, 45_000);
+            }, 30_000);
+            const poll = setInterval(() => {
+              if (this.grokBillingCount(configRoot) > before) {
+                clearTimeout(timer);
+                clearInterval(poll);
+                child.kill();
+                resolve();
+              }
+            }, 1_000);
             child.on('exit', () => {
               clearTimeout(timer);
+              clearInterval(poll);
               resolve();
             });
             child.on('error', () => {
               clearTimeout(timer);
+              clearInterval(poll);
               resolve();
             });
           });
@@ -587,6 +604,16 @@ export class AccountsService {
     );
   }
 
+  private grokBillingCount(configRoot: string): number {
+    try {
+      const log = readFileSync(join(configRoot, 'logs', 'unified.jsonl'), 'utf8');
+      return log
+        .split('\n')
+        .filter((line) => line.includes('billing: fetched credits config')).length;
+    } catch {
+      return 0;
+    }
+  }
   private writeQuota(id: QuotaProviderId, quota: AccountQuota): void {
     const next = { ...this.storedQuota(), [id]: quota };
     this.settings.write(QUOTA_KEY, JSON.stringify(next), utcNow());
