@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
-
 export interface GrokBilling {
   readonly usedPercent: number;
   readonly periodEnd: string | null;
@@ -55,12 +55,15 @@ function parseEntry(line: string): GrokBilling | null {
 /**
  * Reads the newest billing snapshot the Grok CLI logged for this home. The CLI
  * writes "billing: fetched credits config" on every session start, so this is
- * the officially-produced usage source. Entries older than a day are dropped:
- * they describe a finished window, not a current limit.
+ * the officially-produced usage source. The system default reads ~/.grok's log.
+ * Entries older than a day are dropped: they describe a finished window, not a
+ * current limit.
  */
 export function readGrokBilling(configRoot: string | null): GrokBilling | null {
-  if (configRoot === null) return null;
-  const logPath = join(configRoot, 'logs', 'unified.jsonl');
+  const logPath =
+    configRoot === null
+      ? join(homedir(), '.grok', 'logs', 'unified.jsonl')
+      : join(configRoot, 'logs', 'unified.jsonl');
   if (!existsSync(logPath)) return null;
   let lines: string[];
   try {
