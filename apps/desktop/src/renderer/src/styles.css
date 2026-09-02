@@ -9577,21 +9577,38 @@ html.is-fullscreen .swarmWizardFoot {
   margin-top: 0;
 }
 
+/*
+ * Fluid to the panel, not the viewport: the side panel and rail change the
+ * usable width, so the card grid tracks the workspace container. Capped so
+ * lines stay readable when the window is maximised on a wide display.
+ */
 .usagePage {
-  max-width: 820px;
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
 }
 
 .usagePage .settingsHeader {
   margin-bottom: 22px;
 }
 
+.usagePage .voiceLede {
+  max-width: 68ch;
+}
+
 .usageProviderList {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+  align-items: start;
   gap: 14px;
+}
+
+/* Grok carries one meter per account, so it gets the full row when wrapping. */
+.usageProviderCard.usageProviderWide {
+  grid-column: 1 / -1;
 }
 
 .usageProviderCard {
@@ -9628,17 +9645,20 @@ html.is-fullscreen .swarmWizardFoot {
 
 .usageMeterGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
   gap: 12px 18px;
   margin: 14px 0 4px;
   padding: 12px 0 0;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-/* Account meters are titled by email; one per row keeps them readable. */
+/*
+ * Account meters are titled by an email plus a tier, so they need ~320px
+ * before a second column is honest; below that they stack.
+ */
 .usageMeterStack {
-  grid-template-columns: 1fr;
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  gap: 14px 18px;
 }
 .usageMeterRow {
   display: flex;
@@ -9772,6 +9792,10 @@ html.is-fullscreen .swarmWizardFoot {
   margin-top: 14px;
 }
 
+.usageHookCard p {
+  max-width: 88ch;
+}
+
 .usageToggle {
   flex-shrink: 0;
   min-width: 58px;
@@ -9787,4 +9811,37 @@ html.is-fullscreen .swarmWizardFoot {
   border-color: rgba(182, 212, 117, 0.4);
   background: rgba(182, 212, 117, 0.14);
   color: #b6d475;
+}
+
+/*
+ * The window floor is 900px wide, so the settings column only gets narrower
+ * than this once the side panel is open. Stack everything rather than squeeze.
+ */
+@container workspace (max-width: 720px) {
+  .usagePage .settingsHeader {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .usageProviderList {
+    grid-template-columns: 1fr;
+  }
+
+  .usageProviderCard {
+    padding: 14px 12px;
+  }
+
+  .usageAccountRow {
+    flex-wrap: wrap;
+  }
+
+  .usageHookCard {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .usageToggle {
+    width: 100%;
+  }
 }

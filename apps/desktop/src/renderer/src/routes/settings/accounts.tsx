@@ -216,7 +216,14 @@ export function AccountsPage(): React.JSX.Element {
       ) : null}
       <ul className="usageProviderList">
         {(snapshot.data?.providers ?? []).map((provider) => (
-          <li key={provider.id} className="usageProviderCard">
+          <li
+            key={provider.id}
+            className={
+              provider.homes.length > 1
+                ? 'usageProviderCard usageProviderWide'
+                : 'usageProviderCard'
+            }
+          >
             <header className="usageProviderHead">
               <span className="usageRowMark" aria-hidden="true">
                 <AgentGlyph id={provider.id} />
