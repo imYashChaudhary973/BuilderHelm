@@ -90,8 +90,9 @@ export function UsageBar(): React.JSX.Element {
   const rootRef = useRef<HTMLDivElement>(null);
   const snapshot = useQuery({
     queryKey: ['accounts-snapshot'],
-    queryFn: () => window.builderHelm.accounts.snapshot(),
+    queryFn: () => window.builderHelm.accounts.snapshot({ live: true }),
     refetchInterval: 30_000,
+    refetchIntervalInBackground: true,
   });
 
   useEffect(() => {

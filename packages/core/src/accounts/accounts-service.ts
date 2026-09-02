@@ -201,6 +201,11 @@ export class AccountsService {
     ) => Promise<unknown | null> = readClaudeOAuthUsage,
   ) {}
 
+  /** Epoch ms of the last successful OAuth usage fetch; null before the first. */
+  private lastClaudeFetch: number | null = null;
+  /** Epoch ms timestamp while a fetch is in flight; null when idle. */
+  private lastClaudeFetchStarted: number | null = null;
+
   hookSystemDefault(): boolean {
     return this.settings.read(HOOK_SYSTEM_KEY) === 'true';
   }
@@ -366,12 +371,22 @@ export class AccountsService {
   }
 
   private async refreshClaude(): Promise<void> {
+    // The OAuth endpoint rate-limits polling (Orca saw 429s); one call per
+    // 30s window is enough for a live meter and keeps the endpoint happy.
+    if (this.lastClaudeFetchStarted !== null) return;
+    if (this.lastClaudeFetch !== null && Date.now() - this.lastClaudeFetch < 30_000) {
+      return;
+    }
+    this.lastClaudeFetchStarted = Date.now();
     try {
       const root = this.cliEnv().CLAUDE_CONFIG_DIR ?? null;
       const live = parseClaudeOAuthUsage(await this.readClaudeUsage(root), utcNow());
       if (live !== null) this.writeQuota('claude', live);
     } catch {
       // Keep last stored windows.
+    } finally {
+      this.lastClaudeFetchStarted = null;
+      this.lastClaudeFetch = Date.now();
     }
   }
 
