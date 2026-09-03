@@ -1,4 +1,3 @@
-import type { SettingsRepository } from '@builderhelm/db';
 import {
   noSleepModeSchema,
   type NoSleepMode,
@@ -7,6 +6,16 @@ import {
 import { utcNow } from '@builderhelm/shared';
 
 const MODE_KEY = 'noSleep.mode';
+
+/**
+ * The slice of SettingsRepository this service needs. Depending on the shape
+ * rather than the concrete repository keeps the mode logic testable from the
+ * desktop package, which does not depend on the database package.
+ */
+export interface NoSleepStore {
+  read(key: string): string | undefined;
+  write(key: string, valueJson: string, updatedAt: string): void;
+}
 
 /**
  * Persists the No Sleep mode and computes the desired blocker state from it.
@@ -20,7 +29,7 @@ const MODE_KEY = 'noSleep.mode';
 export class NoSleepService {
   private agentActive = false;
 
-  constructor(private readonly repository: SettingsRepository) {}
+  constructor(private readonly repository: NoSleepStore) {}
 
   read(blockerActive = false): NoSleepState {
     return {
