@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AccountHome,
@@ -6,6 +7,7 @@ import type {
   QuotaWindow,
 } from '@builderhelm/protocol/accounts';
 import { SYSTEM_ACCOUNT_ID } from '@builderhelm/protocol/accounts';
+import type { AuthState } from '@builderhelm/protocol/auth';
 
 import { AgentGlyph } from '../../components/agent-mark.js';
 
@@ -155,6 +157,38 @@ const PROVIDER_NOTE: Record<QuotaProviderId, string> = {
   grok: "Read from each account's own billing log; the first read needs one session.",
 };
 
+function HelmAccountRow(): React.JSX.Element | null {
+  const [auth, setAuth] = useState<AuthState | null>(null);
+  useEffect(() => {
+    void window.builderHelm.auth.read().then(setAuth);
+    return window.builderHelm.auth.onChange(setAuth);
+  }, []);
+  const session = auth?.session;
+  if (session === null || session === undefined) return null;
+  return (
+    <div className="usageProviderCard helmAccountCard">
+      <div>
+        <strong>{session.email ?? 'BuilderHelm account'}</strong>
+        <p>{session.plan}</p>
+      </div>
+      <button
+        type="button"
+        className="usageRefresh"
+        onClick={() => void window.builderHelm.auth.openAccount()}
+      >
+        Manage account
+      </button>
+      <button
+        type="button"
+        className="usageRefresh"
+        onClick={() => void window.builderHelm.auth.signOut()}
+      >
+        Sign out
+      </button>
+    </div>
+  );
+}
+
 export function AccountsPage(): React.JSX.Element {
   const queryClient = useQueryClient();
   const snapshot = useQuery({
@@ -239,6 +273,7 @@ export function AccountsPage(): React.JSX.Element {
           {mutate.error.message}
         </p>
       ) : null}
+      <HelmAccountRow />
       <ul className="usageProviderList">
         {providers.map((provider) => (
           <li

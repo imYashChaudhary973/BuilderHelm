@@ -43,6 +43,7 @@ import type { SecretStore } from './secrets/secret-store.js';
 import { PreviewArtifactService } from './preview/preview-artifact-service.js';
 import { BrowserSettingsService } from './browser/browser-settings-service.js';
 import { NoSleepService } from './no-sleep/no-sleep-service.js';
+import { AuthService } from './auth/auth-service.js';
 import { VoiceService, type VoiceModelInventory } from './voice/voice-service.js';
 import { AccountsService } from './accounts/accounts-service.js';
 
@@ -75,6 +76,7 @@ export interface CoreRuntime {
   readonly previewArtifacts: PreviewArtifactService;
   readonly browserSettings: BrowserSettingsService;
   readonly noSleep: NoSleepService;
+  readonly auth: AuthService;
   readonly voice: VoiceService;
   readonly accounts: AccountsService;
   health(correlationId: CorrelationId): SystemHealthResponse;
@@ -151,6 +153,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
   );
   const browserSettings = new BrowserSettingsService(new SettingsRepository(database));
   const noSleep = new NoSleepService(new SettingsRepository(database));
+  const auth = new AuthService(options.secretStore, new SettingsRepository(database));
   const accounts = new AccountsService(
     new SettingsRepository(database),
     board,
@@ -200,6 +203,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     previewArtifacts,
     browserSettings,
     noSleep,
+    auth,
     voice,
     accounts,
     health(correlationId) {

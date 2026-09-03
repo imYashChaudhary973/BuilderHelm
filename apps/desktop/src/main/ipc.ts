@@ -22,6 +22,15 @@ import {
   type NoSleepState,
 } from '@builderhelm/protocol/no-sleep';
 import {
+  authBeginRequestSchema,
+  authCancelRequestSchema,
+  authIpcResponseSchema,
+  authOpenAccountRequestSchema,
+  authReadRequestSchema,
+  authSignOutRequestSchema,
+} from '@builderhelm/protocol/auth';
+import type { AuthHandoff } from './auth-handoff.js';
+import {
   actionCommandIpcResponseSchema,
   actionCommandRequestSchema,
   actionSnapshotIpcResponseSchema,
@@ -350,6 +359,7 @@ export function registerIpcHandlers(
   onNoSleepSync?: () => NoSleepState,
   /** Reports chat-stream activity so Agent mode can hold the blocker. */
   onNoSleepActivity?: (active: boolean) => void,
+  auth?: AuthHandoff,
 ): () => void {
   const preview = new PreviewBrowser(core.browserSettings);
   const desktop = new DesktopControl();
@@ -2535,6 +2545,53 @@ export function registerIpcHandlers(
       return noSleepIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
     }
   });
+  ipcMain.handle(ipcChannels.authRead, async (_event, input: unknown) => {
+    try {
+      authReadRequestSchema.parse(input);
+      return authIpcResponseSchema.parse({
+        ok: true,
+        value: await (auth?.read() ?? core.auth.read()),
+      });
+    } catch (error) {
+      return authIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.authBegin, async (_event, input: unknown) => {
+    try {
+      authBeginRequestSchema.parse(input);
+      if (auth === undefined) throw new Error('Sign in is not available.');
+      return authIpcResponseSchema.parse({ ok: true, value: await auth.begin() });
+    } catch (error) {
+      return authIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.authCancel, async (_event, input: unknown) => {
+    try {
+      authCancelRequestSchema.parse(input);
+      if (auth === undefined) throw new Error('Sign in is not available.');
+      return authIpcResponseSchema.parse({ ok: true, value: await auth.cancel() });
+    } catch (error) {
+      return authIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.authSignOut, async (_event, input: unknown) => {
+    try {
+      authSignOutRequestSchema.parse(input);
+      if (auth === undefined) throw new Error('Sign in is not available.');
+      return authIpcResponseSchema.parse({ ok: true, value: await auth.signOut() });
+    } catch (error) {
+      return authIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.authOpenAccount, async (_event, input: unknown) => {
+    try {
+      authOpenAccountRequestSchema.parse(input);
+      if (auth === undefined) throw new Error('Sign in is not available.');
+      return authIpcResponseSchema.parse({ ok: true, value: await auth.openAccount() });
+    } catch (error) {
+      return authIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
 
   if (typeof core.voice?.status === 'function') {
     void core.voice
@@ -2651,6 +2708,11 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.accountToggleHook);
     ipcMain.removeHandler(ipcChannels.noSleepRead);
     ipcMain.removeHandler(ipcChannels.noSleepSet);
+    ipcMain.removeHandler(ipcChannels.authRead);
+    ipcMain.removeHandler(ipcChannels.authBegin);
+    ipcMain.removeHandler(ipcChannels.authCancel);
+    ipcMain.removeHandler(ipcChannels.authSignOut);
+    ipcMain.removeHandler(ipcChannels.authOpenAccount);
     ipcMain.removeHandler(ipcChannels.voiceTranscribe);
     ipcMain.removeHandler(ipcChannels.accountSnapshot);
     ipcMain.removeHandler(ipcChannels.accountAdd);

@@ -12,6 +12,7 @@ import {
   noSleepSetInputSchema,
   noSleepStateSchema,
 } from '@builderhelm/protocol/no-sleep';
+import { authIpcResponseSchema, authStateSchema } from '@builderhelm/protocol/auth';
 import {
   actionCommandInputSchema,
   actionCommandIpcResponseSchema,
@@ -1297,6 +1298,48 @@ const api: BuilderHelmDesktopApi = {
       ipcRenderer.on(ipcChannels.noSleepEvent, handler);
       return () => {
         ipcRenderer.removeListener(ipcChannels.noSleepEvent, handler);
+      };
+    },
+  },
+  auth: {
+    async read() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.authRead, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(authIpcResponseSchema.parse(response));
+    },
+    async begin() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.authBegin, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(authIpcResponseSchema.parse(response));
+    },
+    async cancel() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.authCancel, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(authIpcResponseSchema.parse(response));
+    },
+    async signOut() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.authSignOut, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(authIpcResponseSchema.parse(response));
+    },
+    async openAccount() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.authOpenAccount, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(authIpcResponseSchema.parse(response));
+    },
+    onChange(listener) {
+      const handler = (_event: unknown, payload: unknown): void => {
+        const parsed = authStateSchema.safeParse(payload);
+        if (parsed.success) listener(parsed.data);
+      };
+      ipcRenderer.on(ipcChannels.authEvent, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcChannels.authEvent, handler);
       };
     },
   },

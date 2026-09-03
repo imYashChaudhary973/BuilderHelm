@@ -16,4 +16,5 @@ export * from './swarm.js';
 export * from './voice.js';
 export * from './accounts.js';
 export * from './no-sleep.js';
+export * from './auth.js';
 export * from './review.js';

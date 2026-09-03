@@ -12,6 +12,10 @@
       "types": "./dist/no-sleep.d.ts",
       "import": "./src/no-sleep.ts"
     },
+    "./auth": {
+      "types": "./dist/auth.d.ts",
+      "import": "./src/auth.ts"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./src/index.ts"

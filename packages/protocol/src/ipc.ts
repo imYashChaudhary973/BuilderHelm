@@ -12,6 +12,7 @@ import type {
   AccountToggleHookInput,
 } from './accounts.js';
 import type { NoSleepSetInput, NoSleepState } from './no-sleep.js';
+import type { AuthState } from './auth.js';
 import type {
   BoardAddPaneInput,
   BoardAgentDetection,
@@ -314,6 +315,12 @@ export const ipcChannels = {
   noSleepRead: 'builderhelm:no-sleep:read',
   noSleepSet: 'builderhelm:no-sleep:set',
   noSleepEvent: 'builderhelm:no-sleep:event',
+  authRead: 'builderhelm:auth:read',
+  authBegin: 'builderhelm:auth:begin',
+  authCancel: 'builderhelm:auth:cancel',
+  authSignOut: 'builderhelm:auth:signOut',
+  authOpenAccount: 'builderhelm:auth:openAccount',
+  authEvent: 'builderhelm:auth:event',
 } as const;
 
 export const systemHealthRequestSchema = z
@@ -550,5 +557,13 @@ export interface BuilderHelmDesktopApi {
     read(): Promise<NoSleepState>;
     set(input: NoSleepSetInput): Promise<NoSleepState>;
     onChange(listener: (state: NoSleepState) => void): () => void;
+  };
+  readonly auth: {
+    read(): Promise<AuthState>;
+    begin(): Promise<AuthState>;
+    cancel(): Promise<AuthState>;
+    signOut(): Promise<AuthState>;
+    openAccount(): Promise<AuthState>;
+    onChange(listener: (state: AuthState) => void): () => void;
   };
 }

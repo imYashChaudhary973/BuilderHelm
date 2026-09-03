@@ -35,14 +35,16 @@ import {
   secureWebPreferences,
 } from './security.js';
 import type { NoSleepState } from '@builderhelm/protocol/no-sleep';
-
+import type { AuthState } from '@builderhelm/protocol/auth';
 import { PowerController } from './no-sleep.js';
+import { AuthHandoff } from './auth-handoff.js';
 
 let core: CoreRuntime | undefined;
 let unregisterIpc: (() => void) | undefined;
 let boardPty: BoardPtyManager | undefined;
 let swarmRunner: PtySwarmRunner | undefined;
 let powerController: PowerController | undefined;
+let authHandoff: AuthHandoff | undefined;
 let unsubscribeWork: (() => void) | undefined;
 let voiceHotkeys: VoiceHotkeys | undefined;
 let quotaIngest: { scriptPath(): string | null; close(): void } | undefined;
@@ -324,6 +326,14 @@ app
       syncPower();
     });
     syncPower();
+    const pushAuth = (state: AuthState): void => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (window.isDestroyed()) continue;
+        window.webContents.send(ipcChannels.authEvent, state);
+      }
+    };
+    authHandoff = new AuthHandoff(runtime.auth, pushAuth);
+    void authHandoff.restore().then(pushAuth);
     setExtraTerminalEnv(() => core?.accounts.cliEnv() ?? {});
     const hookClaude = (): void => {
       const script = quotaIngest?.scriptPath();
@@ -368,6 +378,7 @@ app
         runtime.noSleep.setAgentActive(active || runtime.swarm.isWorking());
         syncPower();
       },
+      authHandoff,
     );
     setTimeout(hookClaude, 400);
     installApplicationMenu();
@@ -396,6 +407,8 @@ app.on('before-quit', () => {
   voiceHotkeys = undefined;
   quotaIngest?.close();
   quotaIngest = undefined;
+  authHandoff?.close();
+  authHandoff = undefined;
   unregisterIpc?.();
   unregisterIpc = undefined;
   unsubscribeWork?.();

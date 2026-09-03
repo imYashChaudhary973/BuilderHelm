@@ -1,5 +1,6 @@
 import { Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
+import type { AuthState } from '@builderhelm/protocol/auth';
 
 import { BoardProvider } from './board-store.js';
 import logo from './assets/logo.png';
@@ -7,6 +8,7 @@ import { SidePanel } from './components/side-panel.js';
 import { SpaceRail } from './components/space-rail.js';
 import { UsageBar } from './components/usage-bar.js';
 import { SplashScreen, splashEnabled } from './components/splash-screen.js';
+import { LoginScreen } from './components/login-screen.js';
 import { DictationHud } from './components/dictation-hud.js';
 import { SettingsNav } from './routes/settings/nav.js';
 import { PreviewProvider, usePreview } from './preview-store.js';
@@ -189,12 +191,31 @@ export function App(): React.JSX.Element {
   // Launch-only: App mounts once per window, so the storm never returns on a
   // route change.
   const [splashDone, setSplashDone] = useState(() => !splashEnabled());
+  const [auth, setAuth] = useState<AuthState | null>(null);
+
+  useEffect(() => {
+    if (typeof window.builderHelm === 'undefined') return undefined;
+    void window.builderHelm.auth.read().then(setAuth);
+    return window.builderHelm.auth.onChange(setAuth);
+  }, []);
+
+  if (typeof window.builderHelm === 'undefined') {
+    return (
+      <main className="content" role="main">
+        <p className="errorBanner" role="alert">
+          Open BuilderHelm from the desktop app.
+        </p>
+      </main>
+    );
+  }
+
+  const locked = auth === null || auth.status !== 'signed-in';
 
   return (
     <BoardProvider>
       <SpaceProvider>
         <PreviewProvider>
-          <Shell />
+          {locked ? <LoginScreen state={auth} /> : <Shell />}
           {splashDone ? null : <SplashScreen onDone={() => setSplashDone(true)} />}
         </PreviewProvider>
       </SpaceProvider>

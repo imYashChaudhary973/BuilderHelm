@@ -9172,6 +9172,510 @@ html.is-fullscreen .swarmWizardFoot {
   text-transform: uppercase;
 }
 
+/* ==========================================================================
+   Login gate
+   Layout: two columns — the agent ring on the left, the sign-in panel right.
+   Centring: .loginCore stacks track / orbit / hub in one grid cell, so every
+   layer shares an exact centre. Nothing is scaled, so marks stay crisp.
+   ========================================================================== */
+
+/* ==========================================================================
+   Login gate
+   One centred pane: branding lockup, the agent graph wired to the lightning
+   hub, then the sign-in action. Corner bolts strike behind it.
+   Centring: .loginCore stacks graph and hub in one grid cell, so every layer
+   shares an exact centre. Nothing is scaled, so the marks stay crisp.
+   ========================================================================== */
+
+.loginScreen {
+  --login-chrome: 52px;
+  --login-core: min(340px, 46vh, 42vw);
+  /* Proportional to the core so the wire SVG's 0-100 geometry stays exact. */
+  --login-tile: calc(var(--login-core) * 0.13);
+  --login-orbit: calc(var(--login-core) / 2 - var(--login-tile) / 2 - 1.4px);
+  --login-in: cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  display: flex;
+  box-sizing: border-box;
+  min-height: 100vh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: var(--login-chrome) 24px 22px;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-app-region: drag;
+}
+
+/* --- Pane --------------------------------------------------------------- */
+
+.loginPane {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  margin: auto;
+}
+
+/* --- Branding ----------------------------------------------------------- */
+
+.loginLockup {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  animation: loginUp 700ms var(--login-in) both;
+}
+
+.loginLockupMark {
+  display: block;
+  filter: drop-shadow(0 0 12px rgba(182, 212, 117, 0.25));
+}
+
+.loginLockupName {
+  font-size: 23px;
+  font-weight: 640;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+
+/* --- Lightning hub ------------------------------------------------------ */
+
+/* The launch shader is the hub: it rasterises the BuilderHelm mark and arcs
+   lightning across it, so the gate and the intro share one identity. It sits
+   in the core's grid cell, which is what centres it on the graph. The frame
+   paints an opaque sheet, so a radial mask dissolves its square edges. */
+.loginAura {
+  position: relative;
+  z-index: 2;
+  width: calc(var(--login-core) * 0.78);
+  height: calc(var(--login-core) * 0.78);
+  opacity: 0;
+  pointer-events: none;
+  mask-image: radial-gradient(
+    circle at center,
+    #000 46%,
+    rgba(0, 0, 0, 0.5) 62%,
+    transparent 78%
+  );
+  -webkit-mask-image: radial-gradient(
+    circle at center,
+    #000 46%,
+    rgba(0, 0, 0, 0.5) 62%,
+    transparent 78%
+  );
+  animation: loginAuraIn 1800ms var(--login-in) 260ms forwards;
+}
+
+.loginAura .threeui-background,
+.loginAura .elements {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+}
+
+/* The mark itself never moves; only the halo behind it breathes. */
+.loginHub {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  width: 92px;
+  height: 92px;
+  place-items: center;
+}
+
+.loginHub::before {
+  content: '';
+  position: absolute;
+  inset: -46px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-dim), transparent 66%);
+  animation: loginBreathe 6s ease-in-out infinite;
+}
+
+.loginHub img {
+  position: relative;
+  display: block;
+}
+
+/* --- Agent graph -------------------------------------------------------- */
+
+.loginCore {
+  position: relative;
+  display: grid;
+  width: var(--login-core);
+  height: var(--login-core);
+  flex: 0 0 auto;
+  place-items: center;
+}
+
+/* Every layer occupies the same cell, so they cannot drift apart. */
+.loginCore > * {
+  grid-area: 1 / 1;
+}
+
+/* The graph turns as one piece, so every link stays welded to its node.
+   It sits behind the hub, so the lightning reads in front of the wiring. */
+.loginGraph {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  animation: loginSpin 72s linear infinite;
+}
+
+/* Hub-to-node wiring. Each line ends at the midpoint of the node edge that
+   faces the hub, so no line cuts a corner of an upright square. The radial
+   mask fades every line out near the centre, which is what keeps the wiring
+   reading as running underneath the lightning mark. */
+.loginWires {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  mask-image: radial-gradient(
+    circle at center,
+    transparent 24%,
+    rgba(0, 0, 0, 0.3) 38%,
+    #000 62%
+  );
+  -webkit-mask-image: radial-gradient(
+    circle at center,
+    transparent 24%,
+    rgba(0, 0, 0, 0.3) 38%,
+    #000 62%
+  );
+}
+.loginWire {
+  fill: none;
+  stroke: color-mix(in srgb, currentColor 42%, transparent);
+  stroke-width: 0.3;
+  stroke-linecap: round;
+  animation: loginFade 700ms var(--login-in) calc(200ms + var(--i) * 45ms) both;
+}
+
+.loginWire.is-lit {
+  stroke: color-mix(in srgb, currentColor 85%, transparent);
+  stroke-width: 0.45;
+}
+
+.loginNode {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  width: var(--login-tile);
+  height: var(--login-tile);
+  place-items: center;
+  border: 1px solid rgba(238, 241, 228, 0.14);
+  border-radius: 11px;
+  color: var(--text);
+  background: #0f120c;
+  animation: loginPop 560ms var(--login-in) calc(240ms + var(--i) * 45ms) both;
+  transition:
+    border-color 220ms var(--ease-out),
+    box-shadow 220ms var(--ease-out);
+}
+
+.loginNode.is-lit {
+  border-color: color-mix(in srgb, currentColor 58%, transparent);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, currentColor 16%, transparent),
+    0 0 22px -4px color-mix(in srgb, currentColor 55%, transparent);
+}
+
+/* Counter-rotation keeps each mark upright while the graph turns. */
+.loginNodeGlyph {
+  display: grid;
+  place-items: center;
+  animation: loginUnspin 72s linear infinite;
+}
+
+.loginNode[data-agent='claude'],
+.loginWire[data-agent='claude'] {
+  color: #e07a5f;
+}
+.loginNode[data-agent='codex'],
+.loginWire[data-agent='codex'] {
+  color: #9ad7c2;
+}
+.loginNode[data-agent='grok'],
+.loginWire[data-agent='grok'] {
+  color: #eef1e4;
+}
+.loginNode[data-agent='gemini'],
+.loginWire[data-agent='gemini'] {
+  color: #8ab4f8;
+}
+.loginNode[data-agent='antigravity'],
+.loginWire[data-agent='antigravity'] {
+  color: #c4b5fd;
+}
+.loginNode[data-agent='opencode'],
+.loginWire[data-agent='opencode'] {
+  color: #eef1e4;
+}
+.loginNode[data-agent='cursor'],
+.loginWire[data-agent='cursor'] {
+  color: #eef1e4;
+}
+.loginNode[data-agent='copilot'],
+.loginWire[data-agent='copilot'] {
+  color: #9aa7ff;
+}
+.loginNode[data-agent='omp'],
+.loginWire[data-agent='omp'] {
+  color: #f0c27a;
+}
+.loginNode[data-agent='pi'],
+.loginWire[data-agent='pi'] {
+  color: #f2a7c3;
+}
+.loginNode[data-agent='kimi'],
+.loginWire[data-agent='kimi'] {
+  color: #ff8a5c;
+}
+.loginNode[data-agent='kiro'],
+.loginWire[data-agent='kiro'] {
+  color: #7dd3fc;
+}
+
+/* --- Action ------------------------------------------------------------- */
+
+.loginActions {
+  display: flex;
+  width: min(100%, 300px);
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  animation: loginUp 640ms var(--login-in) 420ms both;
+}
+
+.loginButton {
+  width: 100%;
+  height: 40px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-s);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  -webkit-app-region: no-drag;
+  transition:
+    background 160ms var(--ease-out),
+    border-color 160ms var(--ease-out),
+    color 160ms var(--ease-out);
+}
+
+.loginButtonPrimary {
+  color: #11150d;
+  background: var(--accent);
+}
+
+.loginButtonPrimary:hover {
+  background: var(--accent-bright);
+}
+
+.loginButtonPrimary:active {
+  background: #a5c765;
+}
+
+.loginButtonGhost {
+  border-color: var(--line-strong);
+  color: var(--text);
+  background: transparent;
+}
+
+.loginButtonGhost:hover {
+  border-color: var(--accent-line);
+  color: var(--accent-bright);
+  background: var(--accent-dim);
+}
+
+.loginButtonGhost:active {
+  background: rgba(182, 212, 117, 0.18);
+}
+
+.loginHint {
+  margin: 6px 0 0;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+  text-wrap: pretty;
+}
+
+.loginError {
+  width: min(100%, 320px);
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-s);
+  color: var(--warning);
+  background: rgba(242, 201, 76, 0.1);
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: center;
+  text-wrap: pretty;
+}
+
+.loginWait {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.loginWaitDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: loginPulse 1.6s ease-in-out infinite;
+}
+
+.loginQuiet {
+  padding: 4px 0;
+  border: 0;
+  color: var(--text-3);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  -webkit-app-region: no-drag;
+}
+
+.loginQuiet:hover {
+  color: var(--text);
+}
+
+.loginFine {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  animation: loginFade 700ms var(--login-in) 700ms both;
+}
+
+/* --- Sizes -------------------------------------------------------------- */
+
+@media (display-mode: fullscreen) {
+  .loginScreen {
+    --login-chrome: 24px;
+    --login-core: min(400px, 52vh, 42vw);
+  }
+}
+
+@media (max-height: 660px) {
+  .loginScreen {
+    --login-core: min(258px, 40vh, 42vw);
+    gap: 14px;
+  }
+
+  .loginPane {
+    gap: 16px;
+  }
+}
+
+/* --- Motion ------------------------------------------------------------- */
+
+@keyframes loginSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes loginUnspin {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes loginPop {
+  from {
+    opacity: 0;
+    scale: 0.72;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes loginBreathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes loginAuraIn {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes loginUp {
+  from {
+    opacity: 0;
+    translate: 0 10px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@keyframes loginFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes loginPulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Reduced motion: everything lands in its final state immediately. The hub
+   shader and the corner storm are not mounted at all in that mode. */
+@media (prefers-reduced-motion: reduce) {
+  .loginLockup,
+  .loginGraph,
+  .loginWire,
+  .loginNode,
+  .loginNodeGlyph,
+  .loginHub::before,
+  .loginActions,
+  .loginFine,
+  .loginWaitDot {
+    animation: none;
+  }
+}
+
+.helmAccountCard {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 16px;
+  padding: 14px 16px;
+}
+
 .usageBar {
   grid-area: statusbar;
   position: relative;
