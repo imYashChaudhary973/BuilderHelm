@@ -5,12 +5,11 @@ import { hostname } from 'node:os';
 
 import { verifyLicence, type AuthService, type AuthTokenBundle } from '@builderhelm/core';
 import type { AuthState } from '@builderhelm/protocol/auth';
-import { shell } from 'electron';
+import { app, shell } from 'electron';
 
 const MAX_BODY = 64 * 1024;
 const DEADLINE_MS = 5 * 60 * 1000;
-const SIGNIN_URL = 'https://builderhelm.com/signin';
-const ACCOUNT_URL = 'https://builderhelm.com/account';
+const ACCOUNT_ORIGIN = 'https://builderhelm.com';
 const IDENTITY_URL = 'https://cdtvxtnomtmwibkcjiwy.supabase.co';
 const IDENTITY_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkdHZ4dG5vbXRtd2lia2NqaXd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1OTU1NjEsImV4cCI6MjEwMzE3MTU2MX0.rT8mxIPeSDgcUseQUpyuHBUPqHWrbjUh9t70OKZ-LbQ';
@@ -49,6 +48,22 @@ const RETURN_PAGE = `<!doctype html>
   </script>
 </body>
 </html>`;
+
+/**
+ * Where the account pages live.
+ *
+ * Overridable only in development, so a live sign-in can be exercised against
+ * a local site build before the marketing site ships. A packaged app always
+ * talks to production: honouring the variable there would let anyone point the
+ * gate at a page that phishes the user's account password.
+ */
+function accountOrigin(): string {
+  const override = process.env.BUILDERHELM_ACCOUNT_ORIGIN;
+  if (!app.isPackaged && override !== undefined && override.length > 0) {
+    return override.replace(/\/+$/, '');
+  }
+  return ACCOUNT_ORIGIN;
+}
 
 export function statesEqual(left: string, right: string): boolean {
   const a = Buffer.from(left);
@@ -239,7 +254,7 @@ export class AuthHandoff {
     }, DEADLINE_MS);
     const returnUrl = `http://127.0.0.1:${address.port}/return`;
     await shell.openExternal(
-      `${SIGNIN_URL}?return=${encodeURIComponent(returnUrl)}&state=${state}`,
+      `${accountOrigin()}/signin?return=${encodeURIComponent(returnUrl)}&state=${state}`,
     );
     const next = await this.read();
     this.onChange(next);
@@ -267,7 +282,7 @@ export class AuthHandoff {
   }
 
   async openAccount(): Promise<AuthState> {
-    await shell.openExternal(ACCOUNT_URL);
+    await shell.openExternal(`${accountOrigin()}/account`);
     return this.read();
   }
 

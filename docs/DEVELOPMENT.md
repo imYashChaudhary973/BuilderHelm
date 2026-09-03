@@ -34,12 +34,13 @@ BUILDERHELM_DATABASE_PATH=/private/tmp/builderhelm-dev.sqlite pnpm dev
 
 ### Environment variables
 
-| Variable                    | Purpose                                                                                                                                                                     |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BUILDERHELM_DATABASE_PATH` | Use an explicit SQLite file. Defaults to `builderhelm.sqlite` in the user data directory.                                                                                   |
-| `BUILDERHELM_SMOKE_TEST`    | Set to `1` by `pnpm smoke:desktop`. Forces a temporary database, keeps the window hidden, and exits once the renderer reports ready. Overrides `BUILDERHELM_DATABASE_PATH`. |
-| `BUILDERHELM_DEBUG_PORT`    | Exposes a Chrome DevTools Protocol endpoint on that port so external tooling can attach to the renderer.                                                                    |
-| `BUILDERHELM_PTY_PROBE`     | Spawns one throwaway PTY in the given directory at startup and logs the result. Use when diagnosing terminal spawn failures.                                                |
+| Variable                     | Purpose                                                                                                                                                                        |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `BUILDERHELM_DATABASE_PATH`  | Use an explicit SQLite file. Defaults to `builderhelm.sqlite` in the user data directory.                                                                                      |
+| `BUILDERHELM_SMOKE_TEST`     | Set to `1` by `pnpm smoke:desktop`. Forces a temporary database, keeps the window hidden, and exits once the renderer reports ready. Overrides `BUILDERHELM_DATABASE_PATH`.    |
+| `BUILDERHELM_DEBUG_PORT`     | Exposes a Chrome DevTools Protocol endpoint on that port so external tooling can attach to the renderer.                                                                       |
+| `BUILDERHELM_PTY_PROBE`      | Spawns one throwaway PTY in the given directory at startup and logs the result. Use when diagnosing terminal spawn failures.                                                   |
+| `BUILDERHELM_ACCOUNT_ORIGIN` | Points the sign-in and account pages at another origin, e.g. `http://localhost:4173` for a local site build. Ignored in a packaged app, where the gate always uses production. |
 
 Never point these at live user data. `BUILDERHELM_SMOKE_TEST` and
 `BUILDERHELM_PTY_PROBE` are diagnostics, not product configuration.
