@@ -15,10 +15,14 @@ const OPTIONS: readonly {
 const LABELS: Record<NoSleepMode, string> = { on: 'On', agent: 'Agent', off: 'Off' };
 
 function CupGlyph(): React.JSX.Element {
+  // Drawn at the box's centre rather than cropped to it: cropping the viewBox
+  // would also magnify the glyph and thicken its stroke. The coordinates are
+  // the original cup shifted +1.6 x and -2.5 y so the ink centre lands on
+  // (12, 12).
   return (
     <svg viewBox="0 0 24 24" width={13} height={13} aria-hidden="true">
       <path
-        d="M4 8h11v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8Zm11 1.5h1.6a2.4 2.4 0 0 1 0 4.8H15M4.5 21h10"
+        d="M5.6 5.5h11v5a5 5 0 0 1-5 5H10.6a5 5 0 0 1-5-5V5.5Zm11 1.5h1.6a2.4 2.4 0 0 1 0 4.8H16.6M6.1 18.5h10"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.6"
