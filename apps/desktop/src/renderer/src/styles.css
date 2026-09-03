@@ -9227,6 +9227,126 @@ html.is-fullscreen .swarmWizardFoot {
   color: var(--text-3);
 }
 
+/* No Sleep sits at the right edge; .usageBarMain's flex:1 pushes it there. */
+.noSleep {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.noSleepChip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.noSleepChip:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.noSleepChipOn {
+  border-color: rgba(182, 212, 117, 0.32);
+  color: var(--text);
+}
+
+.noSleepDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* Filled only while the OS actually holds a blocker. */
+.noSleepDotOn {
+  background: #b6d475;
+  box-shadow: 0 0 6px rgba(182, 212, 117, 0.6);
+}
+
+.noSleepMenu {
+  position: absolute;
+  right: 0;
+  bottom: 30px;
+  width: min(300px, calc(100vw - 24px));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: #0b0b0b;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  z-index: 5;
+}
+
+.noSleepMenuHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 14px 9px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 13px;
+}
+
+.noSleepList {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+
+.noSleepOption {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  align-items: start;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.noSleepOption:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.noSleepRadio {
+  width: 10px;
+  height: 10px;
+  margin-top: 4px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+.noSleepRadioOn {
+  border-color: #b6d475;
+  background: #b6d475;
+}
+
+.noSleepOptionBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.noSleepOptionBody strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.noSleepOptionBody span {
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .usagePopover {
   position: absolute;
   left: 8px;

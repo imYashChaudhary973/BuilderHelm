@@ -332,6 +332,76 @@ describe('SwarmService dispatch', () => {
   });
 });
 
+describe('SwarmService work activity', () => {
+  it('raises work edges while the dispatcher loop runs', async () => {
+    const log: string[] = [];
+    const { service, repo } = setup(committingRunner(log));
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    service.addTask(
+      run.id,
+      { title: 'Alpha', files: ['packages/db/src/a.ts'] },
+      createCorrelationId(),
+    );
+    let working = service.isWorking();
+    const edges: boolean[] = [];
+    const unsubscribe = service.onWorkChanged(() => {
+      working = service.isWorking();
+      edges.push(working);
+    });
+
+    await service.pump(run.id);
+    unsubscribe();
+    expect(edges[0]).toBe(true);
+    expect(service.isWorking()).toBe(false);
+  });
+
+  it('does not count a run parked in review as work', async () => {
+    const log: string[] = [];
+    const { service, repo } = setup(committingRunner(log));
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    service.addTask(
+      run.id,
+      { title: 'Alpha', files: ['packages/db/src/a.ts'] },
+      createCorrelationId(),
+    );
+    await service.pump(run.id);
+    // Tasks sit in review awaiting a human click: the machine is idle now.
+    expect(service.state(run.id).tasks.every((task) => task.status === 'review')).toBe(
+      true,
+    );
+    expect(service.state(run.id).run.status).toBe('running');
+    expect(service.isWorking()).toBe(false);
+  });
+
+  it('counts the planner window as work', async () => {
+    let planCalls = 0;
+    const planner = {
+      async plan(): Promise<
+        readonly {
+          title: string;
+          detail: string;
+          files: readonly string[];
+          dependsOn: readonly number[];
+        }[]
+      > {
+        planCalls += 1;
+        return [
+          { title: 'Only', detail: 'd', files: ['packages/db/src/a.ts'], dependsOn: [] },
+        ];
+      },
+    };
+    const { service, repo } = setup(committingRunner([]));
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    const events: boolean[] = [];
+    const unsubscribe = service.onWorkChanged(() => events.push(service.isWorking()));
+    await service.planTasks(run.id, planner, createCorrelationId());
+    unsubscribe();
+    expect(planCalls).toBe(1);
+    expect(events).toEqual([true, false]);
+    expect(service.isWorking()).toBe(false);
+  });
+});
+
 describe('SwarmService shared context', () => {
   it('puts the roster and landed work into later seat prompts', async () => {
     const prompts: string[] = [];

@@ -8,6 +8,11 @@ import {
   accountToggleHookInputSchema,
 } from '@builderhelm/protocol/accounts';
 import {
+  noSleepIpcResponseSchema,
+  noSleepSetInputSchema,
+  noSleepStateSchema,
+} from '@builderhelm/protocol/no-sleep';
+import {
   actionCommandInputSchema,
   actionCommandIpcResponseSchema,
   actionSnapshotInputSchema,
@@ -1268,6 +1273,31 @@ const api: BuilderHelmDesktopApi = {
         input: accountToggleHookInputSchema.parse(input),
       });
       return unwrap(accountSnapshotIpcResponseSchema.parse(response));
+    },
+  },
+  noSleep: {
+    async read() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.noSleepRead, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(noSleepIpcResponseSchema.parse(response));
+    },
+    async set(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.noSleepSet, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: noSleepSetInputSchema.parse(input),
+      });
+      return unwrap(noSleepIpcResponseSchema.parse(response));
+    },
+    onChange(listener) {
+      const handler = (_event: unknown, payload: unknown): void => {
+        const parsed = noSleepStateSchema.safeParse(payload);
+        if (parsed.success) listener(parsed.data);
+      };
+      ipcRenderer.on(ipcChannels.noSleepEvent, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcChannels.noSleepEvent, handler);
+      };
     },
   },
 };

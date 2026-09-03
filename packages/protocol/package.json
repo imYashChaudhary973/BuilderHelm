@@ -8,6 +8,10 @@
       "types": "./dist/accounts.d.ts",
       "import": "./src/accounts.ts"
     },
+    "./no-sleep": {
+      "types": "./dist/no-sleep.d.ts",
+      "import": "./src/no-sleep.ts"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./src/index.ts"

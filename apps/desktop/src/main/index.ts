@@ -34,11 +34,16 @@ import {
   isAllowedNavigation,
   secureWebPreferences,
 } from './security.js';
+import type { NoSleepState } from '@builderhelm/protocol/no-sleep';
+
+import { PowerController } from './no-sleep.js';
 
 let core: CoreRuntime | undefined;
 let unregisterIpc: (() => void) | undefined;
 let boardPty: BoardPtyManager | undefined;
 let swarmRunner: PtySwarmRunner | undefined;
+let powerController: PowerController | undefined;
+let unsubscribeWork: (() => void) | undefined;
 let voiceHotkeys: VoiceHotkeys | undefined;
 let quotaIngest: { scriptPath(): string | null; close(): void } | undefined;
 let smokeDatabasePath: string | undefined;
@@ -300,6 +305,25 @@ app
       voiceInventory: voiceModels,
       accountsRoot: join(app.getPath('userData'), 'accounts'),
     });
+    // Built after core (needs core.noSleep). The work edges from the swarm
+    // and chat streaming drive Agent mode through it.
+    const runtime = core;
+    const power = new PowerController(runtime.noSleep, runtime.logger);
+    powerController = power;
+    const syncPower = (): NoSleepState => {
+      const state = power.sync();
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (!window.isDestroyed()) {
+          window.webContents.send(ipcChannels.noSleepEvent, state);
+        }
+      }
+      return state;
+    };
+    unsubscribeWork = runtime.swarm.onWorkChanged(() => {
+      runtime.noSleep.setAgentActive(runtime.swarm.isWorking());
+      syncPower();
+    });
+    syncPower();
     setExtraTerminalEnv(() => core?.accounts.cliEnv() ?? {});
     const hookClaude = (): void => {
       const script = quotaIngest?.scriptPath();
@@ -339,6 +363,11 @@ app
         onSettings: (settings) => voiceHotkeys?.sync(settings),
       },
       hookClaude,
+      syncPower,
+      (active) => {
+        runtime.noSleep.setAgentActive(active || runtime.swarm.isWorking());
+        syncPower();
+      },
     );
     setTimeout(hookClaude, 400);
     installApplicationMenu();
@@ -369,6 +398,12 @@ app.on('before-quit', () => {
   quotaIngest = undefined;
   unregisterIpc?.();
   unregisterIpc = undefined;
+  unsubscribeWork?.();
+  unsubscribeWork = undefined;
+  // The OS keeps a power assertion alive after the process leaves unless it
+  // is stopped, so this runs before the window tears down.
+  powerController?.dispose();
+  powerController = undefined;
   boardPty?.dispose();
   boardPty = undefined;
   core?.close();

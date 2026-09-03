@@ -1,0 +1,134 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { NoSleepMode, NoSleepState } from '@builderhelm/protocol/no-sleep';
+import { useEffect, useRef, useState } from 'react';
+
+const OPTIONS: readonly {
+  readonly mode: NoSleepMode;
+  readonly title: string;
+  readonly detail: string;
+}[] = [
+  { mode: 'on', title: 'On', detail: 'Keep this computer awake continuously' },
+  { mode: 'agent', title: 'Agent', detail: 'Stay awake while an agent is working' },
+  { mode: 'off', title: 'Off', detail: 'Allow normal system sleep behavior' },
+];
+
+const LABELS: Record<NoSleepMode, string> = { on: 'On', agent: 'Agent', off: 'Off' };
+
+function CupGlyph(): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" width={13} height={13} aria-hidden="true">
+      <path
+        d="M4 8h11v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8Zm11 1.5h1.6a2.4 2.4 0 0 1 0 4.8H15M4.5 21h10"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/**
+ * The No Sleep control: a bar chip on the right of the status bar plus a mode
+ * menu. `blockerActive` is what the OS actually holds, so Agent mode reads
+ * "Agent · Idle" until a run starts rather than claiming to be awake.
+ */
+export function NoSleep(): React.JSX.Element {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const state = useQuery({
+    queryKey: ['no-sleep'],
+    queryFn: () => window.builderHelm.noSleep.read(),
+  });
+  const mutate = useMutation({
+    mutationFn: (mode: NoSleepMode) => window.builderHelm.noSleep.set({ mode }),
+    onSuccess: (next) => {
+      queryClient.setQueryData(['no-sleep'], next);
+    },
+  });
+
+  // The main process pushes state when agent work starts or ends, so the chip
+  // reflects the blocker without polling.
+  useEffect(() => {
+    return window.builderHelm.noSleep.onChange((next: NoSleepState) => {
+      queryClient.setQueryData(['no-sleep'], next);
+    });
+  }, [queryClient]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (event: MouseEvent): void => {
+      if (rootRef.current !== null && !rootRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', onDown);
+    return () => window.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  const current = state.data?.mode ?? 'off';
+  const held = state.data?.blockerActive ?? false;
+  const status = current === 'off' ? 'Off' : held ? 'Active' : 'Idle';
+
+  return (
+    <div className="noSleep" ref={rootRef}>
+      <button
+        type="button"
+        className={current === 'off' ? 'noSleepChip' : 'noSleepChip noSleepChipOn'}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        title={`No Sleep: ${LABELS[current]} · ${status}`}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <CupGlyph />
+        <span>{LABELS[current]}</span>
+        <span
+          className={held ? 'noSleepDot noSleepDotOn' : 'noSleepDot'}
+          aria-hidden="true"
+        />
+      </button>
+      {open ? (
+        <div className="noSleepMenu" role="menu" aria-label="No Sleep">
+          <header className="noSleepMenuHead">
+            <strong>No Sleep</strong>
+            <span className="usageMeta">
+              {LABELS[current]} · {status}
+            </span>
+          </header>
+          <ul className="noSleepList">
+            {OPTIONS.map((option) => (
+              <li key={option.mode}>
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={current === option.mode}
+                  className="noSleepOption"
+                  disabled={mutate.isPending}
+                  onClick={() => {
+                    mutate.mutate(option.mode);
+                    setOpen(false);
+                  }}
+                >
+                  <span
+                    className={
+                      current === option.mode
+                        ? 'noSleepRadio noSleepRadioOn'
+                        : 'noSleepRadio'
+                    }
+                    aria-hidden="true"
+                  />
+                  <span className="noSleepOptionBody">
+                    <strong>{option.title}</strong>
+                    <span>{option.detail}</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}

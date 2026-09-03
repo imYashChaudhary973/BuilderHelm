@@ -121,6 +121,9 @@ const DIRECTIVES_CONSUMED = 'directives consumed:';
 export class SwarmService {
   private readonly repository: SwarmRepository;
   private readonly pumping = new Set<string>();
+  /** Listeners notified when counted agent work starts or ends. */
+  private readonly workListeners = new Set<() => void>();
+  private workActive = false;
   private readonly budgetMs: number;
   private readonly reviewer: SwarmReviewer | undefined;
   private readonly listeners = new Set<SwarmRunEventListener>();
@@ -184,6 +187,34 @@ export class SwarmService {
     return () => this.listeners.delete(listener);
   }
 
+  /**
+   * Whether any counted agent work is executing right now: the dispatcher
+   * loop, the planner, or seat warm-up. Chat streaming is counted elsewhere.
+   * This is deliberately narrower than run status — a run parked in review
+   * awaiting a human click is not work.
+   */
+  isWorking(): boolean {
+    return this.workActive;
+  }
+
+  /** Subscribes to work start/end; returns an unsubscribe function. */
+  onWorkChanged(listener: () => void): () => void {
+    this.workListeners.add(listener);
+    return () => this.workListeners.delete(listener);
+  }
+
+  private beginWork(): void {
+    if (this.workActive) return;
+    this.workActive = true;
+    for (const listener of this.workListeners) listener();
+  }
+
+  private endWork(): void {
+    if (!this.workActive) return;
+    this.workActive = false;
+    for (const listener of this.workListeners) listener();
+  }
+
   private emit(runId: string): void {
     for (const listener of this.listeners) listener(runId);
   }
@@ -193,21 +224,26 @@ export class SwarmService {
    * of paying worktree creation after the planner finishes.
    */
   async warmSeats(runId: string): Promise<void> {
-    const run = this.requireRun(runId);
-    const seats = this.repository
-      .listSeats(runId)
-      .map((row) => swarmSeatSchema.parse(row))
-      .filter((seat) => seat.role === 'builder' && seat.worktreePath === null);
-    await Promise.all(
-      seats.map(async (seat) => {
-        try {
-          this.repository.updateSeat(await this.ensureWorktree(run, seat));
-          this.emit(runId);
-        } catch {
-          // The dispatcher surfaces real failures when the task runs.
-        }
-      }),
-    );
+    this.beginWork();
+    try {
+      const run = this.requireRun(runId);
+      const seats = this.repository
+        .listSeats(runId)
+        .map((row) => swarmSeatSchema.parse(row))
+        .filter((seat) => seat.role === 'builder' && seat.worktreePath === null);
+      await Promise.all(
+        seats.map(async (seat) => {
+          try {
+            this.repository.updateSeat(await this.ensureWorktree(run, seat));
+            this.emit(runId);
+          } catch {
+            // The dispatcher surfaces real failures when the task runs.
+          }
+        }),
+      );
+    } finally {
+      this.endWork();
+    }
   }
 
   /** Ends a run that cannot proceed, with the reason in the ledger. */
@@ -456,6 +492,7 @@ export class SwarmService {
   async pump(runId: string): Promise<void> {
     if (this.pumping.has(runId)) return;
     this.pumping.add(runId);
+    this.beginWork();
     let idleRounds = 0;
     try {
       for (;;) {
@@ -539,6 +576,7 @@ export class SwarmService {
       }
     } finally {
       this.pumping.delete(runId);
+      this.endWork();
     }
   }
 
@@ -779,42 +817,47 @@ export class SwarmService {
     planner: SwarmPlanner,
     correlationId: CorrelationId,
   ): Promise<SwarmTaskRecord[]> {
-    const run = this.requireRun(runId);
-    const snapshot = await buildRepoSnapshot(run.folderPath);
-    const planned = await planner.plan({
-      mission: run.mission,
-      snapshot,
-      maxTasks: swarmPlanBudget(run.presetId),
-      roster: this.repository
-        .listSeats(runId)
-        .map((seat) => `${seat.role}/${seat.agentId}`)
-        .join(', '),
-    });
-    const created: SwarmTaskRecord[] = [];
-    for (const task of planned) {
-      const dependsOn = task.dependsOn
-        .map((index) => created[index]?.id)
-        .filter((id): id is string => id !== undefined);
-      created.push(
-        this.addTask(
-          runId,
-          {
-            title: task.title,
-            detail: task.detail,
-            files: task.files,
-            dependsOn,
-          },
-          correlationId,
-        ),
+    this.beginWork();
+    try {
+      const run = this.requireRun(runId);
+      const snapshot = await buildRepoSnapshot(run.folderPath);
+      const planned = await planner.plan({
+        mission: run.mission,
+        snapshot,
+        maxTasks: swarmPlanBudget(run.presetId),
+        roster: this.repository
+          .listSeats(runId)
+          .map((seat) => `${seat.role}/${seat.agentId}`)
+          .join(', '),
+      });
+      const created: SwarmTaskRecord[] = [];
+      for (const task of planned) {
+        const dependsOn = task.dependsOn
+          .map((index) => created[index]?.id)
+          .filter((id): id is string => id !== undefined);
+        created.push(
+          this.addTask(
+            runId,
+            {
+              title: task.title,
+              detail: task.detail,
+              files: task.files,
+              dependsOn,
+            },
+            correlationId,
+          ),
+        );
+      }
+      this.appendMessage(
+        runId,
+        null,
+        'coordinator_note',
+        `planned ${created.length} task(s) from the mission`,
       );
+      return created;
+    } finally {
+      this.endWork();
     }
-    this.appendMessage(
-      runId,
-      null,
-      'coordinator_note',
-      `planned ${created.length} task(s) from the mission`,
-    );
-    return created;
   }
 
   /**

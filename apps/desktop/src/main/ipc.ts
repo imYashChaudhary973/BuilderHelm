@@ -16,6 +16,12 @@ import {
   accountToggleHookRequestSchema,
 } from '@builderhelm/protocol/accounts';
 import {
+  noSleepIpcResponseSchema,
+  noSleepReadRequestSchema,
+  noSleepSetRequestSchema,
+  type NoSleepState,
+} from '@builderhelm/protocol/no-sleep';
+import {
   actionCommandIpcResponseSchema,
   actionCommandRequestSchema,
   actionSnapshotIpcResponseSchema,
@@ -340,6 +346,10 @@ export function registerIpcHandlers(
     onSettings?: (settings: VoiceSettings) => void;
   },
   onAccountsChanged?: () => void,
+  /** Applies the OS blocker and returns what it now holds. */
+  onNoSleepSync?: () => NoSleepState,
+  /** Reports chat-stream activity so Agent mode can hold the blocker. */
+  onNoSleepActivity?: (active: boolean) => void,
 ): () => void {
   const preview = new PreviewBrowser(core.browserSettings);
   const desktop = new DesktopControl();
@@ -760,6 +770,8 @@ export function registerIpcHandlers(
       const sender = event.sender;
       const abort = () => controller.abort();
       activeStreams.set(request.runId, { controller, senderId: sender.id });
+      // A streaming model counts as an agent working for No Sleep.
+      onNoSleepActivity?.(activeStreams.size > 0);
       sender.once('destroyed', abort);
 
       void (async () => {
@@ -775,6 +787,7 @@ export function registerIpcHandlers(
           sendChatEvent(sender, request.runId, { type: 'error', error: ipcError(error) });
         } finally {
           activeStreams.delete(request.runId);
+          onNoSleepActivity?.(activeStreams.size > 0);
           sender.removeListener('destroyed', abort);
         }
       })();
@@ -2498,6 +2511,30 @@ export function registerIpcHandlers(
       });
     }
   });
+  ipcMain.handle(ipcChannels.noSleepRead, (_event, input: unknown) => {
+    try {
+      noSleepReadRequestSchema.parse(input);
+      return noSleepIpcResponseSchema.parse({
+        ok: true,
+        value: onNoSleepSync?.() ?? core.noSleep.read(false),
+      });
+    } catch (error) {
+      return noSleepIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.noSleepSet, (_event, input: unknown) => {
+    try {
+      const request = noSleepSetRequestSchema.parse(input);
+      core.noSleep.set(request.input.mode, false);
+      // The desktop applies the OS blocker and reports what it actually holds.
+      return noSleepIpcResponseSchema.parse({
+        ok: true,
+        value: onNoSleepSync?.() ?? core.noSleep.read(false),
+      });
+    } catch (error) {
+      return noSleepIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
 
   if (typeof core.voice?.status === 'function') {
     void core.voice
@@ -2612,6 +2649,8 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.reviewCheckList);
     ipcMain.removeHandler(ipcChannels.accountSetActive);
     ipcMain.removeHandler(ipcChannels.accountToggleHook);
+    ipcMain.removeHandler(ipcChannels.noSleepRead);
+    ipcMain.removeHandler(ipcChannels.noSleepSet);
     ipcMain.removeHandler(ipcChannels.voiceTranscribe);
     ipcMain.removeHandler(ipcChannels.accountSnapshot);
     ipcMain.removeHandler(ipcChannels.accountAdd);

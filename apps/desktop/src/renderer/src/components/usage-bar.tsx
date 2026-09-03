@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 
 import { AgentGlyph } from './agent-mark.js';
+import { NoSleep } from './no-sleep.js';
 
 function formatReset(iso: string | null): string | null {
   if (iso === null) return null;
@@ -427,6 +428,7 @@ export function UsageBar(): React.JSX.Element {
       >
         ↻
       </button>
+      <NoSleep />
       {open ? (
         <div
           className="usagePopover"
