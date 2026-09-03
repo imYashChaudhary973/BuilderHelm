@@ -32,6 +32,12 @@ export const authStateSchema = z
     status: authStatusSchema,
     session: authSessionSchema.nullable(),
     error: z.string().nullable(),
+    /**
+     * The page the gate opened, while a sign-in is in flight. Present so the
+     * user can recover a handoff whose browser tab was closed or never
+     * appeared; null in every other state.
+     */
+    signInUrl: z.string().nullable(),
   })
   .strict();
 export type AuthState = z.infer<typeof authStateSchema>;

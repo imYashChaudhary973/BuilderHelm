@@ -71,6 +71,7 @@ export function LoginScreen({
   // animation; the gate reuses it so both surfaces agree.
   const animated = splashEnabled();
   const [lit, setLit] = useState(0);
+  const [copied, setCopied] = useState(false);
   const waiting = state?.status === 'waiting';
 
   useEffect(() => {
@@ -157,6 +158,18 @@ export function LoginScreen({
             >
               Open the page again
             </button>
+            {state?.signInUrl !== null && state?.signInUrl !== undefined ? (
+              <button
+                type="button"
+                className="loginQuiet"
+                onClick={() => {
+                  void navigator.clipboard.writeText(state.signInUrl ?? '');
+                  setCopied(true);
+                }}
+              >
+                {copied ? 'Link copied' : 'Copy the sign-in link'}
+              </button>
+            ) : null}
             <button
               type="button"
               className="loginQuiet"

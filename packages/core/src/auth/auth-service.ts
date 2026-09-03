@@ -23,7 +23,12 @@ export type AuthTokenBundle = {
   readonly licence: string;
 };
 
-const SIGNED_OUT: AuthState = { status: 'signed-out', session: null, error: null };
+const SIGNED_OUT: AuthState = {
+  status: 'signed-out',
+  session: null,
+  error: null,
+  signInUrl: null,
+};
 
 function parseBundle(raw: string): AuthTokenBundle | null {
   try {
@@ -57,7 +62,7 @@ export class AuthService {
   async read(error: string | null = null): Promise<AuthState> {
     const session = await this.sessionFromStore();
     if (session === null) return { ...SIGNED_OUT, error };
-    return { status: 'signed-in', session, error };
+    return { status: 'signed-in', session, error, signInUrl: null };
   }
 
   async rawBundle(): Promise<AuthTokenBundle | null> {
@@ -80,7 +85,12 @@ export class AuthService {
     const claims = verifyLicence(bundle.licence);
     if (claims === null) {
       await this.clear();
-      return { status: 'signed-out', session: null, error: 'This licence is not valid.' };
+      return {
+        status: 'signed-out',
+        session: null,
+        error: 'This licence is not valid.',
+        signInUrl: null,
+      };
     }
     const session: AuthSession = {
       email: claims.email,
@@ -91,7 +101,7 @@ export class AuthService {
     };
     await this.secrets.set(AUTH_SESSION_REF, JSON.stringify(bundle));
     this.settings.write(PROFILE_KEY, JSON.stringify(session), utcNow());
-    return { status: 'signed-in', session, error: null };
+    return { status: 'signed-in', session, error: null, signInUrl: null };
   }
   rememberProfile(input: { name?: string | null; avatarUrl?: string | null }): void {
     const current = this.profile();

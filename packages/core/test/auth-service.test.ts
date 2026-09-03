@@ -45,6 +45,7 @@ describe('AuthService', () => {
       status: 'signed-out',
       session: null,
       error: null,
+      signInUrl: null,
     });
     const rejected = await service.apply({
       accessToken: 'a',

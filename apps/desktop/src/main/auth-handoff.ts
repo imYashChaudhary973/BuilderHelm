@@ -183,6 +183,7 @@ export class AuthHandoff {
   private expectedState: string | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private used = false;
+  private signInUrl: string | null = null;
 
   constructor(
     private readonly auth: AuthService,
@@ -191,7 +192,12 @@ export class AuthHandoff {
 
   async read(): Promise<AuthState> {
     if (this.waiting) {
-      return { status: 'waiting', session: null, error: this.error };
+      return {
+        status: 'waiting',
+        session: null,
+        error: this.error,
+        signInUrl: this.signInUrl,
+      };
     }
     return this.auth.read(this.error);
   }
@@ -253,9 +259,8 @@ export class AuthHandoff {
       void this.cancel('Sign in timed out. Open the page again.');
     }, DEADLINE_MS);
     const returnUrl = `http://127.0.0.1:${address.port}/return`;
-    await shell.openExternal(
-      `${accountOrigin()}/signin?return=${encodeURIComponent(returnUrl)}&state=${state}`,
-    );
+    this.signInUrl = `${accountOrigin()}/signin?return=${encodeURIComponent(returnUrl)}&state=${state}`;
+    await shell.openExternal(this.signInUrl);
     const next = await this.read();
     this.onChange(next);
     return next;
@@ -264,6 +269,7 @@ export class AuthHandoff {
   async cancel(error: string | null = null): Promise<AuthState> {
     this.closeServer();
     this.waiting = false;
+    this.signInUrl = null;
     this.expectedState = null;
     this.error = error;
     const next = await this.auth.read(error);
@@ -274,6 +280,7 @@ export class AuthHandoff {
   async signOut(): Promise<AuthState> {
     this.closeServer();
     this.waiting = false;
+    this.signInUrl = null;
     this.expectedState = null;
     this.error = null;
     const next = await this.auth.signOut();
@@ -350,6 +357,7 @@ export class AuthHandoff {
       };
       this.closeServer();
       this.waiting = false;
+      this.signInUrl = null;
       this.expectedState = null;
       this.error = null;
       const next = await this.auth.apply(bundle);
@@ -362,6 +370,7 @@ export class AuthHandoff {
       );
       this.closeServer();
       this.waiting = false;
+      this.signInUrl = null;
       this.expectedState = null;
       const next = await this.auth.signOut(message);
       this.onChange(next);
