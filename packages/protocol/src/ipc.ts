@@ -606,10 +606,7 @@ export interface BuilderHelmDesktopApi {
     transcript(threadId: string): Promise<AgentTranscript>;
     close(sessionId: string): Promise<null>;
     /** Resolves when the turn ends; progress arrives via `onEvent`. */
-    prompt(input: {
-      sessionId: string;
-      content: readonly AgentContent[];
-    }): Promise<null>;
+    prompt(input: { sessionId: string; content: readonly AgentContent[] }): Promise<null>;
     cancel(sessionId: string): Promise<null>;
     setConfigOption(input: {
       sessionId: string;

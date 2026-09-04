@@ -12,7 +12,10 @@ import { describe, expect, it } from 'vitest';
 import { PermissionRules } from '../src/main/acp/permission-rules.js';
 
 /** Stands in for SettingsRepository, whose surface is exactly these two calls. */
-function memoryStore(): { read(key: string): string | undefined; write(key: string, valueJson: string): void } {
+function memoryStore(): {
+  read(key: string): string | undefined;
+  write(key: string, valueJson: string): void;
+} {
   const rows = new Map<string, string>();
   return {
     read: (key) => rows.get(key),
@@ -92,7 +95,10 @@ describe('remembered approval rules', () => {
 
   it('discards a stored shape it no longer understands', () => {
     const store = memoryStore();
-    store.write('agent.permission-rules', JSON.stringify([{ cwd: '/w', verdict: 'yes' }]));
+    store.write(
+      'agent.permission-rules',
+      JSON.stringify([{ cwd: '/w', verdict: 'yes' }]),
+    );
     expect(new PermissionRules(store).lookup('/w', 'edit')).toBeNull();
   });
 });

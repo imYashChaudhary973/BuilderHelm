@@ -108,7 +108,6 @@ export function confinePath(cwd: string, candidate: unknown): string {
   return target;
 }
 
-
 export class AcpSession {
   private readonly connection: AcpConnection;
   private readonly tools = new Map<string, AgentToolCall>();
@@ -271,7 +270,9 @@ export class AcpSession {
     const turnId = randomUUID();
     this.activeTurnId = turnId;
     const text = content
-      .filter((part): part is Extract<AgentContent, { type: 'text' }> => part.type === 'text')
+      .filter(
+        (part): part is Extract<AgentContent, { type: 'text' }> => part.type === 'text',
+      )
       .map((part) => part.text)
       .join('');
     this.options.emit({ type: 'message.user', sessionId: this.id, turnId, text });

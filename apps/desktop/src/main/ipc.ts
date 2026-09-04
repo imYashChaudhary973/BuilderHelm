@@ -2638,7 +2638,10 @@ export function registerIpcHandlers(
       const value = await requireAgents().registry.candidates();
       return agentCandidatesIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
-      return agentCandidatesIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+      return agentCandidatesIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
     }
   });
   ipcMain.handle(ipcChannels.agentConfigure, (_event, input: unknown) => {
@@ -2679,7 +2682,10 @@ export function registerIpcHandlers(
       const value = requireAgents().manager.list();
       return agentSessionListIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
-      return agentSessionListIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+      return agentSessionListIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
     }
   });
   ipcMain.handle(ipcChannels.agentSessionClose, async (_event, input: unknown) => {
@@ -2742,7 +2748,10 @@ export function registerIpcHandlers(
       const value = requireAgents().manager.threads();
       return agentThreadListIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
-      return agentThreadListIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+      return agentThreadListIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
     }
   });
   ipcMain.handle(ipcChannels.agentThreadGet, (_event, input: unknown) => {
@@ -2751,19 +2760,25 @@ export function registerIpcHandlers(
       const value = requireAgents().manager.transcript(parsed.threadId);
       return agentTranscriptIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
-      return agentTranscriptIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+      return agentTranscriptIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
     }
   });
   ipcMain.handle(ipcChannels.agentDiff, async (_event, input: unknown) => {
     try {
       const parsed = agentDiffInputSchema.parse(input);
-      await requireAgents().manager.applyDiff(parsed.sessionId, parsed.path, parsed.action);
+      await requireAgents().manager.applyDiff(
+        parsed.sessionId,
+        parsed.path,
+        parsed.action,
+      );
       return agentVoidIpcResponseSchema.parse({ ok: true, value: null });
     } catch (error) {
       return agentVoidIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
     }
   });
-
 
   return () => {
     for (const active of activeStreams.values()) active.controller.abort();

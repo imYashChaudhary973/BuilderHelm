@@ -23,7 +23,12 @@ import { z } from 'zod';
  * documented rather than verified here, Claude via the adapter its own registry
  * entry points at.
  */
-const KNOWN: readonly { id: string; label: string; command: string; args: readonly string[] }[] = [
+const KNOWN: readonly {
+  id: string;
+  label: string;
+  command: string;
+  args: readonly string[];
+}[] = [
   { id: 'gemini', label: 'Gemini', command: 'gemini', args: ['--acp'] },
   { id: 'opencode', label: 'OpenCode', command: 'opencode', args: ['acp'] },
   { id: 'grok', label: 'Grok', command: 'grok', args: ['agent', 'stdio'] },

@@ -1434,15 +1434,18 @@ const api: BuilderHelmDesktopApi = {
       return unwrap(agentVoidIpcResponseSchema.parse(response));
     },
     async respondPermission(input) {
-      const response: unknown = await ipcRenderer.invoke(ipcChannels.agentRespondPermission, {
-        correlationId: globalThis.crypto.randomUUID(),
-        sessionId: input.sessionId,
-        response: {
-          requestId: input.requestId,
-          decision: input.decision,
-          optionId: null,
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.agentRespondPermission,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          sessionId: input.sessionId,
+          response: {
+            requestId: input.requestId,
+            decision: input.decision,
+            optionId: null,
+          },
         },
-      });
+      );
       return unwrap(agentVoidIpcResponseSchema.parse(response));
     },
     async applyDiff(input) {

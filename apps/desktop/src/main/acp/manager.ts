@@ -71,11 +71,16 @@ export class AgentManager {
     const existing = this.findLive(input.threadId);
     if (existing !== undefined) return existing.state;
 
-    const stored = input.threadId === null ? null : this.options.threads.get(input.threadId);
+    const stored =
+      input.threadId === null ? null : this.options.threads.get(input.threadId);
     if (input.threadId !== null && stored === null) {
-      throw new BuilderHelmError('VALIDATION_FAILED', 'That conversation was not found.', {
-        metadata: { threadId: input.threadId },
-      });
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'That conversation was not found.',
+        {
+          metadata: { threadId: input.threadId },
+        },
+      );
     }
 
     const agent =
@@ -91,8 +96,7 @@ export class AgentManager {
     const cwd = stored === null ? input.cwd : stored.thread.cwd;
     const thread =
       stored === null ? this.options.threads.create(agent, cwd) : stored.thread;
-    const resumeSessionId =
-      input.resumeSessionId ?? stored?.thread.acpSessionId ?? null;
+    const resumeSessionId = input.resumeSessionId ?? stored?.thread.acpSessionId ?? null;
 
     let entry: Entry | null = null;
     const session = await AcpSession.start({
@@ -138,9 +142,13 @@ export class AgentManager {
   transcript(threadId: string): { thread: AgentThread; events: AgentSessionEvent[] } {
     const stored = this.options.threads.get(threadId);
     if (stored === null) {
-      throw new BuilderHelmError('VALIDATION_FAILED', 'That conversation was not found.', {
-        metadata: { threadId },
-      });
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'That conversation was not found.',
+        {
+          metadata: { threadId },
+        },
+      );
     }
     return stored;
   }
@@ -157,9 +165,13 @@ export class AgentManager {
     const entry = this.require(sessionId);
     const diff = lastDiff(this.options.threads.events(entry.threadId), path);
     if (diff === null) {
-      throw new BuilderHelmError('VALIDATION_FAILED', 'No diff is recorded for that path.', {
-        metadata: { path },
-      });
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'No diff is recorded for that path.',
+        {
+          metadata: { path },
+        },
+      );
     }
     const text = action === 'apply' ? diff.newText : diff.oldText;
     if (text === null) {
@@ -173,7 +185,6 @@ export class AgentManager {
     await mkdir(resolve(target, '..'), { recursive: true });
     await writeFile(target, text, 'utf8');
   }
-
 
   read(sessionId: string): AgentSessionState {
     return this.require(sessionId).state;
@@ -189,7 +200,10 @@ export class AgentManager {
   }
 
   /** Returns once the turn ends; progress arrives as events. */
-  async prompt(sessionId: string, content: Parameters<AcpSession['prompt']>[0]): Promise<void> {
+  async prompt(
+    sessionId: string,
+    content: Parameters<AcpSession['prompt']>[0],
+  ): Promise<void> {
     await this.require(sessionId).session.prompt(content);
   }
 
@@ -197,7 +211,11 @@ export class AgentManager {
     this.require(sessionId).session.cancel();
   }
 
-  async setConfigOption(sessionId: string, configId: string, value: string | boolean): Promise<void> {
+  async setConfigOption(
+    sessionId: string,
+    configId: string,
+    value: string | boolean,
+  ): Promise<void> {
     await this.require(sessionId).session.setConfigOption(configId, value);
   }
 
@@ -270,9 +288,13 @@ export class AgentManager {
   private require(sessionId: string): Entry {
     const entry = this.sessions.get(sessionId);
     if (entry === undefined) {
-      throw new BuilderHelmError('VALIDATION_FAILED', 'That agent session is no longer running.', {
-        metadata: { sessionId },
-      });
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'That agent session is no longer running.',
+        {
+          metadata: { sessionId },
+        },
+      );
     }
     return entry;
   }

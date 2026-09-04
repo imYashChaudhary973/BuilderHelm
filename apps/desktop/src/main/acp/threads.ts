@@ -7,7 +7,12 @@
  */
 import { randomUUID } from 'node:crypto';
 
-import { agentSessionEventSchema, type AgentDescriptor, type AgentSessionEvent, type AgentThread } from '@builderhelm/protocol';
+import {
+  agentSessionEventSchema,
+  type AgentDescriptor,
+  type AgentSessionEvent,
+  type AgentThread,
+} from '@builderhelm/protocol';
 import { z } from 'zod';
 
 const INDEX_KEY = 'agent.thread-index';

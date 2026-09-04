@@ -67,7 +67,9 @@ function foldTurns(events: readonly AgentSessionEvent[]): TurnBlock[] {
         break;
       case 'tool.updated': {
         const turn = block(event.turnId);
-        const index = turn.tools.findIndex((tool) => tool.toolCallId === event.call.toolCallId);
+        const index = turn.tools.findIndex(
+          (tool) => tool.toolCallId === event.call.toolCallId,
+        );
         if (index >= 0) turn.tools[index] = event.call;
         else turn.tools.push(event.call);
         break;
@@ -86,10 +88,14 @@ function foldTurns(events: readonly AgentSessionEvent[]): TurnBlock[] {
         break;
     }
   }
-  return order.map((id) => byId.get(id)).filter((item): item is TurnBlock => item !== undefined);
+  return order
+    .map((id) => byId.get(id))
+    .filter((item): item is TurnBlock => item !== undefined);
 }
 
-function pendingPermission(events: readonly AgentSessionEvent[]): AgentPermissionRequest | null {
+function pendingPermission(
+  events: readonly AgentSessionEvent[],
+): AgentPermissionRequest | null {
   const resolved = new Set<string>();
   let pending: AgentPermissionRequest | null = null;
   for (const event of events) {
@@ -126,7 +132,8 @@ function configByCategory(
 
 export function ChatPage(): React.JSX.Element {
   const spaces = useSpaces();
-  const activeSpace = spaces.spaces.find((space) => space.sessionId === spaces.activeId) ?? null;
+  const activeSpace =
+    spaces.spaces.find((space) => space.sessionId === spaces.activeId) ?? null;
   const [homeDir, setHomeDir] = useState('');
   const cwd = activeSpace?.folderPath ?? homeDir;
 
@@ -144,8 +151,11 @@ export function ChatPage(): React.JSX.Element {
   sessionIdRef.current = session?.sessionId ?? null;
   const transcriptEnd = useRef<HTMLDivElement>(null);
 
-  const runnable = candidates.filter((candidate) => candidate.available || candidate.configured);
-  const selected = runnable.find((candidate) => candidate.id === agentId) ?? runnable[0] ?? null;
+  const runnable = candidates.filter(
+    (candidate) => candidate.available || candidate.configured,
+  );
+  const selected =
+    runnable.find((candidate) => candidate.id === agentId) ?? runnable[0] ?? null;
   const turns = useMemo(() => foldTurns(events), [events]);
   const permission = useMemo(() => pendingPermission(events), [events]);
   const usage = lastUsage(events);
@@ -187,7 +197,8 @@ export function ChatPage(): React.JSX.Element {
 
   useEffect(() => {
     return window.builderHelm.agents.onEvent((event) => {
-      if (sessionIdRef.current === null || event.sessionId !== sessionIdRef.current) return;
+      if (sessionIdRef.current === null || event.sessionId !== sessionIdRef.current)
+        return;
       setSession((current) => {
         if (current === null || event.sessionId !== current.sessionId) return current;
         if (event.type === 'session.config.updated') {
@@ -244,7 +255,8 @@ export function ChatPage(): React.JSX.Element {
   async function ensureSession(): Promise<AgentSessionState> {
     if (session !== null && session.threadId === activeThreadId) return session;
     if (selected === null) throw new Error('No agent is available on this machine.');
-    if (cwd.length === 0) throw new Error('Open a Space so the agent has a project folder.');
+    if (cwd.length === 0)
+      throw new Error('Open a Space so the agent has a project folder.');
     if (!selected.configured) {
       await window.builderHelm.agents.configure({
         id: selected.id,
@@ -284,7 +296,9 @@ export function ChatPage(): React.JSX.Element {
       await refreshThreads(live.threadId);
     } catch (caught) {
       setDraft(text);
-      setError(caught instanceof Error ? caught.message : 'The message could not be sent.');
+      setError(
+        caught instanceof Error ? caught.message : 'The message could not be sent.',
+      );
     } finally {
       setStreaming(false);
     }
@@ -299,7 +313,9 @@ export function ChatPage(): React.JSX.Element {
     }
   }
 
-  async function answer(decision: AgentPermissionRequest['options'][number]['decision']): Promise<void> {
+  async function answer(
+    decision: AgentPermissionRequest['options'][number]['decision'],
+  ): Promise<void> {
     if (session === null || permission === null) return;
     try {
       await window.builderHelm.agents.respondPermission({
@@ -315,13 +331,22 @@ export function ChatPage(): React.JSX.Element {
   async function applyDiff(path: string, action: 'apply' | 'revert'): Promise<void> {
     if (session === null) return;
     try {
-      await window.builderHelm.agents.applyDiff({ sessionId: session.sessionId, path, action });
+      await window.builderHelm.agents.applyDiff({
+        sessionId: session.sessionId,
+        path,
+        action,
+      });
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'The file could not be updated.');
+      setError(
+        caught instanceof Error ? caught.message : 'The file could not be updated.',
+      );
     }
   }
 
-  async function setOption(option: AgentConfigOption, value: string | boolean): Promise<void> {
+  async function setOption(
+    option: AgentConfigOption,
+    value: string | boolean,
+  ): Promise<void> {
     if (session === null) return;
     try {
       await window.builderHelm.agents.setConfigOption({
@@ -377,7 +402,9 @@ export function ChatPage(): React.JSX.Element {
         <header className="chatHeader">
           <div>
             <p className="eyebrow">
-              {cwd.length === 0 ? 'No project folder' : cwd.split('/').filter(Boolean).at(-1)}
+              {cwd.length === 0
+                ? 'No project folder'
+                : cwd.split('/').filter(Boolean).at(-1)}
             </p>
             <h2>
               {activeThreadId === null
@@ -387,7 +414,12 @@ export function ChatPage(): React.JSX.Element {
                       id: activeThreadId,
                       title: 'Conversation',
                       acpSessionId: null,
-                      agent: { id: 'unknown', label: 'Agent', command: 'agent', args: [] },
+                      agent: {
+                        id: 'unknown',
+                        label: 'Agent',
+                        command: 'agent',
+                        args: [],
+                      },
                       cwd,
                       createdAt: new Date().toISOString(),
                       updatedAt: new Date().toISOString(),
@@ -471,10 +503,16 @@ export function ChatPage(): React.JSX.Element {
         )}
 
         {permission !== null && session !== null && (
-          <div className="permissionBar" role="alertdialog" aria-label="Approve agent action">
+          <div
+            className="permissionBar"
+            role="alertdialog"
+            aria-label="Approve agent action"
+          >
             <p>
               {permission.toolCall.title || permission.toolCall.kind}
-              {permission.toolCall.paths[0] !== undefined ? ` · ${permission.toolCall.paths[0]}` : ''}
+              {permission.toolCall.paths[0] !== undefined
+                ? ` · ${permission.toolCall.paths[0]}`
+                : ''}
             </p>
             <div>
               {permission.options.map((option) => (
@@ -529,7 +567,9 @@ export function ChatPage(): React.JSX.Element {
                     onDiff={applyDiff}
                   />
                 ))}
-                {turn.assistant.length > 0 && <p className="turnCopy">{turn.assistant}</p>}
+                {turn.assistant.length > 0 && (
+                  <p className="turnCopy">{turn.assistant}</p>
+                )}
                 {turn.error !== null && <p className="chatError">{turn.error}</p>}
               </div>
             </article>
@@ -597,14 +637,20 @@ export function ChatPage(): React.JSX.Element {
                 : ''}
             </span>
             {streaming ? (
-              <button className="stopButton" type="button" onClick={() => void stopTurn()}>
+              <button
+                className="stopButton"
+                type="button"
+                onClick={() => void stopTurn()}
+              >
                 Stop
               </button>
             ) : (
               <button
                 className="sendButton"
                 type="submit"
-                disabled={draft.trim().length === 0 || selected === null || cwd.length === 0}
+                disabled={
+                  draft.trim().length === 0 || selected === null || cwd.length === 0
+                }
               >
                 Send
               </button>
@@ -638,7 +684,11 @@ function ToolView({
               <pre>{part.newText.slice(0, 4000)}</pre>
               {canWrite && (
                 <div className="diffActions">
-                  <button type="button" className="sendButton" onClick={() => void onDiff(part.path, 'apply')}>
+                  <button
+                    type="button"
+                    className="sendButton"
+                    onClick={() => void onDiff(part.path, 'apply')}
+                  >
                     Apply
                   </button>
                   <button
@@ -666,4 +716,3 @@ function ToolView({
     </div>
   );
 }
-

@@ -36,9 +36,11 @@ describe('coalesce', () => {
   it('joins consecutive deltas on the same turn', () => {
     const turnId = randomUUID();
     const events = coalesce([], delta(turnId, 'Hel'));
-    expect(coalesce(events, delta(turnId, 'lo')).map((event) => event.type === 'message.delta' ? event.text : '')).toEqual([
-      'Hello',
-    ]);
+    expect(
+      coalesce(events, delta(turnId, 'lo')).map((event) =>
+        event.type === 'message.delta' ? event.text : '',
+      ),
+    ).toEqual(['Hello']);
   });
 
   it('does not join deltas from different turns', () => {
