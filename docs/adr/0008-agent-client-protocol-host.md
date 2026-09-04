@@ -107,4 +107,6 @@ as a product feature. Neither is true today.
 ## Current implementation
 
 - Contract: `packages/protocol/src/agent-session.ts`.
+- Transport, mapping, session, manager, registry, and thread store: `apps/desktop/src/main/acp/`.
+- Chat tab hosts ACP agents. API-key gateway is unchanged and unused by that tab.
 - Verified against `gemini --acp` and `opencode acp` at `protocolVersion: 1`.

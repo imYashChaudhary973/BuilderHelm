@@ -59,6 +59,8 @@ export interface AcpSessionOptions {
   readonly cwd: string;
   readonly emit: AgentEventSink;
   readonly resolvePermission: PermissionResolver;
+  /** Prior ACP session to `session/load`. Null starts a new one. */
+  readonly resumeSessionId?: string | null;
 }
 
 interface PendingPermission {
@@ -83,6 +85,29 @@ function isAuthFailure(message: string): boolean {
     lower.includes('please sign in')
   );
 }
+
+/** Refuses any path that would walk above `cwd`. */
+export function confinePath(cwd: string, candidate: unknown): string {
+  const path = typeof candidate === 'string' ? candidate : '';
+  if (path.length === 0 || !isAbsolute(path)) {
+    throw new BuilderHelmError(
+      'VALIDATION_FAILED',
+      'The agent asked for a relative path.',
+    );
+  }
+  const root = resolve(cwd);
+  const target = resolve(path);
+  const rel = relative(root, target);
+  if (rel.startsWith('..') || isAbsolute(rel)) {
+    throw new BuilderHelmError(
+      'PERMISSION_DENIED',
+      'The agent asked for a file outside this workspace.',
+      { metadata: { path: target } },
+    );
+  }
+  return target;
+}
+
 
 export class AcpSession {
   private readonly connection: AcpConnection;
@@ -151,6 +176,18 @@ export class AcpSession {
     return this.sessionId;
   }
 
+  /** Post-handshake, so the manager can seed mirrored state without re-parsing. */
+  get capabilitySnapshot(): AgentCapabilities {
+    if (this.capabilities === null) {
+      throw new BuilderHelmError('INTERNAL_ERROR', 'The agent session has not started.');
+    }
+    return this.capabilities;
+  }
+
+  get configSnapshot(): readonly AgentConfigOption[] {
+    return this.configOptions;
+  }
+
   private async handshake(): Promise<void> {
     const initialize = await this.connection.request('initialize', {
       protocolVersion: ACP_PROTOCOL_VERSION,
@@ -173,6 +210,39 @@ export class AcpSession {
     this.capabilities = mapCapabilities(initialize);
     this.authMethods = mapAuthMethods(initialize);
 
+    const loaded = await this.openSession();
+    this.sessionId = loaded.sessionId;
+    this.configOptions = loaded.configOptions;
+    this.options.emit({
+      type: 'session.started',
+      sessionId: loaded.sessionId,
+      capabilities: this.capabilities,
+      configOptions: this.configOptions,
+    });
+  }
+
+  private async openSession(): Promise<{
+    sessionId: string;
+    configOptions: readonly AgentConfigOption[];
+  }> {
+    const resumeId = this.options.resumeSessionId;
+    if (
+      resumeId !== undefined &&
+      resumeId !== null &&
+      resumeId.length > 0 &&
+      this.capabilities?.loadSession === true
+    ) {
+      try {
+        const loaded = await this.connection.request('session/load', {
+          sessionId: resumeId,
+        });
+        return { sessionId: resumeId, configOptions: mapConfigOptions(loaded) };
+      } catch {
+        // History is ours. Starting fresh is honest; pretending the agent
+        // remembered would make the next turn look like amnesia in the agent.
+      }
+    }
+
     const created = await this.connection.request('session/new', {
       cwd: this.options.cwd,
       mcpServers: [],
@@ -180,8 +250,6 @@ export class AcpSession {
     const newSessionId = (created as { sessionId?: unknown }).sessionId;
     if (typeof newSessionId !== 'string' || newSessionId.length === 0) {
       await this.connection.close();
-      // An agent that needs sign-in fails here, so the auth methods it
-      // advertised are the useful part of the error.
       const methods = this.authMethods;
       throw new BuilderHelmError(
         'AUTH_FAILED',
@@ -196,21 +264,17 @@ export class AcpSession {
         },
       );
     }
-
-    this.sessionId = newSessionId;
-    this.configOptions = mapConfigOptions(created);
-    this.options.emit({
-      type: 'session.started',
-      sessionId: newSessionId,
-      capabilities: this.capabilities,
-      configOptions: this.configOptions,
-    });
+    return { sessionId: newSessionId, configOptions: mapConfigOptions(created) };
   }
 
-  /** Resolves when the turn ends; progress arrives on the event sink. */
   async prompt(content: readonly AgentContent[]): Promise<void> {
     const turnId = randomUUID();
     this.activeTurnId = turnId;
+    const text = content
+      .filter((part): part is Extract<AgentContent, { type: 'text' }> => part.type === 'text')
+      .map((part) => part.text)
+      .join('');
+    this.options.emit({ type: 'message.user', sessionId: this.id, turnId, text });
     this.options.emit({ type: 'turn.started', sessionId: this.id, turnId });
     try {
       const result = await this.connection.request(
@@ -413,25 +477,8 @@ export class AcpSession {
    * workspace is refused: the grant it was given was this directory, and
    * `..` should not widen it.
    */
-  private confine(candidate: unknown): string {
-    const path = typeof candidate === 'string' ? candidate : '';
-    if (path.length === 0 || !isAbsolute(path)) {
-      throw new BuilderHelmError(
-        'VALIDATION_FAILED',
-        'The agent asked for a relative path.',
-      );
-    }
-    const root = resolve(this.options.cwd);
-    const target = resolve(path);
-    const rel = relative(root, target);
-    if (rel.startsWith('..') || isAbsolute(rel)) {
-      throw new BuilderHelmError(
-        'PERMISSION_DENIED',
-        'The agent asked for a file outside this workspace.',
-        { metadata: { path: target } },
-      );
-    }
-    return target;
+  confine(candidate: unknown): string {
+    return confinePath(this.options.cwd, candidate);
   }
 
   private async onReadFile(params: unknown): Promise<unknown> {

@@ -38,12 +38,17 @@ import type { NoSleepState } from '@builderhelm/protocol/no-sleep';
 import type { AuthState } from '@builderhelm/protocol/auth';
 import { PowerController } from './no-sleep.js';
 import { AuthHandoff } from './auth-handoff.js';
+import { AgentManager } from './acp/manager.js';
+import { PermissionRules } from './acp/permission-rules.js';
+import { AgentRegistry } from './acp/registry.js';
+import { AgentThreads } from './acp/threads.js';
 
 let core: CoreRuntime | undefined;
 let unregisterIpc: (() => void) | undefined;
 let boardPty: BoardPtyManager | undefined;
 let swarmRunner: PtySwarmRunner | undefined;
 let powerController: PowerController | undefined;
+let agentManager: AgentManager | null = null;
 let authHandoff: AuthHandoff | undefined;
 let unsubscribeWork: (() => void) | undefined;
 let voiceHotkeys: VoiceHotkeys | undefined;
@@ -334,6 +339,22 @@ app
     };
     authHandoff = new AuthHandoff(runtime.auth, pushAuth);
     void authHandoff.restore().then(pushAuth);
+
+    // Agent chat. The registry reads and writes settings; the manager owns the
+    // live sessions and needs a way to reach the renderer, since a permission
+    // request has to be answered by a person.
+    const agentRegistry = new AgentRegistry(runtime.settings);
+    agentManager = new AgentManager({
+      emit: (event) => {
+        for (const window of BrowserWindow.getAllWindows()) {
+          if (window.isDestroyed()) continue;
+          window.webContents.send(ipcChannels.agentEvent, event);
+        }
+      },
+      rules: new PermissionRules(runtime.settings),
+      threads: new AgentThreads(runtime.settings),
+      resolveAgent: (agentId) => agentRegistry.resolve(agentId),
+    });
     setExtraTerminalEnv(() => core?.accounts.cliEnv() ?? {});
     const hookClaude = (): void => {
       const script = quotaIngest?.scriptPath();
@@ -379,6 +400,7 @@ app
         syncPower();
       },
       authHandoff,
+      { manager: agentManager, registry: agentRegistry },
     );
     setTimeout(hookClaude, 400);
     installApplicationMenu();
@@ -409,6 +431,10 @@ app.on('before-quit', () => {
   quotaIngest = undefined;
   authHandoff?.close();
   authHandoff = undefined;
+  // Agents are child processes. Not awaited, because before-quit must not
+  // block, but SIGTERM goes out now so they do not outlive the app.
+  void agentManager?.closeAll();
+  agentManager = null;
   unregisterIpc?.();
   unregisterIpc = undefined;
   unsubscribeWork?.();

@@ -241,6 +241,15 @@ import {
   projectRepositorySelectIpcResponseSchema,
 } from '@builderhelm/protocol/projects';
 import { contextBridge, ipcRenderer } from 'electron';
+import {
+  agentCandidatesIpcResponseSchema,
+  agentSessionEventSchema,
+  agentSessionIpcResponseSchema,
+  agentSessionListIpcResponseSchema,
+  agentThreadListIpcResponseSchema,
+  agentTranscriptIpcResponseSchema,
+  agentVoidIpcResponseSchema,
+} from '@builderhelm/protocol';
 
 function unwrap<T>(result: {
   readonly ok: boolean;
@@ -1340,6 +1349,122 @@ const api: BuilderHelmDesktopApi = {
       ipcRenderer.on(ipcChannels.authEvent, handler);
       return () => {
         ipcRenderer.removeListener(ipcChannels.authEvent, handler);
+      };
+    },
+  },
+  agents: {
+    async candidates() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.agentCandidates, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(agentCandidatesIpcResponseSchema.parse(response));
+    },
+    async configure(agent) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.agentConfigure, {
+        correlationId: globalThis.crypto.randomUUID(),
+        agent,
+      });
+      return unwrap(agentVoidIpcResponseSchema.parse(response));
+    },
+    async forget(agentId) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.agentForget, {
+        correlationId: globalThis.crypto.randomUUID(),
+        agentId,
+      });
+      return unwrap(agentVoidIpcResponseSchema.parse(response));
+    },
+    async start(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.agentSessionStart, {
+        correlationId: globalThis.crypto.randomUUID(),
+        agentId: input.agentId,
+        cwd: input.cwd,
+        threadId: input.threadId,
+        resumeSessionId: input.resumeSessionId,
+      });
+      return unwrap(agentSessionIpcResponseSchema.parse(response));
+    },
+    async sessions() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.agentSessionList, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(agentSessionListIpcResponseSchema.parse(response));
+    },
+    async threads() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.agentThreadList, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(agentThreadListIpcResponseSchema.parse(response));
+    },
+    async transcript(threadId) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.agentThreadGet, {
+        correlationId: globalThis.crypto.randomUUID(),
+        threadId,
+      });
+      return unwrap(agentTranscriptIpcResponseSchema.parse(response));
+    },
+    async close(sessionId) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.agentSessionClose, {
+        correlationId: globalThis.crypto.randomUUID(),
+        sessionId,
+      });
+      return unwrap(agentVoidIpcResponseSchema.parse(response));
+    },
+    async prompt(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.agentPrompt, {
+        correlationId: globalThis.crypto.randomUUID(),
+        sessionId: input.sessionId,
+        content: input.content,
+      });
+      return unwrap(agentVoidIpcResponseSchema.parse(response));
+    },
+    async cancel(sessionId) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.agentCancel, {
+        correlationId: globalThis.crypto.randomUUID(),
+        sessionId,
+      });
+      return unwrap(agentVoidIpcResponseSchema.parse(response));
+    },
+    async setConfigOption(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.agentSetConfig, {
+        correlationId: globalThis.crypto.randomUUID(),
+        sessionId: input.sessionId,
+        configId: input.configId,
+        value: input.value,
+      });
+      return unwrap(agentVoidIpcResponseSchema.parse(response));
+    },
+    async respondPermission(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.agentRespondPermission, {
+        correlationId: globalThis.crypto.randomUUID(),
+        sessionId: input.sessionId,
+        response: {
+          requestId: input.requestId,
+          decision: input.decision,
+          optionId: null,
+        },
+      });
+      return unwrap(agentVoidIpcResponseSchema.parse(response));
+    },
+    async applyDiff(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.agentDiff, {
+        correlationId: globalThis.crypto.randomUUID(),
+        sessionId: input.sessionId,
+        path: input.path,
+        action: input.action,
+      });
+      return unwrap(agentVoidIpcResponseSchema.parse(response));
+    },
+    onEvent(listener) {
+      const handler = (_event: unknown, payload: unknown): void => {
+        // Dropping an unparseable event is deliberate: the union grows as ACP
+        // does, and a renderer that throws on an unknown variant would break on
+        // an agent upgrade.
+        const parsed = agentSessionEventSchema.safeParse(payload);
+        if (parsed.success) listener(parsed.data);
+      };
+      ipcRenderer.on(ipcChannels.agentEvent, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcChannels.agentEvent, handler);
       };
     },
   },

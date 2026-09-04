@@ -1,6 +1,6 @@
 # Implementation status
 
-Last reviewed: 2026-09-02.
+Last reviewed: 2026-09-04.
 
 This document distinguishes working code from planned product scope. A feature
 is not shipped merely because a route, mock, fixture, or documentation page exists.
@@ -12,6 +12,10 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
 - SQLite migrations and repositories.
 - Keychain-backed provider settings.
 - Provider-independent model gateway and canonical chat history.
+- Chat tab hosts installed ACP agents (Gemini, OpenCode, Grok, Claude ACP,
+  Codex ACP, or any configured command). Threads persist locally. Permission
+  rules are remembered per workspace. The tab has not been clicked live in a
+  packaged build.
 - Permissioned actions, approvals, and receipts.
 - Project dashboard and Git continuity.
 - Space setup with real xterm.js terminals backed by node-pty.

@@ -16,6 +16,8 @@
 import type { CorrelationId } from '@builderhelm/shared';
 import { z } from 'zod';
 
+import { modelErrorSchema } from './model.js';
+
 const correlationIdSchema = z
   .string()
   .uuid()
@@ -346,6 +348,14 @@ export const agentSessionEventSchema = z.discriminatedUnion('type', [
     .strict(),
   z
     .object({
+      type: z.literal('message.user'),
+      sessionId: agentSessionIdSchema,
+      turnId: agentTurnIdSchema,
+      text: z.string(),
+    })
+    .strict(),
+  z
+    .object({
       type: z.literal('message.delta'),
       sessionId: agentSessionIdSchema,
       turnId: agentTurnIdSchema,
@@ -431,8 +441,10 @@ export const agentSessionStartInputSchema = z
     agentId: z.string().min(1).max(64),
     /** Absolute, and the session root regardless of where the process starts. */
     cwd: z.string().min(1).max(4096),
-    /** Reattach to a prior session; requires `loadSession` or `resumeSession`. */
+    /** Reattach to a prior ACP session; requires `loadSession` or `resumeSession`. */
     resumeSessionId: agentSessionIdSchema.nullable(),
+    /** Our thread, so a restart reopens history even when the agent cannot. */
+    threadId: z.string().uuid().nullable(),
   })
   .strict();
 export type AgentSessionStartInput = z.infer<typeof agentSessionStartInputSchema>;
@@ -479,6 +491,8 @@ export type AgentCancelInput = z.infer<typeof agentCancelInputSchema>;
 export const agentSessionStateSchema = z
   .object({
     sessionId: agentSessionIdSchema,
+    /** Canonical thread this session is writing. Survives the process. */
+    threadId: z.string().uuid(),
     agent: agentDescriptorSchema,
     cwd: z.string().min(1).max(4096),
     capabilities: agentCapabilitiesSchema,
@@ -489,3 +503,98 @@ export const agentSessionStateSchema = z
   })
   .strict();
 export type AgentSessionState = z.infer<typeof agentSessionStateSchema>;
+
+/** A known or configured agent, and whether this machine can run it. */
+export const agentCandidateSchema = z
+  .object({
+    id: z.string().min(1).max(64),
+    label: z.string().min(1).max(80),
+    command: z.string().min(1).max(4096),
+    args: z.array(z.string().max(4096)).max(64).readonly(),
+    available: z.boolean(),
+    path: z.string().max(4096).nullable(),
+    /** False while it is only an offer BuilderHelm found on PATH. */
+    configured: z.boolean(),
+  })
+  .strict();
+export type AgentCandidate = z.infer<typeof agentCandidateSchema>;
+
+export const agentListInputSchema = z
+  .object({ correlationId: correlationIdSchema })
+  .strict();
+export type AgentListInput = z.infer<typeof agentListInputSchema>;
+
+export const agentConfigureInputSchema = z
+  .object({
+    correlationId: correlationIdSchema,
+    agent: agentDescriptorSchema,
+  })
+  .strict();
+export type AgentConfigureInput = z.infer<typeof agentConfigureInputSchema>;
+
+export const agentForgetInputSchema = z
+  .object({
+    correlationId: correlationIdSchema,
+    agentId: z.string().min(1).max(64),
+  })
+  .strict();
+export type AgentForgetInput = z.infer<typeof agentForgetInputSchema>;
+
+function ipcResult<T extends z.ZodType>(value: T) {
+  return z.discriminatedUnion('ok', [
+    z.object({ ok: z.literal(true), value }).strict(),
+    z.object({ ok: z.literal(false), error: modelErrorSchema }).strict(),
+  ]);
+}
+
+export const agentCandidatesIpcResponseSchema = ipcResult(
+  z.array(agentCandidateSchema).readonly(),
+);
+export const agentSessionIpcResponseSchema = ipcResult(agentSessionStateSchema);
+export const agentSessionListIpcResponseSchema = ipcResult(
+  z.array(agentSessionStateSchema).readonly(),
+);
+export const agentVoidIpcResponseSchema = ipcResult(z.null());
+
+/** BuilderHelm-owned history. The ACP session id on it is continuation metadata. */
+export const agentThreadSchema = z
+  .object({
+    id: z.string().uuid(),
+    acpSessionId: agentSessionIdSchema.nullable(),
+    agent: agentDescriptorSchema,
+    cwd: z.string().min(1).max(4096),
+    title: z.string().min(1).max(200).nullable(),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
+export type AgentThread = z.infer<typeof agentThreadSchema>;
+
+export const agentThreadGetInputSchema = z
+  .object({
+    correlationId: correlationIdSchema,
+    threadId: z.string().uuid(),
+  })
+  .strict();
+
+export const agentTranscriptSchema = z
+  .object({
+    thread: agentThreadSchema,
+    events: z.array(agentSessionEventSchema).max(50_000).readonly(),
+  })
+  .strict();
+export type AgentTranscript = z.infer<typeof agentTranscriptSchema>;
+
+export const agentDiffInputSchema = z
+  .object({
+    correlationId: correlationIdSchema,
+    sessionId: agentSessionIdSchema,
+    path: z.string().min(1).max(4096),
+    action: z.enum(['apply', 'revert']),
+  })
+  .strict();
+
+export const agentThreadListIpcResponseSchema = ipcResult(
+  z.array(agentThreadSchema).readonly(),
+);
+export const agentTranscriptIpcResponseSchema = ipcResult(agentTranscriptSchema);

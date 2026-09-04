@@ -1,134 +1,184 @@
-import { Link } from '@tanstack/react-router';
 import type {
-  ChatClientStreamEvent,
-  ChatThread,
-  ChatTranscript,
-  ChatTurn,
-} from '@builderhelm/protocol/chat';
-import type { ModelRecord, TokenUsage } from '@builderhelm/protocol/model';
+  AgentCandidate,
+  AgentConfigOption,
+  AgentPermissionRequest,
+  AgentSessionEvent,
+  AgentSessionState,
+  AgentThread,
+  AgentToolCall,
+  AgentUsage,
+} from '@builderhelm/protocol';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-function threadTitle(thread: ChatThread): string {
-  return thread.title ?? 'Untitled thread';
-}
+import { useSpaces } from '../space-store.js';
 
 function shortTime(timestamp: string): string {
   return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
   }).format(new Date(timestamp));
 }
 
-function turnText(turn: ChatTurn): string {
-  return turn.content
-    .filter((part) => part.type === 'text')
-    .map((part) => part.text)
-    .join('');
+function threadTitle(thread: AgentThread): string {
+  return thread.title ?? 'Untitled thread';
 }
 
-function toolNames(turn: ChatTurn): string[] {
-  return turn.content
-    .filter((part) => part.type === 'tool_call')
-    .map((part) => part.call.name);
+interface TurnBlock {
+  readonly turnId: string;
+  user: string;
+  assistant: string;
+  thought: string;
+  tools: AgentToolCall[];
+  plan: string[];
+  error: string | null;
+  streaming: boolean;
 }
 
-function firstLine(value: string): string {
-  const line = value.trim().split('\n')[0] ?? '';
-  return line.length <= 64 ? line : `${line.slice(0, 61)}…`;
+function foldTurns(events: readonly AgentSessionEvent[]): TurnBlock[] {
+  const byId = new Map<string, TurnBlock>();
+  const order: string[] = [];
+  function block(turnId: string): TurnBlock {
+    const existing = byId.get(turnId);
+    if (existing !== undefined) return existing;
+    const created: TurnBlock = {
+      turnId,
+      user: '',
+      assistant: '',
+      thought: '',
+      tools: [],
+      plan: [],
+      error: null,
+      streaming: true,
+    };
+    byId.set(turnId, created);
+    order.push(turnId);
+    return created;
+  }
+  for (const event of events) {
+    switch (event.type) {
+      case 'message.user':
+        block(event.turnId).user += event.text;
+        break;
+      case 'message.delta':
+        block(event.turnId).assistant += event.text;
+        break;
+      case 'thought.delta':
+        block(event.turnId).thought += event.text;
+        break;
+      case 'tool.updated': {
+        const turn = block(event.turnId);
+        const index = turn.tools.findIndex((tool) => tool.toolCallId === event.call.toolCallId);
+        if (index >= 0) turn.tools[index] = event.call;
+        else turn.tools.push(event.call);
+        break;
+      }
+      case 'plan.updated':
+        block(event.turnId).plan = event.entries.map((entry) => entry.content);
+        break;
+      case 'turn.completed':
+        block(event.turnId).streaming = false;
+        break;
+      case 'turn.failed':
+        block(event.turnId).streaming = false;
+        block(event.turnId).error = event.message;
+        break;
+      default:
+        break;
+    }
+  }
+  return order.map((id) => byId.get(id)).filter((item): item is TurnBlock => item !== undefined);
 }
 
-interface TurnViewProps {
-  readonly turn: ChatTurn;
-  readonly modelLabel: string | null;
-  readonly usage: TokenUsage | null;
+function pendingPermission(events: readonly AgentSessionEvent[]): AgentPermissionRequest | null {
+  const resolved = new Set<string>();
+  let pending: AgentPermissionRequest | null = null;
+  for (const event of events) {
+    if (event.type === 'permission.resolved') resolved.add(event.requestId);
+    if (event.type === 'permission.requested' && !resolved.has(event.request.requestId)) {
+      pending = event.request;
+    }
+  }
+  return pending;
 }
 
-function TurnView({ turn, modelLabel, usage }: TurnViewProps): React.JSX.Element {
-  const text = turnText(turn);
-  const tools = toolNames(turn);
-  const label = turn.role === 'assistant' ? (modelLabel ?? 'Assistant') : turn.role;
+function lastUsage(events: readonly AgentSessionEvent[]): AgentUsage | null {
+  for (let i = events.length - 1; i >= 0; i -= 1) {
+    const event = events[i];
+    if (event?.type === 'usage.updated') return event.usage;
+  }
+  return null;
+}
 
-  return (
-    <article className={`chatTurn chatTurn-${turn.role}`} data-turn-role={turn.role}>
-      <div className="turnRail" aria-hidden="true">
-        <span />
-      </div>
-      <div className="turnBody">
-        <div className="turnMeta">
-          <span>{label}</span>
-          <time dateTime={turn.createdAt}>{shortTime(turn.createdAt)}</time>
-          {turn.finishReason !== null && turn.finishReason !== 'stop' && (
-            <span className="finishTag">{turn.finishReason.replace('_', ' ')}</span>
-          )}
-        </div>
-        {text.length > 0 && <p className="turnCopy">{text}</p>}
-        {tools.length > 0 && (
-          <p className="toolSummary">Requested tool: {tools.join(', ')}</p>
-        )}
-        {usage !== null && (
-          <p className="usageLine">
-            {usage.inputTokens.toLocaleString()} in ·{' '}
-            {usage.outputTokens.toLocaleString()} out
-          </p>
-        )}
-      </div>
-    </article>
-  );
+function lastAuth(events: readonly AgentSessionEvent[]): AgentSessionEvent | null {
+  for (let i = events.length - 1; i >= 0; i -= 1) {
+    const event = events[i];
+    if (event?.type === 'session.auth.required') return event;
+  }
+  return null;
+}
+
+function configByCategory(
+  options: readonly AgentConfigOption[],
+  category: AgentConfigOption['category'],
+): AgentConfigOption[] {
+  return options.filter((option) => option.category === category);
 }
 
 export function ChatPage(): React.JSX.Element {
-  const [threads, setThreads] = useState<ChatThread[]>([]);
-  const [models, setModels] = useState<ModelRecord[]>([]);
+  const spaces = useSpaces();
+  const activeSpace = spaces.spaces.find((space) => space.sessionId === spaces.activeId) ?? null;
+  const [homeDir, setHomeDir] = useState('');
+  const cwd = activeSpace?.folderPath ?? homeDir;
+
+  const [candidates, setCandidates] = useState<readonly AgentCandidate[]>([]);
+  const [threads, setThreads] = useState<readonly AgentThread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
-  const [transcript, setTranscript] = useState<ChatTranscript | null>(null);
-  const [selectedModelRef, setSelectedModelRef] = useState('');
+  const [events, setEvents] = useState<AgentSessionEvent[]>([]);
+  const [session, setSession] = useState<AgentSessionState | null>(null);
+  const [agentId, setAgentId] = useState('');
   const [draft, setDraft] = useState('');
-  const [pendingUserText, setPendingUserText] = useState<string | null>(null);
-  const [streamText, setStreamText] = useState('');
-  const [streamReasoning, setStreamReasoning] = useState('');
-  const [streamUsage, setStreamUsage] = useState<TokenUsage | null>(null);
-  const [runId, setRunId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [streaming, setStreaming] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  sessionIdRef.current = session?.sessionId ?? null;
   const transcriptEnd = useRef<HTMLDivElement>(null);
 
-  const modelByRef = useMemo(
-    () => new Map(models.map((model) => [model.ref, model])),
-    [models],
-  );
-  const usageByTurn = useMemo(
-    () => new Map(transcript?.usage.map((record) => [record.turnId, record.usage]) ?? []),
-    [transcript],
-  );
-  const activeThread = threads.find((thread) => thread.id === activeThreadId) ?? null;
+  const runnable = candidates.filter((candidate) => candidate.available || candidate.configured);
+  const selected = runnable.find((candidate) => candidate.id === agentId) ?? runnable[0] ?? null;
+  const turns = useMemo(() => foldTurns(events), [events]);
+  const permission = useMemo(() => pendingPermission(events), [events]);
+  const usage = lastUsage(events);
+  const auth = session?.auth === 'required' ? lastAuth(events) : null;
+  const modelOptions = configByCategory(session?.configOptions ?? [], 'model');
+  const thoughtOptions = configByCategory(session?.configOptions ?? [], 'thought-level');
 
   useEffect(() => {
     let active = true;
-    void Promise.all([window.builderHelm.chat.list(), window.builderHelm.models.list({})])
-      .then(async ([storedThreads, storedModels]) => {
+    void Promise.all([
+      window.builderHelm.agents.candidates(),
+      window.builderHelm.agents.threads(),
+      window.builderHelm.board.homeDir().catch(() => ''),
+    ])
+      .then(([nextCandidates, nextThreads, home]) => {
         if (!active) return;
-        setThreads(storedThreads);
-        setModels(storedModels.filter((model) => model.capabilities.streaming));
-        setSelectedModelRef(
-          (current) =>
-            current ||
-            storedModels.find((model) => model.capabilities.streaming)?.ref ||
-            '',
-        );
-        const first = storedThreads[0];
+        setCandidates(nextCandidates);
+        setThreads(nextThreads);
+        setHomeDir(home);
+        const firstRunnable =
+          nextCandidates.find((candidate) => candidate.configured) ??
+          nextCandidates.find((candidate) => candidate.available);
+        if (firstRunnable !== undefined) setAgentId(firstRunnable.id);
+        const first = nextThreads[0];
         if (first !== undefined) {
           setActiveThreadId(first.id);
-          setTranscript(await window.builderHelm.chat.get({ threadId: first.id }));
+          return window.builderHelm.agents.transcript(first.id).then((stored) => {
+            if (active) setEvents([...stored.events]);
+          });
         }
+        return undefined;
       })
-      .catch(
-        () =>
-          active &&
-          setError('Chat history is unavailable. Restart BuilderHelm and try again.'),
-      )
+      .catch(() => active && setError('Agent chat could not be loaded.'))
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
@@ -136,25 +186,47 @@ export function ChatPage(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
-    transcriptEnd.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [transcript, pendingUserText, streamText]);
+    return window.builderHelm.agents.onEvent((event) => {
+      if (sessionIdRef.current === null || event.sessionId !== sessionIdRef.current) return;
+      setSession((current) => {
+        if (current === null || event.sessionId !== current.sessionId) return current;
+        if (event.type === 'session.config.updated') {
+          return { ...current, configOptions: event.configOptions };
+        }
+        if (event.type === 'session.auth.required') {
+          return { ...current, auth: 'required' };
+        }
+        if (event.type === 'turn.started') {
+          return { ...current, activeTurnId: event.turnId };
+        }
+        if (event.type === 'turn.completed' || event.type === 'turn.failed') {
+          return { ...current, activeTurnId: null };
+        }
+        if (event.type === 'session.exited') return null;
+        return current;
+      });
+      setEvents((current) => [...current, event]);
+    });
+  }, []);
 
-  async function refresh(threadId: string): Promise<void> {
-    const [nextThreads, nextTranscript] = await Promise.all([
-      window.builderHelm.chat.list(),
-      window.builderHelm.chat.get({ threadId }),
-    ]);
-    setThreads(nextThreads);
-    setTranscript(nextTranscript);
-    setActiveThreadId(threadId);
+  useEffect(() => {
+    transcriptEnd.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [events, streaming]);
+
+  async function refreshThreads(selectId?: string): Promise<void> {
+    const next = await window.builderHelm.agents.threads();
+    setThreads(next);
+    if (selectId !== undefined) setActiveThreadId(selectId);
   }
 
   async function selectThread(threadId: string): Promise<void> {
     if (streaming || threadId === activeThreadId) return;
     setError(null);
     setActiveThreadId(threadId);
+    setSession(null);
     try {
-      setTranscript(await window.builderHelm.chat.get({ threadId }));
+      const stored = await window.builderHelm.agents.transcript(threadId);
+      setEvents([...stored.events]);
     } catch {
       setError('This conversation could not be loaded.');
     }
@@ -163,91 +235,102 @@ export function ChatPage(): React.JSX.Element {
   function beginNewThread(): void {
     if (streaming) return;
     setActiveThreadId(null);
-    setTranscript(null);
+    setSession(null);
+    setEvents([]);
     setDraft('');
     setError(null);
   }
 
-  async function handleTerminal(
-    threadId: string,
-    event: Extract<ChatClientStreamEvent, { type: 'done' | 'error' }>,
-  ): Promise<void> {
-    setStreaming(false);
-    setRunId(null);
-    setPendingUserText(null);
-    if (event.type === 'error') setError(event.error.message);
-    try {
-      await refresh(threadId);
-    } catch {
-      setError(
-        'The response finished, but the saved conversation could not be reloaded.',
-      );
-    } finally {
-      setStreamText('');
-      setStreamReasoning('');
-      setStreamUsage(null);
+  async function ensureSession(): Promise<AgentSessionState> {
+    if (session !== null && session.threadId === activeThreadId) return session;
+    if (selected === null) throw new Error('No agent is available on this machine.');
+    if (cwd.length === 0) throw new Error('Open a Space so the agent has a project folder.');
+    if (!selected.configured) {
+      await window.builderHelm.agents.configure({
+        id: selected.id,
+        label: selected.label,
+        command: selected.command,
+        args: selected.args,
+      });
     }
+    const thread = threads.find((item) => item.id === activeThreadId) ?? null;
+    const started = await window.builderHelm.agents.start({
+      agentId: selected.id,
+      cwd,
+      threadId: activeThreadId,
+      resumeSessionId: thread?.acpSessionId ?? null,
+    });
+    sessionIdRef.current = started.sessionId;
+    setSession(started);
+    setActiveThreadId(started.threadId);
+    const stored = await window.builderHelm.agents.transcript(started.threadId);
+    setEvents([...stored.events]);
+    await refreshThreads(started.threadId);
+    return started;
   }
 
   async function sendMessage(): Promise<void> {
     const text = draft.trim();
     if (text.length === 0 || streaming) return;
-    if (selectedModelRef.length === 0) {
-      setError('Discover a streaming model in Settings before starting a conversation.');
-      return;
-    }
-
     setError(null);
-    let threadId = activeThreadId;
+    setDraft('');
+    setStreaming(true);
     try {
-      if (threadId === null) {
-        const created = await window.builderHelm.chat.create({ title: firstLine(text) });
-        threadId = created.id;
-        setActiveThreadId(created.id);
-        setThreads((current) => [created, ...current]);
-      }
-      const targetThreadId = threadId;
-      let terminal = false;
-      setDraft('');
-      setPendingUserText(text);
-      setStreamText('');
-      setStreamReasoning('');
-      setStreamUsage(null);
-      setStreaming(true);
-
-      const started = await window.builderHelm.chat.startStream(
-        { threadId: targetThreadId, modelRef: selectedModelRef, text },
-        (event) => {
-          if (event.type === 'text.delta')
-            setStreamText((current) => current + event.text);
-          if (event.type === 'reasoning.summary')
-            setStreamReasoning((current) => current + event.text);
-          if (event.type === 'usage') setStreamUsage(event.usage);
-          if (event.type === 'done' || event.type === 'error') {
-            terminal = true;
-            void handleTerminal(targetThreadId, event);
-          }
-        },
-      );
-      if (!terminal) setRunId(started.runId);
-    } catch {
-      setStreaming(false);
-      setRunId(null);
-      setPendingUserText(null);
-      setStreamText('');
+      const live = await ensureSession();
+      await window.builderHelm.agents.prompt({
+        sessionId: live.sessionId,
+        content: [{ type: 'text', text }],
+      });
+      await refreshThreads(live.threadId);
+    } catch (caught) {
       setDraft(text);
-      setError(
-        'The message could not be started. Check the selected model and provider.',
-      );
+      setError(caught instanceof Error ? caught.message : 'The message could not be sent.');
+    } finally {
+      setStreaming(false);
     }
   }
 
-  async function stopStream(): Promise<void> {
-    if (runId === null) return;
+  async function stopTurn(): Promise<void> {
+    if (session === null) return;
     try {
-      await window.builderHelm.chat.cancelStream({ runId });
+      await window.builderHelm.agents.cancel(session.sessionId);
     } catch {
-      setError('The running response could not be stopped.');
+      setError('The running turn could not be stopped.');
+    }
+  }
+
+  async function answer(decision: AgentPermissionRequest['options'][number]['decision']): Promise<void> {
+    if (session === null || permission === null) return;
+    try {
+      await window.builderHelm.agents.respondPermission({
+        sessionId: session.sessionId,
+        requestId: permission.requestId,
+        decision,
+      });
+    } catch {
+      setError('The approval could not be sent.');
+    }
+  }
+
+  async function applyDiff(path: string, action: 'apply' | 'revert'): Promise<void> {
+    if (session === null) return;
+    try {
+      await window.builderHelm.agents.applyDiff({ sessionId: session.sessionId, path, action });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'The file could not be updated.');
+    }
+  }
+
+  async function setOption(option: AgentConfigOption, value: string | boolean): Promise<void> {
+    if (session === null) return;
+    try {
+      await window.builderHelm.agents.setConfigOption({
+        sessionId: session.sessionId,
+        configId: option.id,
+        value,
+      });
+    } catch {
+      setError('That setting could not be changed.');
     }
   }
 
@@ -287,32 +370,88 @@ export function ChatPage(): React.JSX.Element {
             </button>
           ))}
         </div>
-        <p className="threadPrivacy">Canonical history · local SQLite</p>
+        <p className="threadPrivacy">Owned here · billed by the agent you run</p>
       </aside>
 
       <section className="conversationPanel" aria-label="Chat conversation">
         <header className="chatHeader">
           <div>
-            <p className="eyebrow">Provider-independent thread</p>
+            <p className="eyebrow">
+              {cwd.length === 0 ? 'No project folder' : cwd.split('/').filter(Boolean).at(-1)}
+            </p>
             <h2>
-              {activeThread === null ? 'New conversation' : threadTitle(activeThread)}
+              {activeThreadId === null
+                ? 'New conversation'
+                : threadTitle(
+                    threads.find((thread) => thread.id === activeThreadId) ?? {
+                      id: activeThreadId,
+                      title: 'Conversation',
+                      acpSessionId: null,
+                      agent: { id: 'unknown', label: 'Agent', command: 'agent', args: [] },
+                      cwd,
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    },
+                  )}
             </h2>
           </div>
           <label className="modelPicker">
-            <span>Model for next turn</span>
+            <span>Agent</span>
             <select
-              value={selectedModelRef}
-              disabled={streaming || models.length === 0}
-              onChange={(event) => setSelectedModelRef(event.target.value)}
+              value={selected?.id ?? ''}
+              disabled={streaming || runnable.length === 0}
+              onChange={(event) => setAgentId(event.target.value)}
             >
-              {models.length === 0 && <option value="">No discovered models</option>}
-              {models.map((model) => (
-                <option value={model.ref} key={model.ref}>
-                  {model.label}
+              {runnable.length === 0 && <option value="">No agent on PATH</option>}
+              {runnable.map((candidate) => (
+                <option value={candidate.id} key={candidate.id}>
+                  {candidate.label}
+                  {candidate.configured ? '' : ' · offered'}
                 </option>
               ))}
             </select>
           </label>
+          {modelOptions.map((option) => (
+            <label className="modelPicker" key={option.id}>
+              <span>{option.label}</span>
+              <select
+                value={String(option.value)}
+                disabled={streaming}
+                onChange={(event) => void setOption(option, event.target.value)}
+              >
+                {option.choices.map((choice) => (
+                  <option value={choice.value} key={choice.value}>
+                    {choice.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+          {thoughtOptions.map((option) => (
+            <label className="modelPicker" key={option.id}>
+              <span>{option.label}</span>
+              {option.choices.length === 0 ? (
+                <input
+                  type="checkbox"
+                  checked={option.value === true}
+                  disabled={streaming}
+                  onChange={(event) => void setOption(option, event.target.checked)}
+                />
+              ) : (
+                <select
+                  value={String(option.value)}
+                  disabled={streaming}
+                  onChange={(event) => void setOption(option, event.target.value)}
+                >
+                  {option.choices.map((choice) => (
+                    <option value={choice.value} key={choice.value}>
+                      {choice.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </label>
+          ))}
         </header>
 
         {error !== null && (
@@ -321,80 +460,97 @@ export function ChatPage(): React.JSX.Element {
           </p>
         )}
 
+        {auth !== null && auth.type === 'session.auth.required' && (
+          <p className="chatError" role="status">
+            {selected?.label ?? 'This agent'} needs you to sign in with its own flow
+            {auth.methods.length > 0
+              ? `: ${auth.methods.map((method) => method.label).join(', ')}`
+              : ''}
+            . BuilderHelm never handles that credential.
+          </p>
+        )}
+
+        {permission !== null && session !== null && (
+          <div className="permissionBar" role="alertdialog" aria-label="Approve agent action">
+            <p>
+              {permission.toolCall.title || permission.toolCall.kind}
+              {permission.toolCall.paths[0] !== undefined ? ` · ${permission.toolCall.paths[0]}` : ''}
+            </p>
+            <div>
+              {permission.options.map((option) => (
+                <button
+                  type="button"
+                  key={option.optionId}
+                  className={
+                    option.decision.startsWith('allow') ? 'sendButton' : 'stopButton'
+                  }
+                  onClick={() => void answer(option.decision)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="transcript" aria-live="polite" aria-busy={streaming}>
-          {transcript?.turns.map((turn) => (
-            <TurnView
-              turn={turn}
-              modelLabel={
-                turn.modelRef === null
-                  ? null
-                  : (modelByRef.get(turn.modelRef)?.label ??
-                    turn.modelRef.split(':').at(-1) ??
-                    null)
-              }
-              usage={usageByTurn.get(turn.id) ?? null}
-              key={turn.id}
-            />
+          {turns.map((turn) => (
+            <article
+              className={`chatTurn ${turn.user.length > 0 ? 'chatTurn-user' : ''} ${turn.streaming ? 'chatTurn-streaming' : 'chatTurn-assistant'}`}
+              key={turn.turnId}
+            >
+              <div className="turnRail" aria-hidden="true">
+                <span />
+              </div>
+              <div className="turnBody">
+                {turn.user.length > 0 && (
+                  <>
+                    <div className="turnMeta">
+                      <span>you</span>
+                    </div>
+                    <p className="turnCopy">{turn.user}</p>
+                  </>
+                )}
+                {turn.thought.length > 0 && (
+                  <p className="thinkingLine">{turn.thought}</p>
+                )}
+                {turn.plan.length > 0 && (
+                  <ol className="planList">
+                    {turn.plan.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ol>
+                )}
+                {turn.tools.map((tool) => (
+                  <ToolView
+                    key={tool.toolCallId}
+                    call={tool}
+                    canWrite={session !== null}
+                    onDiff={applyDiff}
+                  />
+                ))}
+                {turn.assistant.length > 0 && <p className="turnCopy">{turn.assistant}</p>}
+                {turn.error !== null && <p className="chatError">{turn.error}</p>}
+              </div>
+            </article>
           ))}
-          {pendingUserText !== null && (
-            <article className="chatTurn chatTurn-user chatTurn-pending">
-              <div className="turnRail" aria-hidden="true">
-                <span />
-              </div>
-              <div className="turnBody">
-                <div className="turnMeta">
-                  <span>user</span>
-                  <span>sending</span>
-                </div>
-                <p className="turnCopy">{pendingUserText}</p>
-              </div>
-            </article>
+          {!loading && turns.length === 0 && (
+            <div className="chatWelcome">
+              <span className="welcomeMark">0</span>
+              <p className="eyebrow">Your agents. You at the helm.</p>
+              <h3>Talk to an agent you already have installed.</h3>
+              <p>
+                BuilderHelm hosts the session. The agent owns sign-in, models, and
+                billing. Nothing here is an API key.
+              </p>
+            </div>
           )}
-          {streaming && (
-            <article className="chatTurn chatTurn-assistant chatTurn-streaming">
-              <div className="turnRail" aria-hidden="true">
-                <span />
-              </div>
-              <div className="turnBody">
-                <div className="turnMeta">
-                  <span>{modelByRef.get(selectedModelRef)?.label ?? 'Assistant'}</span>
-                  <span className="streamState">streaming</span>
-                </div>
-                {streamText.length > 0 ? (
-                  <p className="turnCopy">{streamText}</p>
-                ) : (
-                  <p className="thinkingLine">
-                    {streamReasoning.length > 0
-                      ? 'Reasoning…'
-                      : 'Waiting for first token…'}
-                  </p>
-                )}
-                {streamUsage !== null && (
-                  <p className="usageLine">
-                    {streamUsage.inputTokens.toLocaleString()} in ·{' '}
-                    {streamUsage.outputTokens.toLocaleString()} out
-                  </p>
-                )}
-              </div>
-            </article>
-          )}
-          {!loading &&
-            (transcript?.turns.length ?? 0) === 0 &&
-            pendingUserText === null && (
-              <div className="chatWelcome">
-                <span className="welcomeMark">0</span>
-                <p className="eyebrow">Private working thread</p>
-                <h3>Ask once. Change models whenever the work changes.</h3>
-                <p>
-                  Every answer records its model and usage while the conversation remains
-                  owned by BuilderHelm.
-                </p>
-              </div>
-            )}
-          {!loading && models.length === 0 && (
+          {!loading && runnable.length === 0 && (
             <div className="modelEmpty">
-              <p>No streaming model is ready. Add a provider in Voice settings first.</p>
-              <Link to="/settings/voice">Open Voice settings</Link>
+              <p>
+                No ACP agent was found on PATH. Install Gemini, OpenCode, Grok, Claude
+                ACP, or Codex ACP yourself — BuilderHelm will not do it.
+              </p>
             </div>
           )}
           <div ref={transcriptEnd} />
@@ -413,13 +569,15 @@ export function ChatPage(): React.JSX.Element {
           <textarea
             id="chat-message"
             value={draft}
-            disabled={streaming || models.length === 0}
+            disabled={streaming || runnable.length === 0 || cwd.length === 0}
             maxLength={100_000}
             rows={3}
             placeholder={
-              models.length === 0
-                ? 'Discover a model in Settings to begin'
-                : 'Ask BuilderHelm anything…'
+              runnable.length === 0
+                ? 'Install an ACP agent to begin'
+                : cwd.length === 0
+                  ? 'Open a Space so the agent has a folder'
+                  : 'Ask the agent…'
             }
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
@@ -430,21 +588,23 @@ export function ChatPage(): React.JSX.Element {
             }}
           />
           <div className="composerFooter">
-            <span>Enter to send · Shift+Enter for a new line</span>
+            <span>
+              {usage !== null && usage.usedTokens !== null
+                ? `${usage.usedTokens.toLocaleString()} tokens`
+                : 'Enter to send · Shift+Enter for a new line'}
+              {usage?.contextWindow !== null && usage !== null
+                ? ` · ${usage.contextWindow.toLocaleString()} window`
+                : ''}
+            </span>
             {streaming ? (
-              <button
-                className="stopButton"
-                type="button"
-                disabled={runId === null}
-                onClick={() => void stopStream()}
-              >
+              <button className="stopButton" type="button" onClick={() => void stopTurn()}>
                 Stop
               </button>
             ) : (
               <button
                 className="sendButton"
                 type="submit"
-                disabled={draft.trim().length === 0 || selectedModelRef.length === 0}
+                disabled={draft.trim().length === 0 || selected === null || cwd.length === 0}
               >
                 Send
               </button>
@@ -455,3 +615,55 @@ export function ChatPage(): React.JSX.Element {
     </div>
   );
 }
+
+function ToolView({
+  call,
+  canWrite,
+  onDiff,
+}: {
+  readonly call: AgentToolCall;
+  readonly canWrite: boolean;
+  readonly onDiff: (path: string, action: 'apply' | 'revert') => Promise<void>;
+}): React.JSX.Element {
+  return (
+    <div className="toolCall">
+      <div className="turnMeta">
+        <span>{call.title || call.kind}</span>
+        <span>{call.status}</span>
+      </div>
+      {call.content.map((part, index) => {
+        if (part.type === 'diff') {
+          return (
+            <div className="diffBlock" key={`${part.path}-${index}`}>
+              <pre>{part.newText.slice(0, 4000)}</pre>
+              {canWrite && (
+                <div className="diffActions">
+                  <button type="button" className="sendButton" onClick={() => void onDiff(part.path, 'apply')}>
+                    Apply
+                  </button>
+                  <button
+                    type="button"
+                    className="stopButton"
+                    disabled={part.oldText === null}
+                    onClick={() => void onDiff(part.path, 'revert')}
+                  >
+                    Revert
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        }
+        if (part.type === 'content' && part.content.type === 'text') {
+          return (
+            <p className="turnCopy" key={index}>
+              {part.content.text}
+            </p>
+          );
+        }
+        return null;
+      })}
+    </div>
+  );
+}
+

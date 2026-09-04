@@ -3070,6 +3070,48 @@ fieldset legend {
   color: var(--text-3);
 }
 
+
+.permissionBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 18px;
+  padding: 10px 12px;
+  border: 1px solid var(--accent-line);
+  background: var(--glass-strong);
+}
+
+.permissionBar > div {
+  display: flex;
+  gap: 8px;
+}
+
+.toolCall {
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+}
+
+.diffBlock pre {
+  margin: 8px 0;
+  max-height: 240px;
+  overflow: auto;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+.diffActions {
+  display: flex;
+  gap: 8px;
+}
+
+.planList {
+  margin: 8px 0 8px 18px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
 /* ---------- MEMORY ---------- */
 
 .memoryPage {

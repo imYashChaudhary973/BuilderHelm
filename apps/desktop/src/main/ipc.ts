@@ -29,7 +29,27 @@ import {
   authReadRequestSchema,
   authSignOutRequestSchema,
 } from '@builderhelm/protocol/auth';
+import {
+  agentCancelInputSchema,
+  agentCandidatesIpcResponseSchema,
+  agentConfigureInputSchema,
+  agentDiffInputSchema,
+  agentForgetInputSchema,
+  agentListInputSchema,
+  agentPromptInputSchema,
+  agentRespondPermissionInputSchema,
+  agentSessionIpcResponseSchema,
+  agentSessionListIpcResponseSchema,
+  agentSessionStartInputSchema,
+  agentSetConfigInputSchema,
+  agentThreadGetInputSchema,
+  agentThreadListIpcResponseSchema,
+  agentTranscriptIpcResponseSchema,
+  agentVoidIpcResponseSchema,
+} from '@builderhelm/protocol';
 import type { AuthHandoff } from './auth-handoff.js';
+import type { AgentManager } from './acp/manager.js';
+import type { AgentRegistry } from './acp/registry.js';
 import {
   actionCommandIpcResponseSchema,
   actionCommandRequestSchema,
@@ -360,6 +380,7 @@ export function registerIpcHandlers(
   /** Reports chat-stream activity so Agent mode can hold the blocker. */
   onNoSleepActivity?: (active: boolean) => void,
   auth?: AuthHandoff,
+  agents?: { manager: AgentManager; registry: AgentRegistry },
 ): () => void {
   const preview = new PreviewBrowser(core.browserSettings);
   const desktop = new DesktopControl();
@@ -2602,6 +2623,148 @@ export function registerIpcHandlers(
       });
   }
 
+  // Agent sessions. Every handler needs `agents`, so the guard is one helper
+  // rather than a repeated undefined check.
+  function requireAgents(): NonNullable<typeof agents> {
+    if (agents === undefined) {
+      throw new BuilderHelmError('INTEGRATION_OFFLINE', 'Agent chat is not available.');
+    }
+    return agents;
+  }
+
+  ipcMain.handle(ipcChannels.agentCandidates, async (_event, input: unknown) => {
+    try {
+      agentListInputSchema.parse(input);
+      const value = await requireAgents().registry.candidates();
+      return agentCandidatesIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return agentCandidatesIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.agentConfigure, (_event, input: unknown) => {
+    try {
+      const parsed = agentConfigureInputSchema.parse(input);
+      requireAgents().registry.add(parsed.agent);
+      return agentVoidIpcResponseSchema.parse({ ok: true, value: null });
+    } catch (error) {
+      return agentVoidIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.agentForget, (_event, input: unknown) => {
+    try {
+      const parsed = agentForgetInputSchema.parse(input);
+      requireAgents().registry.remove(parsed.agentId);
+      return agentVoidIpcResponseSchema.parse({ ok: true, value: null });
+    } catch (error) {
+      return agentVoidIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.agentSessionStart, async (_event, input: unknown) => {
+    try {
+      const parsed = agentSessionStartInputSchema.parse(input);
+      const value = await requireAgents().manager.start({
+        agentId: parsed.agentId,
+        cwd: parsed.cwd,
+        threadId: parsed.threadId,
+        resumeSessionId: parsed.resumeSessionId,
+      });
+      return agentSessionIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return agentSessionIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.agentSessionList, (_event, input: unknown) => {
+    try {
+      agentListInputSchema.parse(input);
+      const value = requireAgents().manager.list();
+      return agentSessionListIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return agentSessionListIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.agentSessionClose, async (_event, input: unknown) => {
+    try {
+      const parsed = agentCancelInputSchema.parse(input);
+      await requireAgents().manager.close(parsed.sessionId);
+      return agentVoidIpcResponseSchema.parse({ ok: true, value: null });
+    } catch (error) {
+      return agentVoidIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.agentPrompt, async (_event, input: unknown) => {
+    try {
+      const parsed = agentPromptInputSchema.parse(input);
+      // Resolves when the turn ends; progress already went out as events.
+      await requireAgents().manager.prompt(parsed.sessionId, parsed.content);
+      return agentVoidIpcResponseSchema.parse({ ok: true, value: null });
+    } catch (error) {
+      return agentVoidIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.agentCancel, (_event, input: unknown) => {
+    try {
+      const parsed = agentCancelInputSchema.parse(input);
+      requireAgents().manager.cancel(parsed.sessionId);
+      return agentVoidIpcResponseSchema.parse({ ok: true, value: null });
+    } catch (error) {
+      return agentVoidIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.agentSetConfig, async (_event, input: unknown) => {
+    try {
+      const parsed = agentSetConfigInputSchema.parse(input);
+      await requireAgents().manager.setConfigOption(
+        parsed.sessionId,
+        parsed.configId,
+        parsed.value,
+      );
+      return agentVoidIpcResponseSchema.parse({ ok: true, value: null });
+    } catch (error) {
+      return agentVoidIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.agentRespondPermission, (_event, input: unknown) => {
+    try {
+      const parsed = agentRespondPermissionInputSchema.parse(input);
+      requireAgents().manager.respond(
+        parsed.sessionId,
+        parsed.response.requestId,
+        parsed.response.decision,
+      );
+      return agentVoidIpcResponseSchema.parse({ ok: true, value: null });
+    } catch (error) {
+      return agentVoidIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.agentThreadList, (_event, input: unknown) => {
+    try {
+      agentListInputSchema.parse(input);
+      const value = requireAgents().manager.threads();
+      return agentThreadListIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return agentThreadListIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.agentThreadGet, (_event, input: unknown) => {
+    try {
+      const parsed = agentThreadGetInputSchema.parse(input);
+      const value = requireAgents().manager.transcript(parsed.threadId);
+      return agentTranscriptIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return agentTranscriptIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.agentDiff, async (_event, input: unknown) => {
+    try {
+      const parsed = agentDiffInputSchema.parse(input);
+      await requireAgents().manager.applyDiff(parsed.sessionId, parsed.path, parsed.action);
+      return agentVoidIpcResponseSchema.parse({ ok: true, value: null });
+    } catch (error) {
+      return agentVoidIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+
+
   return () => {
     for (const active of activeStreams.values()) active.controller.abort();
     activeStreams.clear();
@@ -2685,7 +2848,6 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.browserProfileCreate);
     ipcMain.removeHandler(ipcChannels.browserProfileDelete);
     ipcMain.removeHandler(ipcChannels.browserCookieImport);
-    ipcMain.removeHandler(ipcChannels.browserReceipts);
     ipcMain.removeHandler(ipcChannels.desktopScreenshot);
     ipcMain.removeHandler(ipcChannels.desktopAct);
     ipcMain.removeHandler(ipcChannels.desktopApprove);
@@ -2713,6 +2875,19 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.authCancel);
     ipcMain.removeHandler(ipcChannels.authSignOut);
     ipcMain.removeHandler(ipcChannels.authOpenAccount);
+    ipcMain.removeHandler(ipcChannels.agentCandidates);
+    ipcMain.removeHandler(ipcChannels.agentConfigure);
+    ipcMain.removeHandler(ipcChannels.agentForget);
+    ipcMain.removeHandler(ipcChannels.agentSessionStart);
+    ipcMain.removeHandler(ipcChannels.agentSessionList);
+    ipcMain.removeHandler(ipcChannels.agentSessionClose);
+    ipcMain.removeHandler(ipcChannels.agentPrompt);
+    ipcMain.removeHandler(ipcChannels.agentCancel);
+    ipcMain.removeHandler(ipcChannels.agentSetConfig);
+    ipcMain.removeHandler(ipcChannels.agentRespondPermission);
+    ipcMain.removeHandler(ipcChannels.agentThreadList);
+    ipcMain.removeHandler(ipcChannels.agentThreadGet);
+    ipcMain.removeHandler(ipcChannels.agentDiff);
     ipcMain.removeHandler(ipcChannels.voiceTranscribe);
     ipcMain.removeHandler(ipcChannels.accountSnapshot);
     ipcMain.removeHandler(ipcChannels.accountAdd);

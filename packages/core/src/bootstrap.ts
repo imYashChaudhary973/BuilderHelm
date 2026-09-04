@@ -75,6 +75,12 @@ export interface CoreRuntime {
   readonly linearIssues: LinearIssuesService;
   readonly previewArtifacts: PreviewArtifactService;
   readonly browserSettings: BrowserSettingsService;
+  /**
+   * Key/JSON settings, for callers that store their own small policy blobs
+   * rather than warranting a service. Used by the ACP agent registry and its
+   * remembered approval rules (ADR 0008).
+   */
+  readonly settings: SettingsRepository;
   readonly noSleep: NoSleepService;
   readonly auth: AuthService;
   readonly voice: VoiceService;
@@ -151,6 +157,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
   const previewArtifacts = new PreviewArtifactService(
     new PreviewArtifactRepository(database),
   );
+  const settings = new SettingsRepository(database);
   const browserSettings = new BrowserSettingsService(new SettingsRepository(database));
   const noSleep = new NoSleepService(new SettingsRepository(database));
   const auth = new AuthService(options.secretStore, new SettingsRepository(database));
@@ -202,6 +209,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     linearIssues,
     previewArtifacts,
     browserSettings,
+    settings,
     noSleep,
     auth,
     voice,
