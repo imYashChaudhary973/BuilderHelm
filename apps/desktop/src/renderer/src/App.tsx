@@ -5,7 +5,8 @@ import type { AuthState } from '@builderhelm/protocol/auth';
 import { BoardProvider } from './board-store.js';
 import logo from './assets/logo.png';
 import { SidePanel } from './components/side-panel.js';
-import { SpaceRail } from './components/space-rail.js';
+import { AppRail } from './components/app-rail.js';
+import { BellIcon } from './components/rail-icons.js';
 import { UsageBar } from './components/usage-bar.js';
 import { SplashScreen, splashEnabled } from './components/splash-screen.js';
 import { LoginScreen } from './components/login-screen.js';
@@ -76,34 +77,28 @@ function Shell(): React.JSX.Element {
   return (
     <div className={shellClass}>
       <header className="topbar">
-        <button
-          type="button"
-          className={railCollapsed ? 'topbarIcon' : 'topbarIcon topbarIconOn'}
-          title={railCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-          aria-pressed={!railCollapsed}
-          onClick={toggleRail}
-        >
-          <RailIcon />
-        </button>
-        <div className="brand">
-          <img className="brandLogo" src={logo} width={22} height={22} alt="" />
-          BuilderHelm
+        <div className="topbarStart">
+          <div className="brand">
+            <img className="brandLogo" src={logo} width={22} height={22} alt="" />
+            BuilderHelm
+          </div>
+          <button
+            type="button"
+            className={railCollapsed ? 'topbarIcon' : 'topbarIcon topbarIconOn'}
+            title={railCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+            aria-pressed={!railCollapsed}
+            onClick={toggleRail}
+          >
+            <RailIcon />
+          </button>
+        </div>
+
+        <ModeTabs />
+
+        <div className="topbarEnd">
           <span className="buildStamp" title="Branch and commit this build came from">
             {__BUILD_STAMP__}
           </span>
-        </div>
-        <div className="topbarEnd">
-          <button
-            type="button"
-            className={settingsActive ? 'topbarIcon topbarIconOn' : 'topbarIcon'}
-            title={settingsActive ? 'Leave settings (Esc)' : 'Settings'}
-            aria-pressed={settingsActive}
-            onClick={() =>
-              void navigate({ to: settingsActive ? '/' : '/settings/voice' })
-            }
-          >
-            <GearIcon />
-          </button>
           <button
             type="button"
             className={preview.open ? 'topbarIcon topbarIconOn' : 'topbarIcon'}
@@ -113,19 +108,66 @@ function Shell(): React.JSX.Element {
           >
             <PanelIcon />
           </button>
+          <button type="button" className="topbarIcon" title="Notifications">
+            <BellIcon />
+          </button>
         </div>
       </header>
-      {pathname.startsWith('/settings') ? (
-        <SettingsNav active={pathname} />
-      ) : (
-        <SpaceRail collapsed={railCollapsed} />
-      )}
+      {/* The rail is the app's spine and never swaps out: Plugins, Skills and
+          Credits stay reachable while Settings is open. Settings keeps its own
+          section list, nested one level in rather than taking the rail slot. */}
+      <AppRail collapsed={railCollapsed} />
       <main className="content" role="main">
-        <Outlet />
+        {settingsActive ? (
+          <div className="settingsLayout">
+            <SettingsNav active={pathname} />
+            <div className="settingsBody">
+              <Outlet />
+            </div>
+          </div>
+        ) : (
+          <Outlet />
+        )}
       </main>
       {preview.open ? <SidePanel /> : null}
       <UsageBar />
       <DictationHud />
+    </div>
+  );
+}
+
+/**
+ * The three ways to work. Each maps to a surface that exists: Agents is the
+ * installed-agent grid, Code is the terminal/editor/Git workspace, Chat is the
+ * model conversation. Settings replaces the rail rather than a fourth mode, so
+ * the tabs stay a statement about work, not navigation chrome.
+ */
+const MODES: readonly { readonly label: string; readonly to: string }[] = [
+  { label: 'Agents', to: '/agents' },
+  { label: 'Code', to: '/space' },
+  { label: 'Chat', to: '/chat' },
+];
+
+function ModeTabs(): React.JSX.Element {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const navigate = useNavigate();
+  return (
+    <div className="modeTabs" role="tablist" aria-label="Mode">
+      {MODES.map((mode) => {
+        const on = pathname === mode.to;
+        return (
+          <button
+            key={mode.to}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            className={on ? 'modeTab modeTabOn' : 'modeTab'}
+            onClick={() => void navigate({ to: mode.to })}
+          >
+            {mode.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -166,27 +208,6 @@ function PanelIcon(): React.JSX.Element {
   );
 }
 
-function GearIcon(): React.JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-      <circle
-        cx="12"
-        cy="12"
-        r="3"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.75"
-      />
-      <path
-        d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4 18 18M18 6l-1.6 1.6M7.6 16.4 6 18"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
 export function App(): React.JSX.Element {
   // Launch-only: App mounts once per window, so the storm never returns on a
   // route change.

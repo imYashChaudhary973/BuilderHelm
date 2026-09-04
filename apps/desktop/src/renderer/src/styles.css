@@ -491,20 +491,456 @@ html.is-fullscreen .shell {
   background: var(--accent-dim);
 }
 
+/* ── Redesigned shell: mode tabs, unified rail, agent grid ────────────────
+   The rail is one column with three bands: tools, workspaces, account. Only
+   the middle band scrolls, so the account row stays reachable no matter how
+   many workspaces are open. */
+
+.topbarStart {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modeTabs {
+  position: absolute;
+  left: 50%;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.03);
+  transform: translateX(-50%);
+  -webkit-app-region: no-drag;
+}
+
+.modeTab {
+  padding: 4px 14px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--text-2);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    background 120ms ease;
+}
+
+.modeTab:hover {
+  color: var(--text);
+}
+
+.modeTabOn {
+  color: var(--bg);
+  background: var(--accent);
+}
+
+.modeTabOn:hover {
+  color: var(--bg);
+}
+
+.navGroup,
+.navFooter {
+  display: grid;
+  gap: 1px;
+}
+
+.navFooter {
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+.navRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text-2);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    background 120ms ease;
+}
+
+.navRow:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.navRowOn {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.navIcon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  color: var(--text-3);
+}
+
+.navRow:hover .navIcon,
+.navRowOn .navIcon {
+  color: var(--accent);
+}
+
+.navLabel {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.navSources {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 5px;
+  color: var(--text-3);
+}
+
+.railCollapsed .navRow {
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.railSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 30px;
+  margin-top: 8px;
+  padding: 0 8px 0 9px;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.railCollapsed .railSectionHead {
+  justify-content: center;
+  padding: 0;
+}
+
+.railAdd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text-2);
+  background: transparent;
+  cursor: pointer;
+}
+
+.railAdd:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.railWorkspaces {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.railWorkspaces .railList {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.railEmpty {
+  margin: 4px 9px;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ── Agents grid ─────────────────────────────────────────────────────────── */
+
+.agentsStage {
+  min-height: 0;
+  padding: 22px 24px 28px;
+  overflow-y: auto;
+}
+
+.agentsHead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.agentsHead h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.agentsHead p {
+  margin: 5px 0 0;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.agentsAction {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--bg);
+  background: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.agentsAction:hover {
+  background: var(--accent-bright);
+}
+
+.agentsError {
+  margin: 0 0 16px;
+  color: #e5b866;
+  font-size: 13px;
+}
+
+.agentBoard {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.agentCard {
+  display: flex;
+  min-width: 0;
+  min-height: 168px;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.agentCard > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.agentTitle {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.agentState {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+
+.agentStateOn {
+  background: var(--accent);
+}
+
+.agentCardOff {
+  background: transparent;
+}
+
+.agentCardOff .agentTitle {
+  color: var(--text-2);
+}
+
+.agentCardLoading {
+  border-style: dashed;
+  background: transparent;
+}
+
+.agentCaps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agentCaps li {
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: var(--text-2);
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.agentQuota {
+  display: grid;
+  gap: 7px;
+  margin-top: auto;
+}
+
+.agentQuotaRow {
+  display: grid;
+  gap: 4px;
+}
+
+.agentQuotaTrack {
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.agentQuotaFill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.agentQuotaRow small {
+  color: var(--text-3);
+  font-size: 10px;
+}
+
+.agentPath {
+  margin: auto 0 0;
+  overflow: hidden;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agentMissing {
+  margin: auto 0 0;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.agentCard > footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.agentCard > footer button {
+  flex: 1 1 84px;
+  white-space: nowrap;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--text-2);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.agentCard > footer button:hover {
+  border-color: rgba(182, 212, 117, 0.4);
+  color: var(--text);
+}
+
+/* ── Not-built panel ─────────────────────────────────────────────────────── */
+
+.notBuilt {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  padding: 40px 24px;
+}
+
+.notBuiltCard {
+  max-width: 460px;
+  text-align: center;
+}
+
+.notBuiltTag {
+  display: inline-block;
+  margin: 0 0 14px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.notBuiltCard h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.notBuiltSummary {
+  margin: 10px 0 0;
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.notBuiltInstead {
+  margin: 18px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  color: var(--text-3);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.notBuiltInstead strong {
+  color: var(--text-2);
+}
+
+/* Three bands: tools, workspaces, account. Only the workspaces band scrolls,
+   so the account rows stay reachable however many workspaces are open. */
 .rail {
   grid-area: rail;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   min-height: 0;
-  overflow: visible;
-  padding: 12px 10px;
+  overflow: hidden;
+  padding: 8px 8px 6px;
   border-right: 1px solid rgba(255, 255, 255, 0.06);
   background: var(--chrome);
 }
 
 .railCollapsed {
-  padding: 12px 6px;
+  padding: 8px 6px 6px;
 }
 
 /* Hairline under the New Space button, bled past the rail padding so it spans
@@ -4476,12 +4912,28 @@ fieldset legend {
   align-items: flex-start;
 }
 
+/* Settings nests inside the content area so the rail keeps its slot. Its own
+   section list becomes a second, shallower column rather than a replacement. */
+.settingsLayout {
+  display: grid;
+  grid-template-columns: 172px minmax(0, 1fr);
+  min-height: 0;
+  height: 100%;
+}
+
+.settingsBody {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .settingsNav {
   display: flex;
+  min-height: 0;
   flex-direction: column;
   gap: 4px;
   padding: 12px 10px;
-  overflow: auto;
+  overflow-y: auto;
   border-right: 1px solid rgba(255, 255, 255, 0.06);
   background: var(--chrome);
 }
