@@ -10,6 +10,7 @@ on stale instructions.
 | [0003](0003-model-gateway-boundary.md)     | Accepted | Provider wire formats terminate inside model-gateway adapters           |
 | [0004](0004-canonical-chat-persistence.md) | Accepted | Chat history is provider-independent and survives catalog changes       |
 | [0007](0007-typescript-platform.md)        | Accepted | Electron, React, Vite, Node.js, and TypeScript are the product platform |
+| [0008](0008-agent-client-protocol-host.md) | Accepted | Chat hosts external ACP agents that own their own auth and billing      |
 
 Numbers are never reused. 0001, 0005, and 0006 are retired: 0001 described a
 superseded foundation phase, and 0005 and 0006 proposed the native-engine
