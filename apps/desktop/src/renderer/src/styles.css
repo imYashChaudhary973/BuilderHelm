@@ -373,7 +373,7 @@ textarea:focus-visible {
 .shell {
   position: relative;
   z-index: 1;
-  --rail-w: 200px;
+  --rail-w: 240px;
   display: grid;
   grid-template-columns: var(--rail-w) 1fr;
   grid-template-rows: 48px 1fr;
@@ -427,10 +427,17 @@ html.is-fullscreen .shell {
   display: flex;
   align-items: center;
   gap: 10px;
+  max-width: calc(var(--rail-w) - 84px);
+  overflow: hidden;
   font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.04em;
   color: var(--text);
+  white-space: nowrap;
+}
+
+.shellRailOff .brand {
+  max-width: none;
 }
 
 .buildStamp {
@@ -509,6 +516,7 @@ html.is-fullscreen .shell {
   top: 50%;
   z-index: 3;
   transform: translate(-50%, -50%);
+  background: var(--chrome);
 }
 
 .modeTabs {
