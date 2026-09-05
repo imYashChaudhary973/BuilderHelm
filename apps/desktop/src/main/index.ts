@@ -105,6 +105,9 @@ function createWindow(): BrowserWindow {
     // bar continuing rather than a seam of a different colour.
     backgroundColor: '#0c0c0c',
     titleBarStyle: 'hiddenInset',
+    // A 52px bar with the lights mathematically centered in it, so windowed
+    // view reads like the reference app rather than lights hugging the top.
+    trafficLightPosition: { x: 16, y: 18 },
     ...(existsSync(icon) ? { icon } : {}),
     webPreferences: {
       ...secureWebPreferences,

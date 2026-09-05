@@ -376,7 +376,7 @@ textarea:focus-visible {
   --rail-w: 240px;
   display: grid;
   grid-template-columns: var(--rail-w) 1fr;
-  grid-template-rows: 48px 1fr;
+  grid-template-rows: 52px 1fr;
   grid-template-areas:
     'topbar topbar'
     'rail content';
@@ -384,7 +384,7 @@ textarea:focus-visible {
 }
 
 html.is-fullscreen .shell {
-  grid-template-rows: 48px 1fr;
+  grid-template-rows: 52px 1fr;
 }
 
 .shellBrowserOn {
@@ -10320,10 +10320,10 @@ html.is-fullscreen .swarmWizardFoot {
 }
 
 .usageChip {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  white-space: nowrap;
+  padding: 2px 8px;
 }
 
 .usageChipMark {
@@ -10333,6 +10333,18 @@ html.is-fullscreen .swarmWizardFoot {
   place-items: center;
   border-radius: 4px;
   color: var(--text-2);
+}
+
+/* Icon-only control in the top bar; the menu carries the words. */
+.noSleepChip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-3);
 }
 
 .usageChipMark svg,
