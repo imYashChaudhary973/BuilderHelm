@@ -16,6 +16,8 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
   Codex ACP, or any configured command). Threads persist locally. Permission
   rules are remembered per workspace. The tab has not been clicked live in a
   packaged build.
+- Three-mode shell (Agents, Code, Chats) and a ⌘K plus menu that runs existing
+  surfaces. Plugins, Skills, and Automations remain labeled stubs.
 - Permissioned actions, approvals, and receipts.
 - Project dashboard and Git continuity.
 - Space setup with real xterm.js terminals backed by node-pty.

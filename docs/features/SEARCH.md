@@ -1,6 +1,7 @@
 # Global search
 
-Status: planned.
+Status: partial. The ⌘K plus menu is the command palette. Incremental
+indexing across worktrees, files, and artifacts is not shipped.
 
 ## Goal
 

@@ -34,8 +34,10 @@ type NavEntry = {
 
 export function AppRail({
   collapsed,
+  onSearch,
 }: {
   readonly collapsed: boolean;
+  readonly onSearch?: () => void;
 }): React.JSX.Element {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
@@ -95,6 +97,10 @@ export function AppRail({
         title={collapsed ? entry.label : undefined}
         aria-current={on ? 'page' : undefined}
         onClick={() => {
+          if (entry.id === 'search' && onSearch !== undefined) {
+            onSearch();
+            return;
+          }
           if (entry.id === 'tasks' && activeBoard === null) boards.choose();
           void navigate({ to: entry.to });
         }}

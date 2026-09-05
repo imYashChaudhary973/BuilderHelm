@@ -6,7 +6,8 @@ import { BoardProvider } from './board-store.js';
 import logo from './assets/logo.png';
 import { SidePanel } from './components/side-panel.js';
 import { AppRail } from './components/app-rail.js';
-import { BellIcon } from './components/rail-icons.js';
+import { Launcher } from './components/launcher.js';
+import { BellIcon, SearchIcon } from './components/rail-icons.js';
 import { UsageBar } from './components/usage-bar.js';
 import { SplashScreen, splashEnabled } from './components/splash-screen.js';
 import { LoginScreen } from './components/login-screen.js';
@@ -18,6 +19,7 @@ import { SpaceProvider } from './space-store.js';
 function Shell(): React.JSX.Element {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const preview = usePreview();
+  const [launcherOpen, setLauncherOpen] = useState(false);
   const [railCollapsed, setRailCollapsed] = useState(() => {
     try {
       const stored = localStorage.getItem('exeum.rail.collapsed');
@@ -32,7 +34,7 @@ function Shell(): React.JSX.Element {
   // Escape leaves Settings, mirroring the visible back control. The router has
   // nowhere back when a deep link opened the app, so it goes home instead.
   useEffect(() => {
-    if (!settingsActive) return;
+    if (!settingsActive || launcherOpen) return;
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return;
       event.preventDefault();
@@ -40,12 +42,31 @@ function Shell(): React.JSX.Element {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [settingsActive, navigate]);
+  }, [settingsActive, launcherOpen, navigate]);
 
   useEffect(() => {
-    if (preview.open && preview.tab === 'browser') return;
+    const onKey = (event: KeyboardEvent): void => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'k') return;
+      event.preventDefault();
+      setLauncherOpen(true);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  useEffect(() => {
+    if (launcherOpen) {
+      void window.builderHelm?.browser.command({ action: 'hide' }).catch(() => undefined);
+      return;
+    }
+    if (preview.open && preview.tab === 'browser') {
+      void window.builderHelm?.browser
+        .command({ action: 'visible', visible: true })
+        .catch(() => undefined);
+      return;
+    }
     void window.builderHelm?.browser.command({ action: 'hide' }).catch(() => undefined);
-  }, [preview.open, preview.tab]);
+  }, [preview.open, preview.tab, launcherOpen]);
 
   function toggleRail(): void {
     setRailCollapsed((current) => {
@@ -101,6 +122,15 @@ function Shell(): React.JSX.Element {
           </span>
           <button
             type="button"
+            className={launcherOpen ? 'topbarIcon topbarIconOn' : 'topbarIcon'}
+            title="Search (⌘K)"
+            aria-pressed={launcherOpen}
+            onClick={() => setLauncherOpen(true)}
+          >
+            <SearchIcon />
+          </button>
+          <button
+            type="button"
             className={preview.open ? 'topbarIcon topbarIconOn' : 'topbarIcon'}
             title="Tools"
             aria-pressed={preview.open}
@@ -116,7 +146,7 @@ function Shell(): React.JSX.Element {
       {/* The rail is the app's spine and never swaps out: Plugins, Skills and
           Credits stay reachable while Settings is open. Settings keeps its own
           section list, nested one level in rather than taking the rail slot. */}
-      <AppRail collapsed={railCollapsed} />
+      <AppRail collapsed={railCollapsed} onSearch={() => setLauncherOpen(true)} />
       <main className="content" role="main">
         {settingsActive ? (
           <div className="settingsLayout">
@@ -130,6 +160,7 @@ function Shell(): React.JSX.Element {
         )}
       </main>
       {preview.open ? <SidePanel /> : null}
+      <Launcher open={launcherOpen} onClose={() => setLauncherOpen(false)} />
       <UsageBar />
       <DictationHud />
     </div>
@@ -137,15 +168,22 @@ function Shell(): React.JSX.Element {
 }
 
 /**
- * The three ways to work. Each maps to a surface that exists: Agents is the
- * installed-agent grid, Code is the terminal/editor/Git workspace, Chat is the
- * model conversation. Settings replaces the rail rather than a fourth mode, so
- * the tabs stay a statement about work, not navigation chrome.
+ * The three ways to work. Code covers Space, Board, and Swarm. Chats is the
+ * ACP host. Agents is the installed-CLI grid. Settings is not a mode.
  */
-const MODES: readonly { readonly label: string; readonly to: string }[] = [
-  { label: 'Agents', to: '/agents' },
-  { label: 'Code', to: '/space' },
-  { label: 'Chat', to: '/chat' },
+const MODES: readonly {
+  readonly label: string;
+  readonly to: string;
+  readonly match: (pathname: string) => boolean;
+}[] = [
+  { label: 'Agents', to: '/agents', match: (path) => path.startsWith('/agents') },
+  {
+    label: 'Code',
+    to: '/space',
+    match: (path) =>
+      path.startsWith('/space') || path.startsWith('/board') || path.startsWith('/swarm'),
+  },
+  { label: 'Chats', to: '/chat', match: (path) => path.startsWith('/chat') },
 ];
 
 function ModeTabs(): React.JSX.Element {
@@ -154,7 +192,7 @@ function ModeTabs(): React.JSX.Element {
   return (
     <div className="modeTabs" role="tablist" aria-label="Mode">
       {MODES.map((mode) => {
-        const on = pathname === mode.to;
+        const on = mode.match(pathname);
         return (
           <button
             key={mode.to}
