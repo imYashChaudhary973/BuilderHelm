@@ -20,7 +20,7 @@ export function AccountsPage(): React.JSX.Element {
           <h1 id="account-title">Account</h1>
           <p>
             This is the BuilderHelm login that opens the app. Session and weekly windows
-            for Claude, Codex, and Grok are on <Link to="/settings/usage">Usage</Link>.
+            for Claude, Codex, and Grok are on <Link to="/usage">Usage</Link>.
           </p>
         </div>
       </header>

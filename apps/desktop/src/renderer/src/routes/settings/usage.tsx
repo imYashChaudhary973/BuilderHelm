@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import type {
   AccountHome,
   AccountProvider,
@@ -205,7 +206,7 @@ export function UsagePage(): React.JSX.Element {
           <h1 id="usage-title">Usage</h1>
           <p>
             Session and weekly windows for the CLIs on this Mac. Your BuilderHelm login is
-            under Account.
+            under Settings → <Link to="/settings/accounts">Account</Link>.
           </p>
         </div>
         <div className="usagePageActions">

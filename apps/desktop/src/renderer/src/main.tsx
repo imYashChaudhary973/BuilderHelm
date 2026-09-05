@@ -49,9 +49,9 @@ const browserSettingsRoute = createRoute({
   path: '/settings/browser',
   component: BrowserSettingsPage,
 });
-const usageSettingsRoute = createRoute({
+const usageRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/settings/usage',
+  path: '/usage',
   component: UsagePage,
 });
 const accountsSettingsRoute = createRoute({
@@ -190,7 +190,7 @@ const routeTree = rootRoute.addChildren([
   voiceRoute,
   browserSettingsRoute,
   accountsSettingsRoute,
-  usageSettingsRoute,
+  usageRoute,
 ]);
 const router = createRouter({
   routeTree,

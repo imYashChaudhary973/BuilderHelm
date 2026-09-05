@@ -78,7 +78,7 @@ export function AppRail({
 
   const footer: readonly NavEntry[] = [
     { id: 'credits', label: 'Credits', icon: <CreditsIcon />, to: '/credits' },
-    { id: 'usage', label: 'Usage', icon: <UsageIcon />, to: '/settings/usage' },
+    { id: 'usage', label: 'Usage', icon: <UsageIcon />, to: '/usage' },
     { id: 'settings', label: 'Settings', icon: <SettingsIcon />, to: '/settings/voice' },
   ];
 
