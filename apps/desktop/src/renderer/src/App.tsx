@@ -101,52 +101,52 @@ function Shell(): React.JSX.Element {
   return (
     <div className={shellClass}>
       <header className="topbar">
-        <div className="topbarStart">
+        <div className="topbarRail">
           <div className="brand">
             <img className="brandLogo" src={logo} width={28} height={28} alt="" />
             BuilderHelm
           </div>
+          <button
+            type="button"
+            className={
+              railCollapsed ? 'topbarIcon railToggle' : 'topbarIcon topbarIconOn railToggle'
+            }
+            title={railCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+            aria-pressed={!railCollapsed}
+            onClick={toggleRail}
+          >
+            <RailToggleIcon />
+          </button>
         </div>
-        <button
-          type="button"
-          className={
-            railCollapsed ? 'topbarIcon railToggle' : 'topbarIcon topbarIconOn railToggle'
-          }
-          title={railCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-          aria-pressed={!railCollapsed}
-          onClick={toggleRail}
-        >
-          <RailToggleIcon />
-        </button>
-
         <ModeTabs />
-
-        <div className="topbarEnd">
-          <span className="buildStamp" title="Branch and commit this build came from">
-            {__BUILD_STAMP__}
-          </span>
-          <button
-            type="button"
-            className={launcherOpen ? 'topbarIcon topbarIconOn' : 'topbarIcon'}
-            title="Search (⌘K)"
-            aria-pressed={launcherOpen}
-            onClick={() => setLauncherOpen(true)}
-          >
-            <SearchIcon />
-          </button>
-          <button
-            type="button"
-            className={preview.open ? 'topbarIcon topbarIconOn' : 'topbarIcon'}
-            title="Tools"
-            aria-pressed={preview.open}
-            onClick={() => preview.toggle()}
-          >
-            <ToolsIcon />
-          </button>
-          <button type="button" className="topbarIcon" title="Notifications">
-            <BellIcon />
-          </button>
-          <NoSleep />
+        <div className="topbarMain">
+          <div className="topbarEnd">
+            <span className="buildStamp" title="Branch and commit this build came from">
+              {__BUILD_STAMP__}
+            </span>
+            <button
+              type="button"
+              className={launcherOpen ? 'topbarIcon topbarIconOn' : 'topbarIcon'}
+              title="Search (⌘K)"
+              aria-pressed={launcherOpen}
+              onClick={() => setLauncherOpen(true)}
+            >
+              <SearchIcon />
+            </button>
+            <button
+              type="button"
+              className={preview.open ? 'topbarIcon topbarIconOn' : 'topbarIcon'}
+              title="Tools"
+              aria-pressed={preview.open}
+              onClick={() => preview.toggle()}
+            >
+              <ToolsIcon />
+            </button>
+            <button type="button" className="topbarIcon" title="Notifications">
+              <BellIcon />
+            </button>
+            <NoSleep />
+          </div>
         </div>
       </header>
       <AppRail collapsed={railCollapsed} onSearch={() => setLauncherOpen(true)} />

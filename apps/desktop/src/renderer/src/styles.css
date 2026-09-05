@@ -409,10 +409,10 @@ html.is-fullscreen .shell {
 .topbar {
   grid-area: topbar;
   position: relative;
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--rail-w) 1fr;
   align-items: center;
-  gap: 10px;
-  padding: 0 10px 0 72px;
+  padding: 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   background: var(--chrome);
   -webkit-app-region: drag;
@@ -427,17 +427,13 @@ html.is-fullscreen .shell {
   display: flex;
   align-items: center;
   gap: 10px;
-  max-width: calc(var(--rail-w) - 84px);
+  min-width: 0;
   overflow: hidden;
   font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.04em;
   color: var(--text);
   white-space: nowrap;
-}
-
-.shellRailOff .brand {
-  max-width: none;
 }
 
 .buildStamp {
@@ -503,32 +499,54 @@ html.is-fullscreen .shell {
    the middle band scrolls, so the account row stays reachable no matter how
    many workspaces are open. */
 
-.topbarStart {
+.topbarRail {
+  grid-column: 1;
+  grid-row: 1;
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  gap: 8px;
   min-width: 0;
+  height: 100%;
+  padding: 0 8px 0 72px;
+}
+
+.shellRailOff .topbarRail {
+  justify-content: center;
+  padding-left: 0;
+}
+
+.shellRailOff .brand {
+  display: none;
 }
 
 .railToggle {
-  position: absolute;
-  left: var(--rail-w);
-  top: 50%;
-  z-index: 3;
-  transform: translate(-50%, -50%);
-  background: var(--chrome);
+  flex: 0 0 auto;
+}
+
+.topbarMain {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  height: 100%;
+  padding: 0 10px;
 }
 
 .modeTabs {
-  position: absolute;
-  left: 50%;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  position: relative;
+  justify-self: center;
+  z-index: 2;
   display: flex;
   gap: 2px;
   padding: 2px;
   border: 1px solid var(--line);
   border-radius: 9px;
-  background: rgba(255, 255, 255, 0.03);
-  transform: translateX(-50%);
+  background: var(--chrome);
   -webkit-app-region: no-drag;
 }
 
