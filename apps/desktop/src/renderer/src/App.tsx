@@ -7,7 +7,12 @@ import logo from './assets/logo.png';
 import { SidePanel } from './components/side-panel.js';
 import { AppRail } from './components/app-rail.js';
 import { Launcher } from './components/launcher.js';
-import { BellIcon, SearchIcon } from './components/rail-icons.js';
+import {
+  BellIcon,
+  RailToggleIcon,
+  SearchIcon,
+  ToolsIcon,
+} from './components/rail-icons.js';
 import { UsageBar } from './components/usage-bar.js';
 import { SplashScreen, splashEnabled } from './components/splash-screen.js';
 import { LoginScreen } from './components/login-screen.js';
@@ -110,7 +115,7 @@ function Shell(): React.JSX.Element {
             aria-pressed={!railCollapsed}
             onClick={toggleRail}
           >
-            <RailIcon />
+            <RailToggleIcon />
           </button>
         </div>
 
@@ -136,7 +141,7 @@ function Shell(): React.JSX.Element {
             aria-pressed={preview.open}
             onClick={() => preview.toggle()}
           >
-            <PanelIcon />
+            <ToolsIcon />
           </button>
           <button type="button" className="topbarIcon" title="Notifications">
             <BellIcon />
@@ -207,42 +212,6 @@ function ModeTabs(): React.JSX.Element {
         );
       })}
     </div>
-  );
-}
-
-function RailIcon(): React.JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-      <rect
-        x="3.5"
-        y="4.5"
-        width="17"
-        height="15"
-        rx="2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.75"
-      />
-      <path d="M9 4.5v15" fill="none" stroke="currentColor" strokeWidth="1.75" />
-    </svg>
-  );
-}
-
-function PanelIcon(): React.JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-      <rect
-        x="3.5"
-        y="4.5"
-        width="17"
-        height="15"
-        rx="2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.75"
-      />
-      <path d="M15 4.5v15" fill="none" stroke="currentColor" strokeWidth="1.75" />
-    </svg>
   );
 }
 
