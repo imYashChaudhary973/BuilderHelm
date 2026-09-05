@@ -411,6 +411,8 @@ html.is-fullscreen .shell {
   position: relative;
   display: flex;
   align-items: center;
+  gap: 10px;
+  padding: 0 10px 0 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   background: var(--chrome);
   -webkit-app-region: drag;
@@ -425,17 +427,11 @@ html.is-fullscreen .shell {
   display: flex;
   align-items: center;
   gap: 8px;
-  max-width: calc(var(--rail-w) - 106px);
-  overflow: hidden;
   font-size: 15px;
   font-weight: 700;
   letter-spacing: -0.03em;
   color: var(--text);
   white-space: nowrap;
-}
-
-.shellRailOff .brand {
-  max-width: none;
 }
 
 .buildStamp {
@@ -455,6 +451,38 @@ html.is-fullscreen .shell {
   width: 24px;
   height: 24px;
   object-fit: contain;
+}
+
+/* Collapsed: the button takes the corner and the lockup follows it. */
+.shellRailOff .brand {
+  order: 2;
+}
+
+.windowDots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 6px;
+}
+
+.windowDot {
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 999px;
+}
+
+.windowDotClose {
+  background: #ff5f57;
+}
+
+.windowDotMin {
+  background: #febc2e;
+}
+
+.windowDotZoom {
+  background: #28c840;
 }
 
 .topbarNav,
@@ -501,40 +529,8 @@ html.is-fullscreen .shell {
    the middle band scrolls, so the account row stays reachable no matter how
    many workspaces are open. */
 
-.topbarRail {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  height: 100%;
-  padding-left: 76px;
-}
-
-/* Collapsed: the toggle sits at the sidebar edge, which is inside the lights'
-   gutter, so the lockup yields and starts after it. */
-.shellRailOff .topbarRail {
-  padding-left: 108px;
-}
-
 .railToggle {
-  position: absolute;
-  top: 50%;
-  left: var(--rail-w);
-  z-index: 3;
-  transform: translateY(-50%);
-}
-
-.shellRailOff .railToggle {
-  left: 76px;
-}
-
-.topbarMain {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 100%;
-  padding: 0 10px;
+  flex: 0 0 auto;
 }
 
 .modeTabs {
