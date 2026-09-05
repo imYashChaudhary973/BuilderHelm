@@ -5,7 +5,6 @@ import type { BoardSessionSummary } from '@builderhelm/protocol/board';
 
 import { useBoards } from '../board-store.js';
 import { SPACE_COLORS, useSpaces } from '../space-store.js';
-import logo from '../assets/logo.png';
 import {
   AccountIcon,
   AutomationsIcon,
@@ -135,7 +134,6 @@ export function AppRail({
   if (settingsOn) {
     return (
       <aside className={collapsed ? 'rail railCollapsed' : 'rail'} aria-label="Settings">
-        <Brand collapsed={collapsed} />
         <nav className="navGroup" aria-label="Settings">
           {settingsRows.map(navRow)}
         </nav>
@@ -148,7 +146,6 @@ export function AppRail({
       className={collapsed ? 'rail railCollapsed' : 'rail'}
       aria-label="BuilderHelm navigation"
     >
-      <Brand collapsed={collapsed} />
       <nav className="navGroup" aria-label="Tools">
         {primary.map(navRow)}
       </nav>
@@ -281,14 +278,5 @@ export function AppRail({
         {footer.map(navRow)}
       </nav>
     </aside>
-  );
-}
-
-function Brand({ collapsed }: { readonly collapsed: boolean }): React.JSX.Element {
-  return (
-    <div className="railBrand">
-      <img className="brandLogo" src={logo} width={28} height={28} alt="" />
-      {collapsed ? null : <span>BuilderHelm</span>}
-    </div>
   );
 }

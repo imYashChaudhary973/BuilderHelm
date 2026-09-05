@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { AuthState } from '@builderhelm/protocol/auth';
 
 import { BoardProvider } from './board-store.js';
+import logo from './assets/logo.png';
 import { SidePanel } from './components/side-panel.js';
 import { AppRail } from './components/app-rail.js';
 import { Launcher } from './components/launcher.js';
@@ -101,6 +102,10 @@ function Shell(): React.JSX.Element {
     <div className={shellClass}>
       <header className="topbar">
         <div className="topbarRail">
+          <div className="brand">
+            <img className="brandLogo" src={logo} width={24} height={24} alt="" />
+            BuilderHelm
+          </div>
           <button
             type="button"
             className={
