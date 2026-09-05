@@ -375,7 +375,7 @@ textarea:focus-visible {
   z-index: 1;
   display: grid;
   grid-template-columns: 200px 1fr;
-  grid-template-rows: 36px 1fr;
+  grid-template-rows: 48px 1fr;
   grid-template-areas:
     'topbar topbar'
     'rail content';
@@ -383,7 +383,7 @@ textarea:focus-visible {
 }
 
 html.is-fullscreen .shell {
-  grid-template-rows: 36px 1fr;
+  grid-template-rows: 48px 1fr;
 }
 
 .shellBrowserOn {
@@ -424,10 +424,10 @@ html.is-fullscreen .shell {
 .brand {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
+  gap: 10px;
+  font-size: 16px;
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.04em;
   color: var(--text);
 }
 
@@ -445,8 +445,8 @@ html.is-fullscreen .shell {
 
 .brandLogo {
   display: block;
-  width: 16px;
-  height: 16px;
+  width: 28px;
+  height: 28px;
   object-fit: contain;
 }
 
@@ -497,7 +497,7 @@ html.is-fullscreen .shell {
 .topbarStart {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
 .modeTabs {
@@ -638,9 +638,9 @@ html.is-fullscreen .shell {
 .navRow {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   width: 100%;
-  padding: 7px 8px;
+  padding: 8px 10px;
   border: 0;
   border-radius: 8px;
   color: var(--text-2);
@@ -669,7 +669,8 @@ html.is-fullscreen .shell {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 18px;
+  width: 20px;
+  height: 20px;
   color: var(--text-3);
 }
 

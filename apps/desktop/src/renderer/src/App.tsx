@@ -103,7 +103,7 @@ function Shell(): React.JSX.Element {
       <header className="topbar">
         <div className="topbarStart">
           <div className="brand">
-            <img className="brandLogo" src={logo} width={22} height={22} alt="" />
+            <img className="brandLogo" src={logo} width={28} height={28} alt="" />
             BuilderHelm
           </div>
           <button
