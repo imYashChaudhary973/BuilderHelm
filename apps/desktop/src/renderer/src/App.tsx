@@ -106,18 +106,18 @@ function Shell(): React.JSX.Element {
             <img className="brandLogo" src={logo} width={24} height={24} alt="" />
             BuilderHelm
           </div>
-          <button
-            type="button"
-            className={
-              railCollapsed ? 'topbarIcon railToggle' : 'topbarIcon topbarIconOn railToggle'
-            }
-            title={railCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-            aria-pressed={!railCollapsed}
-            onClick={toggleRail}
-          >
-            <RailToggleIcon />
-          </button>
         </div>
+        <button
+          type="button"
+          className={
+            railCollapsed ? 'topbarIcon railToggle' : 'topbarIcon topbarIconOn railToggle'
+          }
+          title={railCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+          aria-pressed={!railCollapsed}
+          onClick={toggleRail}
+        >
+          <RailToggleIcon />
+        </button>
         <ModeTabs />
         <div className="topbarMain">
           <div className="topbarEnd">
