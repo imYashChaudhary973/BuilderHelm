@@ -375,24 +375,22 @@ textarea:focus-visible {
   z-index: 1;
   display: grid;
   grid-template-columns: 200px 1fr;
-  grid-template-rows: 36px 1fr 28px;
+  grid-template-rows: 36px 1fr;
   grid-template-areas:
     'topbar topbar'
-    'rail content'
-    'statusbar statusbar';
+    'rail content';
   height: 100vh;
 }
 
 html.is-fullscreen .shell {
-  grid-template-rows: 36px 1fr 28px;
+  grid-template-rows: 36px 1fr;
 }
 
 .shellBrowserOn {
   grid-template-columns: 200px 1fr var(--panel-w, 360px);
   grid-template-areas:
     'topbar topbar topbar'
-    'rail content browser'
-    'statusbar statusbar statusbar';
+    'rail content browser';
 }
 
 .shellRailOff {
@@ -10244,13 +10242,58 @@ html.is-fullscreen .swarmWizardFoot {
   }
 }
 
-.helmAccountCard {
+.accountPage {
+  width: 100%;
+  max-width: 640px;
+}
+
+.accountEmpty {
+  color: var(--text-3);
+}
+
+.accountCard {
+  padding: 18px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: #0c0d0c;
+}
+
+.accountCard dl {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+}
+
+.accountCard dt {
+  color: var(--text-3);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.accountCard dd {
+  margin: 4px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.accountCardActions {
   display: flex;
-  gap: 12px;
-  align-items: center;
-  justify-content: space-between;
-  margin: 0 0 16px;
-  padding: 14px 16px;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.accountPage a {
+  color: var(--accent-bright);
+}
+
+.usageProviderHead p {
+  min-height: 0;
+}
+
+.topbar .noSleepMenu {
+  top: calc(100% + 8px);
+  bottom: auto;
 }
 
 .usageBar {
@@ -10847,7 +10890,7 @@ html.is-fullscreen .swarmWizardFoot {
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
   align-items: stretch;
   gap: 14px;
 }
@@ -10881,14 +10924,6 @@ html.is-fullscreen .swarmWizardFoot {
 
 .usageProviderHead strong {
   font-size: 14px;
-}
-
-/*
- * Two lines of room whether the note wraps or not, so the meters and account
- * lists of two cards sharing a row start at the same height.
- */
-.usageProviderHead p {
-  min-height: 2.9em;
 }
 
 .usageProviderCard p,

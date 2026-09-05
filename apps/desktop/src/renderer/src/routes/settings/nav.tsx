@@ -15,6 +15,11 @@ const SECTIONS = [
     active: (path: string) => path === '/settings/browser',
   },
   {
+    to: '/settings/accounts',
+    title: 'Account',
+    active: (path: string) => path === '/settings/accounts',
+  },
+  {
     to: '/settings/usage',
     title: 'Usage',
     active: (path: string) => path === '/settings/usage',

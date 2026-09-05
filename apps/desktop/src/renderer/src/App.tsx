@@ -13,10 +13,10 @@ import {
   SearchIcon,
   ToolsIcon,
 } from './components/rail-icons.js';
-import { UsageBar } from './components/usage-bar.js';
 import { SplashScreen, splashEnabled } from './components/splash-screen.js';
 import { LoginScreen } from './components/login-screen.js';
 import { DictationHud } from './components/dictation-hud.js';
+import { NoSleep } from './components/no-sleep.js';
 import { SettingsNav } from './routes/settings/nav.js';
 import { PreviewProvider, usePreview } from './preview-store.js';
 import { SpaceProvider } from './space-store.js';
@@ -146,6 +146,7 @@ function Shell(): React.JSX.Element {
           <button type="button" className="topbarIcon" title="Notifications">
             <BellIcon />
           </button>
+          <NoSleep />
         </div>
       </header>
       {/* The rail is the app's spine and never swaps out: Plugins, Skills and
@@ -166,7 +167,6 @@ function Shell(): React.JSX.Element {
       </main>
       {preview.open ? <SidePanel /> : null}
       <Launcher open={launcherOpen} onClose={() => setLauncherOpen(false)} />
-      <UsageBar />
       <DictationHud />
     </div>
   );
