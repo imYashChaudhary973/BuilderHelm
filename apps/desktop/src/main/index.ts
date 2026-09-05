@@ -118,14 +118,14 @@ function createWindow(): BrowserWindow {
   window.webContents.setZoomFactor(1);
 
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  if (process.env.BUILDERHELM_SMOKE_TEST === '1') {
-    window.webContents.on('preload-error', (_event, _preloadPath, error) => {
-      core?.logger.error({
-        event: 'desktop.preload_failed',
-        correlationId: createCorrelationId(),
-        data: { error },
-      });
+  window.webContents.on('preload-error', (_event, _preloadPath, error) => {
+    core?.logger.error({
+      event: 'desktop.preload_failed',
+      correlationId: createCorrelationId(),
+      data: { error: error instanceof Error ? error.message : String(error) },
     });
+  });
+  if (process.env.BUILDERHELM_SMOKE_TEST === '1') {
     window.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
       core?.logger.error({
         event: 'desktop.renderer_load_failed',

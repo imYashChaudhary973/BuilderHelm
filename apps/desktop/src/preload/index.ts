@@ -249,7 +249,7 @@ import {
   agentThreadListIpcResponseSchema,
   agentTranscriptIpcResponseSchema,
   agentVoidIpcResponseSchema,
-} from '@builderhelm/protocol';
+} from '@builderhelm/protocol/agent-session';
 
 function unwrap<T>(result: {
   readonly ok: boolean;
