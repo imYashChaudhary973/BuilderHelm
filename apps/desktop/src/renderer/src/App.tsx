@@ -17,7 +17,6 @@ import { SplashScreen, splashEnabled } from './components/splash-screen.js';
 import { LoginScreen } from './components/login-screen.js';
 import { DictationHud } from './components/dictation-hud.js';
 import { NoSleep } from './components/no-sleep.js';
-import { SettingsNav } from './routes/settings/nav.js';
 import { PreviewProvider, usePreview } from './preview-store.js';
 import { SpaceProvider } from './space-store.js';
 
@@ -83,9 +82,8 @@ function Shell(): React.JSX.Element {
 
   const shellClass = [
     'shell',
-    settingsActive ? 'shellSettingsOn' : '',
     preview.open ? 'shellBrowserOn' : '',
-    !settingsActive && railCollapsed ? 'shellRailOff' : '',
+    railCollapsed ? 'shellRailOff' : '',
   ]
     .filter((item) => item.length > 0)
     .join(' ');
@@ -149,21 +147,9 @@ function Shell(): React.JSX.Element {
           <NoSleep />
         </div>
       </header>
-      {/* The rail is the app's spine and never swaps out: Plugins, Skills and
-          Credits stay reachable while Settings is open. Settings keeps its own
-          section list, nested one level in rather than taking the rail slot. */}
       <AppRail collapsed={railCollapsed} onSearch={() => setLauncherOpen(true)} />
       <main className="content" role="main">
-        {settingsActive ? (
-          <div className="settingsLayout">
-            <SettingsNav active={pathname} />
-            <div className="settingsBody">
-              <Outlet />
-            </div>
-          </div>
-        ) : (
-          <Outlet />
-        )}
+        <Outlet />
       </main>
       {preview.open ? <SidePanel /> : null}
       <Launcher open={launcherOpen} onClose={() => setLauncherOpen(false)} />

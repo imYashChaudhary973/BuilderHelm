@@ -6,7 +6,10 @@ import type { BoardSessionSummary } from '@builderhelm/protocol/board';
 import { useBoards } from '../board-store.js';
 import { SPACE_COLORS, useSpaces } from '../space-store.js';
 import {
+  AccountIcon,
   AutomationsIcon,
+  BackIcon,
+  BrowserIcon,
   CreditsIcon,
   GitHubMark,
   LinearMark,
@@ -17,6 +20,7 @@ import {
   TasksIcon,
   TerminalGlyph,
   UsageIcon,
+  VoiceIcon,
 } from './rail-icons.js';
 
 /**
@@ -116,6 +120,24 @@ export function AppRail({
           </span>
         ) : null}
       </button>
+    );
+  }
+
+  const settingsOn = pathname.startsWith('/settings');
+  const settingsRows: readonly NavEntry[] = [
+    { id: 'back', label: 'Back to app', icon: <BackIcon />, to: '/' },
+    { id: 'voice', label: 'Voice', icon: <VoiceIcon />, to: '/settings/voice' },
+    { id: 'browser', label: 'Browser', icon: <BrowserIcon />, to: '/settings/browser' },
+    { id: 'account', label: 'Account', icon: <AccountIcon />, to: '/settings/accounts' },
+  ];
+
+  if (settingsOn) {
+    return (
+      <aside className={collapsed ? 'rail railCollapsed' : 'rail'} aria-label="Settings">
+        <nav className="navGroup" aria-label="Settings">
+          {settingsRows.map(navRow)}
+        </nav>
+      </aside>
     );
   }
 

@@ -135,6 +135,43 @@ export function ToolsIcon(): React.JSX.Element {
   );
 }
 
+export function BackIcon(): React.JSX.Element {
+  return (
+    <Icon>
+      <path d="m15 18-6-6 6-6" />
+    </Icon>
+  );
+}
+
+export function VoiceIcon(): React.JSX.Element {
+  return (
+    <Icon>
+      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+      <line x1="12" x2="12" y1="19" y2="22" />
+    </Icon>
+  );
+}
+
+export function BrowserIcon(): React.JSX.Element {
+  return (
+    <Icon>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M2 12h20" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </Icon>
+  );
+}
+
+export function AccountIcon(): React.JSX.Element {
+  return (
+    <Icon>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20c0-4 4-6 8-6s8 2 8 6" />
+    </Icon>
+  );
+}
+
 /** Matches the workspace rows in the rail, which are terminal-backed. */
 export function TerminalGlyph(): React.JSX.Element {
   return (
