@@ -223,4 +223,51 @@ describe('knowledge service', () => {
       test.service.listVaults().find((item) => item.id === vault.id)?.noteCount,
     ).toBe(2);
   });
+
+  it('reconciles vault changes made while the service was closed', () => {
+    const root = mkdtempSync(join(tmpdir(), 'zero-knowledge-restart-'));
+    mkdirSync(join(root, '.obsidian'));
+    writeFileSync(join(root, 'old.md'), '# Old\nExisting note.');
+    const databasePath = join(root, 'knowledge.sqlite');
+    const models = {
+      async *stream() {
+        yield { type: 'done' as const, finishReason: 'stop' as const };
+      },
+    } as unknown as ModelService;
+    let vaultId: string;
+    {
+      const database = openDatabase(databasePath);
+      runMigrations(database, migrations);
+      const service = new KnowledgeService(
+        new KnowledgeRepository(database),
+        models,
+        createLogger(() => undefined),
+        50,
+      );
+      vaultId = service.registerVault(root, createCorrelationId()).id;
+      service.close();
+      database.close();
+    }
+
+    writeFileSync(join(root, 'new.md'), '# New\nUNIQUE_RESTART_SENTINEL');
+
+    const database = openDatabase(databasePath);
+    runMigrations(database, migrations);
+    const repository = new KnowledgeRepository(database);
+    const service = new KnowledgeService(
+      repository,
+      models,
+      createLogger(() => undefined),
+      50,
+    );
+    try {
+      expect(repository.listSources(vaultId).map((s) => s.relativePath)).toContain(
+        'new.md',
+      );
+    } finally {
+      service.close();
+      database.close();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
