@@ -96,6 +96,17 @@ export class KnowledgeService {
     private readonly watchIntervalMs = defaultWatchIntervalMs,
   ) {
     for (const vault of this.repository.listVaults()) {
+      // Reconcile the persisted index with disk before trusting the current
+      // fingerprint: changes made while the app was closed must surface.
+      try {
+        this.syncVault(vault.id, createCorrelationId());
+      } catch (cause) {
+        this.logger.warn({
+          event: 'knowledge.vault_startup_sync_failed',
+          correlationId: createCorrelationId(),
+          data: { vaultId: vault.id, code: normalizeError(cause).code },
+        });
+      }
       this.startWatcher(vault.id, vault.rootPath);
     }
   }

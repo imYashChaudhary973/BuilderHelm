@@ -20,7 +20,9 @@ import type {
   ProviderConnectionResult,
   ProviderInvocationContext,
 } from './adapter.js';
+import { defaultOllamaBaseUrl } from './adapters/ollama-adapter.js';
 import { normalizeProviderError } from './error-mapping.js';
+import { isLoopbackUrl } from './http.js';
 
 export interface GatewayProviderConfig {
   readonly id: string;
@@ -58,6 +60,20 @@ function classificationAllowed(
     case 'health':
       return privacy.allowHealth;
   }
+}
+
+/**
+ * Locality is a property of the endpoint that will receive the data, not of
+ * the discovery-time label stored on the model. A remote Ollama host must
+ * never inherit the local exemption from a stale catalog entry.
+ */
+function effectivePrivacyClass(
+  config: GatewayProviderConfig,
+): ModelRecord['privacyClass'] {
+  const base =
+    config.baseUrl ?? (config.protocol === 'ollama' ? defaultOllamaBaseUrl : null);
+  if (base === null) return 'remote';
+  return isLoopbackUrl(base) ? 'local' : 'remote';
 }
 
 function assertCapabilities(request: ModelRequest, model: ModelRecord): void {
@@ -268,7 +284,7 @@ export class ModelGateway {
         !classificationAllowed(
           classification,
           registered.config.privacy,
-          model.privacyClass,
+          effectivePrivacyClass(registered.config),
         ),
     );
     if (denied.length > 0) {

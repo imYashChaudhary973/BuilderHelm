@@ -146,10 +146,25 @@ describe('model gateway', () => {
     expect(resolve).not.toHaveBeenCalled();
   });
 
-  it('allows restricted data only to local models and never sends secrets', async () => {
+  it('allows restricted data only to local endpoints and never sends secrets', async () => {
     const values = fixture();
     values.model = { ...values.model, privacyClass: 'local' };
-    const { gateway } = register(values);
+    const gateway = new ModelGateway({
+      resolve: vi.fn(async () => 'fake-test-credential'),
+    });
+    gateway.registerProvider(
+      {
+        id: values.providerId,
+        protocol: 'openai',
+        baseUrl: 'http://127.0.0.1:8080/v1',
+        secretRef: `builderhelm.provider.${values.providerId}.api-key`,
+        headers: [],
+        privacy: { allowPersonal: true, allowSensitive: false, allowHealth: false },
+        enabled: true,
+      },
+      values.adapter,
+    );
+    gateway.replaceModels(values.providerId, [values.model]);
 
     await expect(
       gateway.invoke(
@@ -166,6 +181,64 @@ describe('model gateway', () => {
         new AbortController().signal,
       ),
     ).rejects.toMatchObject({ code: 'PERMISSION_DENIED' });
+  });
+
+  it('does not let a stale local label exempt a remote endpoint', async () => {
+    const values = fixture();
+    values.model = { ...values.model, privacyClass: 'local' };
+    values.adapter = { ...values.adapter, protocol: 'ollama' };
+    const gateway = new ModelGateway({ resolve: vi.fn(async () => '') });
+    gateway.registerProvider(
+      {
+        id: values.providerId,
+        protocol: 'ollama',
+        baseUrl: 'https://ollama.example.test',
+        secretRef: `builderhelm.provider.${values.providerId}.api-key`,
+        headers: [],
+        privacy: { allowPersonal: false, allowSensitive: false, allowHealth: false },
+        enabled: true,
+      },
+      values.adapter,
+    );
+    gateway.replaceModels(values.providerId, [values.model]);
+
+    await expect(
+      gateway.invoke(
+        {
+          ...values.request,
+          dataClassifications: ['personal', 'sensitive', 'health'],
+        },
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ code: 'PERMISSION_DENIED' });
+    expect(values.adapter.invoke).not.toHaveBeenCalled();
+  });
+
+  it('treats the default Ollama endpoint as local', async () => {
+    const values = fixture();
+    values.model = { ...values.model, privacyClass: 'local' };
+    values.adapter = { ...values.adapter, protocol: 'ollama' };
+    const gateway = new ModelGateway({ resolve: vi.fn(async () => '') });
+    gateway.registerProvider(
+      {
+        id: values.providerId,
+        protocol: 'ollama',
+        baseUrl: null,
+        secretRef: `builderhelm.provider.${values.providerId}.api-key`,
+        headers: [],
+        privacy: { allowPersonal: false, allowSensitive: false, allowHealth: false },
+        enabled: true,
+      },
+      values.adapter,
+    );
+    gateway.replaceModels(values.providerId, [values.model]);
+
+    await expect(
+      gateway.invoke(
+        { ...values.request, dataClassifications: ['sensitive'] },
+        new AbortController().signal,
+      ),
+    ).resolves.toMatchObject({ text: 'Hello' });
   });
 
   it('refuses to send credentials over non-loopback HTTP', async () => {

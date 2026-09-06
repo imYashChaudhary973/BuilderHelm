@@ -8,6 +8,19 @@ interface OpenDoc {
   readonly draft: string;
 }
 
+/**
+ * Open documents live above the component instance: the editor unmounts on
+ * tool-tab switches and resets on workspace switches, and neither may
+ * discard unsaved drafts.
+ */
+const openDocs = new Map<string, OpenDoc>();
+
+function docsInWorkspace(root: string | null): OpenDoc[] {
+  if (root === null) return [];
+  const prefix = `${root}/`;
+  return [...openDocs.values()].filter((doc) => doc.file.path.startsWith(prefix));
+}
+
 const AUTOSAVE_KEY = 'exeum.editor.autosave';
 const WRAP_KEY = 'exeum.editor.wrap';
 
@@ -214,7 +227,7 @@ function DirList({
 export function EditorSidebar(): React.JSX.Element {
   const spaces = useSpaces();
   const root = workspaceFolder(spaces);
-  const [docs, setDocs] = useState<OpenDoc[]>([]);
+  const [docs, setDocsState] = useState<OpenDoc[]>(() => docsInWorkspace(root));
   const [activePath, setActivePath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hidden, setHidden] = useState(false);
@@ -231,8 +244,25 @@ export function EditorSidebar(): React.JSX.Element {
   const active = docs.find((doc) => doc.file.path === activePath) ?? null;
   const dirtyCount = docs.filter((doc) => doc.draft !== doc.file.text).length;
 
+  /** Mirrors the open documents into the component-surviving store. */
+  function setDocs(update: (current: OpenDoc[]) => OpenDoc[]): void {
+    setDocsState((current) => {
+      const next = update(current);
+      for (const doc of next) openDocs.set(doc.file.path, doc);
+      if (root !== null) {
+        const prefix = `${root}/`;
+        for (const path of openDocs.keys()) {
+          if (path.startsWith(prefix) && !next.some((doc) => doc.file.path === path)) {
+            openDocs.delete(path);
+          }
+        }
+      }
+      return next;
+    });
+  }
+
   useEffect(() => {
-    setDocs([]);
+    setDocs(() => docsInWorkspace(root));
     setActivePath(null);
     setError(null);
     setQuery('');
@@ -288,9 +318,16 @@ export function EditorSidebar(): React.JSX.Element {
       text: doc.draft,
     });
     setDocs((current) =>
-      current.map((item) =>
-        item.file.path === path ? { file: next, draft: next.text } : item,
-      ),
+      current.map((item) => {
+        if (item.file.path !== path) return item;
+        // The response can arrive after the user typed more. Adopt the saved
+        // text as the new baseline only when the draft has not moved since
+        // the save started; never feed older text back over newer input.
+        return {
+          file: next,
+          draft: item.draft === doc.draft ? next.text : item.draft,
+        };
+      }),
     );
   }
 

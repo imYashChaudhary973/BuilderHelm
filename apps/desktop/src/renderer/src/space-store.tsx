@@ -137,9 +137,13 @@ export function SpaceProvider({
       drop(id) {
         setSpaces((current) => {
           const next = current.filter((item) => item.sessionId !== id);
-          const fallback = next.at(-1)?.sessionId ?? null;
-          setActiveId(fallback);
-          setDraft(fallback === null);
+          // Closing a background Space must not yank focus from the active
+          // one; only the closed Space's selection falls back.
+          if (id === activeId) {
+            const fallback = next.at(-1)?.sessionId ?? null;
+            setActiveId(fallback);
+            setDraft(fallback === null);
+          }
           return next;
         });
       },
@@ -167,9 +171,11 @@ export function SpaceProvider({
         }
         setSpaces((current) => {
           const next = current.filter((item) => item.sessionId !== id);
-          const fallback = next.at(-1)?.sessionId ?? null;
-          setActiveId(fallback);
-          setDraft(fallback === null);
+          if (id === activeId) {
+            const fallback = next.at(-1)?.sessionId ?? null;
+            setActiveId(fallback);
+            setDraft(fallback === null);
+          }
           return next;
         });
       },
