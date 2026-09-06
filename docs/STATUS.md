@@ -224,6 +224,66 @@ positions against `origin/main` before any integration.
 - Parked archive branches kept without checkouts: `wip/helm-platform`,
   `wip/coding-loop`.
 
+## Workspace-preservation verification — 2026-09-06
+
+Revision under test: `origin/main` 23a171b, driven from the
+`feat/preserv-verify` worktree in Electron dev (`pnpm --filter
+@builderhelm/desktop dev`), isolated database
+`BUILDERHELM_DATABASE_PATH=/tmp/bh-preservation/bh2.sqlite`, driven over the
+CDP port with real keyboard events. Scenarios from the stabilisation plan §4.
+
+What held:
+
+- `BUILDERHELM_DATABASE_PATH` is honored; the primary database stays where it
+  is pointed.
+- Creating a workspace with a valid Git directory puts both panes at the
+  correct cwd with the branch chip shown.
+- Quitting the app (SIGTERM on the dev tree) takes the owned PTY tree down;
+  no stray `claude`/shell processes remained.
+
+Findings, ordered by severity:
+
+1. **Unsaved editor drafts are silently lost.** Typed into `README.md`
+   (real keyboard events, buffer confirmed `helloDRAFTXY`, disk still
+   `hello`), navigated home and back, reopened the file: buffer reverted to
+   the disk content. No autosave fired, no warning, no recovery copy.
+   Direct violation of "a delayed save cannot replace newer typing" and
+   "closing UI does not silently destroy work".
+2. **A missing working directory falls back to `$HOME` silently.** The
+   wizard accepted `/tmp/bh-preservation/no-such-dir/child` with no error;
+   the created panes are titled `child #1/#2` but the shells run at
+   `/Users/yashchaudhary`. No actionable failure anywhere.
+3. **Workspaces do not survive a restart.** After quit + relaunch the rail
+   is empty even though workspace records exist, and the home screen offers
+   no recents. Re-entering the same path in the wizard silently spawns fresh
+   shells; nothing explains that the previous session's PTYs died or that
+   this is a new session.
+4. **Workspace state lives in renderer `localStorage` only**
+   (`exeum.space.meta`, `exeum.space.recents` — retired `exeum` prefix).
+   The SQLite `projects` table stays empty, so the audited database does not
+   know the user's primary object exists, and dev (localhost:5174) versus
+   packaged (different origin) stores diverge.
+5. **The wizard pre-fills the working folder with `/Users/<home>`.** Combined
+   with (2), clicking through creates a home-rooted workspace; during run 1
+   this produced live `claude` panes rooted at `$HOME` without a completed
+   wizard flow being visible.
+6. **No workspace switcher surface.** The rail shows only the active
+   workspace; the second workspace was unreachable from the UI except by
+   re-running the wizard with its path.
+7. Accessibility/perf smells: top-bar and side-tab icon buttons carry no
+   accessible names; one 60-character programmatic type into the editor did
+   not complete within 30 s (needs a re-measure before treating as fact).
+
+Not yet driven: closing a workspace that holds unlanded commits (no
+workspace-level close control was reachable in this build), save-race with a
+concurrent second pane, heavy-output reconnect.
+
+Next required action (batch 2): the workspace-preservation slice — validate
+the working folder at entry, make editor buffers survive navigation
+(flush-on-blur or restore-on-mount), move workspace records into SQLite,
+restore workspaces at launch with an accurate interrupted-session message,
+and add a workspace switcher. Re-run these scenarios as the acceptance gate.
+
 ## Planned, not shipped
 
 - Unsigned or auto-approved whole-desktop computer-use.
