@@ -399,13 +399,26 @@ export function ChatPane({
   async function answer(
     decision: AgentPermissionRequest['options'][number]['decision'],
   ): Promise<void> {
-    if (session === null || permission === null) return;
+    if (permission === null) return;
     try {
+      // The request carries its own session id: an answer must reach main even
+      // if the renderer's session mirror dropped (exit, reload race) — a click
+      // that silently no-ops would leave the agent blocked on a dead prompt.
       await window.builderHelm.agents.respondPermission({
-        sessionId: session.sessionId,
+        sessionId: permission.sessionId,
         requestId: permission.requestId,
         decision,
       });
+      // Clear now; the broadcast copy (if it also arrives) is a no-op.
+      setEvents((current) => [
+        ...current,
+        {
+          type: 'permission.resolved',
+          sessionId: permission.sessionId,
+          requestId: permission.requestId,
+          decision,
+        },
+      ]);
     } catch {
       setError('The approval could not be sent.');
     }
