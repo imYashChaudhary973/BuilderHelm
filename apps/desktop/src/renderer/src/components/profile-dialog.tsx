@@ -1,0 +1,211 @@
+import type { AgentCandidate, AgentProfile } from '@builderhelm/protocol';
+import { useEffect, useState } from 'react';
+
+import type { AgentProfileMark } from '@builderhelm/protocol';
+
+const MARKS: readonly AgentProfileMark[] = [
+  'circle',
+  'diamond',
+  'triangle',
+  'square',
+  'hexagon',
+  'star',
+  'wave',
+  'bolt',
+];
+
+/**
+ * Create or edit a roster profile. The CLI dropdown offers only what detection
+ * found on this machine — BuilderHelm never installs an agent (ADR 0008), and
+ * the command itself is stored by main, never typed here.
+ */
+export function ProfileDialog({
+  editing,
+  onClose,
+  onSaved,
+}: {
+  readonly editing: AgentProfile | null;
+  readonly onClose: () => void;
+  readonly onSaved: (profile: AgentProfile | null) => void;
+}): React.JSX.Element {
+  const [name, setName] = useState(editing?.name ?? '');
+  const [mark, setMark] = useState<AgentProfileMark>(editing?.mark ?? 'diamond');
+  const [agentId, setAgentId] = useState(editing?.agent.id ?? '');
+  const [defaultCwd, setDefaultCwd] = useState(editing?.defaultCwd ?? null);
+  const [candidates, setCandidates] = useState<readonly AgentCandidate[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void window.builderHelm.agents
+      .candidates()
+      .then((next) => {
+        if (!active) return;
+        setCandidates(next);
+        setAgentId((current) => {
+          if (current.length > 0) return current;
+          return (
+            (next.find((c) => c.configured) ?? next.find((c) => c.available))?.id ?? ''
+          );
+        });
+      })
+      .catch(() => active && setError('Agents on this machine could not be listed.'));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const runnable = candidates.filter((c) => c.available || c.configured);
+  const canSave = name.trim().length > 0 && agentId.length > 0 && !busy;
+
+  async function chooseFolder(): Promise<void> {
+    const folder = await window.builderHelm.board.selectFolder();
+    if (folder !== null) setDefaultCwd(folder);
+  }
+
+  async function save(): Promise<void> {
+    const agent = runnable.find((c) => c.id === agentId);
+    if (agent === undefined) {
+      setError('Pick an installed agent.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const saved = await window.builderHelm.agents.profileUpsert({
+        id: editing?.id,
+        name: name.trim(),
+        mark,
+        agent: {
+          id: agent.id,
+          label: agent.label,
+          command: agent.command,
+          args: [...agent.args],
+        },
+        defaultCwd,
+      });
+      onSaved(saved);
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : 'The profile could not be saved.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(): Promise<void> {
+    if (editing === null) return;
+    setBusy(true);
+    try {
+      await window.builderHelm.agents.profileDelete(editing.id);
+      onSaved(null);
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : 'The profile could not be deleted.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="dialogBackdrop" role="presentation">
+      <section
+        className="profileDialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="profile-dialog-title"
+      >
+        <h2 id="profile-dialog-title">{editing === null ? 'New agent' : 'Edit agent'}</h2>
+
+        <label className="wizardLabel" htmlFor="profile-name">
+          Name
+        </label>
+        <input
+          id="profile-name"
+          value={name}
+          maxLength={80}
+          placeholder="Social Content Manager"
+          autoFocus
+          onChange={(event) => setName(event.target.value)}
+        />
+
+        <p className="wizardLabel">Mark</p>
+        <div className="markPicker" role="radiogroup" aria-label="Mark">
+          {MARKS.map((option) => (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={option === mark}
+              aria-label={`Mark ${option}`}
+              className={`markTile mark-row mark-${option} ${option === mark ? 'markPicked' : ''}`}
+              onClick={() => setMark(option)}
+            >
+              {(editing?.name ?? name).slice(0, 1).toUpperCase() || 'A'}
+            </button>
+          ))}
+        </div>
+
+        <label className="wizardLabel" htmlFor="profile-agent">
+          Runs with
+        </label>
+        <select
+          id="profile-agent"
+          value={agentId}
+          disabled={runnable.length === 0}
+          onChange={(event) => setAgentId(event.target.value)}
+        >
+          {runnable.length === 0 && <option value="">No ACP agent on PATH</option>}
+          {runnable.map((candidate) => (
+            <option value={candidate.id} key={candidate.id}>
+              {candidate.label}
+              {candidate.configured ? '' : ' · offered'}
+            </option>
+          ))}
+        </select>
+
+        <p className="wizardLabel">Project folder</p>
+        <div className="profileFolderRow">
+          <code className="profileFolderPath">{defaultCwd ?? 'Not chosen'}</code>
+          <button type="button" onClick={() => void chooseFolder()}>
+            Choose…
+          </button>
+        </div>
+
+        {error !== null && (
+          <p className="chatError" role="alert">
+            {error}
+          </p>
+        )}
+
+        <div className="profileDialogActions">
+          {editing !== null && (
+            <button
+              type="button"
+              className="stopButton"
+              disabled={busy}
+              onClick={() => void remove()}
+            >
+              Delete
+            </button>
+          )}
+          <span className="profileDialogSpacer" />
+          <button type="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="sendButton"
+            disabled={!canSave}
+            onClick={() => void save()}
+          >
+            {editing === null ? 'Create' : 'Save'}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}

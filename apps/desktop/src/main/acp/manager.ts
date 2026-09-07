@@ -24,7 +24,7 @@ import { BuilderHelmError } from '@builderhelm/shared';
 import { AcpSession, confinePath } from './session.js';
 import type { PermissionRules } from './permission-rules.js';
 import type { AgentThreads } from './threads.js';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, stat, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 /**
@@ -126,6 +126,16 @@ export class AgentManager {
     }
 
     const cwd = stored === null ? input.cwd : stored.thread.cwd;
+    // A folder that is gone (renamed, deleted, never created) would otherwise
+    // surface as a bare spawn failure with no hint at the cause.
+    const cwdStat = await stat(cwd).catch(() => null);
+    if (cwdStat === null || !cwdStat.isDirectory()) {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        `The project folder ${cwd} does not exist. Pick a folder that is on disk.`,
+        { metadata: { cwd } },
+      );
+    }
     const thread =
       stored === null
         ? this.options.threads.create(agent, cwd, input.profileId)

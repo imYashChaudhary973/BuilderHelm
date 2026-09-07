@@ -1,7 +1,8 @@
 /**
  * The manager is the only place that can start agent processes, so its
- * boundaries — the live-session ceiling and profile-resolved argv — are
- * regression-tested here with the session spawn faked out.
+ * boundaries — the live-session ceiling, profile-resolved argv, and a project
+ * folder that must actually exist — are regression-tested here with the
+ * session spawn faked out.
  */
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
@@ -83,7 +84,7 @@ describe('agent manager', () => {
     for (let at = 0; at < MAX_LIVE_AGENT_SESSIONS; at += 1) {
       await helm.start({
         agentId: 'codex',
-        cwd: '/tmp/roster',
+        cwd: '/tmp',
         threadId: null,
         resumeSessionId: null,
         profileId: null,
@@ -92,7 +93,7 @@ describe('agent manager', () => {
     await expect(
       helm.start({
         agentId: 'codex',
-        cwd: '/tmp/roster',
+        cwd: '/tmp',
         threadId: null,
         resumeSessionId: null,
         profileId: null,
@@ -104,7 +105,7 @@ describe('agent manager', () => {
     const helm = manager();
     const started = await helm.start({
       agentId: 'codex',
-      cwd: '/tmp/roster',
+      cwd: '/tmp',
       threadId: null,
       resumeSessionId: null,
       profileId,
@@ -120,11 +121,24 @@ describe('agent manager', () => {
     await expect(
       helm.start({
         agentId: 'codex',
-        cwd: '/tmp/roster',
+        cwd: '/tmp',
         threadId: null,
         resumeSessionId: null,
         profileId: 'profile-00000000-0000-4000-8000-000000000000',
       }),
     ).rejects.toThrowError(/profile was not found/);
+  });
+
+  it('refuses a start whose project folder is not on disk', async () => {
+    const helm = manager();
+    await expect(
+      helm.start({
+        agentId: 'codex',
+        cwd: '/tmp/bh-manager-test-does-not-exist',
+        threadId: null,
+        resumeSessionId: null,
+        profileId: null,
+      }),
+    ).rejects.toThrowError(/does not exist/);
   });
 });

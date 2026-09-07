@@ -168,15 +168,36 @@ positions against `origin/main` before any integration.
   all retained.
 - Verification performed: 7 vitest cases in
   `apps/desktop/test/workspace-actions.test.ts`; no desktop run recorded.
-- Decision 2026-09-07: the shell stack's ⌘K launcher
-  (`launcher-actions.ts`) is the converged design; the WIP dialog and its
-  style edits are superseded and will not be merged. The one piece the shell
-  launcher lacks — `launchWorkspaceAgent` with per-agent worktree isolation
-  and the 16-pane cap — is scheduled for the agent-roster phase, where named
-  agent profiles need exactly that launch path. The worktree and its files
-  stay until that port lands, then the worktree is removed.
-- Next required action: port `launchWorkspaceAgent` in the roster phase; do
-  not merge the WIP dialog.
+- Decision 2026-09-07 (updated during the roster phase): the shell stack's ⌘K
+  launcher (`launcher-actions.ts`) is the converged design; the WIP dialog and
+  its style edits are superseded and will not be merged. The roster shipped
+  chat-only, so `launchWorkspaceAgent` (per-agent worktree isolation, 16-pane
+  cap) has no caller yet — its port is deferred until profiles gain workspace
+  launching. The worktree and its files stay until that port lands.
+- Next required action: port `launchWorkspaceAgent` when profile workspace
+  launching lands; do not merge the WIP dialog.
+
+### Agent roster (`feat/agent-roster`, unmerged)
+
+- Feature: named agent profiles (name, mark, backing CLI, default project
+  folder) with a roster sidebar in the Agents mode and a shared chat pane;
+  profile-backed starts resolve argv in main; live sessions capped at 8;
+  startup-death errors carry the agent's stderr; a missing project folder is
+  refused with the path named instead of a bare spawn failure.
+- Branch and revision: `feat/agent-roster` over the modes stack (Phase 1
+  c9dce20, Phase 2 this ledger entry).
+- Verification performed 2026-09-07: unit suites for profiles, manager
+  boundaries, thread/profile persistence, roster helpers; `pnpm verify`
+  green; desktop drive — profile created through the dialog (name, mark,
+  agent, folder), roster row and tile render, pane header "Powered by …",
+  composer gated until a folder exists, empty state "What should we build?",
+  profile IPC round-trip survives an app restart from an isolated database.
+- Known gaps: the folder picker itself is the OS dialog (driven only by hand);
+  profile switching mid-turn is blocked by disabling the roster; the
+  long-transcript "earlier messages" expander and composer chips are the next
+  phase.
+- Next required action: composer chips (model/thought/mode) and transcript
+  cells; then land the stack behind PR #30 and this branch together.
 
 ### Legal docs
 
