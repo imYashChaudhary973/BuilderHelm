@@ -209,16 +209,19 @@ positions against `origin/main` before any integration.
   hand); profile switching mid-turn is blocked by disabling the roster; gemini
   advertises no config options or usage events, so its chips and token count
   are legitimately empty; a profile session starts lazily, so chips appear
-  with the first message rather than on selection. A full Codex model
-  completion, diff approval, and a restart-resume against live quota could
-  not be driven: the account's Codex usage is exhausted until 2026-09-12
-  (Codex streams that notice and fails the turn with "Internal error"; the
-  transport, session, chips, and honest failure display all verified around
-  it). Resume capability is negotiated (`loadSession: true`) and the session
-  id rides the thread per ADR 0004.
-- Next required action: after quota resets (or on another signed-in
-  machine), drive one full Codex turn with a diff approval and a
-  restart-resume; then land the stack behind PR #30 and this branch together.
+  with the first message rather than on selection.
+- Codex end to end (2026-09-07, after the account's usage window rolled
+  over): `BUILDERHELM_ACP_LIVE="codex-acp"` passes — handshake, streamed
+  reply, and the fs-inversion proof (the agent reads the workspace only
+  through BuilderHelm). In the desktop, a Codex turn through the roster
+  profile created `intro.md` on disk via our `fs/write_text_file`, the status
+  chip ran Working → Ready, the roster dot lit, and the token counter showed
+  real `usage.updated` values (65.8k). After a full app restart the thread
+  reopened with its transcript and the session resumed through the persisted
+  `acpSessionId` (`session/load`): Codex quoted the earlier task from memory
+  without touching a file.
+- Next required action: land the stack behind PR #30 and this branch
+  together.
 
 ### Legal docs
 
