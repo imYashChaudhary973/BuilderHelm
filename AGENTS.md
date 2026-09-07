@@ -123,7 +123,8 @@ scripts/worktree-add short-name
 
 Before calling a change complete, decide whether it affects:
 
-- Space, Swarm, Board, Memory, Editor, Git, Browser, Search, Notes, or Review.
+- Space, Swarm, Board, Memory, Editor, Git, Browser, Search, Notes, Review,
+  Agents chat, or Chats.
 - Desktop, mobile, CLI, local connection, or remote connection.
 - Claude Code, Codex, OpenCode, Grok, Gemini, Pi/OMP, plain shell, or custom command.
 - Shared protocol schemas, migrations, receipts, permissions, or persisted state.

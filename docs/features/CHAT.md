@@ -1,7 +1,9 @@
 # Chat
 
-Status: working in this worktree. Hosts installed ACP agents. The previous
-API-key gateway remains in process; the Chat tab no longer calls it.
+Status: on `main`. Hosts installed ACP agents. The previous API-key gateway
+remains in process; the Chat tab no longer calls it. The Agents mode hosts the
+same pane per named profile — see [Agents roster](AGENTS.md) for that
+contract.
 
 ## Goal
 
