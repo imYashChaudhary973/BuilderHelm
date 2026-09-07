@@ -21,7 +21,7 @@ import { readLastJob, takeSwarmHandoff, writeLastJob } from '../swarm-persist.js
 
 type WizardStep = 'mission' | 'roster' | 'launch';
 
-const RECENTS_KEY = 'exeum.space.recents';
+const RECENTS_KEY = 'builderhelm.space.recents';
 
 function folderName(path: string): string {
   return path.split('/').filter(Boolean).at(-1) ?? path;

@@ -206,7 +206,21 @@ export function boardAgentCatalogEntry(id: BoardAgentId): BoardAgentCatalogEntry
  * under `<repo>-worktrees/<label>`, which is also where a developer keeps their
  * own checkouts, so the directory is not evidence. Only this branch prefix is.
  */
-export const BOARD_WORKTREE_BRANCH_PREFIX = 'exeum/';
+export const BOARD_WORKTREE_BRANCH_PREFIX = 'builderhelm/';
+
+/**
+ * `exeum/` is the retired product name. Existing pane worktrees and branches
+ * in user repositories still carry it, so both prefixes count as managed:
+ * recovery and landing keep working across the rename.
+ */
+export const BOARD_WORKTREE_BRANCH_PREFIXES = [
+  BOARD_WORKTREE_BRANCH_PREFIX,
+  'exeum/',
+] as const;
+
+export function isBoardWorktreeBranch(branch: string): boolean {
+  return BOARD_WORKTREE_BRANCH_PREFIXES.some((prefix) => branch.startsWith(prefix));
+}
 
 export const boardPaneCountSchema = z.union([
   z.literal(1),

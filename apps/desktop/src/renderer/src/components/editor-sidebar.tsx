@@ -21,8 +21,8 @@ function docsInWorkspace(root: string | null): OpenDoc[] {
   return [...openDocs.values()].filter((doc) => doc.file.path.startsWith(prefix));
 }
 
-const AUTOSAVE_KEY = 'exeum.editor.autosave';
-const WRAP_KEY = 'exeum.editor.wrap';
+const AUTOSAVE_KEY = 'builderhelm.editor.autosave';
+const WRAP_KEY = 'builderhelm.editor.wrap';
 
 function workspaceFolder(spaces: ReturnType<typeof useSpaces>): string | null {
   if (spaces.draft || spaces.activeId === null) return null;

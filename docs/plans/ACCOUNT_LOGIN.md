@@ -129,9 +129,9 @@ is exactly why sign-in goes to the system browser.
 
 ### The login screen (our palette, not a copy)
 
-Centre column on `--bg #080a07`: a slow **orbit ring of the agent marks we
+Centre column on `--bg #0a0a0a`: a slow **orbit ring of the agent marks we
 already ship** (`AgentGlyph` — claude, codex, grok, gemini, copilot, kimi, …)
-around the BuilderHelm logo, one lit at a time in `--accent #b6d475`; wordmark;
+around the BuilderHelm logo, one lit at a time in `--accent #e3e3dc`; wordmark;
 `Your agents. You at the helm.`; then `Sign in` (`--accent-bright` fill, the
 house `0 4px 0` press shadow) and `Create account` (bordered secondary);
 `Terms · Privacy` and the version in Geist Mono 10px uppercase.
@@ -157,7 +157,7 @@ drops the page from `dist`.
 | `/account` | `account.html`, `src/entries/account.tsx` | Signed-in home + left sub-nav switching **client-side** (Account · Downloads · Plan). One page, no nested paths — a nested `/account/billing` would 404 into `public/404.html`, since no `_redirects` SPA fallback exists |
 | shared     | `src/lib/supabase.ts` (new)               | Extracts the client that is currently instantiated ad hoc inside `waitlist.tsx:7-12`; `/signin` and `/account` both import it                                                                                             |
 | chrome     | `src/components/site-chrome.tsx`          | A `Sign in` link beside the existing `.nav-cta`, and an account affordance when a session exists. **This file is one of your three uncommitted files — the one real collision point**                                     |
-| styles     | `src/styles.css`                          | New `.auth-*` / `.account-*` block placed before the media queries, reusing `.page-hero`, `.page-section`, `.button`/`.button-primary                                                                                     | secondary`, and the `.price-card`recipe. No new tokens:`--bg #080a07`, `--surface #0d100a`, `--accent #b6d475`, `--accent-bright #d3ef9c`, `--ease`. Responsive and reduced-motion rules go in the two trailing blocks |
+| styles     | `src/styles.css`                          | New `.auth-*` / `.account-*` block placed before the media queries, reusing `.page-hero`, `.page-section`, `.button`/`.button-primary                                                                                     | secondary`, and the `.price-card`recipe. No new tokens:`--bg #0a0a0a`, `--surface #111111`, `--accent #e3e3dc`, `--accent-bright #f4f4ee`, `--ease`. Responsive and reduced-motion rules go in the two trailing blocks |
 
 Design language is already fixed and gets reused verbatim: Geist + Geist Mono,
 10px uppercase letter-spaced eyebrows, 10px button radius, 14px card radius,

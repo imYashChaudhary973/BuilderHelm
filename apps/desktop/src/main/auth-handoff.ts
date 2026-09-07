@@ -21,7 +21,7 @@ const RETURN_PAGE = `<!doctype html>
   <meta charset="utf-8" />
   <title>BuilderHelm</title>
   <style>
-    html,body { min-height:100vh; margin:0; background:#080a07; color:#eef1e4;
+    html,body { min-height:100vh; margin:0; background:#0a0a0a; color:#ececea;
       font: 15px/1.5 ui-sans-serif, system-ui, sans-serif; }
     body { display:grid; place-items:center; }
     p { max-width: 36ch; text-align:center; }

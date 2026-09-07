@@ -7,7 +7,7 @@ import { basename, dirname, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
 import {
-  BOARD_WORKTREE_BRANCH_PREFIX,
+  isBoardWorktreeBranch,
   boardAgentCatalogEntry,
   boardPaneEventEnvelopeSchema,
   ipcChannels,
@@ -94,7 +94,7 @@ const maxPendingDataChars = 64 * 1024;
 // the agent launches after the size has been quiet for one beat. The fallback
 // covers consumers that never resize, such as the throughput benchmark.
 const commandQuietMs = 180;
-const commandFallbackMs = 900;
+const commandFallbackMs = 400;
 
 function resolveCommand(agentId: BoardAgentId, override: string | undefined): string {
   if (agentId === 'shell') return '';
@@ -582,7 +582,7 @@ export class BoardPtyManager {
       cwd: repoPath,
       timeout: 15_000,
     }).catch(() => undefined);
-    if (branch !== null && branch.startsWith(BOARD_WORKTREE_BRANCH_PREFIX)) {
+    if (branch !== null && isBoardWorktreeBranch(branch)) {
       await execFileAsync('git', ['branch', '-d', branch], {
         cwd: repoPath,
         timeout: 15_000,

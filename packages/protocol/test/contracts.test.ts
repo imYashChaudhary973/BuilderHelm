@@ -388,7 +388,7 @@ describe('review contracts', () => {
     expect(reviewDiffIpcResponseSchema.parse({ ok: true, value: [] }).value).toEqual([]);
     expect(
       reviewLandInspectSchema.parse({
-        branch: 'exeum/task',
+        branch: 'builderhelm/task',
         base: 'main',
         headSha: 'a'.repeat(40),
         reviewedHead: 'a'.repeat(40),

@@ -14,6 +14,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { bootDictation } from '../voice/dictation.js';
 import { buildConfigChips, compactTokens, earlierWindow } from '../routes/chat-cells.js';
 import { deriveStatus } from '../routes/chat-status.js';
+import { SettingsIcon } from './rail-icons.js';
 
 export function threadTitle(thread: AgentThread): string {
   return thread.title ?? 'Untitled thread';
@@ -506,7 +507,7 @@ export function ChatPane({
               title="Edit profile"
               onClick={() => onEditProfile?.(profile)}
             >
-              ⚙
+              <SettingsIcon />
             </button>
           ) : (
             <>

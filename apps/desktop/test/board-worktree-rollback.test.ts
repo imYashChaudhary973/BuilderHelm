@@ -88,8 +88,8 @@ describe('worktree session creation is transactional', () => {
           slotsLocated += 1;
           const label = `p${slot + 1}-rollback`;
           const path = join(worktrees, label);
-          git(root, ['worktree', 'add', '-b', `exeum/${label}`, path]);
-          return { cwd: path, branch: `exeum/${label}` };
+          git(root, ['worktree', 'add', '-b', `builderhelm/${label}`, path]);
+          return { cwd: path, branch: `builderhelm/${label}` };
         },
         sender,
       ),
@@ -127,11 +127,11 @@ describe('worktree session creation is transactional', () => {
           if (slot === 1) throw new Error('worktree creation failed');
           const label = 'p1-committed';
           const path = join(worktrees, label);
-          git(root, ['worktree', 'add', '-b', `exeum/${label}`, path]);
+          git(root, ['worktree', 'add', '-b', `builderhelm/${label}`, path]);
           writeFileSync(join(path, 'agent.txt'), 'work\n');
           git(path, ['add', 'agent.txt']);
           git(path, ['commit', '-m', 'agent work']);
-          return { cwd: path, branch: `exeum/${label}` };
+          return { cwd: path, branch: `builderhelm/${label}` };
         },
         sender,
       ),
@@ -139,7 +139,7 @@ describe('worktree session creation is transactional', () => {
 
     // The directory is reclaimed, but committed work is not discarded.
     expect(existsSync(join(worktrees, 'p1-committed'))).toBe(false);
-    expect(branches(root)).toContain('exeum/p1-committed');
+    expect(branches(root)).toContain('builderhelm/p1-committed');
 
     manager.dispose();
   });

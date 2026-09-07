@@ -3,7 +3,7 @@ import type { CorrelationId } from '@builderhelm/shared';
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 
 export const SPACE_COLORS = [
-  '#b6d475',
+  '#e3e3dc',
   '#7ec8e3',
   '#f2c94c',
   '#ff8f73',
@@ -35,7 +35,7 @@ export interface SpaceStore {
   close(id: string): Promise<void>;
 }
 
-const META_KEY = 'exeum.space.meta';
+const META_KEY = 'builderhelm.space.meta';
 
 function folderName(path: string): string {
   return path.split('/').filter(Boolean).at(-1) ?? path;

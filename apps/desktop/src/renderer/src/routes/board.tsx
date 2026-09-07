@@ -24,7 +24,7 @@ import { useBoards } from '../board-store.js';
 import { useSpaces } from '../space-store.js';
 import logo from '../assets/logo.png';
 const PANE_COUNTS: readonly BoardPaneCount[] = [1, 2, 4, 6, 8, 10, 12, 16];
-const RECENTS_KEY = 'exeum.space.recents';
+const RECENTS_KEY = 'builderhelm.space.recents';
 const AI_AGENTS = BOARD_AGENT_CATALOG.filter((entry) => entry.id !== 'shell');
 const FEATURED_AGENT_IDS: readonly BoardAgentId[] = [
   'claude',

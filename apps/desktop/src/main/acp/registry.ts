@@ -19,7 +19,7 @@ import { z } from 'zod';
 
 /**
  * The ACP invocation for agents that ship one, verified locally:
- * `gemini --acp` and `opencode acp` complete a v1 handshake. Grok and Claude are
+ * `gemini --acp`, `opencode acp`, and `kimi acp`. Grok and Claude are
  * documented rather than verified here, Claude via the adapter its own registry
  * entry points at.
  */
@@ -34,6 +34,7 @@ const KNOWN: readonly {
   { id: 'grok', label: 'Grok', command: 'grok', args: ['agent', 'stdio'] },
   { id: 'claude', label: 'Claude', command: 'claude-agent-acp', args: [] },
   { id: 'codex', label: 'Codex', command: 'codex-acp', args: [] },
+  { id: 'kimi', label: 'Kimi', command: 'kimi', args: ['acp'] },
 ];
 
 const SETTINGS_KEY = 'agent.configured';

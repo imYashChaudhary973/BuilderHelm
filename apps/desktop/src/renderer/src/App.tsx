@@ -26,7 +26,7 @@ function Shell(): React.JSX.Element {
   const [launcherOpen, setLauncherOpen] = useState(false);
   const [railCollapsed, setRailCollapsed] = useState(() => {
     try {
-      const stored = localStorage.getItem('exeum.rail.collapsed');
+      const stored = localStorage.getItem('builderhelm.rail.collapsed');
       return stored === null ? true : stored === '1';
     } catch {
       return true;
@@ -75,7 +75,7 @@ function Shell(): React.JSX.Element {
   function toggleRail(): void {
     setRailCollapsed((current) => {
       const next = !current;
-      localStorage.setItem('exeum.rail.collapsed', next ? '1' : '0');
+      localStorage.setItem('builderhelm.rail.collapsed', next ? '1' : '0');
       return next;
     });
   }

@@ -8,6 +8,7 @@ import type { Logger } from '@builderhelm/observability';
 import {
   BOARD_AGENT_CATALOG,
   BOARD_WORKTREE_BRANCH_PREFIX,
+  isBoardWorktreeBranch,
   boardPresetRecordSchema,
   kanbanCardSchema,
   kanbanCreateInputSchema,
@@ -191,11 +192,11 @@ function isUniqueViolation(error: unknown): boolean {
   );
 }
 
-function assertExeumBranch(branch: string): void {
-  if (!/^exeum\/[A-Za-z0-9._-]+$/.test(branch)) {
+function assertManagedBranch(branch: string): void {
+  if (!isBoardWorktreeBranch(branch)) {
     throw new BuilderHelmError(
       'VALIDATION_FAILED',
-      'Only exeum/* pane branches can be landed',
+      'Only builderhelm/* pane branches can be landed (legacy exeum/* still works)',
     );
   }
 }
@@ -363,7 +364,7 @@ export class BoardService {
           .slice('branch '.length)
           .trim()
           .replace(/^refs\/heads\//, '');
-        if (branch.startsWith(BOARD_WORKTREE_BRANCH_PREFIX)) found.push({ path, branch });
+        if (isBoardWorktreeBranch(branch)) found.push({ path, branch });
         path = null;
       }
     }
@@ -409,7 +410,7 @@ export class BoardService {
       cwd: repoPath,
       timeout: 15_000,
     }).catch(() => undefined);
-    if (branch !== null && branch.startsWith(BOARD_WORKTREE_BRANCH_PREFIX)) {
+    if (branch !== null && isBoardWorktreeBranch(branch)) {
       await execFileAsync('git', ['branch', '-d', branch], {
         cwd: repoPath,
         timeout: 15_000,
@@ -519,7 +520,7 @@ export class BoardService {
     readonly files: readonly string[];
     readonly stat: string;
   }> {
-    assertExeumBranch(branch);
+    assertManagedBranch(branch);
     const current = await this.readBranch(repoPath);
     if (current === null) {
       throw new BuilderHelmError(
@@ -590,7 +591,7 @@ export class BoardService {
     correlationId: CorrelationId,
     reviewedHead: string,
   ): Promise<{ readonly landed: true; readonly head: string }> {
-    assertExeumBranch(branch);
+    assertManagedBranch(branch);
     const current = await this.readBranch(repoPath);
     if (current === null) {
       throw new BuilderHelmError(

@@ -92,7 +92,7 @@ describe('BoardPtyManager agent launch', () => {
     const manager = new BoardPtyManager();
     await openClaudePane(manager);
 
-    await vi.advanceTimersByTimeAsync(899);
+    await vi.advanceTimersByTimeAsync(399);
     expect(ptyMock.pty.write).not.toHaveBeenCalled();
 
     await vi.advanceTimersByTimeAsync(1);
