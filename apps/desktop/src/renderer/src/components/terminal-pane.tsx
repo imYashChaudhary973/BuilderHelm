@@ -114,7 +114,7 @@ export function TerminalPane({
         getCellSizePixels: true,
         getWinSizeChars: true,
       },
-      theme: { background: '#0b0d12', foreground: '#e8eaf0', cursor: '#b6d475' },
+      theme: { background: '#0b0d12', foreground: '#e8eaf0', cursor: '#e3e3dc' },
     });
     const fit = new FitAddon();
     const serialize = new SerializeAddon();

@@ -52,9 +52,9 @@ describe('BoardService worktrees', () => {
 
     const worktree = await service.createWorktree(repo, 'p1-test', createCorrelationId());
 
-    expect(worktree.branch).toBe('exeum/p1-test');
+    expect(worktree.branch).toBe('builderhelm/p1-test');
     expect(basename(worktree.path)).toBe('p1-test');
-    expect(await service.readBranch(worktree.path)).toBe('exeum/p1-test');
+    expect(await service.readBranch(worktree.path)).toBe('builderhelm/p1-test');
     expect(await service.readBranch(repo)).toBe('main');
     database.close();
   });
@@ -165,7 +165,7 @@ describe('BoardService worktrees', () => {
     database.close();
   });
 
-  it('rejects branches that are not exeum pane branches', async () => {
+  it('rejects branches that are not builderhelm pane branches', async () => {
     const repo = createRepository();
     const database = openDatabase(':memory:');
     runMigrations(database, migrations);
@@ -197,7 +197,7 @@ describe('BoardService ensureRepository', () => {
       'p1-plain',
       createCorrelationId(),
     );
-    expect(worktree.branch).toBe('exeum/p1-plain');
+    expect(worktree.branch).toBe('builderhelm/p1-plain');
     database.close();
   });
 

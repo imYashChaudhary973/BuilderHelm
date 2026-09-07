@@ -70,12 +70,12 @@ describe('pane worktree teardown', () => {
 
     const created = await board.createWorktree(root, 'p1-abc123', correlationId);
     expect(existsSync(created.path)).toBe(true);
-    expect(branches(root)).toContain('exeum/p1-abc123');
+    expect(branches(root)).toContain('builderhelm/p1-abc123');
 
     await board.removePaneWorktree(root, created.path, created.branch, correlationId);
 
     expect(existsSync(created.path)).toBe(false);
-    expect(branches(root)).not.toContain('exeum/p1-abc123');
+    expect(branches(root)).not.toContain('builderhelm/p1-abc123');
   });
 
   it('keeps a branch that still holds unlanded commits', async () => {
@@ -93,7 +93,7 @@ describe('pane worktree teardown', () => {
 
     // The directory is reclaimed, the commits are not thrown away.
     expect(existsSync(created.path)).toBe(false);
-    expect(branches(root)).toContain('exeum/p2-abc123');
+    expect(branches(root)).toContain('builderhelm/p2-abc123');
   });
 });
 
@@ -111,7 +111,7 @@ describe('pane worktree recovery', () => {
     const listed = await board.listPaneWorktrees(root);
     // git reports resolved paths; the constructed path differs by a symlink.
     expect(listed.map((entry) => entry.path)).toEqual([realpathSync(ours.path)]);
-    expect(listed[0]!.branch).toBe('exeum/p1-abc123');
+    expect(listed[0]!.branch).toBe('builderhelm/p1-abc123');
   });
 
   it('reclaims clean strays and preserves dirty ones', async () => {
@@ -138,10 +138,10 @@ describe('pane worktree recovery', () => {
     expect(existsSync(live.path)).toBe(true);
     expect(branches(root)).toContain('main');
     // Reclaimed, so its branch went with it.
-    expect(branches(root)).not.toContain('exeum/p1-abc123');
+    expect(branches(root)).not.toContain('builderhelm/p1-abc123');
     // Kept because the work is uncommitted, and because it is still live.
-    expect(branches(root)).toContain('exeum/p2-abc123');
-    expect(branches(root)).toContain('exeum/p3-abc123');
+    expect(branches(root)).toContain('builderhelm/p2-abc123');
+    expect(branches(root)).toContain('builderhelm/p3-abc123');
   });
 
   it('leaves a repository with no pane worktrees alone', async () => {
@@ -150,5 +150,15 @@ describe('pane worktree recovery', () => {
     const result = await board.reconcilePaneWorktrees(root, [], createCorrelationId());
     expect(result).toEqual({ removed: [], keptDirty: [] });
     expect(branches(root)).toEqual(['main']);
+  });
+
+  it('still lists pane worktrees on the retired exeum/ prefix', async () => {
+    const root = createRepository();
+    const board = service();
+    const legacy = join(root, '..', 'repo-worktrees', 'legacy-pane');
+    git(root, ['worktree', 'add', '-b', 'exeum/p1-legacy', legacy]);
+
+    const listed = await board.listPaneWorktrees(root);
+    expect(listed.map((entry) => entry.branch)).toEqual(['exeum/p1-legacy']);
   });
 });

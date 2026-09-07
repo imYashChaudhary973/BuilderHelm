@@ -139,7 +139,7 @@ describe('GitReviewService', () => {
 
   it('flags land when the reviewed head moved', async () => {
     const { review, repo } = service();
-    execFileSync('git', ['checkout', '-b', 'exeum/task'], { cwd: repo });
+    execFileSync('git', ['checkout', '-b', 'builderhelm/task'], { cwd: repo });
     writeFileSync(join(repo, 'extra.md'), 'more\n');
     execFileSync('git', ['add', 'extra.md'], { cwd: repo });
     execFileSync('git', ['commit', '-m', 'more'], { cwd: repo });
@@ -148,10 +148,10 @@ describe('GitReviewService', () => {
       encoding: 'utf8',
     }).trim();
     execFileSync('git', ['checkout', 'main'], { cwd: repo });
-    const inspect = await review.inspectLand(repo, 'exeum/task', 'a'.repeat(40));
+    const inspect = await review.inspectLand(repo, 'builderhelm/task', 'a'.repeat(40));
     expect(inspect.kind).toBe('headMoved');
     expect(inspect.headSha).toBe(head);
-    const clean = await review.inspectLand(repo, 'exeum/task', head);
+    const clean = await review.inspectLand(repo, 'builderhelm/task', head);
     expect(clean.kind).toBe('clean');
     expect(clean.ahead).toBe(1);
   });
@@ -175,7 +175,7 @@ describe('GitReviewService pull requests and CI', () => {
   it('names the missing pull request instead of leaking gh stderr', async () => {
     const { review, repo } = service(
       fakeGh({
-        'pr checks': new Error('no pull requests found for branch "exeum/task"'),
+        'pr checks': new Error('no pull requests found for branch "builderhelm/task"'),
       }),
     );
 

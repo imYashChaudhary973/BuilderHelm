@@ -13,7 +13,7 @@ const TABS: readonly { id: SideTab; label: string; live: boolean }[] = [
   { id: 'review', label: 'Review', live: true },
 ];
 
-const WIDTH_KEY = 'exeum.panel.ratio';
+const WIDTH_KEY = 'builderhelm.panel.ratio';
 const minRatio = 0.18;
 const maxRatio = 0.6;
 

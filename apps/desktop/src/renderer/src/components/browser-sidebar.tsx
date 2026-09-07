@@ -32,8 +32,8 @@ interface RecentHit {
   readonly label: string;
 }
 
-const RECENTS_KEY = 'exeum.browser.recents';
-const LAST_KEY = 'exeum.browser.last';
+const RECENTS_KEY = 'builderhelm.browser.recents';
+const LAST_KEY = 'builderhelm.browser.last';
 
 function stageBounds(el: HTMLDivElement): {
   x: number;

@@ -29,7 +29,7 @@ function projectDashboard(projectId: string) {
   return {
     project: {
       id: projectId,
-      name: 'Axiom',
+      name: 'Helm Site',
       description: null,
       status: 'active' as const,
       createdAt: now,

@@ -573,7 +573,7 @@ describe('SwarmService restart recovery', () => {
     // sibling worktrees directory rather than the substring "swarm-".
     expect(worktrees).not.toContain('-worktrees/');
     expect(
-      execFileSync('git', ['branch', '--list', 'exeum/*'], {
+      execFileSync('git', ['branch', '--list', 'builderhelm/*'], {
         cwd: repo,
         encoding: 'utf8',
       }).trim(),

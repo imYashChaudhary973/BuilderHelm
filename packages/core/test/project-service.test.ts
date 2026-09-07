@@ -113,7 +113,7 @@ describe('project continuity', () => {
       `INSERT INTO projects (
         id, name, normalized_name, description, status, created_at, updated_at
       ) VALUES (?, ?, ?, NULL, 'active', ?, ?)`,
-      [projectId, 'Axiom', 'axiom', now, now],
+      [projectId, 'Helm Site', 'helm site', now, now],
     );
     database.run(
       `INSERT INTO tasks (

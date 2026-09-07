@@ -250,7 +250,7 @@ Findings, ordered by severity:
    shells; nothing explains that the previous session's PTYs died or that
    this is a new session.
 4. **Workspace state lives in renderer `localStorage` only**
-   (`exeum.space.meta`, `exeum.space.recents` — retired `exeum` prefix).
+   (`builderhelm.space.meta`, `builderhelm.space.recents`; previously `exeum.*`).
    The SQLite `projects` table stays empty, so the audited database does not
    know the user's primary object exists, and dev (localhost:5174) versus
    packaged (different origin) stores diverge.

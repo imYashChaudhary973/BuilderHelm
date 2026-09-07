@@ -15,8 +15,8 @@ import {
 
 /** Rows shown before "View all" appears, so a large change set stays scannable. */
 const SECTION_CAP = 10;
-const TREE_KEY = 'exeum.git.tree';
-const BASE_KEY = 'exeum.git.base';
+const TREE_KEY = 'builderhelm.git.tree';
+const BASE_KEY = 'builderhelm.git.base';
 
 function workspaceFolder(spaces: ReturnType<typeof useSpaces>): string | null {
   if (spaces.draft || spaces.activeId === null) return null;
