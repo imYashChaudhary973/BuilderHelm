@@ -34,6 +34,8 @@ const metaSchema = z
       })
       .strict(),
     cwd: z.string().min(1).max(4096),
+    /** Roster profile that started the thread; null for ad hoc threads. */
+    profileId: z.string().max(64).nullable().default(null),
     title: z.string().min(1).max(200).nullable(),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
@@ -63,13 +65,18 @@ export class AgentThreads {
     return { thread: toThread(meta), events: this.events(id) };
   }
 
-  create(agent: AgentDescriptor, cwd: string): AgentThread {
+  create(
+    agent: AgentDescriptor,
+    cwd: string,
+    profileId: string | null = null,
+  ): AgentThread {
     const now = new Date().toISOString();
     const meta: Meta = {
       id: randomUUID(),
       acpSessionId: null,
       agent: { ...agent, args: [...agent.args] },
       cwd,
+      profileId,
       title: null,
       createdAt: now,
       updatedAt: now,

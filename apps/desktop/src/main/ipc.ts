@@ -35,6 +35,11 @@ import {
   agentConfigureInputSchema,
   agentDiffInputSchema,
   agentForgetInputSchema,
+  agentProfileDeleteInputSchema,
+  agentProfileIpcResponseSchema,
+  agentProfileListInputSchema,
+  agentProfileListIpcResponseSchema,
+  agentProfileUpsertInputSchema,
   agentListInputSchema,
   agentPromptInputSchema,
   agentRespondPermissionInputSchema,
@@ -50,6 +55,7 @@ import {
 import type { AuthHandoff } from './auth-handoff.js';
 import type { AgentManager } from './acp/manager.js';
 import type { AgentRegistry } from './acp/registry.js';
+import type { AgentProfiles } from './acp/profiles.js';
 import {
   actionCommandIpcResponseSchema,
   actionCommandRequestSchema,
@@ -380,7 +386,7 @@ export function registerIpcHandlers(
   /** Reports chat-stream activity so Agent mode can hold the blocker. */
   onNoSleepActivity?: (active: boolean) => void,
   auth?: AuthHandoff,
-  agents?: { manager: AgentManager; registry: AgentRegistry },
+  agents?: { manager: AgentManager; registry: AgentRegistry; profiles: AgentProfiles },
 ): () => void {
   const preview = new PreviewBrowser(core.browserSettings);
   const desktop = new DesktopControl();
@@ -2662,6 +2668,36 @@ export function registerIpcHandlers(
       return agentVoidIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
     }
   });
+  ipcMain.handle(ipcChannels.agentProfileList, (_event, input: unknown) => {
+    try {
+      agentProfileListInputSchema.parse(input);
+      const value = requireAgents().profiles.list();
+      return agentProfileListIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return agentProfileListIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.agentProfileUpsert, (_event, input: unknown) => {
+    try {
+      const parsed = agentProfileUpsertInputSchema.parse(input);
+      const value = requireAgents().profiles.upsert(parsed.profile);
+      return agentProfileIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return agentProfileIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.agentProfileDelete, (_event, input: unknown) => {
+    try {
+      const parsed = agentProfileDeleteInputSchema.parse(input);
+      requireAgents().profiles.remove(parsed.profileId);
+      return agentVoidIpcResponseSchema.parse({ ok: true, value: null });
+    } catch (error) {
+      return agentVoidIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
   ipcMain.handle(ipcChannels.agentSessionStart, async (_event, input: unknown) => {
     try {
       const parsed = agentSessionStartInputSchema.parse(input);
@@ -2670,6 +2706,7 @@ export function registerIpcHandlers(
         cwd: parsed.cwd,
         threadId: parsed.threadId,
         resumeSessionId: parsed.resumeSessionId,
+        profileId: parsed.profileId,
       });
       return agentSessionIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
@@ -2886,7 +2923,10 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.noSleepRead);
     ipcMain.removeHandler(ipcChannels.noSleepSet);
     ipcMain.removeHandler(ipcChannels.authRead);
-    ipcMain.removeHandler(ipcChannels.authBegin);
+    ipcMain.removeHandler(ipcChannels.agentForget);
+    ipcMain.removeHandler(ipcChannels.agentProfileList);
+    ipcMain.removeHandler(ipcChannels.agentProfileUpsert);
+    ipcMain.removeHandler(ipcChannels.agentProfileDelete);
     ipcMain.removeHandler(ipcChannels.authCancel);
     ipcMain.removeHandler(ipcChannels.authSignOut);
     ipcMain.removeHandler(ipcChannels.authOpenAccount);

@@ -11,6 +11,7 @@ import type {
   AccountSnapshotInput,
   AccountToggleHookInput,
 } from './accounts.js';
+import type { AgentProfile, AgentProfileInput } from './agent-profiles.js';
 import type { NoSleepSetInput, NoSleepState } from './no-sleep.js';
 import type { AuthState } from './auth.js';
 import type {
@@ -334,6 +335,9 @@ export const ipcChannels = {
   agentCandidates: 'builderhelm:agent:candidates',
   agentConfigure: 'builderhelm:agent:configure',
   agentForget: 'builderhelm:agent:forget',
+  agentProfileList: 'builderhelm:agent:profile-list',
+  agentProfileUpsert: 'builderhelm:agent:profile-upsert',
+  agentProfileDelete: 'builderhelm:agent:profile-delete',
   agentSessionStart: 'builderhelm:agent:session-start',
   agentSessionList: 'builderhelm:agent:session-list',
   agentSessionClose: 'builderhelm:agent:session-close',
@@ -600,7 +604,11 @@ export interface BuilderHelmDesktopApi {
       cwd: string;
       threadId: string | null;
       resumeSessionId: string | null;
+      profileId: string | null;
     }): Promise<AgentSessionState>;
+    profiles(): Promise<readonly AgentProfile[]>;
+    profileUpsert(profile: AgentProfileInput): Promise<AgentProfile>;
+    profileDelete(profileId: string): Promise<null>;
     sessions(): Promise<readonly AgentSessionState[]>;
     threads(): Promise<readonly AgentThread[]>;
     transcript(threadId: string): Promise<AgentTranscript>;

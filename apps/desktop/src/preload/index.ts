@@ -250,6 +250,10 @@ import {
   agentTranscriptIpcResponseSchema,
   agentVoidIpcResponseSchema,
 } from '@builderhelm/protocol/agent-session';
+import {
+  agentProfileIpcResponseSchema,
+  agentProfileListIpcResponseSchema,
+} from '@builderhelm/protocol/agent-profiles';
 
 function unwrap<T>(result: {
   readonly ok: boolean;
@@ -1373,6 +1377,26 @@ const api: BuilderHelmDesktopApi = {
       });
       return unwrap(agentVoidIpcResponseSchema.parse(response));
     },
+    async profiles() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.agentProfileList, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(agentProfileListIpcResponseSchema.parse(response));
+    },
+    async profileUpsert(profile) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.agentProfileUpsert, {
+        correlationId: globalThis.crypto.randomUUID(),
+        profile,
+      });
+      return unwrap(agentProfileIpcResponseSchema.parse(response));
+    },
+    async profileDelete(profileId) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.agentProfileDelete, {
+        correlationId: globalThis.crypto.randomUUID(),
+        profileId,
+      });
+      return unwrap(agentVoidIpcResponseSchema.parse(response));
+    },
     async start(input) {
       const response: unknown = await ipcRenderer.invoke(ipcChannels.agentSessionStart, {
         correlationId: globalThis.crypto.randomUUID(),
@@ -1380,6 +1404,7 @@ const api: BuilderHelmDesktopApi = {
         cwd: input.cwd,
         threadId: input.threadId,
         resumeSessionId: input.resumeSessionId,
+        profileId: input.profileId ?? null,
       });
       return unwrap(agentSessionIpcResponseSchema.parse(response));
     },

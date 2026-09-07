@@ -18,7 +18,7 @@ import { z } from 'zod';
 
 import { modelErrorSchema } from './model.js';
 
-const correlationIdSchema = z
+export const correlationIdSchema = z
   .string()
   .uuid()
   .transform((value) => value as CorrelationId);
@@ -333,7 +333,8 @@ export const agentSessionEventSchema = z.discriminatedUnion('type', [
   z
     .object({
       type: z.literal('session.exited'),
-      sessionId: agentSessionIdSchema,
+      /** Empty when the process died before the handshake minted an id. */
+      sessionId: z.string().max(512),
       code: z.number().int().nullable(),
       message: z.string().max(2048).nullable(),
     })
@@ -424,7 +425,8 @@ export const agentSessionEventSchema = z.discriminatedUnion('type', [
   z
     .object({
       type: z.literal('turn.failed'),
-      sessionId: agentSessionIdSchema,
+      /** Empty when the failure precedes the handshake. */
+      sessionId: z.string().max(512),
       turnId: agentTurnIdSchema,
       message: z.string().max(2048),
       raw: z.string().max(65536).nullable(),
@@ -443,6 +445,11 @@ export const agentSessionStartInputSchema = z
     cwd: z.string().min(1).max(4096),
     /** Reattach to a prior ACP session; requires `loadSession` or `resumeSession`. */
     resumeSessionId: agentSessionIdSchema.nullable(),
+    /**
+     * The roster profile this thread belongs to. Main resolves the profile's
+     * own argv from it — the renderer still never chooses a command.
+     */
+    profileId: z.string().max(64).nullable(),
     /** Our thread, so a restart reopens history even when the agent cannot. */
     threadId: z.string().uuid().nullable(),
   })
@@ -540,7 +547,7 @@ export const agentForgetInputSchema = z
   .strict();
 export type AgentForgetInput = z.infer<typeof agentForgetInputSchema>;
 
-function ipcResult<T extends z.ZodType>(value: T) {
+export function ipcResult<T extends z.ZodType>(value: T) {
   return z.discriminatedUnion('ok', [
     z.object({ ok: z.literal(true), value }).strict(),
     z.object({ ok: z.literal(false), error: modelErrorSchema }).strict(),
@@ -561,6 +568,8 @@ export const agentThreadSchema = z
   .object({
     id: z.string().uuid(),
     acpSessionId: agentSessionIdSchema.nullable(),
+    /** The roster profile that started it; null for threads started ad hoc. */
+    profileId: z.string().max(64).nullable(),
     agent: agentDescriptorSchema,
     cwd: z.string().min(1).max(4096),
     title: z.string().min(1).max(200).nullable(),

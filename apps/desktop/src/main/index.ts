@@ -41,6 +41,7 @@ import { AuthHandoff } from './auth-handoff.js';
 import { AgentManager } from './acp/manager.js';
 import { PermissionRules } from './acp/permission-rules.js';
 import { AgentRegistry } from './acp/registry.js';
+import { AgentProfiles } from './acp/profiles.js';
 import { AgentThreads } from './acp/threads.js';
 
 let core: CoreRuntime | undefined;
@@ -347,6 +348,7 @@ app
     // live sessions and needs a way to reach the renderer, since a permission
     // request has to be answered by a person.
     const agentRegistry = new AgentRegistry(runtime.settings);
+    const agentProfiles = new AgentProfiles(runtime.settings);
     agentManager = new AgentManager({
       emit: (event) => {
         for (const window of BrowserWindow.getAllWindows()) {
@@ -357,6 +359,7 @@ app
       rules: new PermissionRules(runtime.settings),
       threads: new AgentThreads(runtime.settings),
       resolveAgent: (agentId) => agentRegistry.resolve(agentId),
+      resolveProfile: (profileId) => agentProfiles.find(profileId),
     });
     setExtraTerminalEnv(() => core?.accounts.cliEnv() ?? {});
     const hookClaude = (): void => {
@@ -403,7 +406,7 @@ app
         syncPower();
       },
       authHandoff,
-      { manager: agentManager, registry: agentRegistry },
+      { manager: agentManager, registry: agentRegistry, profiles: agentProfiles },
     );
     setTimeout(hookClaude, 400);
     installApplicationMenu();

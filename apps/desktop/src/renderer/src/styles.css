@@ -11164,3 +11164,670 @@ html.is-fullscreen .swarmWizardFoot {
     width: 100%;
   }
 }
+
+/* ─── AGENTS ROSTER ────────────────────────────────────────────────────────── */
+
+.chatIdentity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.chatIdentity h2 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chatControls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.statusChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--glass-strong);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.statusDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+
+.status-ready {
+  color: var(--accent-bright);
+}
+
+.status-ready .statusDot {
+  background: var(--accent);
+}
+
+.status-working .statusDot {
+  background: var(--accent);
+  animation: statusPulse 1.4s ease-in-out infinite;
+}
+
+.status-working {
+  color: var(--accent-bright);
+}
+
+.status-approval {
+  color: var(--warning);
+  border-color: rgba(242, 201, 76, 0.35);
+}
+
+.status-approval .statusDot {
+  background: var(--warning);
+}
+
+.status-signin {
+  color: var(--danger);
+  border-color: rgba(255, 143, 115, 0.35);
+}
+
+.status-signin .statusDot {
+  background: var(--danger);
+}
+
+@keyframes statusPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.markTile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: var(--accent-dim);
+  color: var(--accent-bright);
+  border: 1px solid var(--accent-line);
+  font-weight: 600;
+  user-select: none;
+}
+
+.mark-tile {
+  width: 64px;
+  height: 64px;
+  font-size: 24px;
+  border-radius: var(--radius-m);
+}
+
+.mark-head {
+  width: 40px;
+  height: 40px;
+  font-size: 16px;
+}
+
+.mark-row {
+  width: 26px;
+  height: 26px;
+  font-size: 12px;
+  border-radius: var(--radius-s);
+}
+
+.mark-circle {
+  border-radius: 50%;
+}
+
+.mark-diamond {
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.mark-triangle {
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
+.mark-square {
+  border-radius: 4px;
+}
+
+.mark-hexagon {
+  clip-path: polygon(25% 5%, 75% 5%, 100% 50%, 75% 95%, 25% 95%, 0 50%);
+}
+
+.mark-star {
+  clip-path: polygon(
+    50% 0%,
+    61% 35%,
+    98% 35%,
+    68% 57%,
+    79% 91%,
+    50% 70%,
+    21% 91%,
+    32% 57%,
+    2% 35%,
+    39% 35%
+  );
+}
+
+.mark-wave {
+  border-radius: 50% 50% 50% 50% / 60% 40% 60% 40%;
+}
+
+.mark-bolt {
+  border-radius: 15% 60% 15% 60%;
+}
+
+.rosterTiles {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.rosterTile {
+  display: grid;
+  place-items: center;
+  padding: 10px 0;
+  border-radius: var(--radius-m);
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.03);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.rosterTile:hover:not(:disabled) {
+  border-color: var(--accent-line);
+  background: var(--accent-dim);
+}
+
+.rosterTileActive {
+  border-color: var(--accent-line);
+  background: var(--accent-dim);
+}
+
+.rosterRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.rosterRowName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rosterDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-3);
+  opacity: 0.5;
+}
+
+.rosterDotLive {
+  background: var(--accent);
+  opacity: 1;
+  box-shadow: 0 0 6px rgba(182, 212, 117, 0.6);
+}
+
+.rosterFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+}
+
+.rosterFooterModel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profileDialog {
+  width: min(480px, calc(100vw - 48px));
+  display: grid;
+  gap: 10px;
+  padding: 22px;
+  border-radius: var(--radius-l);
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-float);
+}
+
+.profileDialog h2 {
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+
+.profileDialog input,
+.profileDialog select {
+  width: 100%;
+}
+
+.markPicker {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+}
+
+.markPicker .markTile {
+  width: 100%;
+  aspect-ratio: 1;
+  height: auto;
+  cursor: pointer;
+  border-radius: var(--radius-s);
+}
+
+.markPicked {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.profileFolderRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profileFolderPath {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--line);
+  background: var(--bg-1);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profileDialogActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.profileDialogSpacer {
+  flex: 1;
+}
+
+/* ─── COMPOSER PILL + TRANSCRIPT CELLS ─────────────────────────────────────── */
+
+.chatComposer {
+  padding: 12px 16px 16px;
+}
+
+.composerPill {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--radius-l);
+  border: 1px solid var(--line);
+  background: var(--bg-1);
+  box-shadow: var(--shadow-card);
+  transition: border-color 0.15s ease;
+}
+
+.composerPill:focus-within {
+  border-color: var(--accent-line);
+}
+
+.composerPill textarea {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  margin: 0;
+  resize: vertical;
+  min-height: 44px;
+}
+
+.composerPill:focus-within textarea {
+  border: none;
+  box-shadow: none;
+}
+
+.chipRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.chipAnchor {
+  position: relative;
+}
+
+.configChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--glass);
+  color: var(--text-2);
+  font-size: 12px;
+  white-space: nowrap;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.configChip strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.configChip:hover:not(:disabled) {
+  border-color: var(--accent-line);
+  color: var(--text);
+}
+
+.configChipOn {
+  color: var(--accent-bright);
+  border-color: var(--accent-line);
+}
+
+.configChipOn .chipCheck {
+  color: var(--accent);
+}
+
+.configChipOpen {
+  border-color: var(--accent-line);
+}
+
+.chipCheck {
+  font-size: 10px;
+}
+
+.chipPopover {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  min-width: 220px;
+  max-height: 280px;
+  overflow-y: auto;
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  box-shadow: var(--shadow-float);
+}
+
+.chipChoice {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--radius-s);
+  text-align: left;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.chipChoice small {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.chipChoice:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.chipChoiceActive {
+  background: var(--accent-dim);
+  color: var(--accent-bright);
+}
+
+.chipOverflowRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.composerFooter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.composerTokens {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.composerHint {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.micButton,
+.sendCircle,
+.stopCircle {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.micButton {
+  border: 1px solid var(--line);
+  background: var(--glass);
+  color: var(--text-2);
+}
+
+.micButton:hover:not(:disabled) {
+  border-color: var(--accent-line);
+  color: var(--accent-bright);
+}
+
+.sendCircle {
+  border: 1px solid var(--accent-line);
+  background: var(--accent);
+  color: #10130a;
+  font-size: 17px;
+  font-weight: 700;
+  transition: filter 0.15s ease;
+}
+
+.sendCircle:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.stopCircle {
+  border: 1px solid var(--danger);
+  background: var(--danger-dim);
+}
+
+.stopCircle span {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--danger);
+}
+
+.sendCircle:disabled {
+  opacity: 0.35;
+  filter: grayscale(0.4);
+}
+
+.earlierButton {
+  margin: 0 auto;
+  padding: 5px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--glass);
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.earlierButton:hover {
+  border-color: var(--accent-line);
+  color: var(--text);
+}
+
+.thoughtCell {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 6px 10px;
+  margin: 6px 0;
+}
+
+.thoughtCell summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-3);
+  user-select: none;
+}
+
+.thoughtCell[open] summary {
+  margin-bottom: 6px;
+  color: var(--text-2);
+}
+
+.thoughtCell .thinkingLine {
+  margin: 0;
+}
+
+.goalCell {
+  margin: 6px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-s);
+  background: var(--accent-dim);
+}
+
+.goalCellTitle {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-bright);
+}
+
+.goalCell .planList {
+  margin: 0 0 0 18px;
+}
+
+.cellBlock {
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.cell-pending,
+.cell-running {
+  border-color: var(--accent-line);
+}
+
+.cell-failed,
+.cell-cancelled {
+  border-color: rgba(255, 143, 115, 0.3);
+}
+
+.cellHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cellGlyph {
+  color: var(--accent-bright);
+  font-family: var(--font-mono);
+  flex: none;
+}
+
+.cellTitle {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cellChip {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--glass);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cellStatus {
+  margin-left: auto;
+  flex: none;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.cell-running .cellStatus {
+  color: var(--accent);
+}
+
+.cellApproval {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-s);
+  background: var(--glass-strong);
+  font-size: 12px;
+  color: var(--accent-bright);
+}
+
+.cellApproval > div {
+  display: flex;
+  gap: 8px;
+}

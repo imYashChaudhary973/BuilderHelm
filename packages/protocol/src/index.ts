@@ -1,5 +1,6 @@
 export * from './actions.js';
 export * from './agent-session.js';
+export * from './agent-profiles.js';
 export * from './browser.js';
 export * from './board.js';
 export * from './chat.js';

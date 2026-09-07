@@ -168,15 +168,60 @@ positions against `origin/main` before any integration.
   all retained.
 - Verification performed: 7 vitest cases in
   `apps/desktop/test/workspace-actions.test.ts`; no desktop run recorded.
-- Decision 2026-09-07: the shell stack's ⌘K launcher
-  (`launcher-actions.ts`) is the converged design; the WIP dialog and its
-  style edits are superseded and will not be merged. The one piece the shell
-  launcher lacks — `launchWorkspaceAgent` with per-agent worktree isolation
-  and the 16-pane cap — is scheduled for the agent-roster phase, where named
-  agent profiles need exactly that launch path. The worktree and its files
-  stay until that port lands, then the worktree is removed.
-- Next required action: port `launchWorkspaceAgent` in the roster phase; do
-  not merge the WIP dialog.
+- Decision 2026-09-07 (updated during the roster phase): the shell stack's ⌘K
+  launcher (`launcher-actions.ts`) is the converged design; the WIP dialog and
+  its style edits are superseded and will not be merged. The roster shipped
+  chat-only, so `launchWorkspaceAgent` (per-agent worktree isolation, 16-pane
+  cap) has no caller yet — its port is deferred until profiles gain workspace
+  launching. The worktree and its files stay until that port lands.
+- Next required action: port `launchWorkspaceAgent` when profile workspace
+  launching lands; do not merge the WIP dialog.
+
+### Agent roster (`feat/agent-roster`, unmerged)
+
+- Feature: named agent profiles (name, mark, backing CLI, default project
+  folder) with a roster sidebar in the Agents mode and a shared chat pane;
+  profile-backed starts resolve argv in main; live sessions capped at 8;
+  startup-death errors carry the agent's stderr; a missing project folder is
+  refused with the path named instead of a bare spawn failure. The composer
+  is a pill with config chips (model, thought-level, mode; other categories
+  under an overflow chip; nothing shown for agents that advertise nothing),
+  compact tokens, on-device dictation, and a circular send/stop. Transcript
+  cells: collapsible thoughts, a Goal block, tool cells with path chips and
+  the approval inline on the blocked cell, and an earlier-messages expander.
+- Branch and revision: `feat/agent-roster` over the modes stack (Phase 1
+  c9dce20, Phase 2 b8e6946, Phase 3+4 761b4cd).
+- Verification performed 2026-09-07: unit suites for profiles, manager
+  boundaries, thread/profile persistence, roster helpers, and chip grouping;
+  `pnpm verify` green; desktop drive — profile created through the dialog
+  (name, mark, agent, folder), roster row and tile render, pane header
+  "Powered by …", composer gated until a folder exists, empty state "What
+  should we build?", profile IPC round-trip survives an app restart from an
+  isolated database, live profile-backed turn completes with the roster dot
+  lit, and the missing-folder guard names the path in the running app.
+  Against a real codex-acp 1.10.0 (`@agentclientprotocol/codex-acp`,
+  user-installed): handshake, `loadSession` capability, and advertised config
+  options verified — the composer rendered "Mode: Approve for me", "Model:
+  GPT-6-Astra", "Reasoning effort: Low", and the overflow chip, and a mode
+  switch through the chip popover round-tripped `set_config_option` ("Mode:
+  Ask for approval"). Streaming is proven end to end.
+- Known gaps: the folder picker itself is the OS dialog (driven only by
+  hand); profile switching mid-turn is blocked by disabling the roster; gemini
+  advertises no config options or usage events, so its chips and token count
+  are legitimately empty; a profile session starts lazily, so chips appear
+  with the first message rather than on selection.
+- Codex end to end (2026-09-07, after the account's usage window rolled
+  over): `BUILDERHELM_ACP_LIVE="codex-acp"` passes — handshake, streamed
+  reply, and the fs-inversion proof (the agent reads the workspace only
+  through BuilderHelm). In the desktop, a Codex turn through the roster
+  profile created `intro.md` on disk via our `fs/write_text_file`, the status
+  chip ran Working → Ready, the roster dot lit, and the token counter showed
+  real `usage.updated` values (65.8k). After a full app restart the thread
+  reopened with its transcript and the session resumed through the persisted
+  `acpSessionId` (`session/load`): Codex quoted the earlier task from memory
+  without touching a file.
+- Next required action: land the stack behind PR #30 and this branch
+  together.
 
 ### Legal docs
 

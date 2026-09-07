@@ -20,6 +20,10 @@
       "types": "./dist/agent-session.d.ts",
       "import": "./src/agent-session.ts"
     },
+    "./agent-profiles": {
+      "types": "./dist/agent-profiles.d.ts",
+      "import": "./src/agent-profiles.ts"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./src/index.ts"
