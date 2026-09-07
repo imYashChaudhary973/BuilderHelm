@@ -1,20 +1,29 @@
 import { Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
+import type { AuthState } from '@builderhelm/protocol/auth';
 
 import { BoardProvider } from './board-store.js';
 import logo from './assets/logo.png';
 import { SidePanel } from './components/side-panel.js';
-import { SpaceRail } from './components/space-rail.js';
-import { UsageBar } from './components/usage-bar.js';
+import { AppRail } from './components/app-rail.js';
+import { Launcher } from './components/launcher.js';
+import {
+  BellIcon,
+  RailToggleIcon,
+  SearchIcon,
+  ToolsIcon,
+} from './components/rail-icons.js';
 import { SplashScreen, splashEnabled } from './components/splash-screen.js';
+import { LoginScreen } from './components/login-screen.js';
 import { DictationHud } from './components/dictation-hud.js';
-import { SettingsNav } from './routes/settings/nav.js';
+import { NoSleep } from './components/no-sleep.js';
 import { PreviewProvider, usePreview } from './preview-store.js';
 import { SpaceProvider } from './space-store.js';
 
 function Shell(): React.JSX.Element {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const preview = usePreview();
+  const [launcherOpen, setLauncherOpen] = useState(false);
   const [railCollapsed, setRailCollapsed] = useState(() => {
     try {
       const stored = localStorage.getItem('exeum.rail.collapsed');
@@ -29,7 +38,7 @@ function Shell(): React.JSX.Element {
   // Escape leaves Settings, mirroring the visible back control. The router has
   // nowhere back when a deep link opened the app, so it goes home instead.
   useEffect(() => {
-    if (!settingsActive) return;
+    if (!settingsActive || launcherOpen) return;
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return;
       event.preventDefault();
@@ -37,12 +46,31 @@ function Shell(): React.JSX.Element {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [settingsActive, navigate]);
+  }, [settingsActive, launcherOpen, navigate]);
 
   useEffect(() => {
-    if (preview.open && preview.tab === 'browser') return;
+    const onKey = (event: KeyboardEvent): void => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'k') return;
+      event.preventDefault();
+      setLauncherOpen(true);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  useEffect(() => {
+    if (launcherOpen) {
+      void window.builderHelm?.browser.command({ action: 'hide' }).catch(() => undefined);
+      return;
+    }
+    if (preview.open && preview.tab === 'browser') {
+      void window.builderHelm?.browser
+        .command({ action: 'visible', visible: true })
+        .catch(() => undefined);
+      return;
+    }
     void window.builderHelm?.browser.command({ action: 'hide' }).catch(() => undefined);
-  }, [preview.open, preview.tab]);
+  }, [preview.open, preview.tab, launcherOpen]);
 
   function toggleRail(): void {
     setRailCollapsed((current) => {
@@ -54,9 +82,8 @@ function Shell(): React.JSX.Element {
 
   const shellClass = [
     'shell',
-    settingsActive ? 'shellSettingsOn' : '',
     preview.open ? 'shellBrowserOn' : '',
-    !settingsActive && railCollapsed ? 'shellRailOff' : '',
+    railCollapsed ? 'shellRailOff' : '',
   ]
     .filter((item) => item.length > 0)
     .join(' ');
@@ -74,33 +101,34 @@ function Shell(): React.JSX.Element {
   return (
     <div className={shellClass}>
       <header className="topbar">
+        <div className="brand">
+          <img className="brandLogo" src={logo} width={24} height={24} alt="" />
+          BuilderHelm
+        </div>
         <button
           type="button"
-          className={railCollapsed ? 'topbarIcon' : 'topbarIcon topbarIconOn'}
+          className={
+            railCollapsed ? 'topbarIcon railToggle' : 'topbarIcon topbarIconOn railToggle'
+          }
           title={railCollapsed ? 'Show sidebar' : 'Hide sidebar'}
           aria-pressed={!railCollapsed}
           onClick={toggleRail}
         >
-          <RailIcon />
+          <RailToggleIcon />
         </button>
-        <div className="brand">
-          <img className="brandLogo" src={logo} width={22} height={22} alt="" />
-          BuilderHelm
+        <ModeTabs />
+        <div className="topbarEnd">
           <span className="buildStamp" title="Branch and commit this build came from">
             {__BUILD_STAMP__}
           </span>
-        </div>
-        <div className="topbarEnd">
           <button
             type="button"
-            className={settingsActive ? 'topbarIcon topbarIconOn' : 'topbarIcon'}
-            title={settingsActive ? 'Leave settings (Esc)' : 'Settings'}
-            aria-pressed={settingsActive}
-            onClick={() =>
-              void navigate({ to: settingsActive ? '/' : '/settings/voice' })
-            }
+            className={launcherOpen ? 'topbarIcon topbarIconOn' : 'topbarIcon'}
+            title="Search (⌘K)"
+            aria-pressed={launcherOpen}
+            onClick={() => setLauncherOpen(true)}
           >
-            <GearIcon />
+            <SearchIcon />
           </button>
           <button
             type="button"
@@ -109,92 +137,97 @@ function Shell(): React.JSX.Element {
             aria-pressed={preview.open}
             onClick={() => preview.toggle()}
           >
-            <PanelIcon />
+            <ToolsIcon />
           </button>
+          <button type="button" className="topbarIcon" title="Notifications">
+            <BellIcon />
+          </button>
+          <NoSleep />
         </div>
       </header>
-      {pathname.startsWith('/settings') ? (
-        <SettingsNav active={pathname} />
-      ) : (
-        <SpaceRail collapsed={railCollapsed} />
-      )}
+      <AppRail collapsed={railCollapsed} onSearch={() => setLauncherOpen(true)} />
       <main className="content" role="main">
         <Outlet />
       </main>
       {preview.open ? <SidePanel /> : null}
-      <UsageBar />
+      <Launcher open={launcherOpen} onClose={() => setLauncherOpen(false)} />
       <DictationHud />
     </div>
   );
 }
 
-function RailIcon(): React.JSX.Element {
+/**
+ * The three ways to work. Code covers Space, Board, and Swarm. Chats is the
+ * ACP host. Agents is the installed-CLI grid. Settings is not a mode.
+ */
+const MODES: readonly {
+  readonly label: string;
+  readonly to: string;
+  readonly match: (pathname: string) => boolean;
+}[] = [
+  { label: 'Agents', to: '/agents', match: (path) => path.startsWith('/agents') },
+  {
+    label: 'Code',
+    to: '/space',
+    match: (path) =>
+      path.startsWith('/space') || path.startsWith('/board') || path.startsWith('/swarm'),
+  },
+  { label: 'Chats', to: '/chat', match: (path) => path.startsWith('/chat') },
+];
+
+function ModeTabs(): React.JSX.Element {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const navigate = useNavigate();
   return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-      <rect
-        x="3.5"
-        y="4.5"
-        width="17"
-        height="15"
-        rx="2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.75"
-      />
-      <path d="M9 4.5v15" fill="none" stroke="currentColor" strokeWidth="1.75" />
-    </svg>
+    <div className="modeTabs" role="tablist" aria-label="Mode">
+      {MODES.map((mode) => {
+        const on = mode.match(pathname);
+        return (
+          <button
+            key={mode.to}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            className={on ? 'modeTab modeTabOn' : 'modeTab'}
+            onClick={() => void navigate({ to: mode.to })}
+          >
+            {mode.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
-function PanelIcon(): React.JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-      <rect
-        x="3.5"
-        y="4.5"
-        width="17"
-        height="15"
-        rx="2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.75"
-      />
-      <path d="M15 4.5v15" fill="none" stroke="currentColor" strokeWidth="1.75" />
-    </svg>
-  );
-}
-
-function GearIcon(): React.JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-      <circle
-        cx="12"
-        cy="12"
-        r="3"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.75"
-      />
-      <path
-        d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4 18 18M18 6l-1.6 1.6M7.6 16.4 6 18"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
 export function App(): React.JSX.Element {
   // Launch-only: App mounts once per window, so the storm never returns on a
   // route change.
   const [splashDone, setSplashDone] = useState(() => !splashEnabled());
+  const [auth, setAuth] = useState<AuthState | null>(null);
+
+  useEffect(() => {
+    if (typeof window.builderHelm === 'undefined') return undefined;
+    void window.builderHelm.auth.read().then(setAuth);
+    return window.builderHelm.auth.onChange(setAuth);
+  }, []);
+
+  if (typeof window.builderHelm === 'undefined') {
+    return (
+      <main className="content" role="main">
+        <p className="errorBanner" role="alert">
+          Open BuilderHelm from the desktop app.
+        </p>
+      </main>
+    );
+  }
+
+  const locked = auth === null || auth.status !== 'signed-in';
 
   return (
     <BoardProvider>
       <SpaceProvider>
         <PreviewProvider>
-          <Shell />
+          {locked ? <LoginScreen state={auth} /> : <Shell />}
           {splashDone ? null : <SplashScreen onDone={() => setSplashDone(true)} />}
         </PreviewProvider>
       </SpaceProvider>

@@ -78,20 +78,17 @@ export function NoSleep(): React.JSX.Element {
 
   return (
     <div className="noSleep" ref={rootRef}>
+      {/* Icon only; the mode menu carries the words. */}
       <button
         type="button"
         className={current === 'off' ? 'noSleepChip' : 'noSleepChip noSleepChipOn'}
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-label={`No Sleep: ${LABELS[current]} · ${status}`}
         title={`No Sleep: ${LABELS[current]} · ${status}`}
         onClick={() => setOpen((value) => !value)}
       >
         <CupGlyph />
-        <span>{LABELS[current]}</span>
-        <span
-          className={held ? 'noSleepDot noSleepDotOn' : 'noSleepDot'}
-          aria-hidden="true"
-        />
       </button>
       {open ? (
         <div className="noSleepMenu" role="menu" aria-label="No Sleep">

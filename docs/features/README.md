@@ -6,6 +6,8 @@ scope; technical ownership; safety boundaries; and acceptance evidence.
 | Feature                     | Document                                |
 | --------------------------- | --------------------------------------- |
 | Agent runtimes              | [Agent runtime](AGENT_RUNTIME.md)       |
+| Chat                        | [Chat](CHAT.md)                         |
+| Modes and launcher          | [Modes](../MODES.md)                    |
 | Space                       | [Space](SPACE.md)                       |
 | Terminal                    | [Terminal](TERMINAL.md)                 |
 | Swarm                       | [Swarm](SWARM.md)                       |

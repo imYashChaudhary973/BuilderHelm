@@ -43,6 +43,7 @@ import type { SecretStore } from './secrets/secret-store.js';
 import { PreviewArtifactService } from './preview/preview-artifact-service.js';
 import { BrowserSettingsService } from './browser/browser-settings-service.js';
 import { NoSleepService } from './no-sleep/no-sleep-service.js';
+import { AuthService } from './auth/auth-service.js';
 import { VoiceService, type VoiceModelInventory } from './voice/voice-service.js';
 import { AccountsService } from './accounts/accounts-service.js';
 
@@ -74,7 +75,14 @@ export interface CoreRuntime {
   readonly linearIssues: LinearIssuesService;
   readonly previewArtifacts: PreviewArtifactService;
   readonly browserSettings: BrowserSettingsService;
+  /**
+   * Key/JSON settings, for callers that store their own small policy blobs
+   * rather than warranting a service. Used by the ACP agent registry and its
+   * remembered approval rules (ADR 0008).
+   */
+  readonly settings: SettingsRepository;
   readonly noSleep: NoSleepService;
+  readonly auth: AuthService;
   readonly voice: VoiceService;
   readonly accounts: AccountsService;
   health(correlationId: CorrelationId): SystemHealthResponse;
@@ -149,8 +157,10 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
   const previewArtifacts = new PreviewArtifactService(
     new PreviewArtifactRepository(database),
   );
+  const settings = new SettingsRepository(database);
   const browserSettings = new BrowserSettingsService(new SettingsRepository(database));
   const noSleep = new NoSleepService(new SettingsRepository(database));
+  const auth = new AuthService(options.secretStore, new SettingsRepository(database));
   const accounts = new AccountsService(
     new SettingsRepository(database),
     board,
@@ -199,7 +209,9 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     linearIssues,
     previewArtifacts,
     browserSettings,
+    settings,
     noSleep,
+    auth,
     voice,
     accounts,
     health(correlationId) {

@@ -12,6 +12,17 @@ import type {
   AccountToggleHookInput,
 } from './accounts.js';
 import type { NoSleepSetInput, NoSleepState } from './no-sleep.js';
+import type { AuthState } from './auth.js';
+import type {
+  AgentCandidate,
+  AgentContent,
+  AgentDescriptor,
+  AgentPermissionDecision,
+  AgentSessionEvent,
+  AgentSessionState,
+  AgentThread,
+  AgentTranscript,
+} from './agent-session.js';
 import type {
   BoardAddPaneInput,
   BoardAgentDetection,
@@ -314,6 +325,26 @@ export const ipcChannels = {
   noSleepRead: 'builderhelm:no-sleep:read',
   noSleepSet: 'builderhelm:no-sleep:set',
   noSleepEvent: 'builderhelm:no-sleep:event',
+  authRead: 'builderhelm:auth:read',
+  authBegin: 'builderhelm:auth:begin',
+  authCancel: 'builderhelm:auth:cancel',
+  authSignOut: 'builderhelm:auth:signOut',
+  authOpenAccount: 'builderhelm:auth:openAccount',
+  authEvent: 'builderhelm:auth:event',
+  agentCandidates: 'builderhelm:agent:candidates',
+  agentConfigure: 'builderhelm:agent:configure',
+  agentForget: 'builderhelm:agent:forget',
+  agentSessionStart: 'builderhelm:agent:session-start',
+  agentSessionList: 'builderhelm:agent:session-list',
+  agentSessionClose: 'builderhelm:agent:session-close',
+  agentPrompt: 'builderhelm:agent:prompt',
+  agentCancel: 'builderhelm:agent:cancel',
+  agentSetConfig: 'builderhelm:agent:set-config',
+  agentRespondPermission: 'builderhelm:agent:respond-permission',
+  agentThreadList: 'builderhelm:agent:thread-list',
+  agentThreadGet: 'builderhelm:agent:thread-get',
+  agentDiff: 'builderhelm:agent:diff',
+  agentEvent: 'builderhelm:agent:event',
 } as const;
 
 export const systemHealthRequestSchema = z
@@ -550,5 +581,48 @@ export interface BuilderHelmDesktopApi {
     read(): Promise<NoSleepState>;
     set(input: NoSleepSetInput): Promise<NoSleepState>;
     onChange(listener: (state: NoSleepState) => void): () => void;
+  };
+  readonly auth: {
+    read(): Promise<AuthState>;
+    begin(): Promise<AuthState>;
+    cancel(): Promise<AuthState>;
+    signOut(): Promise<AuthState>;
+    openAccount(): Promise<AuthState>;
+    onChange(listener: (state: AuthState) => void): () => void;
+  };
+  readonly agents: {
+    /** Configured agents plus known ones found on PATH. */
+    candidates(): Promise<readonly AgentCandidate[]>;
+    configure(agent: AgentDescriptor): Promise<null>;
+    forget(agentId: string): Promise<null>;
+    start(input: {
+      agentId: string;
+      cwd: string;
+      threadId: string | null;
+      resumeSessionId: string | null;
+    }): Promise<AgentSessionState>;
+    sessions(): Promise<readonly AgentSessionState[]>;
+    threads(): Promise<readonly AgentThread[]>;
+    transcript(threadId: string): Promise<AgentTranscript>;
+    close(sessionId: string): Promise<null>;
+    /** Resolves when the turn ends; progress arrives via `onEvent`. */
+    prompt(input: { sessionId: string; content: readonly AgentContent[] }): Promise<null>;
+    cancel(sessionId: string): Promise<null>;
+    setConfigOption(input: {
+      sessionId: string;
+      configId: string;
+      value: string | boolean;
+    }): Promise<null>;
+    respondPermission(input: {
+      sessionId: string;
+      requestId: string;
+      decision: AgentPermissionDecision;
+    }): Promise<null>;
+    applyDiff(input: {
+      sessionId: string;
+      path: string;
+      action: 'apply' | 'revert';
+    }): Promise<null>;
+    onEvent(listener: (event: AgentSessionEvent) => void): () => void;
   };
 }

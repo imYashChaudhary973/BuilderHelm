@@ -87,17 +87,27 @@ export function AgentMark({
   );
 }
 
-export function AgentGlyph({ id }: { readonly id: BoardAgentId }): React.JSX.Element {
+export function AgentGlyph({
+  id,
+  size = 18,
+}: {
+  readonly id: BoardAgentId;
+  readonly size?: number;
+}): React.JSX.Element {
   if (id === 'omp') {
-    return <img className="agentMarkImg" src={ompMark} width={18} height={18} alt="" />;
+    return (
+      <img className="agentMarkImg" src={ompMark} width={size} height={size} alt="" />
+    );
   }
   if (id === 'pi') {
-    return <img className="agentMarkImg" src={piMark} width={18} height={18} alt="" />;
+    return (
+      <img className="agentMarkImg" src={piMark} width={size} height={size} alt="" />
+    );
   }
   const spec = MARKS[id];
   if (spec === undefined) {
     return (
-      <svg viewBox="0 0 24 24" width={18} height={18} aria-hidden="true">
+      <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
         <path
           d="M7.2 8.2 10.8 12 7.2 15.8M13.2 16.4h4.4"
           fill="none"
@@ -110,7 +120,7 @@ export function AgentGlyph({ id }: { readonly id: BoardAgentId }): React.JSX.Ele
     );
   }
   return (
-    <svg viewBox="0 0 24 24" width={18} height={18} aria-hidden="true">
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
       {spec.paths.map((path) => (
         <path
           key={path.slice(0, 24)}

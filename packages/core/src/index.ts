@@ -27,3 +27,5 @@ export * from './voice/voice-service.js';
 export * from './preview/preview-artifact-service.js';
 export * from './browser/browser-settings-service.js';
 export * from './no-sleep/no-sleep-service.js';
+export * from './auth/auth-service.js';
+export * from './auth/licence.js';
