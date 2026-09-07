@@ -1,6 +1,6 @@
 # Implementation status
 
-Last reviewed: 2026-09-07 (modes stack merge; auth/chat/shell driven in the desktop before landing).
+Last reviewed: 2026-09-07 (PRs #30 and #31 landed: modes stack and the agent roster).
 
 This document distinguishes working code from planned product scope. A feature
 is not shipped merely because a route, mock, fixture, or documentation page exists.
@@ -28,6 +28,15 @@ Status labels used below:
   packaged build.
 - Three-mode shell (Agents, Code, Chats) and a ⌘K plus menu that runs existing
   surfaces. Plugins, Skills, and Automations remain labeled stubs.
+- Named agent profiles with a roster sidebar in Agents mode (marks, live
+  dots, usage footer, "Powered by …" headers) and a shared chat pane:
+  config chips rendered from what each agent advertises (model, thought
+  level, mode; overflow chip otherwise), compact token usage, on-device
+  dictation in the composer, transcript cells (collapsible thoughts, Goal
+  block, tool cells with path chips, approval inline on the blocked cell),
+  profile-scoped project folders, an eight-session cap, and Codex verified
+  end to end through `@agentclientprotocol/codex-acp` — live turn, file
+  write through the hosted fs, and session resume after a full app restart.
 - Permissioned actions, approvals, and receipts.
 - Project dashboard and Git continuity.
 - Space setup with real xterm.js terminals backed by node-pty.
@@ -126,37 +135,6 @@ Status labels used below:
 Live branch ledger. Ahead-counts are not independence proofs; re-verify
 positions against `origin/main` before any integration.
 
-### Shell stack: modes shell + chat + auth
-
-- Feature: app shell rebuild (Agents/Code/Chats modes, ⌘K launcher, settings
-  Usage/Account split) together with the ACP chat host and the account/licence
-  gate it is built on.
-- Branch and revision: `feat/shell` @ bcdeb4a, strictly linear over
-  `feat/chat` @ 9ef8cfd, over `feat/auth` @ b3583ec, plus a merge of `main`
-  @ 9dbca07 (bcdeb4a) and the auth access policy ADR (f9afdf1,
-  [ADR 0009](adr/0009-account-licence-access-policy.md)). Merging
-  `feat/shell` ships all three; there is no separate chat or auth branch
-  decision.
-- Depends on: nothing outside `main`; merged current `main` at bcdeb4a. The
-  conflict inventory was exactly one file: `docs/STATUS.md`. The previously
-  recorded styles.css / usage.tsx conflicts no longer exist and were stale.
-- User-visible behavior: mode rail and launcher replace the Space home entry;
-  chat gains an ACP host and persisted threads; sign-in handoff can recover;
-  the licence gate controls entry.
-- Verification performed 2026-09-07, in Electron dev from this worktree with
-  `BUILDERHELM_DATABASE_PATH=/tmp/bh-phase0/bh.sqlite` and the renderer driven
-  over the `BUILDERHELM_DEBUG_PORT` CDP endpoint: all three modes switch
-  (Agents grid, Code workspace choices, Chats thread panel); ⌘K opens the
-  grouped launcher with honest per-agent availability; a live ACP turn against
-  `gemini` on the Chats tab completed end to end (handshake, streamed reply,
-  thread auto-titled and persisted); `pnpm smoke:desktop` passed with an
-  isolated database; the owned PTY tree came down with the app.
-- Known failures: none from this drive. Top-bar icon buttons still carry no
-  accessible names (carried from the preservation findings). The packaged
-  build has not been click-through.
-- Next required action: review the auth diff via PR against ADR 0009 (repo
-  rule for security changes), then land the stack on `main`.
-
 ### Workspace launcher (uncommitted WIP — decision recorded)
 
 - Feature: ⌘K "open or create" launcher dialog, Agents page with launch
@@ -176,52 +154,6 @@ positions against `origin/main` before any integration.
   launching. The worktree and its files stay until that port lands.
 - Next required action: port `launchWorkspaceAgent` when profile workspace
   launching lands; do not merge the WIP dialog.
-
-### Agent roster (`feat/agent-roster`, unmerged)
-
-- Feature: named agent profiles (name, mark, backing CLI, default project
-  folder) with a roster sidebar in the Agents mode and a shared chat pane;
-  profile-backed starts resolve argv in main; live sessions capped at 8;
-  startup-death errors carry the agent's stderr; a missing project folder is
-  refused with the path named instead of a bare spawn failure. The composer
-  is a pill with config chips (model, thought-level, mode; other categories
-  under an overflow chip; nothing shown for agents that advertise nothing),
-  compact tokens, on-device dictation, and a circular send/stop. Transcript
-  cells: collapsible thoughts, a Goal block, tool cells with path chips and
-  the approval inline on the blocked cell, and an earlier-messages expander.
-- Branch and revision: `feat/agent-roster` over the modes stack (Phase 1
-  c9dce20, Phase 2 b8e6946, Phase 3+4 761b4cd).
-- Verification performed 2026-09-07: unit suites for profiles, manager
-  boundaries, thread/profile persistence, roster helpers, and chip grouping;
-  `pnpm verify` green; desktop drive — profile created through the dialog
-  (name, mark, agent, folder), roster row and tile render, pane header
-  "Powered by …", composer gated until a folder exists, empty state "What
-  should we build?", profile IPC round-trip survives an app restart from an
-  isolated database, live profile-backed turn completes with the roster dot
-  lit, and the missing-folder guard names the path in the running app.
-  Against a real codex-acp 1.10.0 (`@agentclientprotocol/codex-acp`,
-  user-installed): handshake, `loadSession` capability, and advertised config
-  options verified — the composer rendered "Mode: Approve for me", "Model:
-  GPT-6-Astra", "Reasoning effort: Low", and the overflow chip, and a mode
-  switch through the chip popover round-tripped `set_config_option` ("Mode:
-  Ask for approval"). Streaming is proven end to end.
-- Known gaps: the folder picker itself is the OS dialog (driven only by
-  hand); profile switching mid-turn is blocked by disabling the roster; gemini
-  advertises no config options or usage events, so its chips and token count
-  are legitimately empty; a profile session starts lazily, so chips appear
-  with the first message rather than on selection.
-- Codex end to end (2026-09-07, after the account's usage window rolled
-  over): `BUILDERHELM_ACP_LIVE="codex-acp"` passes — handshake, streamed
-  reply, and the fs-inversion proof (the agent reads the workspace only
-  through BuilderHelm). In the desktop, a Codex turn through the roster
-  profile created `intro.md` on disk via our `fs/write_text_file`, the status
-  chip ran Working → Ready, the roster dot lit, and the token counter showed
-  real `usage.updated` values (65.8k). After a full app restart the thread
-  reopened with its transcript and the session resumed through the persisted
-  `acpSessionId` (`session/load`): Codex quoted the earlier task from memory
-  without touching a file.
-- Next required action: land the stack behind PR #30 and this branch
-  together.
 
 ### Legal docs
 
