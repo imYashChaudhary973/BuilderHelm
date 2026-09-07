@@ -1,11 +1,21 @@
 # Implementation status
 
-Last reviewed: 2026-09-04.
+Last reviewed: 2026-09-07 (modes stack merge; auth/chat/shell driven in the desktop before landing).
 
 This document distinguishes working code from planned product scope. A feature
 is not shipped merely because a route, mock, fixture, or documentation page exists.
 
-## Working in the repository
+Status labels used below:
+
+- **Integrated** — code on `main`; the list under "Integrated implementation".
+- **Verified in the running desktop** — driven live in Electron (`pnpm dev` or
+  `pnpm smoke:desktop`) with an isolated database. Stated inline per item.
+- **Verified in the packaged app** — exercised in `pnpm dist` output. The
+  current ceiling is startup-only; see "Partial or needing hardening".
+- **Unmerged** — live branch work; recorded per feature under "Unmerged work".
+- **Planned** — see "Planned, not shipped".
+
+## Integrated implementation (`main`)
 
 - Secure Electron main/preload/renderer boundary.
 - TypeScript application services and Zod-validated IPC.
@@ -89,7 +99,7 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
   endpoint on a 30s live poll; Codex refreshes live via app-server. Grok weekly
   % stays blank until a non-interactive stats command exists.
 
-## Partial or needing hardening
+## Partial or needing hardening (running desktop)
 
 - Swarm stop/reconnect and failure recovery.
 - Terminal output is batched in Electron main, startup scanning is incremental,
@@ -110,6 +120,175 @@ is not shipped merely because a route, mock, fixture, or documentation page exis
   window rather than a native menu, so they are driveable end to end.
 - A capture taken while the window is occluded returns no pixels, so evidence
   recorded from a background window carries metadata without a picture.
+
+## Unmerged work
+
+Live branch ledger. Ahead-counts are not independence proofs; re-verify
+positions against `origin/main` before any integration.
+
+### Shell stack: modes shell + chat + auth
+
+- Feature: app shell rebuild (Agents/Code/Chats modes, ⌘K launcher, settings
+  Usage/Account split) together with the ACP chat host and the account/licence
+  gate it is built on.
+- Branch and revision: `feat/shell` @ cbc0cab, strictly linear over
+  `feat/chat` @ 9ef8cfd, over `feat/auth` @ b3583ec, over 23a171b. Merging
+  `feat/shell` ships all three; there is no separate chat or auth branch
+  decision. 25 commits: auth 5 (licence gate, account-origin dev override,
+  sign-in-handoff recovery, telemetry gate, modes rebuild), chat 4 (ACP agent
+  host, thread persistence, format, preload crypto fix), shell 16 (4
+  functional, 12 style iterations).
+- Depends on: nothing outside `main`; 1 commit behind.
+- User-visible behavior: mode rail and launcher replace the Space home entry;
+  chat gains an ACP host and persisted threads; sign-in handoff can recover;
+  the licence gate controls entry.
+- Verification performed: none recorded; not driven in the desktop.
+- Known failures: conflicts with `main` usage work (both rewrite
+  `styles.css`; `routes/settings/usage.tsx` add/add; shell deletes
+  `usage-bar.tsx`, which `main`'s shipped usage bar extends). Auth is
+  security- and permission-engine-adjacent.
+- Next required action: document the auth access policy and review the auth
+  diff via PR (repo rule for security changes), then integrate the stack
+  once; drop style iterations that fight the agreed shell.
+
+### Workspace launcher (uncommitted WIP)
+
+- Feature: ⌘K "open or create" launcher dialog, Agents page with launch
+  buttons, shared `launchWorkspaceAgent` action catalog (per-agent worktree
+  isolation, 16-pane cap, no process spawn from the UI), browser view
+  suspension while dialogs are open.
+- Branch and revision: `feat/workspace-launcher` @ ee6aeb9 (committed side
+  fully merged, 1 behind) + 13 uncommitted files, all retained.
+- Depends on: nothing merged; conceptually overlaps the shell stack's ⌘K
+  launcher — the two launcher designs must converge, not coexist.
+- User-visible behavior: one entry point to open or create a workspace and
+  start an installed agent or plain terminal.
+- Verification performed: 7 vitest cases in
+  `apps/desktop/test/workspace-actions.test.ts`; no desktop run recorded.
+- Known failures: preservation and lifecycle scenarios (close with dirty
+  work, save races, restart recovery) not yet run.
+- Next required action: reconcile with the shell launcher design, then run
+  the preservation scenarios in the running desktop.
+
+### Legal docs
+
+- Feature: publish-ready site Terms and Privacy Policy.
+- Branch and revision: `feat/legal-terms` @ 556415a, 2 docs commits, 119
+  behind; plus untracked draft `docs/legal/anthropic-authorization-request.md`
+  (retained; needs an explicit keep/drop decision before landing).
+- Depends on: none.
+- Next required action: rebase and integrate the two docs commits.
+
+### Search and notes (deferred)
+
+- Feature: command palette for files, tasks, and commands (`feat/p4-search`,
+  1 commit) with project notes and CLI quota ingest stacked on
+  (`feat/p4-notes-usage`, +2 commits).
+- Branch and revision: branches retained; checkouts removed 2026-09-06.
+- Depends on: nothing; conflicts with the shell stack (`styles.css`,
+  `bootstrap.ts`, `routes/settings/usage.tsx` add/add), and `main` already
+  re-implemented quota ingest (`apps/desktop/src/main/quota-ingest.ts`,
+  `packages/core/src/accounts/`).
+- Next required action: none until the core loop is accepted; when revived,
+  rebase the palette and drop the superseded quota commit.
+
+### Integrated but not yet cleaned up
+
+- Feature: endpoint-privacy and data-loss fixes.
+- Branch and revision: `feat/fix-audit-bugs` @ cc1f256 is patch-equivalent to
+  `main` HEAD (verified with `git cherry`). The worktree remains only because
+  a stale dev Electron instance (pids 47733/47830 at reconciliation) runs
+  from it.
+- Next required action: stop the dev instance, then remove the worktree and
+  `git branch -d feat/fix-audit-bugs`.
+
+### Orca-managed checkouts (outside this layout)
+
+- `feat/browser-studio` @ 98ae93e: fully merged (71 behind, 0 ahead);
+  worktree retained because Orca manages it.
+- `imYashChaudhary973/Marketing` @ 6e48132: marketing teaser work, 3 unique
+  commits, dirty lockfile plus a stock template README; not release scope.
+
+### Checkout reconciliation — 2026-09-06
+
+- Hub `/Users/yashchaudhary/Desktop/BuilderHelm` is a bare repo. Its stale
+  hybrid-era working files (Rust `crates/`, `docs/STACK.md`, `@zero` docs)
+  were removed after verifying byte equality with commit f88dc86. Unique
+  strays live in `~/Desktop/builderhelm-hub-backup/` (`.claude/`, `.codex/`,
+  one screenshot, CSS salvage patches from the removed app-icon and voice
+  worktrees). Hub `AGENTS.md` is now a pointer to the canonical checkout.
+- Removed as fully merged (0 ahead of `origin/main`): worktrees app-icon,
+  voice, ci-format, editor-explorer, lightning-splash, no-sleep, p4-linear,
+  preview, qa-fixes, review, swarm-roster-clip, usage-bar,
+  p4-github-intake, p4-search, p4-notes-usage; branches feat/app-icon,
+  fix/ci-voice-zero, feat/ci-format, feat/editor-explorer,
+  feat/lightning-splash, feat/no-sleep, feat/p4-linear, feat/preview,
+  feat/qa-fixes, feat/review, feat/swarm-roster-clip, feat/usage-bar,
+  feat/voice, pr-26, feat/p4-github-intake, and phase-3/checkpoint-build
+  (patch-equivalence verified). Two prunable fixture worktrees under
+  `/var/folders` were pruned.
+- Parked archive branches kept without checkouts: `wip/helm-platform`,
+  `wip/coding-loop`.
+
+## Workspace-preservation verification — 2026-09-06
+
+Revision under test: `origin/main` 23a171b, driven from the
+`feat/preserv-verify` worktree in Electron dev (`pnpm --filter
+@builderhelm/desktop dev`), isolated database
+`BUILDERHELM_DATABASE_PATH=/tmp/bh-preservation/bh2.sqlite`, driven over the
+CDP port with real keyboard events. Scenarios from the stabilisation plan §4.
+
+What held:
+
+- `BUILDERHELM_DATABASE_PATH` is honored; the primary database stays where it
+  is pointed.
+- Creating a workspace with a valid Git directory puts both panes at the
+  correct cwd with the branch chip shown.
+- Quitting the app (SIGTERM on the dev tree) takes the owned PTY tree down;
+  no stray `claude`/shell processes remained.
+
+Findings, ordered by severity:
+
+1. **Unsaved editor drafts are silently lost.** Typed into `README.md`
+   (real keyboard events, buffer confirmed `helloDRAFTXY`, disk still
+   `hello`), navigated home and back, reopened the file: buffer reverted to
+   the disk content. No autosave fired, no warning, no recovery copy.
+   Direct violation of "a delayed save cannot replace newer typing" and
+   "closing UI does not silently destroy work".
+2. **A missing working directory falls back to `$HOME` silently.** The
+   wizard accepted `/tmp/bh-preservation/no-such-dir/child` with no error;
+   the created panes are titled `child #1/#2` but the shells run at
+   `/Users/yashchaudhary`. No actionable failure anywhere.
+3. **Workspaces do not survive a restart.** After quit + relaunch the rail
+   is empty even though workspace records exist, and the home screen offers
+   no recents. Re-entering the same path in the wizard silently spawns fresh
+   shells; nothing explains that the previous session's PTYs died or that
+   this is a new session.
+4. **Workspace state lives in renderer `localStorage` only**
+   (`exeum.space.meta`, `exeum.space.recents` — retired `exeum` prefix).
+   The SQLite `projects` table stays empty, so the audited database does not
+   know the user's primary object exists, and dev (localhost:5174) versus
+   packaged (different origin) stores diverge.
+5. **The wizard pre-fills the working folder with `/Users/<home>`.** Combined
+   with (2), clicking through creates a home-rooted workspace; during run 1
+   this produced live `claude` panes rooted at `$HOME` without a completed
+   wizard flow being visible.
+6. **No workspace switcher surface.** The rail shows only the active
+   workspace; the second workspace was unreachable from the UI except by
+   re-running the wizard with its path.
+7. Accessibility/perf smells: top-bar and side-tab icon buttons carry no
+   accessible names; one 60-character programmatic type into the editor did
+   not complete within 30 s (needs a re-measure before treating as fact).
+
+Not yet driven: closing a workspace that holds unlanded commits (no
+workspace-level close control was reachable in this build), save-race with a
+concurrent second pane, heavy-output reconnect.
+
+Next required action (batch 2): the workspace-preservation slice — validate
+the working folder at entry, make editor buffers survive navigation
+(flush-on-blur or restore-on-mount), move workspace records into SQLite,
+restore workspaces at launch with an accurate interrupted-session message,
+and add a workspace switcher. Re-run these scenarios as the acceptance gate.
 
 ## Planned, not shipped
 

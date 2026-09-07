@@ -571,6 +571,19 @@ export class BoardService {
     return { branch, base: current, headSha, ahead, files, stat: statOut.trim() };
   }
 
+  /** True while another merge holds the destination repository. */
+  private async mergeInProgress(repoPath: string): Promise<boolean> {
+    try {
+      await execFileAsync('git', ['rev-parse', '--verify', '-q', 'MERGE_HEAD'], {
+        cwd: repoPath,
+        timeout: 5_000,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async landBranch(
     repoPath: string,
     branch: string,
@@ -587,6 +600,12 @@ export class BoardService {
     }
     if (current === branch) {
       throw new BuilderHelmError('VALIDATION_FAILED', 'Cannot land a branch into itself');
+    }
+    if (await this.mergeInProgress(repoPath)) {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'A merge is already in progress; resolve or abort it before landing',
+      );
     }
     const { stdout: actualOut } = await execFileAsync('git', ['rev-parse', branch], {
       cwd: repoPath,
@@ -606,6 +625,8 @@ export class BoardService {
         { cwd: repoPath, timeout: 60_000 },
       );
     } catch (error) {
+      // The guard above refused a pre-existing merge, so any merge state here
+      // belongs to this invocation and aborting it is a clean rollback.
       await execFileAsync('git', ['merge', '--abort'], { cwd: repoPath }).catch(
         () => undefined,
       );

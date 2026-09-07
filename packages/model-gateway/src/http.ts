@@ -13,6 +13,17 @@ export function providerEndpoint(baseUrl: string | null, path: string): URL {
   return new URL(path.replace(/^\//, ''), base);
 }
 
+/**
+ * True when the URL points at this machine, so request data never leaves it.
+ */
+export function isLoopbackUrl(rawUrl: string): boolean {
+  try {
+    return ['localhost', '127.0.0.1', '[::1]', '::1'].includes(new URL(rawUrl).hostname);
+  } catch {
+    return false;
+  }
+}
+
 export async function* readServerSentEvents(
   body: ReadableStream<Uint8Array> | null,
 ): AsyncIterable<unknown> {
@@ -25,7 +36,14 @@ export async function* readServerSentEvents(
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      buffer += decoder.decode(value, { stream: true }).replaceAll('\r\n', '\n');
+      buffer += decoder.decode(value, { stream: true });
+      // A trailing CR may be the first half of a CRLF that a network chunk
+      // split in two. Hold it back so the next chunk can complete the pair
+      // before newlines normalize; normalizing per chunk can merge two
+      // frames into one invalid JSON document.
+      const pendingCr = buffer.endsWith('\r') ? '\r' : '';
+      if (pendingCr !== '') buffer = buffer.slice(0, -1);
+      buffer = `${buffer.replaceAll('\r\n', '\n').replaceAll('\r', '\n')}${pendingCr}`;
       let boundary = buffer.indexOf('\n\n');
       while (boundary >= 0) {
         const frame = buffer.slice(0, boundary);
@@ -44,6 +62,7 @@ export async function* readServerSentEvents(
   }
 
   buffer += decoder.decode();
+  buffer = buffer.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
   const remaining = buffer.trim();
   if (remaining.length > 0) {
     const data = remaining

@@ -63,8 +63,10 @@ export class PtySwarmRunner implements SwarmSeatRunner {
 
     const previous = this.paneBySeat.get(input.seat.id);
     if (previous !== undefined) {
+      // Recycle the pane but keep the seat worktree: the next task for this
+      // seat runs in the same directory, which may hold uncommitted work.
       await this.manager
-        .closePane({
+        .disposePane({
           correlationId: createCorrelationId(),
           sessionId,
           paneId: previous,

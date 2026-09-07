@@ -19,12 +19,13 @@ import type {
 } from '../adapter.js';
 import {
   ProviderHttpError,
+  isLoopbackUrl,
   providerEndpoint,
   readJsonLines,
   type GatewayFetch,
 } from '../http.js';
 
-const defaultOllamaBaseUrl = 'http://127.0.0.1:11434';
+export const defaultOllamaBaseUrl = 'http://127.0.0.1:11434';
 
 const toolCallSchema = z
   .object({
@@ -318,7 +319,9 @@ export class OllamaAdapter implements ProviderAdapter {
         serverWebSearch: false,
         serverMcp: false,
       },
-      privacyClass: 'local',
+      privacyClass: isLoopbackUrl(context.baseUrl ?? defaultOllamaBaseUrl)
+        ? 'local'
+        : 'remote',
       tags: [
         model.details?.family === undefined
           ? undefined

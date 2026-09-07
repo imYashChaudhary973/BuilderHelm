@@ -333,8 +333,11 @@ export function stageGitPath(
     else runGit(workspace.root, ['restore', '--staged', '.']);
     return;
   }
-  const target = resolveWorkspace(root, path);
-  const rel = relative(workspace.root, target.path);
+  // Git reports repository-relative paths, including for files it has
+  // deleted, so join them textually against the workspace root instead of
+  // resolving them against the process working directory.
+  const target = resolve(workspace.root, path);
+  const rel = relative(workspace.root, target);
   if (rel.startsWith('..') || rel.length === 0) {
     throw new BuilderHelmError('PERMISSION_DENIED', 'Path is outside the workspace');
   }

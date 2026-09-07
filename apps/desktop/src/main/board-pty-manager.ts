@@ -166,7 +166,18 @@ function spawnArgvPty(
   rows: number,
 ): IPty {
   ensureHelper();
-  const workdir = resolveWorkdir(cwd);
+  let workdir: string;
+  try {
+    workdir = realpathSync(cwd);
+    if (!statSync(workdir).isDirectory()) throw new Error('not a directory');
+  } catch {
+    // An agent launched in the wrong directory writes to the wrong files.
+    // Fail loudly instead of silently falling back to the home directory.
+    throw new BuilderHelmError(
+      'VALIDATION_FAILED',
+      `Agent working directory does not exist: ${cwd}`,
+    );
+  }
   return spawn(argv.binary, [...argv.args], {
     name: 'xterm-256color',
     cols,
@@ -200,6 +211,22 @@ export function probePty(cwd: string): string {
     return `ok pid=${pid} helper=${helper}`;
   } catch (error) {
     return `fail helper=${helper} exists=${existsSync(helper)} err=${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+/**
+ * True when a worktree holds tracked modifications or untracked files.
+ * Unknown state counts as dirty: closing a pane must never destroy work.
+ */
+async function worktreeHasUncommittedWork(worktreePath: string): Promise<boolean> {
+  try {
+    const { stdout } = await execFileAsync('git', ['status', '--porcelain'], {
+      cwd: worktreePath,
+      timeout: 10_000,
+    });
+    return stdout.trim().length > 0;
+  } catch {
+    return true;
   }
 }
 
@@ -502,37 +529,50 @@ export class BoardPtyManager {
     if (session === undefined || pane === undefined) {
       throw new BuilderHelmError('VALIDATION_FAILED', 'Unknown pane session or pane');
     }
+    const worktree = { cwd: pane.cwd, branch: pane.branch };
+    const isolation = session.isolation;
+    const repoPath = session.folderPath;
+    await this.disposePane(input);
+    if (isolation === 'worktree') {
+      await this.discardWorktree(repoPath, worktree.cwd, worktree.branch);
+    }
+  }
+
+  /**
+   * Ends a pane's process without touching its worktree. Swarm seat
+   * recycling reuses the seat directory for the seat's next task, so
+   * closing the pane must not delete the directory under it.
+   */
+  async disposePane(input: BoardPaneCloseInput): Promise<void> {
+    const session = this.sessions.get(input.sessionId);
+    const pane = session?.panes.get(input.paneId);
+    if (session === undefined || pane === undefined) return;
     this.flushData(input.sessionId, input.paneId, pane);
     clearTimeout(pane.commandTimer ?? undefined);
     pane.pendingCommand = null;
     this.closing.add(input.paneId);
     pane.pty?.kill();
     pane.pty = null;
-    if (session.isolation === 'worktree') {
-      await this.discardWorktree(session.folderPath, pane.cwd, pane.branch);
-    }
     session.panes.delete(input.paneId);
+    this.reindexSlots(session);
+  }
+
+  private reindexSlots(session: SessionRecord): void {
     [...session.panes.values()]
       .sort((left, right) => left.slot - right.slot)
       .forEach((item, index) => {
         item.slot = index;
       });
   }
-
-  /**
-   * Reclaims one pane worktree and, when safe, its branch.
-   *
-   * `git branch -d` refuses a branch holding unmerged commits, so agent work
-   * that was committed but never landed survives losing its directory. The
-   * prefix check is what proves the branch is ours: pane worktrees share a
-   * parent directory with a developer's own checkouts.
-   */
   private async discardWorktree(
     repoPath: string,
     worktreePath: string,
     branch: string | null,
   ): Promise<void> {
     if (worktreePath === repoPath) return;
+    // A dirty worktree still holds uncommitted work; keep it on disk and
+    // let the user decide its fate instead of deleting it behind their back.
+    if (await worktreeHasUncommittedWork(worktreePath)) return;
     await execFileAsync('git', ['worktree', 'remove', '--force', worktreePath], {
       cwd: repoPath,
       timeout: 15_000,
