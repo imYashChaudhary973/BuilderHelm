@@ -11,6 +11,8 @@ import type {
 } from '@builderhelm/protocol';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { bootDictation } from '../voice/dictation.js';
+import { buildConfigChips, compactTokens, earlierWindow } from '../routes/chat-cells.js';
 import { deriveStatus } from '../routes/chat-status.js';
 
 export function threadTitle(thread: AgentThread): string {
@@ -175,6 +177,9 @@ export function ChatPane({
   const [streaming, setStreaming] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** Which composer chip's choice popover is open, if any. */
+  const [openChipId, setOpenChipId] = useState<string | null>(null);
+  const [showAllTurns, setShowAllTurns] = useState(false);
   const sessionIdRef = useRef<string | null>(null);
   sessionIdRef.current = session?.sessionId ?? null;
   const transcriptEnd = useRef<HTMLDivElement>(null);
@@ -193,6 +198,16 @@ export function ChatPane({
   const auth = session?.auth === 'required' ? lastAuth(events) : null;
   const modelOptions = configByCategory(session?.configOptions ?? [], 'model');
   const thoughtOptions = configByCategory(session?.configOptions ?? [], 'thought-level');
+  const { chips, overflow } = useMemo(
+    () => buildConfigChips(session?.configOptions ?? []),
+    [session?.configOptions],
+  );
+  const hiddenTurns = showAllTurns ? 0 : earlierWindow(turns.length);
+  const visibleTurns = hiddenTurns > 0 ? turns.slice(hiddenTurns) : turns;
+  const permissionCellId = permission?.toolCall.toolCallId ?? null;
+  const permissionHasCell = turns.some((turn) =>
+    turn.tools.some((tool) => tool.toolCallId === permissionCellId),
+  );
   const status = deriveStatus({
     streaming,
     permissionPending: permission !== null,
@@ -233,6 +248,7 @@ export function ChatPane({
     if (loading) return;
     if (loadedThreadIdRef.current === activeThreadId) return;
     loadedThreadIdRef.current = activeThreadId;
+    setShowAllTurns(false);
     setSession(null);
     if (activeThreadId === null) {
       setEvents([]);
@@ -410,15 +426,12 @@ export function ChatPane({
     }
   }
 
-  async function setOption(
-    option: AgentConfigOption,
-    value: string | boolean,
-  ): Promise<void> {
+  async function setOptionRaw(configId: string, value: string | boolean): Promise<void> {
     if (session === null) return;
     try {
       await window.builderHelm.agents.setConfigOption({
         sessionId: session.sessionId,
-        configId: option.id,
+        configId,
         value,
       });
     } catch {
@@ -506,7 +519,7 @@ export function ChatPane({
                   <select
                     value={String(option.value)}
                     disabled={streaming}
-                    onChange={(event) => void setOption(option, event.target.value)}
+                    onChange={(event) => void setOptionRaw(option.id, event.target.value)}
                   >
                     {option.choices.map((choice) => (
                       <option value={choice.value} key={choice.value}>
@@ -524,13 +537,17 @@ export function ChatPane({
                       type="checkbox"
                       checked={option.value === true}
                       disabled={streaming}
-                      onChange={(event) => void setOption(option, event.target.checked)}
+                      onChange={(event) =>
+                        void setOptionRaw(option.id, event.target.checked)
+                      }
                     />
                   ) : (
                     <select
                       value={String(option.value)}
                       disabled={streaming}
-                      onChange={(event) => void setOption(option, event.target.value)}
+                      onChange={(event) =>
+                        void setOptionRaw(option.id, event.target.value)
+                      }
                     >
                       {option.choices.map((choice) => (
                         <option value={choice.value} key={choice.value}>
@@ -576,7 +593,8 @@ export function ChatPane({
         </p>
       )}
 
-      {permission !== null && session !== null && (
+      {/* Inline on its cell when that cell exists; fallback bar otherwise. */}
+      {permission !== null && session !== null && !permissionHasCell && (
         <div
           className="permissionBar"
           role="alertdialog"
@@ -606,7 +624,16 @@ export function ChatPane({
       )}
 
       <div className="transcript" aria-live="polite" aria-busy={streaming}>
-        {turns.map((turn) => (
+        {hiddenTurns > 0 && (
+          <button
+            type="button"
+            className="earlierButton"
+            onClick={() => setShowAllTurns(true)}
+          >
+            Show {hiddenTurns} earlier messages
+          </button>
+        )}
+        {visibleTurns.map((turn) => (
           <article
             className={`chatTurn ${turn.user.length > 0 ? 'chatTurn-user' : ''} ${turn.streaming ? 'chatTurn-streaming' : 'chatTurn-assistant'}`}
             key={turn.turnId}
@@ -623,13 +650,21 @@ export function ChatPane({
                   <p className="turnCopy">{turn.user}</p>
                 </>
               )}
-              {turn.thought.length > 0 && <p className="thinkingLine">{turn.thought}</p>}
+              {turn.thought.length > 0 && (
+                <details className="thoughtCell">
+                  <summary>Thoughts</summary>
+                  <p className="thinkingLine">{turn.thought}</p>
+                </details>
+              )}
               {turn.plan.length > 0 && (
-                <ol className="planList">
-                  {turn.plan.map((entry) => (
-                    <li key={entry}>{entry}</li>
-                  ))}
-                </ol>
+                <div className="goalCell">
+                  <p className="goalCellTitle">Goal</p>
+                  <ol className="planList">
+                    {turn.plan.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ol>
+                </div>
               )}
               {turn.tools.map((tool) => (
                 <ToolView
@@ -637,6 +672,13 @@ export function ChatPane({
                   call={tool}
                   canWrite={session !== null}
                   onDiff={applyDiff}
+                  permission={
+                    permission !== null &&
+                    permission.toolCall.toolCallId === tool.toolCallId
+                      ? permission
+                      : null
+                  }
+                  onAnswer={answer}
                 />
               ))}
               {turn.assistant.length > 0 && <p className="turnCopy">{turn.assistant}</p>}
@@ -678,78 +720,242 @@ export function ChatPane({
           void sendMessage();
         }}
       >
-        <label className="srOnly" htmlFor="chat-message">
-          Message
-        </label>
-        <textarea
-          id="chat-message"
-          value={draft}
-          disabled={streaming || runnable.length === 0 || cwd.length === 0}
-          maxLength={100_000}
-          rows={3}
-          placeholder={
-            runnable.length === 0
-              ? 'Install an ACP agent to begin'
-              : cwd.length === 0
-                ? profile !== null
-                  ? 'Pick a project folder for this agent first'
-                  : 'Open a Space so the agent has a folder'
-                : 'Ask anything…'
-          }
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.shiftKey) {
-              event.preventDefault();
-              void sendMessage();
+        <div className="composerPill">
+          <label className="srOnly" htmlFor="chat-message">
+            Message
+          </label>
+          <textarea
+            id="chat-message"
+            value={draft}
+            disabled={streaming || runnable.length === 0 || cwd.length === 0}
+            maxLength={100_000}
+            rows={2}
+            placeholder={
+              runnable.length === 0
+                ? 'Install an ACP agent to begin'
+                : cwd.length === 0
+                  ? profile !== null
+                    ? 'Pick a project folder for this agent first'
+                    : 'Open a Space so the agent has a folder'
+                  : 'Ask anything…'
             }
-          }}
-        />
-        <div className="composerFooter">
-          <span>
-            {usage !== null && usage.usedTokens !== null
-              ? `${usage.usedTokens.toLocaleString()} tokens`
-              : 'Enter to send · Shift+Enter for a new line'}
-            {usage !== null && usage.contextWindow !== null
-              ? ` · ${usage.contextWindow.toLocaleString()} window`
-              : ''}
-          </span>
-          {streaming ? (
-            <button className="stopButton" type="button" onClick={() => void stopTurn()}>
-              Stop
-            </button>
-          ) : (
-            <button
-              className="sendButton"
-              type="submit"
-              disabled={
-                draft.trim().length === 0 ||
-                (profile === null && (selected === null || cwd.length === 0)) ||
-                (profile !== null && profile.defaultCwd === null)
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                void sendMessage();
               }
-            >
-              Send
-            </button>
+            }}
+          />
+
+          {(chips.length > 0 || overflow.length > 0) && (
+            <div className="chipRow">
+              {chips.map((chip) =>
+                chip.isToggle ? (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    className={`configChip ${chip.value === true ? 'configChipOn' : ''}`}
+                    aria-pressed={chip.value === true}
+                    disabled={streaming}
+                    onClick={() => void setOptionRaw(chip.id, !(chip.value === true))}
+                  >
+                    <span className="chipCheck" aria-hidden="true">
+                      ✓
+                    </span>
+                    {chip.label}
+                  </button>
+                ) : (
+                  <div className="chipAnchor" key={chip.id}>
+                    <button
+                      type="button"
+                      className={`configChip ${openChipId === chip.id ? 'configChipOpen' : ''}`}
+                      aria-expanded={openChipId === chip.id}
+                      disabled={streaming}
+                      onClick={() =>
+                        setOpenChipId((current) => (current === chip.id ? null : chip.id))
+                      }
+                    >
+                      {chip.label}: <strong>{chip.currentLabel}</strong>
+                    </button>
+                    {openChipId === chip.id && (
+                      <div className="chipPopover" role="listbox" aria-label={chip.label}>
+                        {chip.choices.map((choice) => (
+                          <button
+                            key={choice.value}
+                            type="button"
+                            role="option"
+                            aria-selected={choice.value === String(chip.value)}
+                            className={`chipChoice ${choice.value === String(chip.value) ? 'chipChoiceActive' : ''}`}
+                            onClick={() => {
+                              setOpenChipId(null);
+                              void setOptionRaw(chip.id, choice.value);
+                            }}
+                          >
+                            {choice.label}
+                            {choice.description !== null && (
+                              <small>{choice.description}</small>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ),
+              )}
+              {overflow.length > 0 && (
+                <div className="chipAnchor">
+                  <button
+                    type="button"
+                    className={`configChip ${openChipId === '…' ? 'configChipOpen' : ''}`}
+                    aria-expanded={openChipId === '…'}
+                    aria-label="More agent settings"
+                    disabled={streaming}
+                    onClick={() =>
+                      setOpenChipId((current) => (current === '…' ? null : '…'))
+                    }
+                  >
+                    ⋯
+                  </button>
+                  {openChipId === '…' && (
+                    <div
+                      className="chipPopover"
+                      role="menu"
+                      aria-label="More agent settings"
+                    >
+                      {overflow.map((chip) => (
+                        <label key={chip.id} className="chipOverflowRow">
+                          <span>{chip.label}</span>
+                          {chip.isToggle ? (
+                            <input
+                              type="checkbox"
+                              checked={chip.value === true}
+                              onChange={(event) =>
+                                void setOptionRaw(chip.id, event.target.checked)
+                              }
+                            />
+                          ) : (
+                            <select
+                              value={String(chip.value)}
+                              onChange={(event) =>
+                                void setOptionRaw(chip.id, event.target.value)
+                              }
+                            >
+                              {chip.choices.map((choice) => (
+                                <option value={choice.value} key={choice.value}>
+                                  {choice.label}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           )}
+
+          <div className="composerFooter">
+            <span className="composerTokens" title="Tokens used in this conversation">
+              {usage !== null && usage.usedTokens !== null
+                ? compactTokens(usage.usedTokens)
+                : '—'}
+            </span>
+            <span className="composerHint">Enter to send</span>
+            <button
+              type="button"
+              className="micButton"
+              aria-label="Dictate a message"
+              title="Dictate (inserts into this box)"
+              onClick={() => {
+                const box = document.querySelector('#chat-message');
+                if (box instanceof HTMLTextAreaElement) box.focus();
+                void bootDictation().start();
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <path
+                  d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Zm-6 9a6 6 0 0 0 12 0m-6 9v-3"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+            {streaming ? (
+              <button
+                type="button"
+                className="stopCircle"
+                aria-label="Stop the running turn"
+                title="Stop"
+                onClick={() => void stopTurn()}
+              >
+                <span aria-hidden="true" />
+              </button>
+            ) : (
+              <button
+                className="sendCircle"
+                type="submit"
+                aria-label="Send message"
+                title="Send"
+                disabled={
+                  draft.trim().length === 0 ||
+                  (profile === null && (selected === null || cwd.length === 0)) ||
+                  (profile !== null && profile.defaultCwd === null)
+                }
+              >
+                ↑
+              </button>
+            )}
+          </div>
         </div>
       </form>
     </section>
   );
 }
-
 function ToolView({
   call,
   canWrite,
   onDiff,
+  permission,
+  onAnswer,
 }: {
   readonly call: AgentToolCall;
   readonly canWrite: boolean;
   readonly onDiff: (path: string, action: 'apply' | 'revert') => Promise<void>;
+  /** Set when this call is the one awaiting the person's decision. */
+  readonly permission: AgentPermissionRequest | null;
+  readonly onAnswer: (
+    decision: AgentPermissionRequest['options'][number]['decision'],
+  ) => Promise<void>;
 }): React.JSX.Element {
+  const cellGlyph: Record<AgentToolCall['kind'], string> = {
+    read: '›',
+    edit: '✎',
+    delete: '✕',
+    move: '⇒',
+    search: '⌕',
+    execute: '▸',
+    think: '◦',
+    fetch: '⇣',
+    other: '•',
+  };
   return (
-    <div className="toolCall">
-      <div className="turnMeta">
-        <span>{call.title || call.kind}</span>
-        <span>{call.status}</span>
+    <div className={`cellBlock cell-${call.status}`}>
+      <div className="cellHead">
+        <span className="cellGlyph" aria-hidden="true">
+          {cellGlyph[call.kind]}
+        </span>
+        <span className="cellTitle">{call.title || call.kind}</span>
+        {call.paths.slice(0, 3).map((path) => (
+          <span className="cellChip" key={path} title={path}>
+            {path.split('/').at(-1)}
+          </span>
+        ))}
+        <span className="cellStatus">{call.status}</span>
       </div>
       {call.content.map((part, index) => {
         if (part.type === 'diff') {
@@ -787,6 +993,29 @@ function ToolView({
         }
         return null;
       })}
+      {permission !== null && (
+        <div
+          className="cellApproval"
+          role="alertdialog"
+          aria-label="Approve agent action"
+        >
+          <span>Waiting for you</span>
+          <div>
+            {permission.options.map((option) => (
+              <button
+                type="button"
+                key={option.optionId}
+                className={
+                  option.decision.startsWith('allow') ? 'sendButton' : 'stopButton'
+                }
+                onClick={() => void onAnswer(option.decision)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

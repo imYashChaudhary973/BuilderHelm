@@ -183,21 +183,30 @@ positions against `origin/main` before any integration.
   folder) with a roster sidebar in the Agents mode and a shared chat pane;
   profile-backed starts resolve argv in main; live sessions capped at 8;
   startup-death errors carry the agent's stderr; a missing project folder is
-  refused with the path named instead of a bare spawn failure.
+  refused with the path named instead of a bare spawn failure. The composer
+  is a pill with config chips (model, thought-level, mode; other categories
+  under an overflow chip; nothing shown for agents that advertise nothing),
+  compact tokens, on-device dictation, and a circular send/stop. Transcript
+  cells: collapsible thoughts, a Goal block, tool cells with path chips and
+  the approval inline on the blocked cell, and an earlier-messages expander.
 - Branch and revision: `feat/agent-roster` over the modes stack (Phase 1
-  c9dce20, Phase 2 this ledger entry).
+  c9dce20, Phase 2 b8e6946, Phase 3 aa80948).
 - Verification performed 2026-09-07: unit suites for profiles, manager
-  boundaries, thread/profile persistence, roster helpers; `pnpm verify`
-  green; desktop drive — profile created through the dialog (name, mark,
-  agent, folder), roster row and tile render, pane header "Powered by …",
-  composer gated until a folder exists, empty state "What should we build?",
-  profile IPC round-trip survives an app restart from an isolated database.
-- Known gaps: the folder picker itself is the OS dialog (driven only by hand);
-  profile switching mid-turn is blocked by disabling the roster; the
-  long-transcript "earlier messages" expander and composer chips are the next
-  phase.
-- Next required action: composer chips (model/thought/mode) and transcript
-  cells; then land the stack behind PR #30 and this branch together.
+  boundaries, thread/profile persistence, roster helpers, and chip grouping;
+  `pnpm verify` green; desktop drive — profile created through the dialog
+  (name, mark, agent, folder), roster row and tile render, pane header
+  "Powered by …", composer gated until a folder exists, empty state "What
+  should we build?", profile IPC round-trip survives an app restart from an
+  isolated database, live profile-backed turn completes with the roster dot
+  lit, and the missing-folder guard names the path in the running app.
+- Known gaps: the folder picker itself is the OS dialog (driven only by
+  hand); profile switching mid-turn is blocked by disabling the roster; gemini
+  advertises no config options or usage events, so its chips and token count
+  are legitimately empty; a profile session starts lazily, so chips appear
+  with the first message rather than on selection.
+- Next required action: run the chip surface against an agent that
+  advertises options (codex-acp, user-installed), then land the stack behind
+  PR #30 and this branch together.
 
 ### Legal docs
 
