@@ -13,6 +13,7 @@ import type {
   AgentDescriptor,
   AgentPermissionDecision,
   AgentPermissionOption,
+  AgentProfile,
   AgentSessionEvent,
   AgentSessionState,
   AgentThread,
@@ -25,6 +26,12 @@ import type { PermissionRules } from './permission-rules.js';
 import type { AgentThreads } from './threads.js';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+
+/**
+ * How many agents may run at once. A named roster makes it easy to start
+ * several; each one is a real process, so the ceiling is hard.
+ */
+export const MAX_LIVE_AGENT_SESSIONS = 8;
 
 /**
  * How long an unanswered request waits before it is refused. Long enough that a
@@ -54,6 +61,7 @@ export interface AgentManagerOptions {
   readonly rules: PermissionRules;
   readonly threads: AgentThreads;
   readonly resolveAgent: (agentId: string) => AgentDescriptor | null;
+  readonly resolveProfile: (profileId: string) => AgentProfile | null;
 }
 
 export class AgentManager {
@@ -67,9 +75,18 @@ export class AgentManager {
     cwd: string;
     threadId: string | null;
     resumeSessionId: string | null;
+    profileId: string | null;
   }): Promise<AgentSessionState> {
     const existing = this.findLive(input.threadId);
     if (existing !== undefined) return existing.state;
+
+    if (this.sessions.size >= MAX_LIVE_AGENT_SESSIONS) {
+      throw new BuilderHelmError(
+        'INTEGRATION_OFFLINE',
+        `Close an agent chat before starting another — BuilderHelm runs at most ${MAX_LIVE_AGENT_SESSIONS} at once.`,
+        { metadata: { limit: MAX_LIVE_AGENT_SESSIONS } },
+      );
+    }
 
     const stored =
       input.threadId === null ? null : this.options.threads.get(input.threadId);
@@ -83,8 +100,23 @@ export class AgentManager {
       );
     }
 
-    const agent =
-      stored === null ? this.options.resolveAgent(input.agentId) : stored.thread.agent;
+    let agent: AgentDescriptor | null;
+    if (stored === null && input.profileId !== null) {
+      // A profile-backed thread resolves argv here, in main; the renderer
+      // named the profile, never the command.
+      const profile = this.options.resolveProfile(input.profileId);
+      if (profile === null) {
+        throw new BuilderHelmError(
+          'VALIDATION_FAILED',
+          'That agent profile was not found.',
+          { metadata: { profileId: input.profileId } },
+        );
+      }
+      agent = { ...profile.agent, args: [...profile.agent.args] };
+    } else {
+      agent =
+        stored === null ? this.options.resolveAgent(input.agentId) : stored.thread.agent;
+    }
     if (agent === null) {
       throw new BuilderHelmError(
         'VALIDATION_FAILED',
@@ -95,7 +127,9 @@ export class AgentManager {
 
     const cwd = stored === null ? input.cwd : stored.thread.cwd;
     const thread =
-      stored === null ? this.options.threads.create(agent, cwd) : stored.thread;
+      stored === null
+        ? this.options.threads.create(agent, cwd, input.profileId)
+        : stored.thread;
     const resumeSessionId = input.resumeSessionId ?? stored?.thread.acpSessionId ?? null;
 
     let entry: Entry | null = null;

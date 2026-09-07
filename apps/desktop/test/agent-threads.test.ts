@@ -97,6 +97,25 @@ describe('AgentThreads', () => {
     expect(reopened.get(thread.id)?.events).toHaveLength(1);
   });
 
+  it('records the profile that started a thread', () => {
+    const store = memoryStore();
+    const threads = new AgentThreads(store);
+    const profileId = `profile-${randomUUID()}`;
+    const thread = threads.create(agent, '/w', profileId);
+    expect(threads.get(thread.id)?.thread.profileId).toBe(profileId);
+  });
+
+  it('reads a pre-profiles thread as unaffiliated rather than dropping it', () => {
+    const store = memoryStore();
+    const threads = new AgentThreads(store);
+    const thread = threads.create(agent, '/w');
+    const index = JSON.parse(store.read('agent.thread-index') ?? '[]');
+    delete index[0]?.profileId;
+    store.write('agent.thread-index', JSON.stringify(index), new Date().toISOString());
+
+    expect(threads.get(thread.id)?.thread.profileId).toBeNull();
+  });
+
   it('keeps a thread after a corrupt events blob', () => {
     const store = memoryStore();
     const threads = new AgentThreads(store);

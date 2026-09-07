@@ -123,10 +123,18 @@ export class AcpConnection {
 
     this.child.on('exit', (code) => {
       const stderr = this.stderrTail;
+      // The tail is the only diagnostic for an agent that dies at startup, so
+      // it belongs in the message the user actually sees.
+      const tail =
+        stderr.trim().length === 0 ? '' : ` It wrote: ${stderr.slice(-400).trim()}`;
       this.failAll(
-        new BuilderHelmError('INTEGRATION_OFFLINE', `${options.command} exited.`, {
-          metadata: { command: options.command, code },
-        }),
+        new BuilderHelmError(
+          'INTEGRATION_OFFLINE',
+          `${options.command} exited with code ${code ?? 'a signal'}.${tail}`,
+          {
+            metadata: { command: options.command, code },
+          },
+        ),
       );
       this.closed = true;
       options.onExit(code, stderr);

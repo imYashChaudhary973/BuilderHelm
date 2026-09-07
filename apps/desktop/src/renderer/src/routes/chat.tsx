@@ -271,6 +271,7 @@ export function ChatPage(): React.JSX.Element {
       cwd,
       threadId: activeThreadId,
       resumeSessionId: thread?.acpSessionId ?? null,
+      profileId: thread?.profileId ?? null,
     });
     sessionIdRef.current = started.sessionId;
     setSession(started);
@@ -414,6 +415,7 @@ export function ChatPage(): React.JSX.Element {
                       id: activeThreadId,
                       title: 'Conversation',
                       acpSessionId: null,
+                      profileId: null,
                       agent: {
                         id: 'unknown',
                         label: 'Agent',
