@@ -190,7 +190,7 @@ positions against `origin/main` before any integration.
   cells: collapsible thoughts, a Goal block, tool cells with path chips and
   the approval inline on the blocked cell, and an earlier-messages expander.
 - Branch and revision: `feat/agent-roster` over the modes stack (Phase 1
-  c9dce20, Phase 2 b8e6946, Phase 3 aa80948).
+  c9dce20, Phase 2 b8e6946, Phase 3+4 761b4cd).
 - Verification performed 2026-09-07: unit suites for profiles, manager
   boundaries, thread/profile persistence, roster helpers, and chip grouping;
   `pnpm verify` green; desktop drive — profile created through the dialog
@@ -199,14 +199,26 @@ positions against `origin/main` before any integration.
   should we build?", profile IPC round-trip survives an app restart from an
   isolated database, live profile-backed turn completes with the roster dot
   lit, and the missing-folder guard names the path in the running app.
+  Against a real codex-acp 1.10.0 (`@agentclientprotocol/codex-acp`,
+  user-installed): handshake, `loadSession` capability, and advertised config
+  options verified — the composer rendered "Mode: Approve for me", "Model:
+  GPT-6-Astra", "Reasoning effort: Low", and the overflow chip, and a mode
+  switch through the chip popover round-tripped `set_config_option` ("Mode:
+  Ask for approval"). Streaming is proven end to end.
 - Known gaps: the folder picker itself is the OS dialog (driven only by
   hand); profile switching mid-turn is blocked by disabling the roster; gemini
   advertises no config options or usage events, so its chips and token count
   are legitimately empty; a profile session starts lazily, so chips appear
-  with the first message rather than on selection.
-- Next required action: run the chip surface against an agent that
-  advertises options (codex-acp, user-installed), then land the stack behind
-  PR #30 and this branch together.
+  with the first message rather than on selection. A full Codex model
+  completion, diff approval, and a restart-resume against live quota could
+  not be driven: the account's Codex usage is exhausted until 2026-09-12
+  (Codex streams that notice and fails the turn with "Internal error"; the
+  transport, session, chips, and honest failure display all verified around
+  it). Resume capability is negotiated (`loadSession: true`) and the session
+  id rides the thread per ADR 0004.
+- Next required action: after quota resets (or on another signed-in
+  machine), drive one full Codex turn with a diff approval and a
+  restart-resume; then land the stack behind PR #30 and this branch together.
 
 ### Legal docs
 
