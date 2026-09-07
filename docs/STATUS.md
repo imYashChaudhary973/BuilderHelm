@@ -131,44 +131,52 @@ positions against `origin/main` before any integration.
 - Feature: app shell rebuild (Agents/Code/Chats modes, ⌘K launcher, settings
   Usage/Account split) together with the ACP chat host and the account/licence
   gate it is built on.
-- Branch and revision: `feat/shell` @ cbc0cab, strictly linear over
-  `feat/chat` @ 9ef8cfd, over `feat/auth` @ b3583ec, over 23a171b. Merging
+- Branch and revision: `feat/shell` @ bcdeb4a, strictly linear over
+  `feat/chat` @ 9ef8cfd, over `feat/auth` @ b3583ec, plus a merge of `main`
+  @ 9dbca07 (bcdeb4a) and the auth access policy ADR (f9afdf1,
+  [ADR 0009](adr/0009-account-licence-access-policy.md)). Merging
   `feat/shell` ships all three; there is no separate chat or auth branch
-  decision. 25 commits: auth 5 (licence gate, account-origin dev override,
-  sign-in-handoff recovery, telemetry gate, modes rebuild), chat 4 (ACP agent
-  host, thread persistence, format, preload crypto fix), shell 16 (4
-  functional, 12 style iterations).
-- Depends on: nothing outside `main`; 1 commit behind.
+  decision.
+- Depends on: nothing outside `main`; merged current `main` at bcdeb4a. The
+  conflict inventory was exactly one file: `docs/STATUS.md`. The previously
+  recorded styles.css / usage.tsx conflicts no longer exist and were stale.
 - User-visible behavior: mode rail and launcher replace the Space home entry;
   chat gains an ACP host and persisted threads; sign-in handoff can recover;
   the licence gate controls entry.
-- Verification performed: none recorded; not driven in the desktop.
-- Known failures: conflicts with `main` usage work (both rewrite
-  `styles.css`; `routes/settings/usage.tsx` add/add; shell deletes
-  `usage-bar.tsx`, which `main`'s shipped usage bar extends). Auth is
-  security- and permission-engine-adjacent.
-- Next required action: document the auth access policy and review the auth
-  diff via PR (repo rule for security changes), then integrate the stack
-  once; drop style iterations that fight the agreed shell.
+- Verification performed 2026-09-07, in Electron dev from this worktree with
+  `BUILDERHELM_DATABASE_PATH=/tmp/bh-phase0/bh.sqlite` and the renderer driven
+  over the `BUILDERHELM_DEBUG_PORT` CDP endpoint: all three modes switch
+  (Agents grid, Code workspace choices, Chats thread panel); ⌘K opens the
+  grouped launcher with honest per-agent availability; a live ACP turn against
+  `gemini` on the Chats tab completed end to end (handshake, streamed reply,
+  thread auto-titled and persisted); `pnpm smoke:desktop` passed with an
+  isolated database; the owned PTY tree came down with the app.
+- Known failures: none from this drive. Top-bar icon buttons still carry no
+  accessible names (carried from the preservation findings). The packaged
+  build has not been click-through.
+- Next required action: review the auth diff via PR against ADR 0009 (repo
+  rule for security changes), then land the stack on `main`.
 
-### Workspace launcher (uncommitted WIP)
+### Workspace launcher (uncommitted WIP — decision recorded)
 
 - Feature: ⌘K "open or create" launcher dialog, Agents page with launch
   buttons, shared `launchWorkspaceAgent` action catalog (per-agent worktree
   isolation, 16-pane cap, no process spawn from the UI), browser view
   suspension while dialogs are open.
-- Branch and revision: `feat/workspace-launcher` @ ee6aeb9 (committed side
-  fully merged, 1 behind) + 13 uncommitted files, all retained.
-- Depends on: nothing merged; conceptually overlaps the shell stack's ⌘K
-  launcher — the two launcher designs must converge, not coexist.
-- User-visible behavior: one entry point to open or create a workspace and
-  start an installed agent or plain terminal.
+- Branch and revision: `feat/workspace-launcher` @ ee6aeb9 (committed side is
+  an ancestor of both `main` and the shell stack) + 13 uncommitted files,
+  all retained.
 - Verification performed: 7 vitest cases in
   `apps/desktop/test/workspace-actions.test.ts`; no desktop run recorded.
-- Known failures: preservation and lifecycle scenarios (close with dirty
-  work, save races, restart recovery) not yet run.
-- Next required action: reconcile with the shell launcher design, then run
-  the preservation scenarios in the running desktop.
+- Decision 2026-09-07: the shell stack's ⌘K launcher
+  (`launcher-actions.ts`) is the converged design; the WIP dialog and its
+  style edits are superseded and will not be merged. The one piece the shell
+  launcher lacks — `launchWorkspaceAgent` with per-agent worktree isolation
+  and the 16-pane cap — is scheduled for the agent-roster phase, where named
+  agent profiles need exactly that launch path. The worktree and its files
+  stay until that port lands, then the worktree is removed.
+- Next required action: port `launchWorkspaceAgent` in the roster phase; do
+  not merge the WIP dialog.
 
 ### Legal docs
 
