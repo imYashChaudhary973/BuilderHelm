@@ -1,4 +1,5 @@
 import type { AgentProfile, AgentThread } from '@builderhelm/protocol';
+import type { CorrelationId } from '@builderhelm/shared';
 import { useCallback, useEffect, useState } from 'react';
 
 import { AgentRoster } from '../components/agent-roster.js';
@@ -23,6 +24,7 @@ export function AgentsPage(): React.JSX.Element {
   }>({ tokens: null, modelLabel: null });
   const [streaming, setStreaming] = useState(false);
   const [dialog, setDialog] = useState<{ editing: AgentProfile | null } | null>(null);
+  const [questions, setQuestions] = useState<readonly { id: string; body: string }[]>([]);
 
   const reload = useCallback(async (): Promise<void> => {
     const [nextProfiles, nextThreads] = await Promise.all([
@@ -90,6 +92,50 @@ export function AgentsPage(): React.JSX.Element {
 
   const active = profiles.find((profile) => profile.id === activeId) ?? null;
 
+  useEffect(() => {
+    const agentId = active?.agent.id;
+    if (agentId === undefined) {
+      setQuestions([]);
+      return;
+    }
+    let alive = true;
+    void (async () => {
+      const run = await window.builderHelm.swarm.latest({
+        correlationId: crypto.randomUUID() as CorrelationId,
+      });
+      if (!alive) return;
+      if (run === null) {
+        setQuestions([]);
+        return;
+      }
+      const state = await window.builderHelm.swarm.state({
+        correlationId: crypto.randomUUID() as CorrelationId,
+        runId: run.id,
+      });
+      if (!alive) return;
+      const seats = new Set(
+        state.seats.filter((seat) => seat.agentId === agentId).map((seat) => seat.id),
+      );
+      setQuestions(
+        state.messages
+          .filter(
+            (message) =>
+              (message.kind === 'question' || message.kind === 'artifact') &&
+              message.seatId !== null &&
+              seats.has(message.seatId),
+          )
+          .slice(-8)
+          .map((message) => ({
+            id: message.id,
+            body: `${message.kind}: ${message.body}`,
+          })),
+      );
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [active?.agent.id]);
+
   async function handleSaved(saved: AgentProfile | null): Promise<void> {
     setDialog(null);
     await reload();
@@ -110,19 +156,28 @@ export function AgentsPage(): React.JSX.Element {
         onAdd={() => setDialog({ editing: null })}
       />
 
-      <ChatPane
-        key={activeId ?? 'no-profile'}
-        kind="roster"
-        profile={active}
-        fallbackCwd={homeDir}
-        threads={threads}
-        activeThreadId={activeThreadId}
-        onActiveThreadChange={setActiveThreadId}
-        onThreadsChanged={onThreadsChanged}
-        onUsage={onUsageChange}
-        onEditProfile={(profile) => setDialog({ editing: profile })}
-        onStreamingChange={onStreamingChange}
-      />
+      <div className="conversationColumn">
+        {questions.length > 0 ? (
+          <ul className="agentQuestions" aria-label="Questions and artifacts">
+            {questions.map((item) => (
+              <li key={item.id}>{item.body}</li>
+            ))}
+          </ul>
+        ) : null}
+        <ChatPane
+          key={activeId ?? 'no-profile'}
+          kind="roster"
+          profile={active}
+          fallbackCwd={homeDir}
+          threads={threads}
+          activeThreadId={activeThreadId}
+          onActiveThreadChange={setActiveThreadId}
+          onThreadsChanged={onThreadsChanged}
+          onUsage={onUsageChange}
+          onEditProfile={(profile) => setDialog({ editing: profile })}
+          onStreamingChange={onStreamingChange}
+        />
+      </div>
 
       {dialog !== null && (
         <ProfileDialog

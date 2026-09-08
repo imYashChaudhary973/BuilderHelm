@@ -165,6 +165,7 @@ export function AppRail({
                     <span className="railCopy">
                       <strong>{meta.label}</strong>
                       <small>
+                        {space.isolation === 'worktree' ? 'Isolated' : 'Shared'} ·{' '}
                         {space.paneCount} terminal{space.paneCount === 1 ? '' : 's'}
                       </small>
                     </span>

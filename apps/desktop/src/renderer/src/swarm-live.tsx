@@ -355,7 +355,12 @@ export function SwarmLive({
                   (message) =>
                     message.kind === 'directive' ||
                     message.kind === 'coordinator_note' ||
-                    message.kind === 'seat_report',
+                    message.kind === 'seat_report' ||
+                    message.kind === 'question' ||
+                    message.kind === 'answer' ||
+                    message.kind === 'handoff' ||
+                    message.kind === 'progress' ||
+                    message.kind === 'artifact',
                 )
                 .map((message) => (
                   <li key={message.id} data-kind={message.kind}>

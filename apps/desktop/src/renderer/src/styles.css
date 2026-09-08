@@ -2855,6 +2855,35 @@ fieldset legend {
   height: 100%;
 }
 
+.conversationColumn {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.conversationColumn .conversationPanel {
+  flex: 1;
+}
+
+.agentQuestions {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  max-height: 120px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.workspaceContext {
+  margin: 0 0 8px;
+  padding: 0 4px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
 .threadPanel {
   display: flex;
   flex-direction: column;
@@ -9708,6 +9737,36 @@ html.is-fullscreen .swarmWizardFoot {
 .reviewLineCtx {
   display: block;
   color: var(--text-3);
+}
+
+.reviewLineOn {
+  outline: 1px solid var(--accent-bright);
+}
+
+.reviewHunk button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  white-space: pre;
+}
+
+.reviewCheckOut {
+  margin: 4px 0 0;
+  max-height: 120px;
+  overflow: auto;
+  white-space: pre-wrap;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.reviewStale {
+  color: var(--accent-bright);
+  font-size: 12px;
 }
 
 .reviewComment {

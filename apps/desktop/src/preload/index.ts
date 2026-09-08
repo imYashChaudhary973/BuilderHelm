@@ -60,6 +60,8 @@ import {
   swarmDirectRequestSchema,
   swarmLandTaskIpcResponseSchema,
   swarmLandTaskRequestSchema,
+  swarmTaskUpdateIpcResponseSchema,
+  swarmTaskUpdateRequestSchema,
   swarmStateIpcResponseSchema,
   swarmStateRequestSchema,
   swarmStopIpcResponseSchema,
@@ -520,6 +522,13 @@ const api: BuilderHelmDesktopApi = {
         swarmLandTaskRequestSchema.parse(input),
       );
       return unwrap(swarmLandTaskIpcResponseSchema.parse(response));
+    },
+    async updateTask(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.swarmTaskUpdate,
+        swarmTaskUpdateRequestSchema.parse(input),
+      );
+      return unwrap(swarmTaskUpdateIpcResponseSchema.parse(response));
     },
     async stop(input) {
       const response: unknown = await ipcRenderer.invoke(

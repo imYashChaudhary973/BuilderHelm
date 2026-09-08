@@ -106,6 +106,8 @@ import {
   swarmDirectRequestSchema,
   swarmLandTaskIpcResponseSchema,
   swarmLandTaskRequestSchema,
+  swarmTaskUpdateIpcResponseSchema,
+  swarmTaskUpdateRequestSchema,
   swarmStateIpcResponseSchema,
   swarmStateRequestSchema,
   swarmStopIpcResponseSchema,
@@ -1044,6 +1046,30 @@ export function registerIpcHandlers(
     }
   });
 
+  ipcMain.handle(ipcChannels.swarmTaskUpdate, async (_event, input: unknown) => {
+    try {
+      const request = swarmTaskUpdateRequestSchema.parse(input);
+      if (request.input.status !== 'pending') {
+        throw new BuilderHelmError(
+          'VALIDATION_FAILED',
+          'Only sending a reviewed task back to pending is supported',
+        );
+      }
+      const value = await core.swarm.requestRevision(
+        request.input.runId,
+        request.input.taskId,
+        request.input.detail ?? 'Please revise',
+        request.correlationId,
+      );
+      return swarmTaskUpdateIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return swarmTaskUpdateIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
   ipcMain.handle(ipcChannels.swarmStop, (_event, input: unknown) => {
     try {
       const request = swarmStopRequestSchema.parse(input);
@@ -1673,8 +1699,7 @@ export function registerIpcHandlers(
     try {
       const request = browserArtifactsRequestSchema.parse(input);
       const value = core.previewArtifacts.list({
-        headSha: previewHeadSha(request.input.root),
-        runId: request.input.runId ?? null,
+        ...(request.input.runId === undefined ? {} : { runId: request.input.runId }),
       });
       return browserArtifactsIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
@@ -2913,6 +2938,7 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.swarmState);
     ipcMain.removeHandler(ipcChannels.swarmDirect);
     ipcMain.removeHandler(ipcChannels.swarmLandTask);
+    ipcMain.removeHandler(ipcChannels.swarmTaskUpdate);
     ipcMain.removeHandler(ipcChannels.swarmStop);
     ipcMain.removeHandler(ipcChannels.swarmStopSeat);
     ipcMain.removeHandler(ipcChannels.swarmLatest);

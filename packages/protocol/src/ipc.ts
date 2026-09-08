@@ -51,6 +51,7 @@ import type {
   SwarmCreateInput,
   SwarmDirectInput,
   SwarmLandTaskInput,
+  SwarmTaskUpdateInput,
   SwarmRunRecord,
   SwarmState,
   SwarmTaskRecord,
@@ -442,6 +443,10 @@ export interface BuilderHelmDesktopApi {
     landTask(input: {
       readonly correlationId: CorrelationId;
       readonly input: SwarmLandTaskInput;
+    }): Promise<SwarmTaskRecord>;
+    updateTask(input: {
+      readonly correlationId: CorrelationId;
+      readonly input: SwarmTaskUpdateInput;
     }): Promise<SwarmTaskRecord>;
     stop(input: {
       readonly correlationId: CorrelationId;

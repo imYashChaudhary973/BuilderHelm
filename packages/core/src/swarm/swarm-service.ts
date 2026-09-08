@@ -130,6 +130,7 @@ export class SwarmService {
   private readonly reviewer: SwarmReviewer | undefined;
   private readonly maxConcurrent: number;
   private readonly listeners = new Set<SwarmRunEventListener>();
+  private landChain: Promise<unknown> = Promise.resolve();
 
   constructor(
     database: BuilderHelmDatabase,
@@ -423,6 +424,65 @@ export class SwarmService {
    * seat branch tip. Rebuilds the dispatcher so dependents can start.
    */
   async landTask(
+    runId: string,
+    taskId: string,
+    reviewedHead: string,
+    correlationId: CorrelationId,
+  ): Promise<SwarmTaskRecord> {
+    const run = (): Promise<SwarmTaskRecord> =>
+      this.landOne(runId, taskId, reviewedHead, correlationId);
+    const next = this.landChain.then(run, run);
+    this.landChain = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    return next;
+  }
+
+  /**
+   * Send a reviewed task back to the owning seat. Comments already went out
+   * as directives; this reopens the work so the next pump actually runs it.
+   */
+  async requestRevision(
+    runId: string,
+    taskId: string,
+    note: string,
+    correlationId: CorrelationId,
+  ): Promise<SwarmTaskRecord> {
+    this.requireRun(runId);
+    const row = this.repository.listTasks(runId).find((item) => item.id === taskId);
+    if (row === undefined) {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Unknown swarm task');
+    }
+    const task = swarmTaskSchema.parse(row);
+    if (task.status !== 'review') {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'Only a task in review can be sent back',
+      );
+    }
+    this.postTaskMessage(runId, {
+      kind: 'question',
+      taskId,
+      body: note.trim().length > 0 ? note : 'Please revise',
+    });
+    const next = swarmTaskSchema.parse({
+      ...task,
+      status: 'pending',
+      updatedAt: utcNow(),
+    });
+    this.repository.updateTask(next);
+    this.emit(runId);
+    this.logger.info({
+      event: 'swarm.revision_requested',
+      correlationId,
+      data: { runId, taskId },
+    });
+    await this.pump(runId);
+    return next;
+  }
+
+  private async landOne(
     runId: string,
     taskId: string,
     reviewedHead: string,

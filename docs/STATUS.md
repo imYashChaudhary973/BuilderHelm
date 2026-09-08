@@ -51,6 +51,14 @@ Status labels used below:
   wait for a landed SHA and record `baseSha`. Failed required work makes
   the run `partial`, not `done`. Task-scoped question/handoff/progress/
   artifact messages route to the owning seat. Land is idempotent.
+- Inspect–revise–verify–land: Review tab diffs the task `baseSha...head`,
+  comments click a line and still route to the owning seat, checks show live
+  command output + SHA, evidence lists browser captures (stale when the head
+  moved), Land is inspect/Confirm like Code panes, a failed check or unclean
+  inspect blocks Confirm, Request revision reopens the task, and a successful
+  land re-runs the check command. Code workspaces pick Isolated/Shared and
+  show it on the rail. Chat drafts survive Agents/Chats navigation;
+  terminal-only runtimes say so instead of pretending to chat.
 
 - Runtime capability matrix: every known agent probed on PATH (binary path
   and version), tiered unavailable / untested / terminal / structured-chat /

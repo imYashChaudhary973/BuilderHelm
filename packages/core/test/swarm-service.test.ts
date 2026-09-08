@@ -993,4 +993,27 @@ describe('SwarmService orchestration', () => {
     );
     expect(service.isWorking()).toBe(false);
   });
+
+  it('sends a reviewed task back so the seat runs again', async () => {
+    const log: string[] = [];
+    const { service, repo } = setup(committingRunner(log));
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    const task = service.addTask(
+      run.id,
+      { title: 'Revise', files: ['src/revise.ts'] },
+      createCorrelationId(),
+    );
+    await service.pump(run.id);
+    expect(service.state(run.id).tasks[0]?.status).toBe('review');
+    await service.requestRevision(run.id, task.id, 'fix the name', createCorrelationId());
+    expect(log).toEqual(['Revise', 'Revise']);
+    expect(
+      service
+        .state(run.id)
+        .messages.some(
+          (message) =>
+            message.kind === 'question' && message.body.includes('fix the name'),
+        ),
+    ).toBe(true);
+  });
 });

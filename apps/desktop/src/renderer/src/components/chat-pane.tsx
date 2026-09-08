@@ -9,6 +9,7 @@ import type {
   AgentToolCall,
   AgentUsage,
 } from '@builderhelm/protocol';
+import type { RuntimeCapability } from '@builderhelm/protocol/runtime';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { bootDictation } from '../voice/dictation.js';
@@ -20,6 +21,10 @@ import { ModelPicker } from './model-picker.js';
 
 export function threadTitle(thread: AgentThread): string {
   return thread.title ?? 'Untitled thread';
+}
+
+function draftStorageKey(profileId: string | null, threadId: string | null): string {
+  return `builderhelm.chat.draft.${profileId ?? 'chats'}.${threadId ?? 'new'}`;
 }
 
 const CHAT_STARTERS = [
@@ -189,6 +194,8 @@ export function ChatPane({
   /** Which composer chip's choice popover is open, if any. */
   const [connecting, setConnecting] = useState(false);
   const [showAllTurns, setShowAllTurns] = useState(false);
+  const skipDraftSave = useRef(true);
+  const [runtimes, setRuntimes] = useState<readonly RuntimeCapability[]>([]);
   const sessionIdRef = useRef<string | null>(null);
   sessionIdRef.current = session?.sessionId ?? null;
   const transcriptEnd = useRef<HTMLDivElement>(null);
@@ -201,6 +208,13 @@ export function ChatPane({
   );
   const selected =
     runnable.find((candidate) => candidate.id === agentId) ?? runnable[0] ?? null;
+  const runtime =
+    runtimes.find((item) => item.id === (profile?.agent.id ?? selected?.id)) ?? null;
+  const terminalOnly =
+    runtime !== null &&
+    runtime.tier === 'terminal' &&
+    !runtime.transports.includes('acp');
+  const composerDraftKey = draftStorageKey(profile?.id ?? null, activeThreadId);
   const turns = useMemo(() => foldTurns(events), [events]);
   const permission = useMemo(() => pendingPermission(events), [events]);
   const usage = lastUsage(events);
@@ -244,6 +258,33 @@ export function ChatPane({
       })
       .catch(() => active && setError('Agent chat could not be loaded.'))
       .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    skipDraftSave.current = true;
+    setDraft(sessionStorage.getItem(composerDraftKey) ?? '');
+  }, [composerDraftKey]);
+
+  useEffect(() => {
+    if (skipDraftSave.current) {
+      skipDraftSave.current = false;
+      return;
+    }
+    if (draft.length === 0) sessionStorage.removeItem(composerDraftKey);
+    else sessionStorage.setItem(composerDraftKey, draft);
+  }, [draft, composerDraftKey]);
+
+  useEffect(() => {
+    let active = true;
+    void window.builderHelm.runtimes
+      .capabilities()
+      .then((snapshot) => {
+        if (active) setRuntimes(snapshot.runtimes);
+      })
+      .catch(() => undefined);
     return () => {
       active = false;
     };
@@ -384,7 +425,7 @@ export function ChatPane({
 
   async function sendMessage(): Promise<void> {
     const text = draft.trim();
-    if (text.length === 0 || streaming || connecting) return;
+    if (text.length === 0 || streaming || connecting || terminalOnly) return;
     setError(null);
     setDraft('');
     setStreaming(true);
@@ -567,6 +608,13 @@ export function ChatPane({
         </p>
       )}
 
+      {terminalOnly && runtime !== null && (
+        <p className="chatError" role="status">
+          {runtime.label} is terminal-only on this machine. Open it in Code terminals —
+          structured chat is not available.
+        </p>
+      )}
+
       {/* Inline on its cell when that cell exists; fallback bar otherwise. */}
       {permission !== null && session !== null && !permissionHasCell && (
         <div
@@ -704,6 +752,7 @@ export function ChatPane({
             disabled={
               streaming ||
               connecting ||
+              terminalOnly ||
               (profile === null && runnable.length === 0) ||
               cwd.length === 0
             }
