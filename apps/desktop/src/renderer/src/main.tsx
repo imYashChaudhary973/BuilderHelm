@@ -18,6 +18,7 @@ import { NotBuilt } from './components/not-built.js';
 import { PluginsPage } from './routes/plugins.js';
 import { SkillsPage } from './routes/skills.js';
 import { AutomationsPage } from './routes/automations.js';
+import { RemotePage } from './routes/remote.js';
 import { BoardPage } from './routes/board.js';
 import { ChatPage } from './routes/chat.js';
 import { MemoryPage } from './routes/memory.js';
@@ -143,6 +144,11 @@ const automationsRoute = createRoute({
   path: '/automations',
   component: AutomationsPage,
 });
+const remoteRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/remote',
+  component: RemotePage,
+});
 const creditsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/credits',
@@ -174,6 +180,7 @@ const routeTree = rootRoute.addChildren([
   pluginsRoute,
   skillsRoute,
   automationsRoute,
+  remoteRoute,
   creditsRoute,
   voiceRoute,
   generalSettingsRoute,

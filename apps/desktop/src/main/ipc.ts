@@ -182,6 +182,16 @@ import {
   schedulesSnapshotRequestSchema,
   scheduleUpdateRequestSchema,
 } from '@builderhelm/protocol/schedules';
+import {
+  remoteListenRequestSchema,
+  remotePairingIpcResponseSchema,
+  remotePairOfferRequestSchema,
+  remoteRevokeRequestSchema,
+  remoteSessionIpcResponseSchema,
+  remoteSnapshotIpcResponseSchema,
+  remoteSnapshotRequestSchema,
+  remoteStopRequestSchema,
+} from '@builderhelm/protocol/remote';
 
 import {
   chatCreateRequestSchema,
@@ -1869,6 +1879,76 @@ export function registerIpcHandlers(
       });
     } catch (error) {
       return scheduleRunIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.remoteSnapshot, async (_event, input: unknown) => {
+    try {
+      remoteSnapshotRequestSchema.parse(input);
+      return remoteSnapshotIpcResponseSchema.parse({
+        ok: true,
+        value: await core.remote.snapshot(),
+      });
+    } catch (error) {
+      return remoteSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.remoteListen, async (_event, input: unknown) => {
+    try {
+      const request = remoteListenRequestSchema.parse(input);
+      return remoteSnapshotIpcResponseSchema.parse({
+        ok: true,
+        value: await core.remote.listen(request.input.bind),
+      });
+    } catch (error) {
+      return remoteSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.remoteStop, async (_event, input: unknown) => {
+    try {
+      remoteStopRequestSchema.parse(input);
+      return remoteSnapshotIpcResponseSchema.parse({
+        ok: true,
+        value: await core.remote.stop(),
+      });
+    } catch (error) {
+      return remoteSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.remotePairOffer, async (_event, input: unknown) => {
+    try {
+      remotePairOfferRequestSchema.parse(input);
+      return remotePairingIpcResponseSchema.parse({
+        ok: true,
+        value: await core.remote.createPairing(),
+      });
+    } catch (error) {
+      return remotePairingIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.remoteRevoke, async (_event, input: unknown) => {
+    try {
+      const request = remoteRevokeRequestSchema.parse(input);
+      return remoteSessionIpcResponseSchema.parse({
+        ok: true,
+        value: await core.remote.revoke(request.input.sessionId),
+      });
+    } catch (error) {
+      return remoteSessionIpcResponseSchema.parse({
         ok: false,
         error: ipcError(error),
       });

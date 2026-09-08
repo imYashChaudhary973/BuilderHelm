@@ -103,6 +103,10 @@
     "./schedules": {
       "types": "./dist/schedules.d.ts",
       "import": "./src/schedules.ts"
+    },
+    "./remote": {
+      "types": "./dist/remote.d.ts",
+      "import": "./src/remote.ts"
     }
   },
   "dependencies": {

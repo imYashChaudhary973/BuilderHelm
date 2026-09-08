@@ -19,7 +19,12 @@ import {
 } from '@builderhelm/model-gateway';
 import { createLogger, type LogSink, type Logger } from '@builderhelm/observability';
 import type { SystemHealthResponse } from '@builderhelm/protocol';
-import { createCorrelationId, utcNow, type CorrelationId } from '@builderhelm/shared';
+import {
+  BuilderHelmError,
+  createCorrelationId,
+  utcNow,
+  type CorrelationId,
+} from '@builderhelm/shared';
 import { dirname, join } from 'node:path';
 import { ProviderService } from './providers/provider-service.js';
 import { ChatService } from './chat/chat-service.js';
@@ -48,6 +53,7 @@ import { VoiceService, type VoiceModelInventory } from './voice/voice-service.js
 import { AccountsService } from './accounts/accounts-service.js';
 import { ConnectionService, ownedConfigDir } from './connections/connection-service.js';
 import { ScheduleService } from './schedules/schedule-service.js';
+import { RemoteSessionService } from './remote/remote-session-service.js';
 
 export interface CoreOptions {
   readonly databasePath: string;
@@ -77,6 +83,7 @@ export interface CoreRuntime {
   readonly linearIssues: LinearIssuesService;
   readonly connections: ConnectionService;
   readonly schedules: ScheduleService;
+  readonly remote: RemoteSessionService;
   readonly previewArtifacts: PreviewArtifactService;
   readonly browserSettings: BrowserSettingsService;
   /**
@@ -196,6 +203,52 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     options.swarmVerifier ?? new PnpmTaskVerifier(),
     options.swarmReviewer === undefined ? {} : { reviewer: options.swarmReviewer },
   );
+  const remote = new RemoteSessionService(database, options.secretStore, logger, {
+    status() {
+      const latest = swarm.latestRun();
+      const pending = actions.snapshot(createCorrelationId()).pendingApprovals;
+      return {
+        hostAuthoritative: true,
+        lifetime: 'desktop-open',
+        run: latest === null ? null : { id: latest.id, status: latest.status },
+        pendingApprovals: pending.map((approval) => ({
+          requestId: approval.requestId,
+          summary: approval.summary,
+        })),
+      };
+    },
+    artifacts() {
+      return previewArtifacts.list({}).map((artifact) => ({
+        id: artifact.id,
+        kind: artifact.kind,
+        url: artifact.url,
+        headSha: artifact.headSha,
+        createdAt: artifact.createdAt,
+      }));
+    },
+    instruct(input) {
+      const state = swarm.state(input.runId);
+      const seatIds = state.seats.map((seat) => seat.id);
+      if (seatIds.length === 0) swarm.note(input.runId, input.text);
+      else swarm.direct(input.runId, seatIds, input.text, createCorrelationId());
+    },
+    async approve(input) {
+      const pending = actions
+        .snapshot(createCorrelationId())
+        .pendingApprovals.find((approval) => approval.requestId === input.requestId);
+      if (pending === undefined) {
+        throw new BuilderHelmError('VALIDATION_FAILED', 'Unknown approval');
+      }
+      if (input.decision === 'allow') {
+        await actions.approve(pending.id, createCorrelationId());
+        return;
+      }
+      actions.reject(pending.id, createCorrelationId());
+    },
+    cancel(input) {
+      swarm.stop(input.runId);
+    },
+  });
   const reconciledSwarms = swarm.reconcileInterruptedRuns();
   if (reconciledSwarms > 0) {
     logger.info({
@@ -220,6 +273,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     linearIssues,
     connections,
     schedules,
+    remote,
     previewArtifacts,
     browserSettings,
     settings,
@@ -240,6 +294,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
         return;
       }
       closed = true;
+      remote.shutdown();
       knowledge.close();
       database.close();
       logger.info({ event: 'core.stopped', correlationId: createCorrelationId() });

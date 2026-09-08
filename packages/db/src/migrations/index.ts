@@ -21,6 +21,7 @@ import { linearIssuesMigration } from './0020-linear-issues.js';
 import { swarmOrchestrationMigration } from './0021-swarm-orchestration.js';
 import { connectionsSkillsMigration } from './0022-connections-skills.js';
 import { schedulesMigration } from './0023-schedules.js';
+import { remoteSessionsMigration } from './0024-remote-sessions.js';
 
 export const migrations = [
   foundationMigration,
@@ -46,6 +47,7 @@ export const migrations = [
   swarmOrchestrationMigration,
   connectionsSkillsMigration,
   schedulesMigration,
+  remoteSessionsMigration,
 ];
 
 export {
@@ -72,4 +74,5 @@ export {
   swarmOrchestrationMigration,
   connectionsSkillsMigration,
   schedulesMigration,
+  remoteSessionsMigration,
 };

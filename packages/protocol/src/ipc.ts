@@ -107,6 +107,13 @@ import type {
   SchedulesSnapshot,
   ScheduleUpdateInput,
 } from './schedules.js';
+import type {
+  RemoteListenInput,
+  RemotePairingOffer,
+  RemoteRevokeInput,
+  RemoteSession,
+  RemoteSnapshot,
+} from './remote.js';
 
 import type {
   BrowserCommandInput,
@@ -394,6 +401,11 @@ export const ipcChannels = {
   schedulePause: 'builderhelm:schedule:pause',
   scheduleResume: 'builderhelm:schedule:resume',
   scheduleCancelRun: 'builderhelm:schedule:cancel-run',
+  remoteSnapshot: 'builderhelm:remote:snapshot',
+  remoteListen: 'builderhelm:remote:listen',
+  remoteStop: 'builderhelm:remote:stop',
+  remotePairOffer: 'builderhelm:remote:pair-offer',
+  remoteRevoke: 'builderhelm:remote:revoke',
   agentEvent: 'builderhelm:agent:event',
 } as const;
 
@@ -552,6 +564,13 @@ export interface BuilderHelmDesktopApi {
     pause(input: ScheduleIdInput): Promise<ScheduleRecord>;
     resume(input: ScheduleIdInput): Promise<ScheduleRecord>;
     cancelRun(input: ScheduleRunIdInput): Promise<ScheduleRun>;
+  };
+  readonly remote: {
+    snapshot(): Promise<RemoteSnapshot>;
+    listen(input: RemoteListenInput): Promise<RemoteSnapshot>;
+    stop(): Promise<RemoteSnapshot>;
+    createPairing(): Promise<RemotePairingOffer>;
+    revoke(input: RemoteRevokeInput): Promise<RemoteSession>;
   };
   readonly integrations: {
     listGitHubIssues(input: GitHubIssueListInput): Promise<GitHubIssue[]>;

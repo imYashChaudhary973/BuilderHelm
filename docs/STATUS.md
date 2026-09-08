@@ -208,7 +208,14 @@ positions against `origin/main` before any integration.
 - Feature: desktop-open schedules for Apify research / X publish.
 - Branch: `feat/ade-automations` (from `feat/ade-mcp`).
 
-- Next required action: accept Phase 7 before Phase 8 remote/mobile.
+- Next required action: stacked under `feat/ade-remote`.
+
+### ADE remote (Phase 8)
+
+- Feature: loopback/private-network pairing, scoped companion commands, revoke,
+  replay-safe approvals, reconnect by event seq. No relay.
+- Branch: `feat/ade-remote` (from `feat/ade-automations`).
+- Next required action: accept Phase 8 before Phase 9 hardening.
 
 ### Workspace launcher (uncommitted WIP — decision recorded)
 
@@ -357,15 +364,16 @@ and add a workspace switcher. Re-run these scenarios as the acceptance gate.
 - Global search across worktrees, files, agents, commands, and artifacts.
 - Rich development notes with slash commands and inline logs.
 - Local token/cost analytics heatmap (Swarm receipts).
-- Optional encrypted relay and remote host pairing.
-- React Native iOS and Android companion.
+
+- Optional encrypted relay (specified, not built).
 - Verified Windows and Linux desktop distributions.
 - Signed installers, auto-update, notarization, and release channels.
 
 ## Current verification boundary
 
-macOS is the only exercised desktop platform. Windows, Linux, mobile, relay,
-real hosted CI integration, and release signing require future evidence.
+macOS is the only exercised desktop platform. Windows, Linux, a packaged
+React Native binary, a live relay, real hosted CI integration, and release
+signing require future evidence.
 
 ## Architecture-reset compatibility
 

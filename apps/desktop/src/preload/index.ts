@@ -132,6 +132,13 @@ import {
   schedulesSnapshotIpcResponseSchema,
   scheduleUpdateInputSchema,
 } from '@builderhelm/protocol/schedules';
+import {
+  remoteListenInputSchema,
+  remotePairingIpcResponseSchema,
+  remoteRevokeInputSchema,
+  remoteSessionIpcResponseSchema,
+  remoteSnapshotIpcResponseSchema,
+} from '@builderhelm/protocol/remote';
 
 import {
   ipcChannels,
@@ -953,6 +960,43 @@ const api: BuilderHelmDesktopApi = {
         input: scheduleRunIdInputSchema.parse(input),
       });
       return unwrap(scheduleRunIpcResponseSchema.parse(response));
+    },
+  },
+  remote: {
+    async snapshot() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.remoteSnapshot, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: {},
+      });
+      return unwrap(remoteSnapshotIpcResponseSchema.parse(response));
+    },
+    async listen(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.remoteListen, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: remoteListenInputSchema.parse(input),
+      });
+      return unwrap(remoteSnapshotIpcResponseSchema.parse(response));
+    },
+    async stop() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.remoteStop, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: {},
+      });
+      return unwrap(remoteSnapshotIpcResponseSchema.parse(response));
+    },
+    async createPairing() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.remotePairOffer, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: {},
+      });
+      return unwrap(remotePairingIpcResponseSchema.parse(response));
+    },
+    async revoke(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.remoteRevoke, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: remoteRevokeInputSchema.parse(input),
+      });
+      return unwrap(remoteSessionIpcResponseSchema.parse(response));
     },
   },
   projects: {

@@ -147,6 +147,15 @@ export function buildLauncherActions(ctx: LauncherContext): LauncherAction[] {
       detail: 'Runs only while BuilderHelm is open — missed paid work is not replayed',
       run: () => ctx.navigate('/automations'),
     },
+    {
+      id: 'manage.remote',
+      group: 'manage',
+      label: 'Remote',
+      keywords: ['pair', 'mobile', 'companion', 'lan'],
+      available: true,
+      detail: 'Local-network companion — host stays in charge, no relay',
+      run: () => ctx.navigate('/remote'),
+    },
   );
 
   return actions;

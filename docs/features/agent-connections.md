@@ -38,7 +38,8 @@ must not spawn a process. Switching tabs must not cancel a running task.
 - Code already uses xterm.js and node-pty. Keep those services and the existing
   workspace, Git, file, and review operations.
 - Plugins and Skills are host connectors on this branch. Automations are
-  desktop-open schedules; see [automations.md](automations.md). ACP and model
+  desktop-open schedules; see [automations.md](automations.md). Remote control
+  is local-network pairing; see [remote.md](remote.md). ACP and model
   API chat are distinct backends; the visible Chats tab currently uses ACP,
   per ADR 0008.
 
