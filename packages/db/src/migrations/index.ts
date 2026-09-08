@@ -18,6 +18,11 @@ import { previewAnnotationsMigration } from './0017-preview-annotations.js';
 import { reviewPersistenceMigration } from './0018-review.js';
 import { githubIssuesMigration } from './0019-github-issues.js';
 import { linearIssuesMigration } from './0020-linear-issues.js';
+import { swarmOrchestrationMigration } from './0021-swarm-orchestration.js';
+import { connectionsSkillsMigration } from './0022-connections-skills.js';
+import { schedulesMigration } from './0023-schedules.js';
+import { remoteSessionsMigration } from './0024-remote-sessions.js';
+import { workspaceFoundationMigration } from './0025-workspace-foundation.js';
 
 export const migrations = [
   foundationMigration,
@@ -40,7 +45,12 @@ export const migrations = [
   reviewPersistenceMigration,
   githubIssuesMigration,
   linearIssuesMigration,
-] as const;
+  swarmOrchestrationMigration,
+  connectionsSkillsMigration,
+  schedulesMigration,
+  remoteSessionsMigration,
+  workspaceFoundationMigration,
+];
 
 export {
   chatPersistenceMigration,
@@ -63,4 +73,9 @@ export {
   reviewPersistenceMigration,
   githubIssuesMigration,
   linearIssuesMigration,
+  swarmOrchestrationMigration,
+  connectionsSkillsMigration,
+  schedulesMigration,
+  remoteSessionsMigration,
+  workspaceFoundationMigration,
 };

@@ -13,8 +13,8 @@ Settings is not a mode. It replaces the Code rail with General, Voice,
 Browser, and Account.
 
 The plus menu (`⌘K`) is the fast path. It does not install agents or
-grant plugin access. Plugins, Skills, and Automations remain honest
-stubs until those phases land.
+grant plugin access. Plugins and Skills are live; Automations remains an
+honest stub until that phase lands.
 
 Existing services stay: Space, Swarm, Board, ACP chat, Git, Review,
 Browser, Editor. This file only names where they appear.

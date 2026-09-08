@@ -15,16 +15,18 @@ import { isAbsolute, relative, resolve } from 'node:path';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 
-import type {
-  AgentAuthMethod,
-  AgentCapabilities,
-  AgentConfigOption,
-  AgentContent,
-  AgentDescriptor,
-  AgentPermissionDecision,
-  AgentPermissionOption,
-  AgentSessionEvent,
-  AgentToolCall,
+import {
+  accessFromConfig,
+  hostAllowsFsWrite,
+  type AgentAuthMethod,
+  type AgentCapabilities,
+  type AgentConfigOption,
+  type AgentContent,
+  type AgentDescriptor,
+  type AgentPermissionDecision,
+  type AgentPermissionOption,
+  type AgentSessionEvent,
+  type AgentToolCall,
 } from '@builderhelm/protocol';
 import { BuilderHelmError } from '@builderhelm/shared';
 
@@ -61,6 +63,8 @@ export interface AcpSessionOptions {
   readonly resolvePermission: PermissionResolver;
   /** Prior ACP session to `session/load`. Null starts a new one. */
   readonly resumeSessionId?: string | null;
+  /** Config-dir redirects for this run. Captured at spawn; later account changes do not apply. */
+  readonly env?: Readonly<Record<string, string>>;
 }
 
 interface PendingPermission {
@@ -128,6 +132,7 @@ export class AcpSession {
       command: options.agent.command,
       args: options.agent.args,
       cwd: options.cwd,
+      ...(options.env === undefined ? {} : { env: options.env }),
       onExit: (code, stderr) => {
         this.options.emit({
           type: 'session.exited',
@@ -497,6 +502,9 @@ export class AcpSession {
   }
 
   private async onWriteFile(params: unknown): Promise<unknown> {
+    if (!hostAllowsFsWrite(accessFromConfig(this.configOptions))) {
+      throw new BuilderHelmError('PERMISSION_DENIED', 'Plan mode cannot write files.');
+    }
     const request = (params ?? {}) as Record<string, unknown>;
     const path = this.confine(request.path);
     const content = typeof request.content === 'string' ? request.content : '';

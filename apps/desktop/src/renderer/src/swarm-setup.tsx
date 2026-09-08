@@ -379,7 +379,10 @@ function Roster({
           onClick={() => onMode('safe')}
         >
           <strong>Safe</strong>
-          <span>Read and analyze only. Unapproved actions fail closed.</span>
+          <span>
+            Runtime-enforced Plan / read-only. Runtimes without that flag cannot take this
+            mode.
+          </span>
         </button>
         <button
           type="button"
@@ -387,7 +390,7 @@ function Roster({
           onClick={() => onMode('auto')}
         >
           <strong>Auto-edit</strong>
-          <span>Agents edit files freely; shell commands still gated.</span>
+          <span>Scoped file edits. Shell, network, and credentials still ask.</span>
         </button>
         <button
           type="button"
@@ -396,8 +399,8 @@ function Roster({
         >
           <strong>Full bypass</strong>
           <span>
-            Trusted local workspaces only. Skips every approval; worktree isolation
-            strongly advised.
+            Explicit per-run choice, never a fallback. Skips every approval; worktree
+            isolation is not a sandbox.
           </span>
         </button>
       </div>

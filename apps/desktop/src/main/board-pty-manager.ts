@@ -27,11 +27,13 @@ import {
   extractPreviewOrigins,
   type PreviewOrigin,
 } from '@builderhelm/protocol';
+import { defaultShell, killProcessTree, pathFromEnv } from '@builderhelm/core';
 import { BuilderHelmError } from '@builderhelm/shared';
 import { Notification, type WebContents } from 'electron';
 import { spawn, type IPty } from 'node-pty';
 
 import { scanStartupChunk } from './startup-ack.js';
+import { stopOwnedPty } from './owned-pty.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -113,12 +115,23 @@ export function setExtraTerminalEnv(get: () => Record<string, string>): void {
 }
 
 function terminalEnv(): Record<string, string> {
+  if (process.platform === 'win32') {
+    return {
+      ...process.env,
+      USERPROFILE: process.env.USERPROFILE ?? homedir(),
+      USERNAME: process.env.USERNAME ?? '',
+      ComSpec: process.env.ComSpec ?? process.env.COMSPEC ?? 'cmd.exe',
+      TERM: 'xterm-256color',
+      PATH: pathFromEnv(process.env, 'win32'),
+      ...extraTerminalEnv(),
+    };
+  }
   return {
     ...process.env,
     HOME: process.env.HOME ?? homedir(),
     USER: process.env.USER ?? '',
     LOGNAME: process.env.LOGNAME ?? process.env.USER ?? '',
-    SHELL: '/bin/zsh',
+    SHELL: defaultShell(process.platform, process.env).binary,
     TERM: 'xterm-256color',
     COLORTERM: 'truecolor',
     LANG: process.env.LANG ?? 'en_US.UTF-8',
@@ -127,6 +140,9 @@ function terminalEnv(): Record<string, string> {
       '/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin',
     TMPDIR: process.env.TMPDIR ?? '/tmp',
     PWD: process.env.PWD ?? homedir(),
+    DISPLAY: process.env.DISPLAY ?? '',
+    WAYLAND_DISPLAY: process.env.WAYLAND_DISPLAY ?? '',
+    XDG_RUNTIME_DIR: process.env.XDG_RUNTIME_DIR ?? '',
     ...extraTerminalEnv(),
   };
 }
@@ -136,20 +152,24 @@ function resolveWorkdir(cwd: string): string {
     const resolved = realpathSync(cwd);
     if (statSync(resolved).isDirectory()) return resolved;
   } catch {
-    // fall through to home
+    // Fall through to the explicit failure below.
   }
-  return homedir();
+  throw new BuilderHelmError(
+    'VALIDATION_FAILED',
+    `Agent working directory does not exist: ${cwd}`,
+  );
 }
 
-function spawnHelperPath(): string {
+function spawnHelperPath(): string | null {
+  if (process.platform === 'win32') return null;
   const require = createRequire(import.meta.url);
   const unix = require.resolve('node-pty/lib/unixTerminal.js');
   return resolve(dirname(unix), '../build/Release/spawn-helper');
 }
 
-function ensureHelper(): string {
+function ensureHelper(): string | null {
   const helper = spawnHelperPath();
-  if (existsSync(helper)) {
+  if (helper !== null && existsSync(helper)) {
     try {
       chmodSync(helper, 0o755);
     } catch {
@@ -157,6 +177,17 @@ function ensureHelper(): string {
     }
   }
   return helper;
+}
+
+function stopPanePty(pty: IPty | null): void {
+  if (pty === null) return;
+  if (process.platform === 'win32') {
+    const pid = pty.pid;
+    pty.kill();
+    killProcessTree(pid);
+    return;
+  }
+  stopOwnedPty(pty);
 }
 
 function spawnArgvPty(
@@ -188,12 +219,12 @@ function spawnArgvPty(
 }
 
 function spawnPty(cwd: string, cols: number, rows: number): IPty {
-  const shell = existsSync('/bin/zsh') ? '/bin/zsh' : '/bin/bash';
+  const shell = defaultShell(process.platform, process.env);
   const workdir = resolveWorkdir(cwd);
   // Agent panes are a real interactive shell that the command is typed into,
   // not `zsh -c <agent>`: the shell must survive the agent exiting so the user
   // drops to a usable prompt. The manager types it once the size settles.
-  return spawn(shell, ['-i'], {
+  return spawn(shell.binary, [...shell.args], {
     name: 'xterm-256color',
     cols,
     rows,
@@ -207,10 +238,10 @@ export function probePty(cwd: string): string {
   try {
     const pty = spawnPty(cwd, 80, 24);
     const pid = pty.pid;
-    pty.kill();
-    return `ok pid=${pid} helper=${helper}`;
+    stopPanePty(pty);
+    return `ok pid=${pid} helper=${helper ?? 'conpty'}`;
   } catch (error) {
-    return `fail helper=${helper} exists=${existsSync(helper)} err=${error instanceof Error ? error.message : String(error)}`;
+    return `fail helper=${helper} exists=${helper !== null && existsSync(helper)} err=${error instanceof Error ? error.message : String(error)}`;
   }
 }
 
@@ -231,6 +262,14 @@ async function worktreeHasUncommittedWork(worktreePath: string): Promise<boolean
 }
 
 export class BoardPtyManager {
+  onOutput: ((sessionId: string, paneId: string, text: string) => void) | null = null;
+  private readonly outputTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private persistOutput(sessionId: string, paneId: string, pane: PaneMeta): void {
+    const key = `${sessionId}:${paneId}`;
+    clearTimeout(this.outputTimers.get(key));
+    this.outputTimers.delete(key);
+    this.onOutput?.(sessionId, paneId, pane.output.slice(-262144));
+  }
   private readonly sessions = new Map<string, SessionRecord>();
   private readonly closing = new Set<string>();
   private readonly exitWaiters = new Map<
@@ -296,8 +335,8 @@ export class BoardPtyManager {
     input: BoardCreateInput,
     locate: (slot: number) => Promise<{ cwd: string; branch: string | null }>,
     sender: WebContents,
+    sessionId: string = randomUUID(),
   ): Promise<BoardSessionSummary> {
-    const sessionId = randomUUID();
     const worktreeTag = randomUUID().slice(0, 8);
     const session: SessionRecord = {
       sender,
@@ -325,15 +364,9 @@ export class BoardPtyManager {
     } catch (error) {
       for (const pane of session.panes.values()) {
         this.cancelDataFlush(pane);
-        pane.pty?.kill();
+        stopPanePty(pane.pty);
       }
-      // Creation is transactional: a session that never opened must not leave
-      // worktrees and branches behind for the panes that did succeed.
-      if (session.isolation === 'worktree') {
-        for (const pane of session.panes.values()) {
-          await this.discardWorktree(session.folderPath, pane.cwd, pane.branch);
-        }
-      }
+      // Retain provisioned checkouts for explicit recovery; they may contain user work.
       this.sessions.delete(sessionId);
       throw error;
     }
@@ -342,6 +375,34 @@ export class BoardPtyManager {
       folderPath: input.folderPath,
       paneCount: panes.length,
       isolation: input.isolation,
+      panes,
+    };
+  }
+
+  hasSession(id: string): boolean {
+    return this.sessions.has(id);
+  }
+
+  snapshot(id: string, sender?: WebContents): BoardSessionSummary {
+    const session = this.sessions.get(id);
+    if (!session) {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Workspace is interrupted.');
+    }
+    if (sender) session.sender = sender;
+    const panes = [...session.panes.entries()].map(([paneId, pane]) => ({
+      paneId,
+      slot: pane.slot,
+      agentId: pane.agentId,
+      title: pane.title,
+      status: pane.status,
+      branch: pane.branch,
+      cwd: pane.cwd,
+    }));
+    return {
+      sessionId: id,
+      folderPath: session.folderPath,
+      isolation: session.isolation,
+      paneCount: panes.length,
       panes,
     };
   }
@@ -550,8 +611,9 @@ export class BoardPtyManager {
     this.flushData(input.sessionId, input.paneId, pane);
     clearTimeout(pane.commandTimer ?? undefined);
     pane.pendingCommand = null;
+    this.persistOutput(input.sessionId, input.paneId, pane);
     this.closing.add(input.paneId);
-    pane.pty?.kill();
+    stopPanePty(pane.pty);
     pane.pty = null;
     session.panes.delete(input.paneId);
     this.reindexSlots(session);
@@ -599,13 +661,14 @@ export class BoardPtyManager {
   }
 
   dispose(): void {
-    for (const session of this.sessions.values()) {
+    for (const [sessionId, session] of this.sessions) {
       for (const [paneId, pane] of session.panes) {
         this.cancelDataFlush(pane);
         clearTimeout(pane.commandTimer ?? undefined);
         pane.pendingCommand = null;
+        this.persistOutput(sessionId, paneId, pane);
         this.closing.add(paneId);
-        pane.pty?.kill();
+        stopPanePty(pane.pty);
         pane.pty = null;
       }
     }
@@ -647,6 +710,10 @@ export class BoardPtyManager {
       });
     }
     this.applyBackpressure(pane);
+    this.outputTimers.set(
+      `${sessionId}:${paneId}`,
+      setTimeout(() => this.persistOutput(sessionId, paneId, pane), 1000),
+    );
   }
 
   /**

@@ -51,9 +51,9 @@ conditions are met.
 
 ## P6 — Desktop platform expansion
 
-- Windows PTY, paths, credential storage, packaging, and smoke tests.
-- Linux PTY, Secret Service, Wayland/X11 behavior, packaging, and smoke tests.
-- Signed release channels and auto-update after platform parity.
+- Windows and Linux packaged installers, ConPTY/Secret Service live smoke.
+- Signed release channels and auto-update after those smokes exist.
+  See [features/release.md](features/release.md) for what this branch already labels.
 
 ## Not now
 

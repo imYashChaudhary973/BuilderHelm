@@ -135,8 +135,26 @@ export function buildLauncherActions(ctx: LauncherContext): LauncherAction[] {
       label: 'Connect a plugin',
       keywords: ['mcp', 'github', 'linear', 'jira', 'vidiq'],
       available: true,
-      detail: 'Opens Plugins — connections are not built yet',
+      detail: 'Apify research and X publish — grants are per profile',
       run: () => ctx.navigate('/plugins'),
+    },
+    {
+      id: 'manage.automations',
+      group: 'manage',
+      label: 'Automations',
+      keywords: ['schedule', 'cron', 'repeat'],
+      available: true,
+      detail: 'Runs only while BuilderHelm is open — missed paid work is not replayed',
+      run: () => ctx.navigate('/automations'),
+    },
+    {
+      id: 'manage.remote',
+      group: 'manage',
+      label: 'Remote',
+      keywords: ['pair', 'mobile', 'companion', 'lan'],
+      available: true,
+      detail: 'Local-network companion — host stays in charge, no relay',
+      run: () => ctx.navigate('/remote'),
     },
   );
 

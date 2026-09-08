@@ -170,10 +170,14 @@ export function SwarmLive({
           </p>
         </div>
       ) : null}
-      {status === 'done' || status === 'failed' ? (
+      {status === 'done' || status === 'failed' || status === 'partial' ? (
         <div className="swarmSummary" data-status={status} role="status">
           <strong>
-            {status === 'done' ? 'Swarm finished' : 'Swarm stopped with failures'}
+            {status === 'done'
+              ? 'Swarm finished'
+              : status === 'partial'
+                ? 'Swarm finished with failures'
+                : 'Swarm stopped with failures'}
           </strong>
           <p>
             {landed} landed
@@ -273,7 +277,7 @@ export function SwarmLive({
                   <p>
                     {seat.role} · {seat.agentId}
                     {seat.tokensUsed > 0
-                      ? ` · ${seat.tokensUsed} tok · ${money(seat.costUsd)}`
+                      ? ` · ${seat.tokensUsed} tok${seat.costUsd > 0 ? ` · ${money(seat.costUsd)}` : ''}`
                       : ''}
                   </p>
                   <button
@@ -304,7 +308,9 @@ export function SwarmLive({
                   <dd>{selected.branch ?? 'not created yet'}</dd>
                   <dt>Spend</dt>
                   <dd>
-                    {selected.tokensUsed} tokens · {money(selected.costUsd)}
+                    {selected.tokensUsed > 0
+                      ? `${selected.tokensUsed} tokens${selected.costUsd > 0 ? ` · ${money(selected.costUsd)}` : ''}`
+                      : 'Not reported'}
                   </dd>
                 </dl>
               )}
@@ -349,7 +355,12 @@ export function SwarmLive({
                   (message) =>
                     message.kind === 'directive' ||
                     message.kind === 'coordinator_note' ||
-                    message.kind === 'seat_report',
+                    message.kind === 'seat_report' ||
+                    message.kind === 'question' ||
+                    message.kind === 'answer' ||
+                    message.kind === 'handoff' ||
+                    message.kind === 'progress' ||
+                    message.kind === 'artifact',
                 )
                 .map((message) => (
                   <li key={message.id} data-kind={message.kind}>

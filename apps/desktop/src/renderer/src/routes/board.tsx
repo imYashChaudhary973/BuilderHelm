@@ -177,6 +177,7 @@ export function BoardPage(): React.JSX.Element {
   const [phase, setPhase] = useState<Phase>('home');
   const [folderPath, setFolderPath] = useState('');
   const [homeDir, setHomeDir] = useState('');
+  const [isolation, setIsolation] = useState<BoardIsolation>('worktree');
   const [paneCount, setPaneCount] = useState<BoardPaneCount>(2);
   const [, setSlots] = useState<Record<number, SlotConfig>>(() =>
     resizeSlots(2, {}, undefined),
@@ -337,7 +338,7 @@ export function BoardPage(): React.JSX.Element {
       correlationId: crypto.randomUUID() as CorrelationId,
       folderPath: working,
       paneCount: 1,
-      isolation: 'shared',
+      isolation,
       panes: [
         {
           slot: 0,
@@ -540,6 +541,10 @@ export function BoardPage(): React.JSX.Element {
         aria-label={`BuilderHelm Space · ${folderName(session.folderPath)}`}
         data-core-status="ready"
       >
+        <p className="workspaceContext">
+          {session.isolation === 'worktree' ? 'Isolated checkouts' : 'Shared folder'} ·{' '}
+          {session.folderPath}
+        </p>
         {landNotice !== null && (
           <p className="wizardError" role="status">
             {landNotice}
@@ -854,7 +859,7 @@ export function BoardPage(): React.JSX.Element {
                 className="secondaryButton"
                 type="button"
                 disabled={!folderReady || launch.isPending}
-                onClick={() => launchSpace(shellSlots(paneCount), 'shared')}
+                onClick={() => launchSpace(shellSlots(paneCount), isolation)}
               >
                 Skip — no agents
               </button>
@@ -862,7 +867,7 @@ export function BoardPage(): React.JSX.Element {
                 className="primaryButton"
                 type="button"
                 disabled={!folderReady || !canOpen || launch.isPending}
-                onClick={() => launchSpace(slotsFromCounts(), 'shared')}
+                onClick={() => launchSpace(slotsFromCounts(), isolation)}
               >
                 {canOpen ? 'Open Space' : 'Pick at least one agent'}
               </button>
@@ -1002,6 +1007,21 @@ export function BoardPage(): React.JSX.Element {
           </div>
         </div>
 
+        <div className="wizardSection">
+          <label className="wizardLabel" htmlFor="space-isolation">
+            Isolation <span>Independent checkouts, or one shared folder</span>
+          </label>
+          <select
+            id="space-isolation"
+            aria-label="Workspace isolation"
+            value={isolation}
+            onChange={(event) => setIsolation(event.target.value as BoardIsolation)}
+          >
+            <option value="worktree">Isolated Git worktree per agent</option>
+            <option value="shared">Shared folder — agents edit the same files</option>
+          </select>
+        </div>
+
         {(recents.length > 0 || projectRecents.length > 0) && (
           <div className="wizardSection">
             <span className="wizardLabel">
@@ -1065,7 +1085,7 @@ export function BoardPage(): React.JSX.Element {
               className="secondaryButton"
               type="button"
               disabled={!folderReady || launch.isPending}
-              onClick={() => launchSpace(shellSlots(paneCount), 'shared')}
+              onClick={() => launchSpace(shellSlots(paneCount), isolation)}
             >
               Open without AI
             </button>

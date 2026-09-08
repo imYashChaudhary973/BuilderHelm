@@ -437,6 +437,31 @@ export type AgentSessionEvent = z.infer<typeof agentSessionEventSchema>;
 
 // ── Requests the renderer makes ───────────────────────────────────────────────
 
+// ── Launch selection ─────────────────────────────────────────────────────────
+
+/**
+ * What the person selected for a run: the exact model id, reasoning effort,
+ * and account reference. Every field nullable — null means "nothing was
+ * selected", which launch paths must carry as the runtime's own default.
+ * Substituting a value the person did not pick is the one thing this schema
+ * exists to prevent.
+ */
+export const runtimeLaunchSchema = z
+  .object({
+    model: z.string().trim().min(1).max(200).nullable(),
+    effort: z.string().trim().min(1).max(64).nullable(),
+    accountRef: z.string().trim().min(1).max(128).nullable(),
+  })
+  .strict();
+export type RuntimeLaunch = z.infer<typeof runtimeLaunchSchema>;
+
+/** The launch that carries no selection; never mutate it. */
+export const RUNTIME_LAUNCH_NONE: RuntimeLaunch = {
+  model: null,
+  effort: null,
+  accountRef: null,
+};
+
 export const agentSessionStartInputSchema = z
   .object({
     correlationId: correlationIdSchema,
@@ -445,6 +470,12 @@ export const agentSessionStartInputSchema = z
     cwd: z.string().min(1).max(4096),
     /** Reattach to a prior ACP session; requires `loadSession` or `resumeSession`. */
     resumeSessionId: agentSessionIdSchema.nullable(),
+    /**
+     * Launch selection for this session: overrides the profile's when sent.
+     * Applied right after initialize; a runtime that cannot honor it fails
+     * the start instead of silently keeping its previous model.
+     */
+    launch: runtimeLaunchSchema.nullable().default(null),
     /**
      * The roster profile this thread belongs to. Main resolves the profile's
      * own argv from it — the renderer still never chooses a command.

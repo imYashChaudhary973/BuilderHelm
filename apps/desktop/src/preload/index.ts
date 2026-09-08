@@ -1,4 +1,18 @@
 import {
+  FOUNDATION_CHANNELS,
+  workspaceSnapshotResultSchema,
+  workspaceRecordResultSchema,
+  foundationOkResultSchema,
+  editorDraftListResultSchema,
+  workspaceSelectInputSchema,
+  workspaceIdInputSchema,
+  workspaceMetaSchema,
+  workspaceImportInputSchema,
+  workspaceOrderInputSchema,
+  editorDraftInputSchema,
+  editorDraftListInputSchema,
+} from '@builderhelm/protocol/workspaces';
+import {
   accountAddInputSchema,
   accountConfirmLoginInputSchema,
   accountLoginTerminalInputSchema,
@@ -60,6 +74,8 @@ import {
   swarmDirectRequestSchema,
   swarmLandTaskIpcResponseSchema,
   swarmLandTaskRequestSchema,
+  swarmTaskUpdateIpcResponseSchema,
+  swarmTaskUpdateRequestSchema,
   swarmStateIpcResponseSchema,
   swarmStateRequestSchema,
   swarmStopIpcResponseSchema,
@@ -105,8 +121,41 @@ import {
   linearKeySaveIpcResponseSchema,
   linearStatusIpcResponseSchema,
 } from '@builderhelm/protocol/integrations';
+import {
+  apifyResearchInputSchema,
+  connectionConnectInputSchema,
+  connectionGrantInputSchema,
+  connectionGrantIpcResponseSchema,
+  connectionIdInputSchema,
+  connectionRecordIpcResponseSchema,
+  connectionsSnapshotIpcResponseSchema,
+  connectorJobIpcResponseSchema,
+  mcpControlInputSchema,
+  mcpControlIpcResponseSchema,
+  skillBindInputSchema,
+  skillCreateInputSchema,
+  skillRecordIpcResponseSchema,
+  xPublishInputSchema,
+} from '@builderhelm/protocol/connections';
+import {
+  scheduleCreateInputSchema,
+  scheduleIdInputSchema,
+  scheduleRecordIpcResponseSchema,
+  scheduleRunIdInputSchema,
+  scheduleRunIpcResponseSchema,
+  schedulesSnapshotIpcResponseSchema,
+  scheduleUpdateInputSchema,
+} from '@builderhelm/protocol/schedules';
+import {
+  remoteListenInputSchema,
+  remotePairingIpcResponseSchema,
+  remoteRevokeInputSchema,
+  remoteSessionIpcResponseSchema,
+  remoteSnapshotIpcResponseSchema,
+} from '@builderhelm/protocol/remote';
 
 import {
+  diagnosticsExportIpcResponseSchema,
   ipcChannels,
   systemHealthResponseSchema,
   type BuilderHelmDesktopApi,
@@ -250,6 +299,7 @@ import {
   agentTranscriptIpcResponseSchema,
   agentVoidIpcResponseSchema,
 } from '@builderhelm/protocol/agent-session';
+import { runtimeCapabilitiesIpcResponseSchema } from '@builderhelm/protocol/runtime';
 import {
   agentProfileIpcResponseSchema,
   agentProfileListIpcResponseSchema,
@@ -294,6 +344,12 @@ const api: BuilderHelmDesktopApi = {
         correlationId: globalThis.crypto.randomUUID(),
       });
       return systemHealthResponseSchema.parse(response);
+    },
+    async exportDiagnostics() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.diagnosticsExport, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(diagnosticsExportIpcResponseSchema.parse(response));
     },
   },
   providers: {
@@ -520,6 +576,13 @@ const api: BuilderHelmDesktopApi = {
       );
       return unwrap(swarmLandTaskIpcResponseSchema.parse(response));
     },
+    async updateTask(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.swarmTaskUpdate,
+        swarmTaskUpdateRequestSchema.parse(input),
+      );
+      return unwrap(swarmTaskUpdateIpcResponseSchema.parse(response));
+    },
     async stop(input) {
       const response: unknown = await ipcRenderer.invoke(
         ipcChannels.swarmStop,
@@ -556,6 +619,88 @@ const api: BuilderHelmDesktopApi = {
         swarmStopSeatRequestSchema.parse(input),
       );
       return unwrap(swarmStopSeatIpcResponseSchema.parse(response));
+    },
+  },
+  workspaces: {
+    async snapshot() {
+      return unwrap(
+        workspaceSnapshotResultSchema.parse(
+          await ipcRenderer.invoke(FOUNDATION_CHANNELS.snapshot),
+        ),
+      );
+    },
+    async select(id, paneId) {
+      unwrap(
+        foundationOkResultSchema.parse(
+          await ipcRenderer.invoke(
+            FOUNDATION_CHANNELS.select,
+            workspaceSelectInputSchema.parse({
+              id,
+              ...(paneId === undefined ? {} : { paneId }),
+            }),
+          ),
+        ),
+      );
+    },
+    async metadata(input) {
+      unwrap(
+        foundationOkResultSchema.parse(
+          await ipcRenderer.invoke(
+            FOUNDATION_CHANNELS.metadata,
+            workspaceMetaSchema.parse(input),
+          ),
+        ),
+      );
+    },
+    async importLegacy(entries) {
+      unwrap(
+        foundationOkResultSchema.parse(
+          await ipcRenderer.invoke(
+            FOUNDATION_CHANNELS.importLegacy,
+            workspaceImportInputSchema.parse({ entries }),
+          ),
+        ),
+      );
+    },
+    async restart(id) {
+      return unwrap(
+        workspaceRecordResultSchema.parse(
+          await ipcRenderer.invoke(
+            FOUNDATION_CHANNELS.restart,
+            workspaceIdInputSchema.parse({ id }),
+          ),
+        ),
+      );
+    },
+    async order(id, paneIds) {
+      unwrap(
+        foundationOkResultSchema.parse(
+          await ipcRenderer.invoke(
+            FOUNDATION_CHANNELS.order,
+            workspaceOrderInputSchema.parse({ id, paneIds }),
+          ),
+        ),
+      );
+    },
+    async drafts(root) {
+      return unwrap(
+        editorDraftListResultSchema.parse(
+          await ipcRenderer.invoke(
+            FOUNDATION_CHANNELS.drafts,
+            editorDraftListInputSchema.parse({ root }),
+          ),
+        ),
+      );
+    },
+    async saveDraft(input) {
+      unwrap(
+        foundationOkResultSchema.parse(
+          await ipcRenderer.invoke(
+            FOUNDATION_CHANNELS.saveDraft,
+            editorDraftInputSchema.parse(input),
+          ),
+        ),
+      );
     },
   },
   board: {
@@ -793,6 +938,168 @@ const api: BuilderHelmDesktopApi = {
         input: {},
       });
       return unwrap(linearKeyDeleteIpcResponseSchema.parse(response));
+    },
+  },
+  connections: {
+    async snapshot() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.connectionSnapshot, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: {},
+      });
+      return unwrap(connectionsSnapshotIpcResponseSchema.parse(response));
+    },
+    async connect(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.connectionConnect, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: connectionConnectInputSchema.parse(input),
+      });
+      return unwrap(connectionRecordIpcResponseSchema.parse(response));
+    },
+    async test(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.connectionTest, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: connectionIdInputSchema.parse(input),
+      });
+      return unwrap(connectionRecordIpcResponseSchema.parse(response));
+    },
+    async disconnect(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.connectionDisconnect,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          input: connectionIdInputSchema.parse(input),
+        },
+      );
+      return unwrap(connectionRecordIpcResponseSchema.parse(response));
+    },
+    async grant(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.connectionGrant, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: connectionGrantInputSchema.parse(input),
+      });
+      return unwrap(connectionGrantIpcResponseSchema.parse(response));
+    },
+    async research(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.connectionResearch, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: apifyResearchInputSchema.parse(input),
+      });
+      return unwrap(connectorJobIpcResponseSchema.parse(response));
+    },
+    async publish(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.connectionPublish, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: xPublishInputSchema.parse(input),
+      });
+      return unwrap(connectorJobIpcResponseSchema.parse(response));
+    },
+    async createSkill(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.connectionSkillCreate,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          input: skillCreateInputSchema.parse(input),
+        },
+      );
+      return unwrap(skillRecordIpcResponseSchema.parse(response));
+    },
+    async bindSkill(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.connectionSkillBind,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          input: skillBindInputSchema.parse(input),
+        },
+      );
+      return unwrap(skillRecordIpcResponseSchema.parse(response));
+    },
+    async mcp(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.connectionMcp, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: mcpControlInputSchema.parse(input),
+      });
+      return unwrap(mcpControlIpcResponseSchema.parse(response));
+    },
+  },
+  schedules: {
+    async snapshot() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.scheduleSnapshot, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: {},
+      });
+      return unwrap(schedulesSnapshotIpcResponseSchema.parse(response));
+    },
+    async create(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.scheduleCreate, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: scheduleCreateInputSchema.parse(input),
+      });
+      return unwrap(scheduleRecordIpcResponseSchema.parse(response));
+    },
+    async update(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.scheduleUpdate, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: scheduleUpdateInputSchema.parse(input),
+      });
+      return unwrap(scheduleRecordIpcResponseSchema.parse(response));
+    },
+    async pause(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.schedulePause, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: scheduleIdInputSchema.parse(input),
+      });
+      return unwrap(scheduleRecordIpcResponseSchema.parse(response));
+    },
+    async resume(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.scheduleResume, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: scheduleIdInputSchema.parse(input),
+      });
+      return unwrap(scheduleRecordIpcResponseSchema.parse(response));
+    },
+    async cancelRun(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.scheduleCancelRun, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: scheduleRunIdInputSchema.parse(input),
+      });
+      return unwrap(scheduleRunIpcResponseSchema.parse(response));
+    },
+  },
+  remote: {
+    async snapshot() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.remoteSnapshot, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: {},
+      });
+      return unwrap(remoteSnapshotIpcResponseSchema.parse(response));
+    },
+    async listen(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.remoteListen, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: remoteListenInputSchema.parse(input),
+      });
+      return unwrap(remoteSnapshotIpcResponseSchema.parse(response));
+    },
+    async stop() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.remoteStop, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: {},
+      });
+      return unwrap(remoteSnapshotIpcResponseSchema.parse(response));
+    },
+    async createPairing() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.remotePairOffer, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: {},
+      });
+      return unwrap(remotePairingIpcResponseSchema.parse(response));
+    },
+    async revoke(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.remoteRevoke, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: remoteRevokeInputSchema.parse(input),
+      });
+      return unwrap(remoteSessionIpcResponseSchema.parse(response));
     },
   },
   projects: {
@@ -1356,6 +1663,15 @@ const api: BuilderHelmDesktopApi = {
       };
     },
   },
+  runtimes: {
+    async capabilities() {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.runtimeCapabilities,
+        { correlationId: globalThis.crypto.randomUUID() },
+      );
+      return unwrap(runtimeCapabilitiesIpcResponseSchema.parse(response));
+    },
+  },
   agents: {
     async candidates() {
       const response: unknown = await ipcRenderer.invoke(ipcChannels.agentCandidates, {
@@ -1405,6 +1721,7 @@ const api: BuilderHelmDesktopApi = {
         threadId: input.threadId,
         resumeSessionId: input.resumeSessionId,
         profileId: input.profileId ?? null,
+        launch: input.launch ?? null,
       });
       return unwrap(agentSessionIpcResponseSchema.parse(response));
     },

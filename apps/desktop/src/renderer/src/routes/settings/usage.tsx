@@ -150,9 +150,10 @@ function HomeRow({
 }
 
 const PROVIDER_NOTE: Record<QuotaProviderId, string> = {
-  claude: 'Official usage endpoint, every 30 seconds.',
-  codex: 'Codex app-server on every refresh.',
-  grok: 'Each account’s billing log. First read needs one session.',
+  claude:
+    'Subscription windows from the official usage endpoint (oauth source) or the in-session statusLine. Not an API invoice.',
+  codex: 'Subscription windows from Codex app-server. Not token counts or API charges.',
+  grok: 'Each account’s billing log. First read needs one session. Not an API invoice.',
 };
 
 export function UsagePage(): React.JSX.Element {
@@ -205,8 +206,10 @@ export function UsagePage(): React.JSX.Element {
         <div className="usagePageTitle">
           <h1 id="usage-title">Usage</h1>
           <p>
-            Session and weekly windows for the CLIs on this Mac. Your BuilderHelm login is
-            under Settings → <Link to="/settings/accounts">Account</Link>.
+            Subscription windows for Claude, Codex, and Grok on this Mac — not
+            conversation token counts, not API invoices, not estimated API-equivalent
+            cost. Those stay unknown unless a runtime reports them on a run. BuilderHelm
+            login is under Settings → <Link to="/settings/accounts">Account</Link>.
           </p>
         </div>
         <div className="usagePageActions">
@@ -233,6 +236,14 @@ export function UsagePage(): React.JSX.Element {
           {mutate.error.message}
         </p>
       ) : null}
+      {(snapshot.data?.authConflicts ?? []).map((conflict) => (
+        <p key={conflict.provider} className="wizardError" role="status">
+          {conflict.provider}: {conflict.sources.length} credential sources (
+          {conflict.sources.map((source) => source.path).join(', ')}). New runs use the
+          Active home; running sessions keep the account they started with. Contents are
+          not shown.
+        </p>
+      ))}
       <ul className="usageProviderList">
         {providers.map((provider) => (
           <li key={provider.id} className="usageProviderCard">

@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./runtime": {
+      "types": "./dist/runtime.d.ts",
+      "import": "./src/runtime.ts"
+    },
     "./accounts": {
       "types": "./dist/accounts.d.ts",
       "import": "./src/accounts.ts"
@@ -91,6 +95,22 @@
     "./integrations": {
       "types": "./dist/integrations.d.ts",
       "import": "./src/integrations.ts"
+    },
+    "./connections": {
+      "types": "./dist/connections.d.ts",
+      "import": "./src/connections.ts"
+    },
+    "./schedules": {
+      "types": "./dist/schedules.d.ts",
+      "import": "./src/schedules.ts"
+    },
+    "./remote": {
+      "types": "./dist/remote.d.ts",
+      "import": "./src/remote.ts"
+    },
+    "./workspaces": {
+      "types": "./dist/workspaces.d.ts",
+      "import": "./src/workspaces.ts"
     }
   },
   "dependencies": {

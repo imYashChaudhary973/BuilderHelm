@@ -72,6 +72,27 @@ describe('normalizeSwarmPlan', () => {
     expect(() => normalizeSwarmPlan({ nope: true }, 5)).toThrow();
   });
 
+  it('drops escaped paths and keeps overlapping inputs', () => {
+    const plan = normalizeSwarmPlan(
+      {
+        tasks: [
+          {
+            title: 'Safe',
+            files: ['src/a.ts', '../etc/passwd', '/tmp/x'],
+            inputs: ['README.md', '../secret'],
+            acceptance: ['pnpm test'],
+          },
+          { title: 'Escape only', files: ['..\\windows'] },
+        ],
+      },
+      10,
+    );
+    expect(plan).toHaveLength(1);
+    expect(plan[0]!.files).toEqual(['src/a.ts']);
+    expect(plan[0]!.inputs).toEqual(['README.md']);
+    expect(plan[0]!.detail).toContain('Accept: pnpm test');
+  });
+
   it('asks for file ownership in the planning prompt', () => {
     const prompt = buildPlanPrompt({
       mission: 'add retries',

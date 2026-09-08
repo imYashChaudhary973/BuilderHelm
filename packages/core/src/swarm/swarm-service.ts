@@ -88,6 +88,8 @@ export interface SwarmServiceOptions {
   readonly budgetMs?: number;
   /** Optional second pair of eyes between the verify gate and the land queue. */
   readonly reviewer?: SwarmReviewer;
+  /** Parallel builder seats the dispatcher will run. Default 2, hard cap 4. */
+  readonly maxConcurrent?: number;
 }
 
 /** Announces that a run's ledger changed, so hosts can push to the UI. */
@@ -126,7 +128,9 @@ export class SwarmService {
   private workActive = false;
   private readonly budgetMs: number;
   private readonly reviewer: SwarmReviewer | undefined;
+  private readonly maxConcurrent: number;
   private readonly listeners = new Set<SwarmRunEventListener>();
+  private landChain: Promise<unknown> = Promise.resolve();
 
   constructor(
     database: BuilderHelmDatabase,
@@ -139,6 +143,7 @@ export class SwarmService {
     this.repository = new SwarmRepository(database);
     this.budgetMs = options.budgetMs ?? SWARM_BUDGET_MS;
     this.reviewer = options.reviewer;
+    this.maxConcurrent = Math.min(4, Math.max(1, options.maxConcurrent ?? 2));
   }
 
   createRun(input: SwarmCreateInput, correlationId: CorrelationId): SwarmRunRecord {
@@ -320,6 +325,7 @@ export class SwarmService {
       dependsOn: [...(spec.dependsOn ?? [])],
       attempts: 0,
       landedCommit: null,
+      baseSha: null,
       createdAt: now,
       updatedAt: now,
     });
@@ -423,12 +429,72 @@ export class SwarmService {
     reviewedHead: string,
     correlationId: CorrelationId,
   ): Promise<SwarmTaskRecord> {
+    const run = (): Promise<SwarmTaskRecord> =>
+      this.landOne(runId, taskId, reviewedHead, correlationId);
+    const next = this.landChain.then(run, run);
+    this.landChain = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    return next;
+  }
+
+  /**
+   * Send a reviewed task back to the owning seat. Comments already went out
+   * as directives; this reopens the work so the next pump actually runs it.
+   */
+  async requestRevision(
+    runId: string,
+    taskId: string,
+    note: string,
+    correlationId: CorrelationId,
+  ): Promise<SwarmTaskRecord> {
+    this.requireRun(runId);
+    const row = this.repository.listTasks(runId).find((item) => item.id === taskId);
+    if (row === undefined) {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Unknown swarm task');
+    }
+    const task = swarmTaskSchema.parse(row);
+    if (task.status !== 'review') {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'Only a task in review can be sent back',
+      );
+    }
+    this.postTaskMessage(runId, {
+      kind: 'question',
+      taskId,
+      body: note.trim().length > 0 ? note : 'Please revise',
+    });
+    const next = swarmTaskSchema.parse({
+      ...task,
+      status: 'pending',
+      updatedAt: utcNow(),
+    });
+    this.repository.updateTask(next);
+    this.emit(runId);
+    this.logger.info({
+      event: 'swarm.revision_requested',
+      correlationId,
+      data: { runId, taskId },
+    });
+    await this.pump(runId);
+    return next;
+  }
+
+  private async landOne(
+    runId: string,
+    taskId: string,
+    reviewedHead: string,
+    correlationId: CorrelationId,
+  ): Promise<SwarmTaskRecord> {
     const run = this.requireRun(runId);
     const row = this.repository.listTasks(runId).find((item) => item.id === taskId);
     if (row === undefined) {
       throw new BuilderHelmError('VALIDATION_FAILED', 'Unknown swarm task');
     }
     const task = swarmTaskSchema.parse(row);
+    if (task.status === 'landed' && task.landedCommit === reviewedHead) return task;
     if (task.status !== 'review') {
       throw new BuilderHelmError(
         'VALIDATION_FAILED',
@@ -510,22 +576,24 @@ export class SwarmService {
         const tasks = this.repository
           .listTasks(runId)
           .map((row) => swarmTaskSchema.parse(row));
-        if (tasks.some((task) => task.status === 'in_progress')) return;
-
+        const busy = tasks.filter((task) => task.status === 'in_progress').length;
         const pending = tasks.filter((task) => task.status === 'pending');
         if (pending.length === 0) {
-          if (tasks.some((task) => task.status === 'review')) return;
+          if (busy > 0 || tasks.some((task) => task.status === 'review')) return;
           const landed = tasks.some((task) => task.status === 'landed');
-          const failed = tasks.some((task) => task.status === 'failed');
-          this.repository.updateRun(runId, landed ? 'done' : 'failed', utcNow());
+          const failed = tasks.some(
+            (task) => task.status === 'failed' || task.status === 'skipped',
+          );
+          const next = !landed ? 'failed' : failed ? 'partial' : 'done';
+          this.repository.updateRun(runId, next, utcNow());
           await this.retireWorktrees(typedRun);
           this.appendMessage(
             runId,
             null,
             'system',
-            landed && !failed
+            next === 'done'
               ? 'Swarm finished; every task landed'
-              : landed
+              : next === 'partial'
                 ? 'Swarm finished with failed tasks'
                 : 'Swarm finished; nothing landed',
           );
@@ -550,7 +618,10 @@ export class SwarmService {
           );
         if (free.length === 0) return;
 
-        const batch = ready.slice(0, free.length);
+        const slots = Math.min(this.maxConcurrent - busy, free.length, ready.length);
+        if (slots <= 0) return;
+
+        const batch = ready.slice(0, slots);
         const before = this.repository
           .listTasks(runId)
           .map((row) => `${row.id}:${row.status}:${row.attempts}`)
@@ -596,7 +667,11 @@ export class SwarmService {
     };
     this.repository.updateTask(active);
     let current = seat;
+    let claimed = active;
     try {
+      const baseSha = await this.headSha(run.folderPath);
+      claimed = { ...active, baseSha };
+      this.repository.updateTask(claimed);
       current = await this.ensureWorktree(run, seat);
       const worktreePath = current.worktreePath;
       const branch = current.branch;
@@ -610,7 +685,7 @@ export class SwarmService {
       const outcome = await this.runner.execute({
         run,
         seat: current,
-        task: active,
+        task: claimed,
         worktreePath,
         branch,
         directives,
@@ -619,7 +694,7 @@ export class SwarmService {
           mission: run.mission,
           skills: roleSkills(run, current.role),
           swarmDigest: this.swarmDigest(run.id),
-          task: { title: active.title, detail: active.detail, files: active.files },
+          task: { title: claimed.title, detail: claimed.detail, files: claimed.files },
           directives,
         }),
       });
@@ -643,36 +718,36 @@ export class SwarmService {
       }
 
       if (outcome.status === 'failed') {
-        this.recordFailure(active, outcome.summary);
+        this.recordFailure(claimed, outcome.summary);
         return;
       }
 
       const verification = await this.verifier.verify({
         run,
-        task: active,
+        task: claimed,
         worktreePath,
         branch,
       });
       if (!verification.ok) {
-        this.recordFailure(active, `verify gate: ${verification.detail}`);
+        this.recordFailure(claimed, `verify gate: ${verification.detail}`);
         return;
       }
 
       if (this.reviewer !== undefined) {
         const verdict = await this.reviewer.review({
-          taskTitle: active.title,
-          files: active.files,
+          taskTitle: claimed.title,
+          files: claimed.files,
           diff: await this.diffAgainstBase(run.folderPath, branch),
         });
         if (verdict.verdict === 'fix') {
           const issues = verdict.issues ?? ['changes requested'];
-          this.recordFailure(active, `review: ${issues.join('; ')}`);
+          this.recordFailure(claimed, `review: ${issues.join('; ')}`);
           return;
         }
       }
 
       this.repository.updateTask({
-        ...active,
+        ...claimed,
         status: 'review',
         updatedAt: utcNow(),
       });
@@ -681,10 +756,10 @@ export class SwarmService {
         run.id,
         current.id,
         'task_event',
-        `ready for review: "${active.title}"`,
+        `ready for review: "${claimed.title}"`,
       );
     } catch (error) {
-      this.recordFailure(active, normalizeError(error).message);
+      this.recordFailure(claimed, normalizeError(error).message);
     } finally {
       const latest = this.repository.getSeat(current.id);
       if (latest !== undefined && latest.status === 'working') {
@@ -927,16 +1002,71 @@ export class SwarmService {
     }
   }
 
+  /**
+   * Task-scoped note. Questions, handoffs, progress, and artifacts go to the
+   * seat that owns the task — never a whole-transcript broadcast.
+   */
+  postTaskMessage(
+    runId: string,
+    input: {
+      readonly kind: Extract<
+        SwarmMessageKind,
+        'question' | 'answer' | 'handoff' | 'progress' | 'artifact'
+      >;
+      readonly taskId: string;
+      readonly body: string;
+      readonly seatId?: string | null;
+    },
+  ): void {
+    this.requireRun(runId);
+    const task = this.repository
+      .listTasks(runId)
+      .map((row) => swarmTaskSchema.parse(row))
+      .find((item) => item.id === input.taskId);
+    if (task === undefined) {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Unknown swarm task');
+    }
+    const existing = this.repository
+      .listMessages(runId, 500)
+      .filter((message) => message.taskId === input.taskId);
+    if (existing.length >= 50) {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Task message cap reached');
+    }
+    const owner =
+      input.seatId ??
+      task.seatId ??
+      this.repository.listSeats(runId).find((seat) => seat.role === 'coordinator')?.id ??
+      null;
+    if (owner === null) {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'No seat to route this message to');
+    }
+    this.appendMessage(runId, owner, input.kind, input.body, input.taskId);
+  }
+
+  private async headSha(repoPath: string): Promise<string> {
+    const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], {
+      cwd: repoPath,
+      timeout: 15_000,
+    });
+    const sha = stdout.trim();
+    if (sha.length < 7) {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Could not read starting revision');
+    }
+    return sha;
+  }
+
   private appendMessage(
     runId: string,
     seatId: string | null,
     kind: SwarmMessageKind,
     body: string,
+    taskId: string | null = null,
   ): void {
     this.repository.appendMessage({
       id: randomUUID(),
       runId,
       seatId,
+      taskId,
       kind,
       body: body.slice(0, 4_000),
       createdAt: utcNow(),

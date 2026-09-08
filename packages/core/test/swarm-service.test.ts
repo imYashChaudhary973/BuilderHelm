@@ -381,12 +381,19 @@ describe('SwarmService work activity', () => {
           title: string;
           detail: string;
           files: readonly string[];
+          inputs: readonly string[];
           dependsOn: readonly number[];
         }[]
       > {
         planCalls += 1;
         return [
-          { title: 'Only', detail: 'd', files: ['packages/db/src/a.ts'], dependsOn: [] },
+          {
+            title: 'Only',
+            detail: 'd',
+            files: ['packages/db/src/a.ts'],
+            inputs: [],
+            dependsOn: [],
+          },
         ];
       },
     };
@@ -749,12 +756,14 @@ describe('SwarmService review gate and planning', () => {
               title: 'Base',
               detail: null,
               files: ['packages/db/src/base.ts'],
+              inputs: [],
               dependsOn: [],
             },
             {
               title: 'Follow up',
               detail: 'after base',
               files: ['packages/db/src/follow.ts'],
+              inputs: [],
               dependsOn: [0],
             },
           ];
@@ -816,5 +825,195 @@ describe('SwarmService comment routing', () => {
     expect(service.ownerForFile(repo, 'src/other.ts')).toBeNull();
     expect(service.ownerForFile('/somewhere/else', 'src/a.ts')).toBeNull();
     expect(task.files).toEqual(['src/a.ts']);
+  });
+});
+
+describe('SwarmService orchestration', () => {
+  it('runs a foundation task then two independent builders in parallel', async () => {
+    const log: string[] = [];
+    const { service, repo } = setup(committingRunner(log), passingVerifier, {
+      maxConcurrent: 2,
+    });
+    const run = service.createRun(createInput(repo, 2), createCorrelationId());
+    const foundation = service.addTask(
+      run.id,
+      { title: 'Foundation', files: ['src/base.ts'] },
+      createCorrelationId(),
+    );
+    service.addTask(
+      run.id,
+      { title: 'Left', files: ['src/left.ts'], dependsOn: [foundation.id] },
+      createCorrelationId(),
+    );
+    service.addTask(
+      run.id,
+      { title: 'Right', files: ['src/right.ts'], dependsOn: [foundation.id] },
+      createCorrelationId(),
+    );
+
+    await service.pump(run.id);
+    await landReviewed(service, repo, run.id);
+
+    expect(log[0]).toBe('Foundation');
+    expect(new Set(log.slice(1))).toEqual(new Set(['Left', 'Right']));
+    const state = service.state(run.id);
+    expect(state.tasks.map((task) => task.status)).toEqual([
+      'landed',
+      'landed',
+      'landed',
+    ]);
+    expect(state.tasks[1]!.baseSha).toBe(state.tasks[0]!.landedCommit);
+    expect(state.tasks[2]!.baseSha).toBe(state.tasks[0]!.landedCommit);
+    expect(state.run.status).toBe('done');
+  });
+  it('caps concurrency at one and at four', async () => {
+    async function peakFor(workers: 1 | 4): Promise<number> {
+      const inner = committingRunner([]);
+      let inflight = 0;
+      let peak = 0;
+      let started = 0;
+      const tasks = workers === 1 ? 2 : 4;
+      let release = (): void => {};
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const runner: SwarmSeatRunner = {
+        async execute(input) {
+          started += 1;
+          inflight += 1;
+          peak = Math.max(peak, inflight);
+          if (started >= Math.min(workers, tasks)) release();
+          await gate;
+          try {
+            return await inner.execute(input);
+          } finally {
+            inflight -= 1;
+          }
+        },
+      };
+      const { service, repo } = setup(runner, passingVerifier, {
+        maxConcurrent: workers,
+      });
+      const run = service.createRun(createInput(repo, workers), createCorrelationId());
+      for (const title of ['A', 'B', 'C', 'D'].slice(0, tasks)) {
+        service.addTask(
+          run.id,
+          { title, files: [`src/${title}.ts`] },
+          createCorrelationId(),
+        );
+      }
+      await service.pump(run.id);
+      return peak;
+    }
+    expect(await peakFor(1)).toBe(1);
+    expect(await peakFor(4)).toBe(4);
+  });
+
+  it('marks a run partial when required work fails after some landed', async () => {
+    let calls = 0;
+    const inner = committingRunner([]);
+    const runner: SwarmSeatRunner = {
+      async execute(input) {
+        calls += 1;
+        if (calls > 1) {
+          return {
+            status: 'failed',
+            summary: 'builder crashed',
+            tokensUsed: 1,
+            costUsd: 0,
+          };
+        }
+        return inner.execute(input);
+      },
+    };
+    const { service, repo } = setup(runner);
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    service.addTask(
+      run.id,
+      { title: 'Keep', files: ['src/keep.ts'] },
+      createCorrelationId(),
+    );
+    service.addTask(
+      run.id,
+      { title: 'Lose', files: ['src/lose.ts'] },
+      createCorrelationId(),
+    );
+    await service.pump(run.id);
+    await landReviewed(service, repo, run.id);
+    const byTitle = Object.fromEntries(
+      service.state(run.id).tasks.map((task) => [task.title, task]),
+    );
+    expect(byTitle.Keep?.status).toBe('landed');
+    expect(byTitle.Lose?.status).toBe('failed');
+    expect(service.state(run.id).run.status).toBe('partial');
+  });
+
+  it('repeats a land event without rewriting the commit', async () => {
+    const { service, repo } = setup(committingRunner([]));
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    const task = service.addTask(
+      run.id,
+      { title: 'Once', files: ['src/once.ts'] },
+      createCorrelationId(),
+    );
+    await service.pump(run.id);
+    await landReviewed(service, repo, run.id);
+    const landed = service.state(run.id).tasks[0]!;
+    const again = await service.landTask(
+      run.id,
+      task.id,
+      landed.landedCommit!,
+      createCorrelationId(),
+    );
+    expect(again.landedCommit).toBe(landed.landedCommit);
+    expect(service.state(run.id).run.status).toBe('done');
+  });
+
+  it('routes a question to the owning seat and does not broadcast', async () => {
+    const { service, repo } = setup(committingRunner([]));
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    const task = service.addTask(
+      run.id,
+      { title: 'Ask', files: ['src/ask.ts'] },
+      createCorrelationId(),
+    );
+    await service.pump(run.id);
+    service.postTaskMessage(run.id, {
+      kind: 'question',
+      taskId: task.id,
+      body: 'Which fixture?',
+    });
+    const state = service.state(run.id);
+    const questions = state.messages.filter((message) => message.kind === 'question');
+    expect(questions).toHaveLength(1);
+    expect(questions[0]!.taskId).toBe(task.id);
+    expect(questions[0]!.seatId).toBe(state.tasks[0]!.seatId);
+    expect(state.messages.filter((message) => message.kind === 'question')).toHaveLength(
+      1,
+    );
+    expect(service.isWorking()).toBe(false);
+  });
+
+  it('sends a reviewed task back so the seat runs again', async () => {
+    const log: string[] = [];
+    const { service, repo } = setup(committingRunner(log));
+    const run = service.createRun(createInput(repo, 1), createCorrelationId());
+    const task = service.addTask(
+      run.id,
+      { title: 'Revise', files: ['src/revise.ts'] },
+      createCorrelationId(),
+    );
+    await service.pump(run.id);
+    expect(service.state(run.id).tasks[0]?.status).toBe('review');
+    await service.requestRevision(run.id, task.id, 'fix the name', createCorrelationId());
+    expect(log).toEqual(['Revise', 'Revise']);
+    expect(
+      service
+        .state(run.id)
+        .messages.some(
+          (message) =>
+            message.kind === 'question' && message.body.includes('fix the name'),
+        ),
+    ).toBe(true);
   });
 });

@@ -39,6 +39,73 @@ Status labels used below:
   end to end through `@agentclientprotocol/codex-acp` — live turn, file
   write through the hosted fs, and session resume after a full app restart.
 - Permissioned actions, approvals, and receipts.
+- Security modes: Safe/Auto-edit/Full split into execution, access, and
+  approval. Claude/Grok Safe is `--permission-mode plan`; Codex Safe is
+  `--sandbox read-only`. Plan cannot write (host fs + permission deny even
+  against remembered always-allow). Accept-edits is files only. Full is
+  never a fallback. ACP approvals bind to session+request and cancel with
+  the run. Swarm reviewer fails closed. See
+  [docs/features/security-modes.md](features/security-modes.md).
+- Parallel orchestration: Swarm dispatcher caps concurrent builders at 2
+  (1–4). Planner output is path-checked and never starts work. Dependents
+  wait for a landed SHA and record `baseSha`. Failed required work makes
+  the run `partial`, not `done`. Task-scoped question/handoff/progress/
+  artifact messages route to the owning seat. Land is idempotent.
+- Inspect–revise–verify–land: Review tab diffs the task `baseSha...head`,
+  comments click a line and still route to the owning seat, checks show live
+  command output + SHA, evidence lists browser captures (stale when the head
+  moved), Land is inspect/Confirm like Code panes, a failed check or unclean
+  inspect blocks Confirm, Request revision reopens the task, and a successful
+  land re-runs the check command. Code workspaces pick Isolated/Shared and
+  show it on the rail. Chat drafts survive Agents/Chats navigation;
+  terminal-only runtimes say so instead of pretending to chat.
+
+- Connections, skills, and specialized bots: Apify and X-write records live in
+  SQLite with Keychain tokens. Connecting grants nothing. Profile grants are
+  revoked on disconnect or schema change. Skills store version/provenance and
+  cannot grant tools. Social Content Manager is a reviewed skill. One Apify
+  research path (reviewed actor, cost approval, remote job id, bounded cited
+  report) and a distinct X publish connection. Inbound MCP control is
+  `host.status` / `host.list_connections` only — no shell or filesystem.
+  Owned MCP JSON is patched atomically and left alone if unparseable. ACP
+  `mcpServers` stays empty; tools run on the host. Fixture-tested; no live
+  paid Apify or X call.
+
+- Automations: versioned schedules (trigger, timezone, task, profile, budget,
+  overlap=skip, next run, in-app notice). Lifetime is desktop-open — the
+  Electron process ticks every 30s; there is no daemon. Sleep/wake, missed
+  paid slots, duplicate trigger IDs, expired auth, quota=0, and host restart
+  do not start extra paid connector jobs. Local cancel does not claim the
+  remote job died. Fixture-tested; Automations page not clicked live.
+
+- Runtime capability matrix: every known agent probed on PATH (binary path
+  and version), tiered unavailable / untested / terminal / structured-chat /
+  orchestration-ready, with verification evidence named in code. Readable via
+  `window.builderHelm.runtimes.capabilities()`; see
+  [docs/features/runtime-capabilities.md](features/runtime-capabilities.md).
+- Launch consistency: profiles carry a model / effort / account selection
+  (null means the runtime's own default); chat sessions apply it at start and
+  fail loudly when the runtime cannot honor it, leaving no half-started
+  session; swarm seats and structured planner calls take the selection into
+  the argv with no hardcoded model and no silent cross-runtime fallback; the
+  planner auto-pick (when a run selects nothing) is gated to
+  orchestration-ready runtimes and logged.
+- Tested runtime matrix (ACP initialize, no billed prompt): Gemini, OpenCode,
+  Kimi, Grok, Codex (`codex-acp` 1.10.0), Oh My Pi (`omp acp`). Claude
+  structured path is CLI `--json-schema`, not ACP. Copilot missing; Cursor
+  3.19.13 has no ACP. Pi terminal-first, RPC untested. Codex app-server
+  remains quota-only. See [docs/features/runtime-matrix.md](features/runtime-matrix.md).
+- Account homes: labels + isolated config dirs; login is the runtime's own
+  CLI. New runs bind `accountRef` into child env (`CLAUDE_CONFIG_DIR` /
+  `CODEX_HOME` / `GROK_HOME`); running sessions keep the env they started
+  with. Conflicting credential paths are named without reading values.
+- Model picker searches advertised catalogs (capped at 80 visible rows;
+  type to narrow), keeps exact IDs, and will not substitute a removed model.
+  Effort chips exist only when the runtime advertises thought-level. Profile
+  launch selection is applied on Agents-mode start.
+- Usage kinds stay unmixed: Usage page = subscription windows; chat = reported
+  tokens when present; swarm hides unreported spend. Claude OAuth quota reader
+  assessed (in-memory token, never persisted). No automatic paid fallback.
 - Project dashboard and Git continuity.
 - Space setup with real xterm.js terminals backed by node-pty.
 - Per-pane installed-agent selection and plain-shell mode.
@@ -135,6 +202,29 @@ Status labels used below:
 
 Live branch ledger. Ahead-counts are not independence proofs; re-verify
 positions against `origin/main` before any integration.
+
+### ADE automations (Phase 7)
+
+- Feature: desktop-open schedules for Apify research / X publish.
+- Branch: `feat/ade-automations` (from `feat/ade-mcp`).
+
+- Next required action: stacked under `feat/ade-remote`.
+
+### ADE remote (Phase 8)
+
+- Feature: loopback/private-network pairing, scoped companion commands, revoke,
+  replay-safe approvals, reconnect by event seq. No relay.
+- Branch: `feat/ade-remote` (from `feat/ade-automations`).
+- Next required action: stacked under `feat/ade-release`.
+
+### ADE release (Phase 9)
+
+- Feature: unsigned macOS arm64 packaged smoke, redacted diagnostics, SQLite
+  `.bak` before migrate, PATH/PATHEXT/PTY/credential helpers for Windows and
+  Linux. Swarm cap stays 2. No signing, no auto-update.
+- Branch: `feat/ade-release` (from `feat/ade-remote`).
+- Next required action: accept Phase 9. Windows/Linux packages, notarization,
+  and packaged real-agent checks remain unexercised.
 
 ### Workspace launcher (uncommitted WIP — decision recorded)
 
@@ -283,15 +373,18 @@ and add a workspace switcher. Re-run these scenarios as the acceptance gate.
 - Global search across worktrees, files, agents, commands, and artifacts.
 - Rich development notes with slash commands and inline logs.
 - Local token/cost analytics heatmap (Swarm receipts).
-- Optional encrypted relay and remote host pairing.
-- React Native iOS and Android companion.
+
+- Optional encrypted relay (specified, not built).
 - Verified Windows and Linux desktop distributions.
 - Signed installers, auto-update, notarization, and release channels.
 
 ## Current verification boundary
 
-macOS is the only exercised desktop platform. Windows, Linux, mobile, relay,
-real hosted CI integration, and release signing require future evidence.
+macOS unpackaged desktop smoke is exercised. Packaged macOS arm64 smoke is on
+`feat/ade-release` (`pnpm smoke:packaged` after `pnpm dist`). Windows, Linux,
+a packaged React Native binary, a live relay, real hosted CI integration, and
+release signing require future evidence.
+See [docs/features/release.md](features/release.md).
 
 ## Architecture-reset compatibility
 

@@ -37,6 +37,7 @@ export function ProfileDialog({
   const [mark, setMark] = useState<AgentProfileMark>(editing?.mark ?? 'diamond');
   const [agentId, setAgentId] = useState(editing?.agent.id ?? '');
   const [defaultCwd, setDefaultCwd] = useState(editing?.defaultCwd ?? null);
+  const [instructions, setInstructions] = useState(editing?.instructions ?? '');
   const [candidates, setCandidates] = useState<readonly AgentCandidate[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +87,7 @@ export function ProfileDialog({
         id: editing?.id,
         name: name.trim(),
         mark,
+        launch: editing?.launch ?? null,
         agent: {
           id: agent.id,
           label: agent.label,
@@ -93,6 +95,7 @@ export function ProfileDialog({
           args: [...agent.args],
         },
         defaultCwd,
+        instructions,
       });
       onSaved(saved);
     } catch (caught) {
@@ -192,6 +195,17 @@ export function ProfileDialog({
           Choose…
         </button>
       </div>
+      <label className="wizardLabel" htmlFor="profile-instructions">
+        Instructions
+      </label>
+      <textarea
+        id="profile-instructions"
+        rows={4}
+        maxLength={20_000}
+        value={instructions}
+        placeholder="Optional standing instructions. Skills cannot grant tools."
+        onChange={(event) => setInstructions(event.target.value)}
+      />
 
       {error !== null && (
         <p className="chatError" role="alert">

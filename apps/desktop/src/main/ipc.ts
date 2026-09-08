@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { CoreRuntime } from '@builderhelm/core';
+import type { CoreRuntime, RuntimeCapabilityService } from '@builderhelm/core';
 import {
   accountAddRequestSchema,
   accountConfirmLoginRequestSchema,
@@ -32,6 +32,8 @@ import {
 import {
   agentCancelInputSchema,
   agentCandidatesIpcResponseSchema,
+  RUNTIME_LAUNCH_NONE,
+  runtimeCapabilitiesIpcResponseSchema,
   agentConfigureInputSchema,
   agentDiffInputSchema,
   agentForgetInputSchema,
@@ -52,6 +54,7 @@ import {
   agentTranscriptIpcResponseSchema,
   agentVoidIpcResponseSchema,
 } from '@builderhelm/protocol';
+import type { SwarmCreateInput } from '@builderhelm/protocol';
 import type { AuthHandoff } from './auth-handoff.js';
 import type { AgentManager } from './acp/manager.js';
 import type { AgentRegistry } from './acp/registry.js';
@@ -103,6 +106,8 @@ import {
   swarmDirectRequestSchema,
   swarmLandTaskIpcResponseSchema,
   swarmLandTaskRequestSchema,
+  swarmTaskUpdateIpcResponseSchema,
+  swarmTaskUpdateRequestSchema,
   swarmStateIpcResponseSchema,
   swarmStateRequestSchema,
   swarmStopIpcResponseSchema,
@@ -150,6 +155,43 @@ import {
   linearStatusIpcResponseSchema,
   linearStatusRequestSchema,
 } from '@builderhelm/protocol/integrations';
+import {
+  apifyResearchRequestSchema,
+  connectionConnectRequestSchema,
+  connectionGrantIpcResponseSchema,
+  connectionGrantRequestSchema,
+  connectionIdRequestSchema,
+  connectionRecordIpcResponseSchema,
+  connectionsSnapshotIpcResponseSchema,
+  connectionsSnapshotRequestSchema,
+  connectorJobIpcResponseSchema,
+  mcpControlIpcResponseSchema,
+  mcpControlRequestSchema,
+  skillBindRequestSchema,
+  skillCreateRequestSchema,
+  skillRecordIpcResponseSchema,
+  xPublishRequestSchema,
+} from '@builderhelm/protocol/connections';
+import {
+  scheduleCreateRequestSchema,
+  scheduleIdRequestSchema,
+  scheduleRecordIpcResponseSchema,
+  scheduleRunIpcResponseSchema,
+  scheduleRunIdRequestSchema,
+  schedulesSnapshotIpcResponseSchema,
+  schedulesSnapshotRequestSchema,
+  scheduleUpdateRequestSchema,
+} from '@builderhelm/protocol/schedules';
+import {
+  remoteListenRequestSchema,
+  remotePairingIpcResponseSchema,
+  remotePairOfferRequestSchema,
+  remoteRevokeRequestSchema,
+  remoteSessionIpcResponseSchema,
+  remoteSnapshotIpcResponseSchema,
+  remoteSnapshotRequestSchema,
+  remoteStopRequestSchema,
+} from '@builderhelm/protocol/remote';
 
 import {
   chatCreateRequestSchema,
@@ -246,7 +288,12 @@ import {
   reviewPrDraftIpcResponseSchema,
   reviewPrDraftRequestSchema,
 } from '@builderhelm/protocol/review';
-import { ipcChannels, systemHealthRequestSchema } from '@builderhelm/protocol/ipc';
+import {
+  diagnosticsExportIpcResponseSchema,
+  diagnosticsExportRequestSchema,
+  ipcChannels,
+  systemHealthRequestSchema,
+} from '@builderhelm/protocol/ipc';
 import {
   knowledgeAnswerIpcResponseSchema,
   knowledgeQueryRequestSchema,
@@ -325,6 +372,7 @@ import {
   stageGitPath,
   writeEditorFile,
 } from './file-reader.js';
+import { registerWorkspaceIpc } from './workspace-ipc.js';
 import {
   BrowserWindow,
   clipboard,
@@ -387,9 +435,11 @@ export function registerIpcHandlers(
   onNoSleepActivity?: (active: boolean) => void,
   auth?: AuthHandoff,
   agents?: { manager: AgentManager; registry: AgentRegistry; profiles: AgentProfiles },
+  runtimes?: { capabilities: RuntimeCapabilityService },
 ): () => void {
   const preview = new PreviewBrowser(core.browserSettings);
   const desktop = new DesktopControl();
+  const unregisterWorkspaces = registerWorkspaceIpc(core, board);
   registerBrowserMenuIpc();
   setPreviewZoomHandlers({
     in: () => preview.nudgeZoom(1),
@@ -414,6 +464,36 @@ export function registerIpcHandlers(
   ipcMain.handle(ipcChannels.systemHealth, (_event, input: unknown) => {
     const request = systemHealthRequestSchema.parse(input);
     return core.health(request.correlationId);
+  });
+  ipcMain.handle(ipcChannels.diagnosticsExport, async (_event, input: unknown) => {
+    try {
+      diagnosticsExportRequestSchema.parse(input);
+      const selected = await dialog.showSaveDialog({
+        title: 'Export diagnostics',
+        defaultPath: 'builderhelm-diagnostics.json',
+        filters: [{ name: 'JSON', extensions: ['json'] }],
+      });
+      if (selected.canceled || selected.filePath === undefined) {
+        return diagnosticsExportIpcResponseSchema.parse({
+          ok: true,
+          value: { path: null },
+        });
+      }
+      await writeFile(
+        selected.filePath,
+        `${JSON.stringify(core.diagnostics(), null, 2)}\n`,
+        'utf8',
+      );
+      return diagnosticsExportIpcResponseSchema.parse({
+        ok: true,
+        value: { path: selected.filePath },
+      });
+    } catch (error) {
+      return diagnosticsExportIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
   });
   ipcMain.handle(ipcChannels.providerList, (_event, input: unknown) => {
     providerListRequestSchema.parse(input);
@@ -881,15 +961,42 @@ export function registerIpcHandlers(
   }
 
   /**
-   * Decomposition needs a CLI that can constrain output to a JSON Schema.
-   * Without one the swarm still runs, as a single task for one builder.
+   * Decomposition runs on the selected planning runtime, or — when the run
+   * carries no selection — on an orchestration-ready runtime gated by the
+   * capability matrix instead of catalog order. The choice is logged, never
+   * silent. Without any eligible runtime the swarm still runs, as a single
+   * task for one builder.
    */
-  async function pickSwarmPlanner(folderPath: string): Promise<SwarmPlanner> {
+  async function pickSwarmPlanner(input: SwarmCreateInput): Promise<SwarmPlanner> {
     const detections = await core.board.detectAgents();
-    const structured = detections.find(
+    const structured = detections.filter(
       (item) => item.available && item.capabilities.structuredOutput === 'json-schema',
     );
-    if (structured === undefined) {
+
+    if (input.planner !== null) {
+      const selected = structured.find((item) => item.id === input.planner!.agentId);
+      if (selected === undefined) {
+        throw new BuilderHelmError(
+          'VALIDATION_FAILED',
+          `${input.planner.agentId} cannot plan this run: no schema-constrained headless runtime was detected.`,
+        );
+      }
+      return new CliSwarmPlanner({
+        agentId: selected.id,
+        cwd: input.folderPath,
+        launch: input.planner.launch ?? RUNTIME_LAUNCH_NONE,
+        ...(selected.path === null ? {} : { executable: selected.path }),
+      });
+    }
+
+    const snapshot = await requireRuntimes().snapshot();
+    const ready = new Set(
+      snapshot.runtimes
+        .filter((runtime) => runtime.tier === 'orchestration-ready')
+        .map((runtime) => runtime.id),
+    );
+    const gated = structured.find((item) => ready.has(item.id));
+    if (gated === undefined) {
       return {
         async plan(request) {
           return [
@@ -897,16 +1004,22 @@ export function registerIpcHandlers(
               title: request.mission.split('\n')[0]?.slice(0, 200) ?? 'Swarm mission',
               detail: request.mission,
               files: [],
+              inputs: [],
               dependsOn: [],
             },
           ];
         },
       };
     }
+    core.logger.info({
+      event: 'swarm.planner_autopicked',
+      correlationId: createCorrelationId(),
+      data: { runtime: gated.id, basis: 'orchestration-ready capability tier' },
+    });
     return new CliSwarmPlanner({
-      agentId: structured.id,
-      cwd: folderPath,
-      ...(structured.path === null ? {} : { executable: structured.path }),
+      agentId: gated.id,
+      cwd: input.folderPath,
+      ...(gated.path === null ? {} : { executable: gated.path }),
     });
   }
 
@@ -947,7 +1060,7 @@ export function registerIpcHandlers(
       void (async () => {
         try {
           await core.swarm.warmSeats(run.id);
-          const planner = await pickSwarmPlanner(request.input.folderPath);
+          const planner = await pickSwarmPlanner(request.input);
           await core.swarm.planTasks(run.id, planner, request.correlationId);
           await core.swarm.pump(run.id);
         } catch (error) {
@@ -1007,6 +1120,30 @@ export function registerIpcHandlers(
     }
   });
 
+  ipcMain.handle(ipcChannels.swarmTaskUpdate, async (_event, input: unknown) => {
+    try {
+      const request = swarmTaskUpdateRequestSchema.parse(input);
+      if (request.input.status !== 'pending') {
+        throw new BuilderHelmError(
+          'VALIDATION_FAILED',
+          'Only sending a reviewed task back to pending is supported',
+        );
+      }
+      const value = await core.swarm.requestRevision(
+        request.input.runId,
+        request.input.taskId,
+        request.input.detail ?? 'Please revise',
+        request.correlationId,
+      );
+      return swarmTaskUpdateIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return swarmTaskUpdateIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
   ipcMain.handle(ipcChannels.swarmStop, (_event, input: unknown) => {
     try {
       const request = swarmStopRequestSchema.parse(input);
@@ -1044,8 +1181,11 @@ export function registerIpcHandlers(
   });
 
   ipcMain.handle(ipcChannels.boardCreate, async (event, input: unknown) => {
+    let id: string | null = null;
     try {
-      const request = boardCreateInputSchema.parse(input);
+      const record = await core.workspaces.begin(boardCreateInputSchema.parse(input));
+      id = record.id;
+      const request = record.request;
       const tag = randomUUID().slice(0, 8);
       const value = await requireBoard().createSession(
         request,
@@ -1057,7 +1197,13 @@ export function registerIpcHandlers(
                 `p${slot + 1}-${tag}`,
                 request.correlationId,
               );
-              return { cwd: worktree.path, branch: worktree.branch };
+              const location = {
+                slot,
+                cwd: worktree.path,
+                branch: worktree.branch,
+              };
+              core.workspaces.location(record.id, location);
+              return location;
             } catch (error) {
               const branch = await core.board.readBranch(request.folderPath);
               if (branch === null) {
@@ -1069,15 +1215,21 @@ export function registerIpcHandlers(
               throw error;
             }
           }
-          return {
+          const location = {
+            slot,
             cwd: request.folderPath,
             branch: await core.board.readBranch(request.folderPath),
           };
+          core.workspaces.location(record.id, location);
+          return location;
         },
         event.sender,
+        record.id,
       );
+      core.workspaces.finish(record.id, value);
       return boardCreateIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
+      if (id !== null) core.workspaces.interrupt(id);
       core.logger.error({
         event: 'board.create_failed',
         correlationId: createCorrelationId(),
@@ -1125,6 +1277,9 @@ export function registerIpcHandlers(
     try {
       const request = boardPaneCloseInputSchema.parse(input);
       await requireBoard().closePane(request);
+      if (core.workspaces.has(request.sessionId)) {
+        core.workspaces.closePane(request.sessionId, request.paneId);
+      }
       return boardPaneCloseIpcResponseSchema.parse({
         ok: true,
         value: { closed: true },
@@ -1161,6 +1316,9 @@ export function registerIpcHandlers(
           };
         },
       );
+      if (core.workspaces.has(request.sessionId)) {
+        core.workspaces.finish(request.sessionId, host.snapshot(request.sessionId));
+      }
       return boardAddPaneIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
       return boardAddPaneIpcResponseSchema.parse({
@@ -1172,6 +1330,16 @@ export function registerIpcHandlers(
   ipcMain.handle(ipcChannels.boardPaneDrain, (_event, input: unknown) => {
     try {
       const request = boardPaneDrainInputSchema.parse(input);
+      if (
+        !requireBoard().hasSession(request.sessionId) &&
+        core.workspaces.has(request.sessionId)
+      ) {
+        const data = core.workspaces.output(request.sessionId, request.paneId);
+        return boardPaneDrainIpcResponseSchema.parse({
+          ok: true,
+          value: { data, offset: data.length },
+        });
+      }
       return boardPaneDrainIpcResponseSchema.parse({
         ok: true,
         value: requireBoard().drainPane(request),
@@ -1554,6 +1722,306 @@ export function registerIpcHandlers(
       });
     }
   });
+  ipcMain.handle(ipcChannels.connectionSnapshot, (_event, input: unknown) => {
+    try {
+      connectionsSnapshotRequestSchema.parse(input);
+      return connectionsSnapshotIpcResponseSchema.parse({
+        ok: true,
+        value: core.connections.snapshot(),
+      });
+    } catch (error) {
+      return connectionsSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.connectionConnect, async (_event, input: unknown) => {
+    try {
+      const request = connectionConnectRequestSchema.parse(input);
+      return connectionRecordIpcResponseSchema.parse({
+        ok: true,
+        value: await core.connections.connect(request.input, request.correlationId),
+      });
+    } catch (error) {
+      return connectionRecordIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.connectionTest, async (_event, input: unknown) => {
+    try {
+      const request = connectionIdRequestSchema.parse(input);
+      return connectionRecordIpcResponseSchema.parse({
+        ok: true,
+        value: await core.connections.test(
+          request.input.connectionId,
+          request.correlationId,
+        ),
+      });
+    } catch (error) {
+      return connectionRecordIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.connectionDisconnect, async (_event, input: unknown) => {
+    try {
+      const request = connectionIdRequestSchema.parse(input);
+      return connectionRecordIpcResponseSchema.parse({
+        ok: true,
+        value: await core.connections.disconnect(
+          request.input.connectionId,
+          request.correlationId,
+        ),
+      });
+    } catch (error) {
+      return connectionRecordIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.connectionGrant, (_event, input: unknown) => {
+    try {
+      const request = connectionGrantRequestSchema.parse(input);
+      return connectionGrantIpcResponseSchema.parse({
+        ok: true,
+        value: core.connections.grant(request.input),
+      });
+    } catch (error) {
+      return connectionGrantIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.connectionResearch, async (_event, input: unknown) => {
+    try {
+      const request = apifyResearchRequestSchema.parse(input);
+      return connectorJobIpcResponseSchema.parse({
+        ok: true,
+        value: await core.connections.research(request.input, request.correlationId),
+      });
+    } catch (error) {
+      return connectorJobIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.connectionPublish, async (_event, input: unknown) => {
+    try {
+      const request = xPublishRequestSchema.parse(input);
+      return connectorJobIpcResponseSchema.parse({
+        ok: true,
+        value: await core.connections.publish(request.input, request.correlationId),
+      });
+    } catch (error) {
+      return connectorJobIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.connectionSkillCreate, (_event, input: unknown) => {
+    try {
+      const request = skillCreateRequestSchema.parse(input);
+      return skillRecordIpcResponseSchema.parse({
+        ok: true,
+        value: core.connections.createSkill(request.input),
+      });
+    } catch (error) {
+      return skillRecordIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.connectionSkillBind, (_event, input: unknown) => {
+    try {
+      const request = skillBindRequestSchema.parse(input);
+      return skillRecordIpcResponseSchema.parse({
+        ok: true,
+        value: core.connections.bindSkill(request.input),
+      });
+    } catch (error) {
+      return skillRecordIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.connectionMcp, (_event, input: unknown) => {
+    try {
+      const request = mcpControlRequestSchema.parse(input);
+      return mcpControlIpcResponseSchema.parse({
+        ok: true,
+        value: core.connections.handleMcp(request.input),
+      });
+    } catch (error) {
+      return mcpControlIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.scheduleSnapshot, (_event, input: unknown) => {
+    try {
+      schedulesSnapshotRequestSchema.parse(input);
+      return schedulesSnapshotIpcResponseSchema.parse({
+        ok: true,
+        value: core.schedules.snapshot(),
+      });
+    } catch (error) {
+      return schedulesSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.scheduleCreate, (_event, input: unknown) => {
+    try {
+      const request = scheduleCreateRequestSchema.parse(input);
+      return scheduleRecordIpcResponseSchema.parse({
+        ok: true,
+        value: core.schedules.create(request.input, request.correlationId),
+      });
+    } catch (error) {
+      return scheduleRecordIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.scheduleUpdate, (_event, input: unknown) => {
+    try {
+      const request = scheduleUpdateRequestSchema.parse(input);
+      return scheduleRecordIpcResponseSchema.parse({
+        ok: true,
+        value: core.schedules.update(request.input, request.correlationId),
+      });
+    } catch (error) {
+      return scheduleRecordIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.schedulePause, (_event, input: unknown) => {
+    try {
+      const request = scheduleIdRequestSchema.parse(input);
+      return scheduleRecordIpcResponseSchema.parse({
+        ok: true,
+        value: core.schedules.pause(request.input.scheduleId, request.correlationId),
+      });
+    } catch (error) {
+      return scheduleRecordIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.scheduleResume, (_event, input: unknown) => {
+    try {
+      const request = scheduleIdRequestSchema.parse(input);
+      return scheduleRecordIpcResponseSchema.parse({
+        ok: true,
+        value: core.schedules.resume(request.input.scheduleId, request.correlationId),
+      });
+    } catch (error) {
+      return scheduleRecordIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.scheduleCancelRun, async (_event, input: unknown) => {
+    try {
+      const request = scheduleRunIdRequestSchema.parse(input);
+      return scheduleRunIpcResponseSchema.parse({
+        ok: true,
+        value: await core.schedules.cancelRun(request.input.runId, request.correlationId),
+      });
+    } catch (error) {
+      return scheduleRunIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.remoteSnapshot, async (_event, input: unknown) => {
+    try {
+      remoteSnapshotRequestSchema.parse(input);
+      return remoteSnapshotIpcResponseSchema.parse({
+        ok: true,
+        value: await core.remote.snapshot(),
+      });
+    } catch (error) {
+      return remoteSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.remoteListen, async (_event, input: unknown) => {
+    try {
+      const request = remoteListenRequestSchema.parse(input);
+      return remoteSnapshotIpcResponseSchema.parse({
+        ok: true,
+        value: await core.remote.listen(request.input.bind),
+      });
+    } catch (error) {
+      return remoteSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.remoteStop, async (_event, input: unknown) => {
+    try {
+      remoteStopRequestSchema.parse(input);
+      return remoteSnapshotIpcResponseSchema.parse({
+        ok: true,
+        value: await core.remote.stop(),
+      });
+    } catch (error) {
+      return remoteSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.remotePairOffer, async (_event, input: unknown) => {
+    try {
+      remotePairOfferRequestSchema.parse(input);
+      return remotePairingIpcResponseSchema.parse({
+        ok: true,
+        value: await core.remote.createPairing(),
+      });
+    } catch (error) {
+      return remotePairingIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.remoteRevoke, async (_event, input: unknown) => {
+    try {
+      const request = remoteRevokeRequestSchema.parse(input);
+      return remoteSessionIpcResponseSchema.parse({
+        ok: true,
+        value: await core.remote.revoke(request.input.sessionId),
+      });
+    } catch (error) {
+      return remoteSessionIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
 
   ipcMain.handle(ipcChannels.browserCommand, async (event, input: unknown) => {
     try {
@@ -1636,8 +2104,7 @@ export function registerIpcHandlers(
     try {
       const request = browserArtifactsRequestSchema.parse(input);
       const value = core.previewArtifacts.list({
-        headSha: previewHeadSha(request.input.root),
-        runId: request.input.runId ?? null,
+        ...(request.input.runId === undefined ? {} : { runId: request.input.runId }),
       });
       return browserArtifactsIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
@@ -2047,6 +2514,7 @@ export function registerIpcHandlers(
         request.input.path,
         request.input.text,
       );
+      core.workspaces.saved(request.input.root, value.path, value.text);
       return editorWriteIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
       return editorWriteIpcResponseSchema.parse({
@@ -2631,6 +3099,16 @@ export function registerIpcHandlers(
 
   // Agent sessions. Every handler needs `agents`, so the guard is one helper
   // rather than a repeated undefined check.
+  function requireRuntimes(): RuntimeCapabilityService {
+    if (runtimes === undefined) {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'Runtime capability detection is not available.',
+      );
+    }
+    return runtimes.capabilities;
+  }
+
   function requireAgents(): NonNullable<typeof agents> {
     if (agents === undefined) {
       throw new BuilderHelmError('INTEGRATION_OFFLINE', 'Agent chat is not available.');
@@ -2645,6 +3123,19 @@ export function registerIpcHandlers(
       return agentCandidatesIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
       return agentCandidatesIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.runtimeCapabilities, async (_event, input: unknown) => {
+    try {
+      systemHealthRequestSchema.parse(input);
+      const value = await requireRuntimes().snapshot();
+      return runtimeCapabilitiesIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return runtimeCapabilitiesIpcResponseSchema.parse({
         ok: false,
         error: ipcError(error),
       });
@@ -2707,6 +3198,7 @@ export function registerIpcHandlers(
         threadId: parsed.threadId,
         resumeSessionId: parsed.resumeSessionId,
         profileId: parsed.profileId,
+        launch: parsed.launch,
       });
       return agentSessionIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
@@ -2818,10 +3310,12 @@ export function registerIpcHandlers(
   });
 
   return () => {
+    unregisterWorkspaces();
     for (const active of activeStreams.values()) active.controller.abort();
     activeStreams.clear();
     preview.dispose();
     ipcMain.removeHandler(ipcChannels.systemHealth);
+    ipcMain.removeHandler(ipcChannels.diagnosticsExport);
     ipcMain.removeHandler(ipcChannels.providerList);
     ipcMain.removeHandler(ipcChannels.providerCreate);
     ipcMain.removeHandler(ipcChannels.providerUpdate);
@@ -2852,6 +3346,7 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.swarmState);
     ipcMain.removeHandler(ipcChannels.swarmDirect);
     ipcMain.removeHandler(ipcChannels.swarmLandTask);
+    ipcMain.removeHandler(ipcChannels.swarmTaskUpdate);
     ipcMain.removeHandler(ipcChannels.swarmStop);
     ipcMain.removeHandler(ipcChannels.swarmStopSeat);
     ipcMain.removeHandler(ipcChannels.swarmLatest);
@@ -2924,6 +3419,7 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.noSleepSet);
     ipcMain.removeHandler(ipcChannels.authRead);
     ipcMain.removeHandler(ipcChannels.agentForget);
+    ipcMain.removeHandler(ipcChannels.runtimeCapabilities);
     ipcMain.removeHandler(ipcChannels.agentProfileList);
     ipcMain.removeHandler(ipcChannels.agentProfileUpsert);
     ipcMain.removeHandler(ipcChannels.agentProfileDelete);
@@ -2955,5 +3451,26 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.voiceModelCancel);
     ipcMain.removeHandler(ipcChannels.voiceModelDelete);
     ipcMain.removeHandler(ipcChannels.voiceTranscribe);
+    ipcMain.removeHandler(ipcChannels.connectionSnapshot);
+    ipcMain.removeHandler(ipcChannels.connectionConnect);
+    ipcMain.removeHandler(ipcChannels.connectionTest);
+    ipcMain.removeHandler(ipcChannels.connectionDisconnect);
+    ipcMain.removeHandler(ipcChannels.connectionGrant);
+    ipcMain.removeHandler(ipcChannels.connectionResearch);
+    ipcMain.removeHandler(ipcChannels.connectionPublish);
+    ipcMain.removeHandler(ipcChannels.connectionSkillCreate);
+    ipcMain.removeHandler(ipcChannels.connectionSkillBind);
+    ipcMain.removeHandler(ipcChannels.connectionMcp);
+    ipcMain.removeHandler(ipcChannels.scheduleSnapshot);
+    ipcMain.removeHandler(ipcChannels.scheduleCreate);
+    ipcMain.removeHandler(ipcChannels.scheduleUpdate);
+    ipcMain.removeHandler(ipcChannels.schedulePause);
+    ipcMain.removeHandler(ipcChannels.scheduleResume);
+    ipcMain.removeHandler(ipcChannels.scheduleCancelRun);
+    ipcMain.removeHandler(ipcChannels.remoteSnapshot);
+    ipcMain.removeHandler(ipcChannels.remoteListen);
+    ipcMain.removeHandler(ipcChannels.remoteStop);
+    ipcMain.removeHandler(ipcChannels.remotePairOffer);
+    ipcMain.removeHandler(ipcChannels.remoteRevoke);
   };
 }

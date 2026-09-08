@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CorrelationId } from '@builderhelm/shared';
-import type { ReviewDiffLine } from '@builderhelm/protocol/review';
+import type { PreviewArtifact } from '@builderhelm/protocol/browser';
+import type {
+  ReviewCheck,
+  ReviewConflictKind,
+  ReviewDiffLine,
+  ReviewLandInspect,
+} from '@builderhelm/protocol/review';
 import { useMemo, useState } from 'react';
 
 import { useSpaces } from '../space-store.js';
@@ -18,6 +24,17 @@ function lineClass(type: ReviewDiffLine['type']): string {
   return 'reviewLineCtx';
 }
 
+function inspectKind(found: ReviewLandInspect): ReviewConflictKind {
+  if (found.unmerged.length > 0) return 'unmerged';
+  if (found.behind > 0) return 'diverged';
+  return 'clean';
+}
+
+function failedCheckBlocks(checks: readonly ReviewCheck[], headSha: string): boolean {
+  const latest = checks.filter((item) => item.headSha === headSha).at(-1);
+  return latest !== undefined && latest.exitCode !== 0;
+}
+
 export function ReviewPane(): React.JSX.Element {
   const spaces = useSpaces();
   const root = workspaceFolder(spaces);
@@ -28,37 +45,20 @@ export function ReviewPane(): React.JSX.Element {
   const [prBody, setPrBody] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [checkCommand, setCheckCommand] = useState('pnpm test');
+  const [selectedLine, setSelectedLine] = useState<{
+    readonly line: number;
+    readonly side: 'old' | 'new';
+  } | null>(null);
   const [pendingLand, setPendingLand] = useState<{
     readonly taskId: string;
     readonly headSha: string;
+    readonly kind: ReviewConflictKind;
   } | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const git = useQuery({
     queryKey: ['review-git', root],
     queryFn: () => window.builderHelm.editor.git(root!),
-    enabled: root !== null,
-  });
-  const diff = useQuery({
-    queryKey: ['review-diff', root, picked],
-    queryFn: () =>
-      window.builderHelm.review.diff({
-        root: root!,
-        ...(picked === null ? {} : { path: picked }),
-      }),
-    enabled: root !== null,
-  });
-  const comments = useQuery({
-    queryKey: ['review-comments', root, picked],
-    queryFn: () =>
-      window.builderHelm.review.comments({
-        root: root!,
-        ...(picked === null ? {} : { path: picked }),
-      }),
-    enabled: root !== null,
-  });
-  const checks = useQuery({
-    queryKey: ['review-checks', root],
-    queryFn: () => window.builderHelm.review.checks({ root: root! }),
     enabled: root !== null,
   });
   const swarm = useQuery({
@@ -77,20 +77,94 @@ export function ReviewPane(): React.JSX.Element {
       }),
     enabled: swarm.data !== null && swarm.data !== undefined,
   });
-  const ci = useQuery({
-    queryKey: ['review-ci', root],
-    queryFn: () => window.builderHelm.review.ci({ root: root! }),
-    enabled: false,
-  });
-
-  const files = useMemo(() => {
-    const changes = git.data?.changes ?? [];
-    const unique = [...new Set(changes.map((item) => item.path))];
-    return unique;
-  }, [git.data]);
   const reviewTasks = (swarmState.data?.tasks ?? []).filter(
     (task) => task.status === 'review',
   );
+  const activeTask =
+    reviewTasks.find((task) => task.id === selectedTaskId) ?? reviewTasks[0] ?? null;
+  const activeSeat =
+    swarmState.data?.seats.find((seat) => seat.id === activeTask?.seatId) ?? null;
+
+  const diff = useQuery({
+    queryKey: [
+      'review-diff',
+      root,
+      picked,
+      activeTask?.id,
+      activeTask?.baseSha,
+      activeSeat?.branch,
+    ],
+    queryFn: async () => {
+      if (root === null) return [];
+      const path = picked === null ? {} : { path: picked };
+      const base = activeTask?.baseSha;
+      const branch = activeSeat?.branch;
+      if (
+        base !== null &&
+        base !== undefined &&
+        /^[0-9a-f]{40,64}$/.test(base) &&
+        branch !== null &&
+        branch !== undefined
+      ) {
+        const found = await window.builderHelm.review.inspectLand({
+          root,
+          branch,
+          reviewedHead: base,
+        });
+        return window.builderHelm.review.diff({
+          root,
+          ...path,
+          base,
+          head: found.headSha,
+        });
+      }
+      return window.builderHelm.review.diff({ root, ...path });
+    },
+    enabled: root !== null,
+  });
+  const comments = useQuery({
+    queryKey: ['review-comments', root, picked],
+    queryFn: () =>
+      window.builderHelm.review.comments({
+        root: root!,
+        ...(picked === null ? {} : { path: picked }),
+      }),
+    enabled: root !== null,
+  });
+  const checks = useQuery({
+    queryKey: ['review-checks', root],
+    queryFn: () => window.builderHelm.review.checks({ root: root! }),
+    enabled: root !== null,
+  });
+  const reviewedHead = pendingLand?.headSha ?? git.data?.headSha;
+  const ci = useQuery({
+    queryKey: ['review-ci', root, reviewedHead],
+    queryFn: () =>
+      window.builderHelm.review.ci({
+        root: root!,
+        ...(reviewedHead === undefined ? {} : { reviewedHead }),
+      }),
+    enabled: false,
+  });
+  const artifacts = useQuery({
+    queryKey: ['review-artifacts', root, swarm.data?.id],
+    queryFn: () =>
+      window.builderHelm.browser.artifacts({
+        root: root!,
+        ...(swarm.data === undefined || swarm.data === null
+          ? {}
+          : { runId: swarm.data.id }),
+      }),
+    enabled: root !== null,
+  });
+
+  const files = useMemo(() => {
+    if (activeTask !== null && activeTask.files.length > 0) {
+      return [...activeTask.files];
+    }
+    const changes = git.data?.changes ?? [];
+    return [...new Set(changes.map((item) => item.path))];
+  }, [git.data, activeTask]);
   const activePath = picked ?? files[0] ?? null;
   const activeDiff =
     (diff.data ?? []).find((file) => file.path === activePath) ??
@@ -101,11 +175,14 @@ export function ReviewPane(): React.JSX.Element {
     mutationFn: (body: string) => {
       if (root === null || activePath === null) throw new Error('Pick a file');
       const line =
-        activeDiff?.hunks[0]?.lines.find((item) => item.newLine !== null)?.newLine ?? 1;
+        selectedLine?.line ??
+        activeDiff?.hunks[0]?.lines.find((item) => item.newLine !== null)?.newLine ??
+        1;
+      const side = selectedLine?.side ?? 'new';
       return window.builderHelm.review.comment({
         root,
         path: activePath,
-        side: 'new',
+        side,
         line,
         body,
       });
@@ -141,6 +218,25 @@ export function ReviewPane(): React.JSX.Element {
     },
     onError: (cause: Error) => setError(cause.message),
   });
+  const requestRevision = useMutation({
+    mutationFn: async (taskId: string) => {
+      const run = swarm.data;
+      if (run === null || run === undefined) throw new Error('No swarm run');
+      const body = comment.trim().length > 0 ? comment.trim() : 'Please revise';
+      if (root !== null && activePath !== null) {
+        await addComment.mutateAsync(body);
+      }
+      return window.builderHelm.swarm.updateTask({
+        correlationId: crypto.randomUUID() as CorrelationId,
+        input: { runId: run.id, taskId, status: 'pending', detail: body },
+      });
+    },
+    onSuccess: async () => {
+      setPendingLand(null);
+      await queryClient.invalidateQueries({ queryKey: ['review-swarm-state'] });
+    },
+    onError: (cause: Error) => setError(cause.message),
+  });
   /**
    * Landing is two steps on purpose. The first inspects the branch and shows
    * the exact SHA to be landed; the second lands that SHA. A single click that
@@ -162,27 +258,44 @@ export function ReviewPane(): React.JSX.Element {
       }
       const confirmed = pendingLand;
       if (confirmed === null || confirmed.taskId !== taskId) {
-        const found = await window.builderHelm.review.inspectLand({
+        const probe = await window.builderHelm.review.inspectLand({
           root,
           branch: seat.branch,
           reviewedHead: git.data?.headSha ?? '0'.repeat(40),
         });
-        if (found.unmerged.length > 0) {
-          throw new Error(`Unmerged files: ${found.unmerged.join(', ')}`);
+        const kind = inspectKind(probe);
+        setPendingLand({ taskId, headSha: probe.headSha, kind });
+        if (kind !== 'clean') {
+          throw new Error(
+            kind === 'unmerged'
+              ? `Unmerged files: ${probe.unmerged.join(', ')}`
+              : `Branch is ${kind}; resolve before landing ${probe.headSha.slice(0, 7)}.`,
+          );
         }
-        setPendingLand({ taskId, headSha: found.headSha });
-        throw new Error(
-          `Review ${found.headSha.slice(0, 7)} on ${found.branch}, then press Land again to merge that commit.`,
-        );
+        return null;
+      }
+      if (confirmed.kind !== 'clean') {
+        throw new Error(`Cannot land: ${confirmed.kind}`);
+      }
+      if (failedCheckBlocks(checks.data ?? [], confirmed.headSha)) {
+        throw new Error('A check failed on this revision');
       }
       return window.builderHelm.swarm.landTask({
         correlationId: crypto.randomUUID() as CorrelationId,
         input: { runId: run.id, taskId, reviewedHead: confirmed.headSha },
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (landed) => {
+      if (landed === null) return;
       setPendingLand(null);
       await queryClient.invalidateQueries({ queryKey: ['review-swarm-state'] });
+      if (checkCommand.trim().length > 0) {
+        try {
+          await runCheck.mutateAsync();
+        } catch (cause) {
+          setError(cause instanceof Error ? cause.message : 'Post-land check failed');
+        }
+      }
     },
     onError: (cause: Error) => setError(cause.message),
   });
@@ -193,6 +306,9 @@ export function ReviewPane(): React.JSX.Element {
       </section>
     );
   }
+
+  const evidence = artifacts.data ?? [];
+  const headSha = git.data?.headSha;
 
   return (
     <section className="reviewPage" aria-labelledby="review-title">
@@ -221,7 +337,10 @@ export function ReviewPane(): React.JSX.Element {
                   <button
                     type="button"
                     className={path === activePath ? 'reviewFileOn' : undefined}
-                    onClick={() => setPicked(path)}
+                    onClick={() => {
+                      setPicked(path);
+                      setSelectedLine(null);
+                    }}
                   >
                     {path}
                   </button>
@@ -239,16 +358,27 @@ export function ReviewPane(): React.JSX.Element {
               {activeDiff.hunks.map((hunk) => (
                 <pre key={hunk.header} className="reviewHunk">
                   <code>
-                    {hunk.lines.map((line, index) => (
-                      <span
-                        key={`${hunk.header}-${String(index)}`}
-                        className={lineClass(line.type)}
-                      >
-                        {line.type === 'add' ? '+' : line.type === 'del' ? '-' : ' '}
-                        {line.text}
-                        {'\n'}
-                      </span>
-                    ))}
+                    {hunk.lines.map((line, index) => {
+                      const lineNo = line.newLine ?? line.oldLine;
+                      const side = line.newLine !== null ? 'new' : 'old';
+                      const on =
+                        selectedLine !== null &&
+                        lineNo === selectedLine.line &&
+                        side === selectedLine.side;
+                      return (
+                        <button
+                          key={`${hunk.header}-${String(index)}`}
+                          type="button"
+                          className={`${lineClass(line.type)}${on ? ' reviewLineOn' : ''}`}
+                          onClick={() => {
+                            if (lineNo !== null) setSelectedLine({ line: lineNo, side });
+                          }}
+                        >
+                          {line.type === 'add' ? '+' : line.type === 'del' ? '-' : ' '}
+                          {line.text}
+                        </button>
+                      );
+                    })}
                   </code>
                 </pre>
               ))}
@@ -261,7 +391,11 @@ export function ReviewPane(): React.JSX.Element {
               >
                 <input
                   value={comment}
-                  placeholder="Line comment for the owning agent"
+                  placeholder={
+                    selectedLine === null
+                      ? 'Line comment for the owning agent'
+                      : `Comment on line ${String(selectedLine.line)}`
+                  }
                   onChange={(event) => setComment(event.target.value)}
                 />
                 <button type="submit" disabled={addComment.isPending}>
@@ -272,7 +406,7 @@ export function ReviewPane(): React.JSX.Element {
                 {(comments.data ?? []).map((item) => (
                   <li key={item.id}>
                     <strong>
-                      {item.path}:{item.line}
+                      {item.path}:{item.line} · {item.headSha.slice(0, 7)}
                     </strong>
                     <span>{item.body}</span>
                   </li>
@@ -307,10 +441,34 @@ export function ReviewPane(): React.JSX.Element {
                   <em>
                     {item.exitCode === 0 ? 'pass' : `exit ${String(item.exitCode)}`}
                   </em>
-                  <small>{item.headSha.slice(0, 7)}</small>
+                  <small>live · {item.headSha.slice(0, 7)}</small>
+                  {item.output.trim().length > 0 ? (
+                    <pre className="reviewCheckOut">{item.output.slice(0, 800)}</pre>
+                  ) : null}
                 </li>
               ))}
             </ul>
+          </section>
+          <section>
+            <span className="memorySectionLabel">Evidence</span>
+            {evidence.length === 0 ? (
+              <p>No browser captures on this run.</p>
+            ) : (
+              <ul className="reviewChecks">
+                {evidence.map((item: PreviewArtifact) => (
+                  <li key={item.id}>
+                    <span>
+                      {item.kind} · {item.headSha.slice(0, 7)}
+                    </span>
+                    {headSha !== undefined && item.headSha !== headSha ? (
+                      <em>stale vs {headSha.slice(0, 7)}</em>
+                    ) : (
+                      <small>live</small>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
           <section>
             <span className="memorySectionLabel">Pull request</span>
@@ -353,6 +511,9 @@ export function ReviewPane(): React.JSX.Element {
                 <li key={item.name}>
                   <span>{item.name}</span>
                   <em>{item.state}</em>
+                  {item.url !== null && item.url.length > 0 ? (
+                    <a href={item.url}>{item.url}</a>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -363,18 +524,50 @@ export function ReviewPane(): React.JSX.Element {
               <p>No swarm tasks waiting for review.</p>
             ) : (
               <ul className="reviewChecks">
-                {reviewTasks.map((task) => (
-                  <li key={task.id}>
-                    <span>{task.title}</span>
-                    <button
-                      type="button"
-                      disabled={landTask.isPending}
-                      onClick={() => landTask.mutate(task.id)}
-                    >
-                      Land
-                    </button>
-                  </li>
-                ))}
+                {reviewTasks.map((task) => {
+                  const pending = pendingLand?.taskId === task.id ? pendingLand : null;
+                  const blocked =
+                    pending !== null &&
+                    (pending.kind !== 'clean' ||
+                      failedCheckBlocks(checks.data ?? [], pending.headSha));
+                  return (
+                    <li key={task.id}>
+                      <button
+                        type="button"
+                        className={
+                          activeTask?.id === task.id ? 'reviewFileOn' : undefined
+                        }
+                        onClick={() => setSelectedTaskId(task.id)}
+                      >
+                        {task.title}
+                        {task.baseSha !== null
+                          ? ` · base ${task.baseSha.slice(0, 7)}`
+                          : ''}
+                      </button>
+                      {pending !== null ? (
+                        <small>
+                          {pending.headSha.slice(0, 7)} · {pending.kind}
+                        </small>
+                      ) : null}
+                      <button
+                        type="button"
+                        disabled={
+                          landTask.isPending || requestRevision.isPending || blocked
+                        }
+                        onClick={() => landTask.mutate(task.id)}
+                      >
+                        {pending !== null ? 'Confirm' : 'Land'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={requestRevision.isPending || landTask.isPending}
+                        onClick={() => requestRevision.mutate(task.id)}
+                      >
+                        Request revision
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>

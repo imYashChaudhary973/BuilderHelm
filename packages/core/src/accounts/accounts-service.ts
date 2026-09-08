@@ -21,6 +21,7 @@ import {
   type AccountHome,
   type AccountQuota,
   type AccountSnapshot,
+  type AuthConflict,
   type QuotaProviderId,
   type QuotaWindow,
 } from '@builderhelm/protocol';
@@ -55,6 +56,43 @@ const CONFIG_ENV: Record<QuotaProviderId, string> = {
   codex: 'CODEX_HOME',
   grok: 'GROK_HOME',
 };
+
+const AUTH_MARKERS: Record<QuotaProviderId, readonly string[]> = {
+  claude: ['.credentials.json', '.claude.json', '.config.json'],
+  codex: ['auth.json'],
+  grok: [join('logs', 'unified.jsonl')],
+};
+
+const SYSTEM_AUTH_ROOT: Record<QuotaProviderId, string> = {
+  claude: join(homedir(), '.claude'),
+  codex: join(homedir(), '.codex'),
+  grok: join(homedir(), '.grok'),
+};
+
+/** `provider:homeId`, e.g. `codex:system`. Null or malformed means "use active". */
+export function parseAccountRef(
+  ref: string | null,
+): { provider: QuotaProviderId; id: string } | null {
+  if (ref === null || ref.length === 0) return null;
+  const colon = ref.indexOf(':');
+  if (colon <= 0) return null;
+  const parsed = quotaProviderIdSchema.safeParse(ref.slice(0, colon));
+  const id = ref.slice(colon + 1);
+  if (!parsed.success || id.length === 0 || id.length > 64) return null;
+  return { provider: parsed.data, id };
+}
+
+/** True when a known credential file exists. Does not read it. */
+function authMarkerExists(provider: QuotaProviderId, root: string): boolean {
+  if (
+    provider === 'claude' &&
+    existsSync(join(homedir(), '.claude.json')) &&
+    root === SYSTEM_AUTH_ROOT.claude
+  ) {
+    return true;
+  }
+  return AUTH_MARKERS[provider].some((marker) => existsSync(join(root, marker)));
+}
 
 export type CodexRateLimitReader = (
   executable: string,
@@ -357,6 +395,52 @@ export class AccountsService {
     return env;
   }
 
+  /**
+   * Child environment for a new run. `accountRef` selects one provider home;
+   * other providers keep their active homes. Running processes keep the env
+   * they were spawned with — this is only read at launch.
+   */
+  cliEnvFor(accountRef: string | null): Record<string, string> {
+    const env = this.cliEnv();
+    const selected = parseAccountRef(accountRef);
+    if (selected === null) return env;
+    const key = CONFIG_ENV[selected.provider];
+    if (selected.id === SYSTEM_ACCOUNT_ID) {
+      delete env[key];
+      return env;
+    }
+    const home = this.homes()[selected.provider].find(
+      (entry) => entry.id === selected.id,
+    );
+    if (home?.configRoot === undefined || home.configRoot === null) return env;
+    if (!existsSync(home.configRoot)) return env;
+    env[key] = home.configRoot;
+    return env;
+  }
+
+  /**
+   * Credential locations that would both apply if a child inherited HOME and
+   * a redirected config dir. Paths only — never file contents.
+   */
+  diagnoseAuth(): AuthConflict[] {
+    const conflicts: AuthConflict[] = [];
+    const homes = this.homes();
+    for (const provider of QUOTA_PROVIDER_IDS) {
+      const sources: AuthConflict['sources'] = [];
+      const systemRoot = SYSTEM_AUTH_ROOT[provider];
+      if (authMarkerExists(provider, systemRoot)) {
+        sources.push({ kind: 'system-default', path: systemRoot });
+      }
+      for (const home of homes[provider]) {
+        if (home.configRoot === null || !existsSync(home.configRoot)) continue;
+        if (!authMarkerExists(provider, home.configRoot)) continue;
+        sources.push({ kind: 'isolated-home', path: home.configRoot });
+      }
+      if (sources.length >= 2) conflicts.push({ provider, sources });
+    }
+    return conflicts;
+  }
+
   /** Roots to hook: BuilderHelm homes, plus ~/.claude when opted in. */
   claudeHookRoots(): string[] {
     const homes = this.homes()
@@ -431,6 +515,7 @@ export class AccountsService {
       providers,
       occurredAt: utcNow(),
       hookSystemDefault: this.hookSystemDefault(),
+      authConflicts: this.diagnoseAuth(),
     });
   }
 

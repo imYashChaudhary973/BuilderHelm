@@ -60,8 +60,8 @@ const sender = {
   send: () => undefined,
 } as unknown as WebContents;
 
-describe('worktree session creation is transactional', () => {
-  it('removes worktrees and branches it made when a later pane fails', async () => {
+describe('failed session creation preserves provisioned worktrees', () => {
+  it('stops spawned panes but retains every checkout when a later pane fails', async () => {
     const root = createRepository();
     const manager = new BoardPtyManager();
     const worktrees = join(root, '..', 'repo-worktrees');
@@ -82,8 +82,6 @@ describe('worktree session creation is transactional', () => {
           ],
         },
         async (slot) => {
-          // Two panes get a real worktree, then the third fails, exactly as a
-          // git or disk error partway through creation would.
           if (slot === 2) throw new Error('worktree creation failed');
           slotsLocated += 1;
           const label = `p${slot + 1}-rollback`;
@@ -92,15 +90,15 @@ describe('worktree session creation is transactional', () => {
           return { cwd: path, branch: `builderhelm/${label}` };
         },
         sender,
+        '11111111-2222-4333-8444-555555555556',
       ),
     ).rejects.toThrow('worktree creation failed');
 
     expect(slotsLocated).toBe(2);
-    // Nothing the failed attempt created may survive.
-    expect(existsSync(join(worktrees, 'p1-rollback'))).toBe(false);
-    expect(existsSync(join(worktrees, 'p2-rollback'))).toBe(false);
-    expect(branches(root)).toEqual(['main']);
-    expect(worktreeCount(root)).toBe(1);
+    expect(existsSync(join(worktrees, 'p1-rollback'))).toBe(true);
+    expect(existsSync(join(worktrees, 'p2-rollback'))).toBe(true);
+    expect(worktreeCount(root)).toBe(3);
+    expect(manager.hasSession('11111111-2222-4333-8444-555555555556')).toBe(false);
 
     manager.dispose();
   });
@@ -134,12 +132,13 @@ describe('worktree session creation is transactional', () => {
           return { cwd: path, branch: `builderhelm/${label}` };
         },
         sender,
+        '11111111-2222-4333-8444-555555555557',
       ),
     ).rejects.toThrow('worktree creation failed');
 
-    // The directory is reclaimed, but committed work is not discarded.
-    expect(existsSync(join(worktrees, 'p1-committed'))).toBe(false);
+    expect(existsSync(join(worktrees, 'p1-committed'))).toBe(true);
     expect(branches(root)).toContain('builderhelm/p1-committed');
+    expect(manager.hasSession('11111111-2222-4333-8444-555555555557')).toBe(false);
 
     manager.dispose();
   });

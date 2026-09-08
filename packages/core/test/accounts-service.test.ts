@@ -13,7 +13,11 @@ import type { Logger } from '@builderhelm/observability';
 import { BuilderHelmError } from '@builderhelm/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { AccountsService, readGrokEmail } from '../src/accounts/accounts-service.js';
+import {
+  AccountsService,
+  parseAccountRef,
+  readGrokEmail,
+} from '../src/accounts/accounts-service.js';
 import {
   parseClaudeOAuthUsage,
   parseClaudeRateLimits,
@@ -342,5 +346,48 @@ describe('AccountsService', () => {
     await expect(accounts.remove('codex', 'system')).rejects.toBeInstanceOf(
       BuilderHelmError,
     );
+  });
+
+  it('binds a named accountRef for new runs without changing other providers', async () => {
+    const accounts = setup();
+    const added = await accounts.add('codex');
+    const home = added.providers
+      .find((provider) => provider.id === 'codex')
+      ?.homes.find((entry) => entry.id !== 'system');
+    expect(home?.configRoot).toBeTruthy();
+    expect(parseAccountRef(`codex:${home!.id}`)).toEqual({
+      provider: 'codex',
+      id: home!.id,
+    });
+    expect(accounts.cliEnvFor(`codex:${home!.id}`).CODEX_HOME).toBe(home!.configRoot);
+    expect(accounts.cliEnvFor('codex:system').CODEX_HOME).toBeUndefined();
+  });
+
+  it('names conflicting credential paths without reading their contents', async () => {
+    const accounts = setup();
+    const first = await accounts.add('codex');
+    const homeA = first.providers
+      .find((provider) => provider.id === 'codex')
+      ?.homes.find((entry) => entry.configRoot !== null);
+    const payload = Buffer.from(JSON.stringify({ email: 'a@example.com' })).toString(
+      'base64url',
+    );
+    writeFileSync(
+      join(homeA!.configRoot!, 'auth.json'),
+      JSON.stringify({ tokens: { id_token: `x.${payload}.x` } }),
+    );
+    await accounts.confirmLogin('codex', homeA!.id);
+    const second = await accounts.add('codex');
+    const homeB = second.providers
+      .find((provider) => provider.id === 'codex')
+      ?.homes.find((entry) => entry.id !== homeA?.id && entry.configRoot !== null);
+    writeFileSync(join(homeB!.configRoot!, 'auth.json'), '{"do-not-read":true}');
+    const conflicts = accounts.diagnoseAuth().filter((row) => row.provider === 'codex');
+    const isolated =
+      conflicts[0]?.sources.filter((source) => source.kind === 'isolated-home') ?? [];
+    expect(isolated.length).toBeGreaterThanOrEqual(2);
+    expect(JSON.stringify(conflicts)).not.toContain('do-not-read');
+    const snapshot = await accounts.snapshot();
+    expect(snapshot.authConflicts.some((row) => row.provider === 'codex')).toBe(true);
   });
 });

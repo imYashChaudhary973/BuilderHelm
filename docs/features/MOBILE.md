@@ -1,36 +1,36 @@
 # Mobile companion
 
-Status: planned.
+Status: protocol and TypeScript companion on `feat/ade-remote`. Metro / Xcode /
+Play Store not exercised. Host must remain open.
 
 ## Goal
 
-Use iOS or Android to observe and direct agents running on a Mac, Windows PC,
-Linux host, or approved remote machine.
+Use a companion to observe and direct agents running on a BuilderHelm host.
 
 ## V1 scope
 
-- Pair with a host using an expiring QR bootstrap.
-- List hosts, projects, runs, agents, tasks, and attention requests.
-- Read summaries, bounded terminal tails, diffs, tests, screenshots, and CI.
-- Send follow-up instructions and review feedback.
-- Approve, reject, pause, resume, retry, or cancel allowed actions.
-- Receive notifications when a run needs attention.
+- Pair with a host using an expiring pairing code (QR JSON is the same payload).
+- Observe host status and artifacts.
+- Send a scoped instruction, an approval response, or a cancel.
+- Show stale and disconnected state.
+- No pause/resume/retry, notifications, or terminal tails in this cut.
 
 ## Architecture
 
-The React Native client speaks a versioned authenticated protocol to the host.
+`apps/mobile` speaks the versioned protocol in `packages/protocol/src/remote.ts`.
 The host performs every filesystem, Git, terminal, provider, and browser action.
-The initial release may require BuilderHelm desktop to remain running.
+The companion is not a model backend.
 
 ## Security
 
 - No coding CLI or repository runs on the phone.
 - No provider, Git, SSH, session, or repository credentials leave the host.
 - No raw shell, filesystem, process, plugin, or configuration API is exposed.
-- Commands have stable IDs, idempotency, expiry, capability ceilings, and receipts.
-- High-impact approvals require device authentication.
+- Command IDs are idempotent except approvals, which fail on replay.
+- Revoked sessions cannot act.
 
 ## Acceptance
 
-Pairing, reconnect, revocation, offline state, duplicate delivery, cancellation,
-and an ambiguous host crash all fail safely and remain understandable to the user.
+Pairing, reconnect, revocation, stale/disconnected, duplicate instruct, and
+replayed approval are fixture-tested against the host. A packaged iOS/Android
+binary is not in this phase.

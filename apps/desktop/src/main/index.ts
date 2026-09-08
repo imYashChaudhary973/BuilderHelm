@@ -41,6 +41,7 @@ import { AuthHandoff } from './auth-handoff.js';
 import { AgentManager } from './acp/manager.js';
 import { PermissionRules } from './acp/permission-rules.js';
 import { AgentRegistry } from './acp/registry.js';
+import { createRuntimeCapabilityService } from './runtime-capabilities.js';
 import { AgentProfiles } from './acp/profiles.js';
 import { AgentThreads } from './acp/threads.js';
 
@@ -55,6 +56,7 @@ let unsubscribeWork: (() => void) | undefined;
 let voiceHotkeys: VoiceHotkeys | undefined;
 let quotaIngest: { scriptPath(): string | null; close(): void } | undefined;
 let smokeDatabasePath: string | undefined;
+let scheduleTimer: ReturnType<typeof setInterval> | undefined;
 
 async function completeSmokeWhenRendererIsReady(window: BrowserWindow): Promise<void> {
   const deadline = Date.now() + 10_000;
@@ -348,6 +350,7 @@ app
     // live sessions and needs a way to reach the renderer, since a permission
     // request has to be answered by a person.
     const agentRegistry = new AgentRegistry(runtime.settings);
+    const runtimeCapabilities = createRuntimeCapabilityService(agentRegistry);
     const agentProfiles = new AgentProfiles(runtime.settings);
     agentManager = new AgentManager({
       emit: (event) => {
@@ -360,6 +363,7 @@ app
       threads: new AgentThreads(runtime.settings),
       resolveAgent: (agentId) => agentRegistry.resolve(agentId),
       resolveProfile: (profileId) => agentProfiles.find(profileId),
+      resolveEnv: (accountRef) => core?.accounts.cliEnvFor(accountRef) ?? {},
     });
     setExtraTerminalEnv(() => core?.accounts.cliEnv() ?? {});
     const hookClaude = (): void => {
@@ -407,7 +411,12 @@ app
       },
       authHandoff,
       { manager: agentManager, registry: agentRegistry, profiles: agentProfiles },
+      { capabilities: runtimeCapabilities },
     );
+    void core.schedules.reconcile(createCorrelationId());
+    scheduleTimer = setInterval(() => {
+      void core?.schedules.tick(createCorrelationId());
+    }, 30_000);
     setTimeout(hookClaude, 400);
     installApplicationMenu();
     createWindow();
@@ -431,6 +440,10 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  if (scheduleTimer !== undefined) {
+    clearInterval(scheduleTimer);
+    scheduleTimer = undefined;
+  }
   voiceHotkeys?.dispose();
   voiceHotkeys = undefined;
   quotaIngest?.close();

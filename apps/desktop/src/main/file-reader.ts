@@ -31,7 +31,7 @@ function insideWorkspace(root: string, target: string): boolean {
   return target === root || target.startsWith(`${root}${sep}`);
 }
 
-function resolveWorkspace(
+export function resolveWorkspace(
   root: string,
   path = root,
 ): { readonly root: string; readonly path: string } {

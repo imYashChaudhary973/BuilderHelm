@@ -18,7 +18,9 @@ import type {
   AgentSessionState,
   AgentThread,
   AgentToolCall,
+  RuntimeLaunch,
 } from '@builderhelm/protocol';
+import { accessFromConfig, resolveAgentPermission } from '@builderhelm/protocol';
 import { BuilderHelmError } from '@builderhelm/shared';
 
 import { AcpSession, confinePath } from './session.js';
@@ -41,6 +43,7 @@ export const MAX_LIVE_AGENT_SESSIONS = 8;
 const APPROVAL_DEADLINE_MS = 10 * 60_000;
 
 interface Waiter {
+  readonly sessionId: string;
   readonly resolve: (decision: AgentPermissionDecision) => void;
   readonly timer: NodeJS.Timeout;
 }
@@ -62,6 +65,8 @@ export interface AgentManagerOptions {
   readonly threads: AgentThreads;
   readonly resolveAgent: (agentId: string) => AgentDescriptor | null;
   readonly resolveProfile: (profileId: string) => AgentProfile | null;
+  /** Config-dir env for a new run. Omitted in tests. */
+  readonly resolveEnv?: (accountRef: string | null) => Record<string, string>;
 }
 
 export class AgentManager {
@@ -76,6 +81,7 @@ export class AgentManager {
     threadId: string | null;
     resumeSessionId: string | null;
     profileId: string | null;
+    launch: RuntimeLaunch | null;
   }): Promise<AgentSessionState> {
     const existing = this.findLive(input.threadId);
     if (existing !== undefined) return existing.state;
@@ -101,10 +107,11 @@ export class AgentManager {
     }
 
     let agent: AgentDescriptor | null;
+    let profile: AgentProfile | null = null;
     if (stored === null && input.profileId !== null) {
       // A profile-backed thread resolves argv here, in main; the renderer
       // named the profile, never the command.
-      const profile = this.options.resolveProfile(input.profileId);
+      profile = this.options.resolveProfile(input.profileId);
       if (profile === null) {
         throw new BuilderHelmError(
           'VALIDATION_FAILED',
@@ -141,12 +148,16 @@ export class AgentManager {
         ? this.options.threads.create(agent, cwd, input.profileId)
         : stored.thread;
     const resumeSessionId = input.resumeSessionId ?? stored?.thread.acpSessionId ?? null;
+    const launch = input.launch ?? profile?.launch ?? null;
 
     let entry: Entry | null = null;
     const session = await AcpSession.start({
       agent,
       cwd,
       resumeSessionId,
+      ...(this.options.resolveEnv === undefined
+        ? {}
+        : { env: this.options.resolveEnv(launch?.accountRef ?? null) }),
       emit: (event) => {
         this.options.threads.append(thread.id, event);
         if (entry !== null) applyToState(entry, event);
@@ -176,6 +187,38 @@ export class AgentManager {
     entry = started;
     this.sessions.set(session.id, started);
     this.options.threads.attach(thread.id, session.id);
+    // Launch consistency: the selection rides the launch, and a runtime that
+    // cannot honor it fails the start instead of quietly keeping its own
+    // previous model. accountRef already bound the child env at spawn.
+    if (launch !== null) {
+      try {
+        for (const [category, value] of [
+          ['model', launch.model],
+          ['thought-level', launch.effort],
+        ] as const) {
+          if (value === null) continue;
+          const option = session.configSnapshot.find(
+            (candidate) => candidate.category === category,
+          );
+          if (option === undefined) {
+            throw new BuilderHelmError(
+              'VALIDATION_FAILED',
+              `The agent does not offer a ${category} selection, so "${value}" cannot be applied.`,
+            );
+          }
+          // Already in effect: re-writing an unchanged value trips runtimes
+          // that rebuild their config state on every set.
+          if (option.value === value) continue;
+          await session.setConfigOption(option.id, value);
+        }
+      } catch (error) {
+        // A launch whose selection cannot be honored never leaves a
+        // half-started session behind.
+        this.sessions.delete(session.id);
+        await session.close().catch(() => {});
+        throw error;
+      }
+    }
     return started.state;
   }
 
@@ -252,6 +295,7 @@ export class AgentManager {
   }
 
   cancel(sessionId: string): void {
+    this.flushWaiters(sessionId, 'cancelled');
     this.require(sessionId).session.cancel();
   }
 
@@ -264,12 +308,12 @@ export class AgentManager {
   }
 
   /**
-   * Answers a pending request. Unknown ids are ignored rather than thrown: a
-   * duplicate click, or an answer arriving after a cancel, is ordinary.
+   * Answers a pending request. Unknown ids, other sessions, and late clicks
+   * are ignored: a stale or replayed answer must not execute.
    */
   respond(sessionId: string, requestId: string, decision: AgentPermissionDecision): void {
     const waiter = this.waiters.get(requestId);
-    if (waiter === undefined) return;
+    if (waiter === undefined || waiter.sessionId !== sessionId) return;
     this.waiters.delete(requestId);
     clearTimeout(waiter.timer);
 
@@ -287,6 +331,7 @@ export class AgentManager {
   async close(sessionId: string): Promise<void> {
     const entry = this.sessions.get(sessionId);
     if (entry === undefined) return;
+    this.flushWaiters(sessionId, 'cancelled');
     this.sessions.delete(sessionId);
     await entry.session.close();
   }
@@ -312,10 +357,16 @@ export class AgentManager {
       readonly options: readonly AgentPermissionOption[];
     },
   ): Promise<AgentPermissionDecision> {
-    const remembered = this.options.rules.lookup(cwd, request.toolCall.kind);
-    if (remembered !== null) return remembered;
-
     const entry = this.sessions.get(request.sessionId);
+    const access = accessFromConfig(entry?.state.configOptions ?? []);
+    const remembered = this.options.rules.lookup(cwd, request.toolCall.kind);
+    const resolved = resolveAgentPermission({
+      access,
+      kind: request.toolCall.kind,
+      remembered,
+    });
+    if (resolved !== 'ask') return resolved;
+
     entry?.pendingKinds.set(request.requestId, request.toolCall.kind);
 
     return await new Promise<AgentPermissionDecision>((resolve) => {
@@ -325,8 +376,22 @@ export class AgentManager {
         resolve('reject-once');
       }, APPROVAL_DEADLINE_MS);
       timer.unref();
-      this.waiters.set(request.requestId, { resolve, timer });
+      this.waiters.set(request.requestId, {
+        sessionId: request.sessionId,
+        resolve,
+        timer,
+      });
     });
+  }
+
+  private flushWaiters(sessionId: string, decision: AgentPermissionDecision): void {
+    for (const [requestId, waiter] of this.waiters) {
+      if (waiter.sessionId !== sessionId) continue;
+      this.waiters.delete(requestId);
+      clearTimeout(waiter.timer);
+      waiter.resolve(decision);
+    }
+    this.sessions.get(sessionId)?.pendingKinds.clear();
   }
 
   private require(sessionId: string): Entry {

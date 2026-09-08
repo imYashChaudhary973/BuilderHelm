@@ -1,6 +1,16 @@
 import type { CorrelationId } from '@builderhelm/shared';
 import { z } from 'zod';
 
+import type { RuntimeSnapshot } from './runtime.js';
+import { modelErrorSchema } from './model.js';
+import type {
+  EditorDraft,
+  EditorDraftInput,
+  WorkspaceMeta,
+  WorkspaceRecord,
+  WorkspaceSnapshot,
+} from './workspaces.js';
+
 import type {
   AccountAddInput,
   AccountConfirmLoginInput,
@@ -23,6 +33,7 @@ import type {
   AgentSessionState,
   AgentThread,
   AgentTranscript,
+  RuntimeLaunch,
 } from './agent-session.js';
 import type {
   BoardAddPaneInput,
@@ -48,6 +59,7 @@ import type {
   SwarmCreateInput,
   SwarmDirectInput,
   SwarmLandTaskInput,
+  SwarmTaskUpdateInput,
   SwarmRunRecord,
   SwarmState,
   SwarmTaskRecord,
@@ -78,6 +90,38 @@ import type {
   LinearKeySaveInput,
   LinearStatus,
 } from './integrations.js';
+import type {
+  ApifyResearchInput,
+  ConnectionConnectInput,
+  ConnectionGrant,
+  ConnectionGrantInput,
+  ConnectionIdInput,
+  ConnectionRecord,
+  ConnectionsSnapshot,
+  ConnectorJob,
+  McpControlInput,
+  McpControlResult,
+  SkillBindInput,
+  SkillCreateInput,
+  SkillRecord,
+  XPublishInput,
+} from './connections.js';
+import type {
+  ScheduleCreateInput,
+  ScheduleIdInput,
+  ScheduleRecord,
+  ScheduleRun,
+  ScheduleRunIdInput,
+  SchedulesSnapshot,
+  ScheduleUpdateInput,
+} from './schedules.js';
+import type {
+  RemoteListenInput,
+  RemotePairingOffer,
+  RemoteRevokeInput,
+  RemoteSession,
+  RemoteSnapshot,
+} from './remote.js';
 
 import type {
   BrowserCommandInput,
@@ -193,6 +237,7 @@ import type {
 
 export const ipcChannels = {
   systemHealth: 'builderhelm:system:health',
+  diagnosticsExport: 'builderhelm:system:diagnostics-export',
   providerList: 'builderhelm:provider:list',
   providerCreate: 'builderhelm:provider:create',
   providerUpdate: 'builderhelm:provider:update',
@@ -335,6 +380,7 @@ export const ipcChannels = {
   agentCandidates: 'builderhelm:agent:candidates',
   agentConfigure: 'builderhelm:agent:configure',
   agentForget: 'builderhelm:agent:forget',
+  runtimeCapabilities: 'builderhelm:runtimes:capabilities',
   agentProfileList: 'builderhelm:agent:profile-list',
   agentProfileUpsert: 'builderhelm:agent:profile-upsert',
   agentProfileDelete: 'builderhelm:agent:profile-delete',
@@ -348,6 +394,27 @@ export const ipcChannels = {
   agentThreadList: 'builderhelm:agent:thread-list',
   agentThreadGet: 'builderhelm:agent:thread-get',
   agentDiff: 'builderhelm:agent:diff',
+  connectionSnapshot: 'builderhelm:connection:snapshot',
+  connectionConnect: 'builderhelm:connection:connect',
+  connectionTest: 'builderhelm:connection:test',
+  connectionDisconnect: 'builderhelm:connection:disconnect',
+  connectionGrant: 'builderhelm:connection:grant',
+  connectionResearch: 'builderhelm:connection:research',
+  connectionPublish: 'builderhelm:connection:publish',
+  connectionSkillCreate: 'builderhelm:connection:skill-create',
+  connectionSkillBind: 'builderhelm:connection:skill-bind',
+  connectionMcp: 'builderhelm:connection:mcp',
+  scheduleSnapshot: 'builderhelm:schedule:snapshot',
+  scheduleCreate: 'builderhelm:schedule:create',
+  scheduleUpdate: 'builderhelm:schedule:update',
+  schedulePause: 'builderhelm:schedule:pause',
+  scheduleResume: 'builderhelm:schedule:resume',
+  scheduleCancelRun: 'builderhelm:schedule:cancel-run',
+  remoteSnapshot: 'builderhelm:remote:snapshot',
+  remoteListen: 'builderhelm:remote:listen',
+  remoteStop: 'builderhelm:remote:stop',
+  remotePairOffer: 'builderhelm:remote:pair-offer',
+  remoteRevoke: 'builderhelm:remote:revoke',
   agentEvent: 'builderhelm:agent:event',
 } as const;
 
@@ -375,9 +442,34 @@ export const systemHealthResponseSchema = z
 export type SystemHealthRequest = z.infer<typeof systemHealthRequestSchema>;
 export type SystemHealthResponse = z.infer<typeof systemHealthResponseSchema>;
 
+export const diagnosticsExportRequestSchema = z
+  .object({
+    correlationId: z
+      .string()
+      .uuid()
+      .transform((value) => value as CorrelationId),
+  })
+  .strict();
+
+export const diagnosticsExportIpcResponseSchema = z.discriminatedUnion('ok', [
+  z
+    .object({
+      ok: z.literal(true),
+      value: z.object({ path: z.string().nullable() }).strict(),
+    })
+    .strict(),
+  z.object({ ok: z.literal(false), error: modelErrorSchema }).strict(),
+]);
+
+export type DiagnosticsExportRequest = z.infer<typeof diagnosticsExportRequestSchema>;
+export type DiagnosticsExportIpcResponse = z.infer<
+  typeof diagnosticsExportIpcResponseSchema
+>;
+
 export interface BuilderHelmDesktopApi {
   readonly system: {
     health(): Promise<SystemHealthResponse>;
+    exportDiagnostics(): Promise<{ path: string | null }>;
   };
   readonly providers: {
     list(): Promise<ProviderSummary[]>;
@@ -439,6 +531,10 @@ export interface BuilderHelmDesktopApi {
       readonly correlationId: CorrelationId;
       readonly input: SwarmLandTaskInput;
     }): Promise<SwarmTaskRecord>;
+    updateTask(input: {
+      readonly correlationId: CorrelationId;
+      readonly input: SwarmTaskUpdateInput;
+    }): Promise<SwarmTaskRecord>;
     stop(input: {
       readonly correlationId: CorrelationId;
       readonly runId: string;
@@ -453,6 +549,16 @@ export interface BuilderHelmDesktopApi {
     }): Promise<SwarmRunRecord | null>;
     /** Push: a run's ledger changed; refetch its state. */
     onEvent(listener: (runId: string) => void): () => void;
+  };
+  readonly workspaces: {
+    snapshot(): Promise<WorkspaceSnapshot>;
+    select(id: string | null, paneId?: string): Promise<void>;
+    metadata(input: WorkspaceMeta): Promise<void>;
+    importLegacy(entries: readonly WorkspaceMeta[]): Promise<void>;
+    restart(id: string): Promise<WorkspaceRecord>;
+    order(id: string, paneIds: readonly string[]): Promise<void>;
+    drafts(root: string): Promise<EditorDraft[]>;
+    saveDraft(input: EditorDraftInput): Promise<void>;
   };
   readonly board: {
     homeDir(): Promise<string>;
@@ -482,6 +588,33 @@ export interface BuilderHelmDesktopApi {
       sessionId: string,
       listener: (event: BoardPaneEventEnvelope) => void,
     ): () => void;
+  };
+  readonly connections: {
+    snapshot(): Promise<ConnectionsSnapshot>;
+    connect(input: ConnectionConnectInput): Promise<ConnectionRecord>;
+    test(input: ConnectionIdInput): Promise<ConnectionRecord>;
+    disconnect(input: ConnectionIdInput): Promise<ConnectionRecord>;
+    grant(input: ConnectionGrantInput): Promise<ConnectionGrant | null>;
+    research(input: ApifyResearchInput): Promise<ConnectorJob>;
+    publish(input: XPublishInput): Promise<ConnectorJob>;
+    createSkill(input: SkillCreateInput): Promise<SkillRecord>;
+    bindSkill(input: SkillBindInput): Promise<SkillRecord>;
+    mcp(input: McpControlInput): Promise<McpControlResult>;
+  };
+  readonly schedules: {
+    snapshot(): Promise<SchedulesSnapshot>;
+    create(input: ScheduleCreateInput): Promise<ScheduleRecord>;
+    update(input: ScheduleUpdateInput): Promise<ScheduleRecord>;
+    pause(input: ScheduleIdInput): Promise<ScheduleRecord>;
+    resume(input: ScheduleIdInput): Promise<ScheduleRecord>;
+    cancelRun(input: ScheduleRunIdInput): Promise<ScheduleRun>;
+  };
+  readonly remote: {
+    snapshot(): Promise<RemoteSnapshot>;
+    listen(input: RemoteListenInput): Promise<RemoteSnapshot>;
+    stop(): Promise<RemoteSnapshot>;
+    createPairing(): Promise<RemotePairingOffer>;
+    revoke(input: RemoteRevokeInput): Promise<RemoteSession>;
   };
   readonly integrations: {
     listGitHubIssues(input: GitHubIssueListInput): Promise<GitHubIssue[]>;
@@ -594,6 +727,10 @@ export interface BuilderHelmDesktopApi {
     openAccount(): Promise<AuthState>;
     onChange(listener: (state: AuthState) => void): () => void;
   };
+  /** The consolidated, honestly-tiered runtime capability matrix. */
+  readonly runtimes: {
+    capabilities(): Promise<RuntimeSnapshot>;
+  };
   readonly agents: {
     /** Configured agents plus known ones found on PATH. */
     candidates(): Promise<readonly AgentCandidate[]>;
@@ -605,6 +742,7 @@ export interface BuilderHelmDesktopApi {
       threadId: string | null;
       resumeSessionId: string | null;
       profileId: string | null;
+      launch?: RuntimeLaunch | null;
     }): Promise<AgentSessionState>;
     profiles(): Promise<readonly AgentProfile[]>;
     profileUpsert(profile: AgentProfileInput): Promise<AgentProfile>;

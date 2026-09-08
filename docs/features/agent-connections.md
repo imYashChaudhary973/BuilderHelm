@@ -1,7 +1,8 @@
 # Agents, Code, Chats, and connected tools
 
-Status: proposed backend design, 2026-09-08. The visual implementation is in
-`feat/product-look`. This document does not claim that plugin execution exists.
+Status: host connectors shipped on `feat/ade-mcp` (fixture-tested). ACP
+still sends `mcpServers: []`; tools execute on the host, not inside the CLI.
+No marketplace. No live paid Apify or X call in verification.
 
 ## Product contract
 
@@ -36,8 +37,11 @@ must not spawn a process. Switching tabs must not cancel a running task.
 - `apps/desktop/src/main/keyring-secret-store.ts`: credential adapter.
 - Code already uses xterm.js and node-pty. Keep those services and the existing
   workspace, Git, file, and review operations.
-- Plugins and Automations are placeholders. ACP and model API chat are distinct
-  backends; the visible Chats tab currently uses ACP, per ADR 0008.
+- Plugins and Skills are host connectors on this branch. Automations are
+  desktop-open schedules; see [automations.md](automations.md). Remote control
+  is local-network pairing; see [remote.md](remote.md). ACP and model
+  API chat are distinct backends; the visible Chats tab currently uses ACP,
+  per ADR 0008.
 
 ## Execution architecture
 

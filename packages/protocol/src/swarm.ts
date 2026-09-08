@@ -6,6 +6,7 @@ import {
   type BoardAgentLaunchMode,
   type BoardPaneStatus,
 } from './board.js';
+import { runtimeLaunchSchema } from './agent-session.js';
 import type { CorrelationId } from '@builderhelm/shared';
 
 import { modelErrorSchema } from './model.js';
@@ -394,6 +395,7 @@ export const swarmRunStatusSchema = z.enum([
   'stopped',
   'done',
   'failed',
+  'partial',
 ]);
 export type SwarmRunRecordStatus = z.infer<typeof swarmRunStatusSchema>;
 
@@ -423,6 +425,11 @@ export const swarmMessageKindSchema = z.enum([
   'coordinator_note',
   'task_event',
   'system',
+  'question',
+  'answer',
+  'handoff',
+  'progress',
+  'artifact',
 ]);
 export type SwarmMessageKind = z.infer<typeof swarmMessageKindSchema>;
 
@@ -479,6 +486,7 @@ export const swarmTaskSchema = z
     dependsOn: z.array(uuidSchema).max(50),
     attempts: z.number().int().min(0).max(3),
     landedCommit: z.string().min(7).max(40).nullable(),
+    baseSha: z.string().min(7).max(40).nullable(),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
   })
@@ -490,6 +498,7 @@ export const swarmMessageSchema = z
     id: uuidSchema,
     runId: uuidSchema,
     seatId: uuidSchema.nullable(),
+    taskId: uuidSchema.nullable(),
     kind: swarmMessageKindSchema,
     body: z.string().min(1).max(4_000),
     createdAt: z.string().datetime(),
@@ -523,6 +532,20 @@ export const swarmCreateInputSchema = z
       )
       .min(1)
       .max(12),
+    /**
+     * The runtime that decomposes the mission, with its launch selection.
+     * Null (or omitted) means the host auto-picks among orchestration-ready
+     * runtimes and logs the choice — the one remaining non-selected path,
+     * gated by capability evidence rather than catalog order.
+     */
+    planner: z
+      .object({
+        agentId: boardAgentIdSchema,
+        launch: runtimeLaunchSchema.nullable(),
+      })
+      .strict()
+      .nullable()
+      .default(null),
   })
   .strict();
 export type SwarmCreateInput = z.infer<typeof swarmCreateInputSchema>;
@@ -646,6 +669,8 @@ export const swarmPlanTaskSchema = z
     title: z.string().trim().min(1).max(500),
     detail: z.string().max(10_000).optional(),
     files: z.array(z.string().trim().min(1).max(4096)).max(200),
+    inputs: z.array(z.string().trim().min(1).max(4096)).max(200).optional(),
+    acceptance: z.array(z.string().trim().min(1).max(500)).max(20).optional(),
     dependsOn: z.array(z.number().int().min(0)).max(50).optional(),
   })
   .strict();
@@ -679,6 +704,8 @@ export const SWARM_PLAN_JSON_SCHEMA = {
           title: { type: 'string' },
           detail: { type: 'string' },
           files: { type: 'array', items: { type: 'string' } },
+          inputs: { type: 'array', items: { type: 'string' } },
+          acceptance: { type: 'array', items: { type: 'string' } },
           dependsOn: { type: 'array', items: { type: 'integer', minimum: 0 } },
         },
       },
@@ -695,3 +722,34 @@ export const SWARM_REVIEW_JSON_SCHEMA = {
     issues: { type: 'array', items: { type: 'string' } },
   },
 } as const;
+
+/**
+ * Execution phase, derived from the stored task plus its siblings.
+ * Review and landing stay on `status`; this is the dispatcher view.
+ */
+export type SwarmTaskPhase =
+  'queued' | 'running' | 'waiting' | 'blocked' | 'failed' | 'finished';
+
+export function swarmTaskPhase(
+  task: Pick<SwarmTaskRecord, 'status' | 'dependsOn'>,
+  siblings: readonly Pick<SwarmTaskRecord, 'id' | 'status'>[],
+): SwarmTaskPhase {
+  if (task.status === 'in_progress') return 'running';
+  if (task.status === 'review') return 'finished';
+  if (task.status === 'failed') return 'failed';
+  if (task.status === 'skipped') return 'blocked';
+  if (task.status === 'landed') return 'finished';
+  const byId = new Map(siblings.map((item) => [item.id, item]));
+  if (
+    task.dependsOn.some((dep) => {
+      const parent = byId.get(dep);
+      return (
+        parent === undefined || parent.status === 'failed' || parent.status === 'skipped'
+      );
+    })
+  ) {
+    return 'blocked';
+  }
+  if (task.dependsOn.some((dep) => byId.get(dep)?.status !== 'landed')) return 'waiting';
+  return 'queued';
+}

@@ -30,6 +30,8 @@ function profile(overrides: Partial<AgentProfile> = {}): AgentProfile {
     mark: 'diamond',
     agent: { id: 'codex', label: 'Codex', command: 'codex-acp', args: [] },
     defaultCwd: null,
+    launch: null,
+    instructions: '',
     createdAt: '2026-09-07T00:00:00.000Z',
     lastOpenedAt: '2026-09-07T00:00:00.000Z',
     ...overrides,

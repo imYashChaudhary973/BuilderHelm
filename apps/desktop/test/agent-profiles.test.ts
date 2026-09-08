@@ -55,6 +55,54 @@ describe('agent profiles', () => {
     ).toThrowError(/not found/);
   });
 
+  it('carries the launch selection and keeps profiles without one parsing', () => {
+    const store = memoryStore();
+    const profiles = new AgentProfiles(store);
+    const withLaunch = profiles.upsert({
+      ...input,
+      launch: { model: 'claude-sonnet-4-5', effort: null, accountRef: 'work' },
+    });
+    expect(withLaunch.launch).toEqual({
+      model: 'claude-sonnet-4-5',
+      effort: null,
+      accountRef: 'work',
+    });
+
+    // An update that does not mention launch preserves the stored selection.
+    const renamed = profiles.upsert({ ...input, id: withLaunch.id, name: 'Renamed' });
+    expect(renamed.launch).toMatchObject({ model: 'claude-sonnet-4-5' });
+
+    // A stored profile from before the field existed still parses, with no
+    // selection invented: null across the board.
+    const legacy = profiles.upsert({ ...input, name: 'Legacy' });
+    const raw = JSON.parse(store.read('agent.profiles') ?? '[]') as {
+      name: string;
+      launch?: unknown;
+    }[];
+    for (const row of raw) if (row.name === 'Legacy') delete row.launch;
+    store.write('agent.profiles', JSON.stringify(raw), new Date().toISOString());
+    const reread = new AgentProfiles(store);
+    expect(reread.find(legacy.id)?.launch).toBeNull();
+  });
+
+  it('writes an explicit launch on update', () => {
+    const profiles = new AgentProfiles(memoryStore());
+    const created = profiles.upsert({
+      ...input,
+      launch: { model: 'a', effort: null, accountRef: null },
+    });
+    const updated = profiles.upsert({
+      ...input,
+      id: created.id,
+      launch: { model: 'b', effort: 'high', accountRef: 'codex:system' },
+    });
+    expect(updated.launch).toEqual({
+      model: 'b',
+      effort: 'high',
+      accountRef: 'codex:system',
+    });
+  });
+
   it('removes a profile and keeps its threads readable afterwards', () => {
     const profiles = new AgentProfiles(memoryStore());
     const created = profiles.upsert(input);

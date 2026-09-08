@@ -97,7 +97,8 @@ describe('buildConfigChips', () => {
     const { chips } = buildConfigChips([
       option({ id: 'model', label: 'Model', value: 'mystery' }),
     ]);
-    expect(chips[0]?.currentLabel).toBe('mystery');
+    expect(chips[0]?.currentLabel).toBe('mystery (unavailable)');
+    expect(chips[0]?.missing).toBe(true);
   });
 });
 
