@@ -135,7 +135,7 @@ export function buildLauncherActions(ctx: LauncherContext): LauncherAction[] {
       label: 'Connect a plugin',
       keywords: ['mcp', 'github', 'linear', 'jira', 'vidiq'],
       available: true,
-      detail: 'Opens Plugins — connections are not built yet',
+      detail: 'Apify research and X publish — grants are per profile',
       run: () => ctx.navigate('/plugins'),
     },
   );

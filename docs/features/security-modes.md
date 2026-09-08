@@ -75,7 +75,7 @@ Opening a project does not run setup scripts or `pnpm install`. Swarm
 verify may install inside an already-running mission, after agent work,
 not at folder open.
 
-ACP `session/new` sends `mcpServers: []`. Plugins are a NotBuilt stub.
-Repository instructions, MCP output, and plugin content are untrusted.
-Worktrees remain trusted-code isolation; OS confinement is a later
-execution capability.
+ACP `session/new` sends `mcpServers: []`. Connector tools run on the host
+after a profile grant. Repository instructions, MCP output, and plugin
+content are untrusted. Worktrees remain trusted-code isolation; OS
+confinement is a later execution capability.

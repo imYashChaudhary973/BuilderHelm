@@ -107,6 +107,22 @@ import {
   linearKeySaveIpcResponseSchema,
   linearStatusIpcResponseSchema,
 } from '@builderhelm/protocol/integrations';
+import {
+  apifyResearchInputSchema,
+  connectionConnectInputSchema,
+  connectionGrantInputSchema,
+  connectionGrantIpcResponseSchema,
+  connectionIdInputSchema,
+  connectionRecordIpcResponseSchema,
+  connectionsSnapshotIpcResponseSchema,
+  connectorJobIpcResponseSchema,
+  mcpControlInputSchema,
+  mcpControlIpcResponseSchema,
+  skillBindInputSchema,
+  skillCreateInputSchema,
+  skillRecordIpcResponseSchema,
+  xPublishInputSchema,
+} from '@builderhelm/protocol/connections';
 
 import {
   ipcChannels,
@@ -803,6 +819,87 @@ const api: BuilderHelmDesktopApi = {
         input: {},
       });
       return unwrap(linearKeyDeleteIpcResponseSchema.parse(response));
+    },
+  },
+  connections: {
+    async snapshot() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.connectionSnapshot, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: {},
+      });
+      return unwrap(connectionsSnapshotIpcResponseSchema.parse(response));
+    },
+    async connect(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.connectionConnect, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: connectionConnectInputSchema.parse(input),
+      });
+      return unwrap(connectionRecordIpcResponseSchema.parse(response));
+    },
+    async test(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.connectionTest, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: connectionIdInputSchema.parse(input),
+      });
+      return unwrap(connectionRecordIpcResponseSchema.parse(response));
+    },
+    async disconnect(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.connectionDisconnect,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          input: connectionIdInputSchema.parse(input),
+        },
+      );
+      return unwrap(connectionRecordIpcResponseSchema.parse(response));
+    },
+    async grant(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.connectionGrant, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: connectionGrantInputSchema.parse(input),
+      });
+      return unwrap(connectionGrantIpcResponseSchema.parse(response));
+    },
+    async research(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.connectionResearch, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: apifyResearchInputSchema.parse(input),
+      });
+      return unwrap(connectorJobIpcResponseSchema.parse(response));
+    },
+    async publish(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.connectionPublish, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: xPublishInputSchema.parse(input),
+      });
+      return unwrap(connectorJobIpcResponseSchema.parse(response));
+    },
+    async createSkill(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.connectionSkillCreate,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          input: skillCreateInputSchema.parse(input),
+        },
+      );
+      return unwrap(skillRecordIpcResponseSchema.parse(response));
+    },
+    async bindSkill(input) {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.connectionSkillBind,
+        {
+          correlationId: globalThis.crypto.randomUUID(),
+          input: skillBindInputSchema.parse(input),
+        },
+      );
+      return unwrap(skillRecordIpcResponseSchema.parse(response));
+    },
+    async mcp(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.connectionMcp, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: mcpControlInputSchema.parse(input),
+      });
+      return unwrap(mcpControlIpcResponseSchema.parse(response));
     },
   },
   projects: {

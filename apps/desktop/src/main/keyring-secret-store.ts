@@ -11,6 +11,7 @@ const validSecretRefs: readonly RegExp[] = [
   /^builderhelm\.voice\.openai\.api-key$/,
   /^builderhelm\.linear\.api-key$/,
   /^builderhelm\.session$/,
+  /^builderhelm\.connection\.[0-9a-f-]{36}\.token$/,
 ];
 
 /** Keychain has no item under this ref; every other error is a real failure. */

@@ -155,6 +155,23 @@ import {
   linearStatusIpcResponseSchema,
   linearStatusRequestSchema,
 } from '@builderhelm/protocol/integrations';
+import {
+  apifyResearchRequestSchema,
+  connectionConnectRequestSchema,
+  connectionGrantIpcResponseSchema,
+  connectionGrantRequestSchema,
+  connectionIdRequestSchema,
+  connectionRecordIpcResponseSchema,
+  connectionsSnapshotIpcResponseSchema,
+  connectionsSnapshotRequestSchema,
+  connectorJobIpcResponseSchema,
+  mcpControlIpcResponseSchema,
+  mcpControlRequestSchema,
+  skillBindRequestSchema,
+  skillCreateRequestSchema,
+  skillRecordIpcResponseSchema,
+  xPublishRequestSchema,
+} from '@builderhelm/protocol/connections';
 
 import {
   chatCreateRequestSchema,
@@ -1617,6 +1634,152 @@ export function registerIpcHandlers(
       });
     }
   });
+  ipcMain.handle(ipcChannels.connectionSnapshot, (_event, input: unknown) => {
+    try {
+      connectionsSnapshotRequestSchema.parse(input);
+      return connectionsSnapshotIpcResponseSchema.parse({
+        ok: true,
+        value: core.connections.snapshot(),
+      });
+    } catch (error) {
+      return connectionsSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.connectionConnect, async (_event, input: unknown) => {
+    try {
+      const request = connectionConnectRequestSchema.parse(input);
+      return connectionRecordIpcResponseSchema.parse({
+        ok: true,
+        value: await core.connections.connect(request.input, request.correlationId),
+      });
+    } catch (error) {
+      return connectionRecordIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.connectionTest, async (_event, input: unknown) => {
+    try {
+      const request = connectionIdRequestSchema.parse(input);
+      return connectionRecordIpcResponseSchema.parse({
+        ok: true,
+        value: await core.connections.test(
+          request.input.connectionId,
+          request.correlationId,
+        ),
+      });
+    } catch (error) {
+      return connectionRecordIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.connectionDisconnect, async (_event, input: unknown) => {
+    try {
+      const request = connectionIdRequestSchema.parse(input);
+      return connectionRecordIpcResponseSchema.parse({
+        ok: true,
+        value: await core.connections.disconnect(
+          request.input.connectionId,
+          request.correlationId,
+        ),
+      });
+    } catch (error) {
+      return connectionRecordIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.connectionGrant, (_event, input: unknown) => {
+    try {
+      const request = connectionGrantRequestSchema.parse(input);
+      return connectionGrantIpcResponseSchema.parse({
+        ok: true,
+        value: core.connections.grant(request.input),
+      });
+    } catch (error) {
+      return connectionGrantIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.connectionResearch, async (_event, input: unknown) => {
+    try {
+      const request = apifyResearchRequestSchema.parse(input);
+      return connectorJobIpcResponseSchema.parse({
+        ok: true,
+        value: await core.connections.research(request.input, request.correlationId),
+      });
+    } catch (error) {
+      return connectorJobIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.connectionPublish, async (_event, input: unknown) => {
+    try {
+      const request = xPublishRequestSchema.parse(input);
+      return connectorJobIpcResponseSchema.parse({
+        ok: true,
+        value: await core.connections.publish(request.input, request.correlationId),
+      });
+    } catch (error) {
+      return connectorJobIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.connectionSkillCreate, (_event, input: unknown) => {
+    try {
+      const request = skillCreateRequestSchema.parse(input);
+      return skillRecordIpcResponseSchema.parse({
+        ok: true,
+        value: core.connections.createSkill(request.input),
+      });
+    } catch (error) {
+      return skillRecordIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.connectionSkillBind, (_event, input: unknown) => {
+    try {
+      const request = skillBindRequestSchema.parse(input);
+      return skillRecordIpcResponseSchema.parse({
+        ok: true,
+        value: core.connections.bindSkill(request.input),
+      });
+    } catch (error) {
+      return skillRecordIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.connectionMcp, (_event, input: unknown) => {
+    try {
+      const request = mcpControlRequestSchema.parse(input);
+      return mcpControlIpcResponseSchema.parse({
+        ok: true,
+        value: core.connections.handleMcp(request.input),
+      });
+    } catch (error) {
+      return mcpControlIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
 
   ipcMain.handle(ipcChannels.browserCommand, async (event, input: unknown) => {
     try {
@@ -3043,5 +3206,15 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.voiceModelCancel);
     ipcMain.removeHandler(ipcChannels.voiceModelDelete);
     ipcMain.removeHandler(ipcChannels.voiceTranscribe);
+    ipcMain.removeHandler(ipcChannels.connectionSnapshot);
+    ipcMain.removeHandler(ipcChannels.connectionConnect);
+    ipcMain.removeHandler(ipcChannels.connectionTest);
+    ipcMain.removeHandler(ipcChannels.connectionDisconnect);
+    ipcMain.removeHandler(ipcChannels.connectionGrant);
+    ipcMain.removeHandler(ipcChannels.connectionResearch);
+    ipcMain.removeHandler(ipcChannels.connectionPublish);
+    ipcMain.removeHandler(ipcChannels.connectionSkillCreate);
+    ipcMain.removeHandler(ipcChannels.connectionSkillBind);
+    ipcMain.removeHandler(ipcChannels.connectionMcp);
   };
 }

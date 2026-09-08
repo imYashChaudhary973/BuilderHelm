@@ -44,6 +44,8 @@ export const agentProfileSchema = z
      * older stored profiles; the default keeps them parsing.
      */
     launch: runtimeLaunchSchema.nullable().default(null),
+    /** Standing instructions. Skills fill this; they never grant tools. */
+    instructions: z.string().max(20_000).default(''),
     createdAt: z.string().datetime(),
     lastOpenedAt: z.string().datetime(),
   })
@@ -63,6 +65,7 @@ export const agentProfileInputSchema = z
     agent: agentDescriptorSchema,
     defaultCwd: z.string().max(4096).nullable(),
     launch: runtimeLaunchSchema.nullable().optional(),
+    instructions: z.string().max(20_000).optional(),
   })
   .strict();
 export type AgentProfileInput = z.infer<typeof agentProfileInputSchema>;

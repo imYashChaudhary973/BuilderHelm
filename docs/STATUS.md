@@ -60,6 +60,17 @@ Status labels used below:
   show it on the rail. Chat drafts survive Agents/Chats navigation;
   terminal-only runtimes say so instead of pretending to chat.
 
+- Connections, skills, and specialized bots: Apify and X-write records live in
+  SQLite with Keychain tokens. Connecting grants nothing. Profile grants are
+  revoked on disconnect or schema change. Skills store version/provenance and
+  cannot grant tools. Social Content Manager is a reviewed skill. One Apify
+  research path (reviewed actor, cost approval, remote job id, bounded cited
+  report) and a distinct X publish connection. Inbound MCP control is
+  `host.status` / `host.list_connections` only — no shell or filesystem.
+  Owned MCP JSON is patched atomically and left alone if unparseable. ACP
+  `mcpServers` stays empty; tools run on the host. Fixture-tested; no live
+  paid Apify or X call.
+
 - Runtime capability matrix: every known agent probed on PATH (binary path
   and version), tiered unavailable / untested / terminal / structured-chat /
   orchestration-ready, with verification evidence named in code. Readable via

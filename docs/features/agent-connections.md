@@ -1,7 +1,8 @@
 # Agents, Code, Chats, and connected tools
 
-Status: proposed backend design, 2026-09-08. The visual implementation is in
-`feat/product-look`. This document does not claim that plugin execution exists.
+Status: host connectors shipped on `feat/ade-mcp` (fixture-tested). ACP
+still sends `mcpServers: []`; tools execute on the host, not inside the CLI.
+No marketplace. No live paid Apify or X call in verification.
 
 ## Product contract
 

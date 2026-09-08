@@ -10426,6 +10426,52 @@ html.is-fullscreen .swarmWizardFoot {
   margin-top: 18px;
 }
 
+.pluginsPage {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+  max-width: 720px;
+  overflow: auto;
+  padding-bottom: 24px;
+}
+
+.pluginsPage h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.pluginsPage p,
+.pluginsPage label {
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.pluginsGrant {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+
+.pluginsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 8px 0;
+}
+
+.pluginsJobs {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.pluginsSkill,
+.pluginsJobs pre {
+  white-space: pre-wrap;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
 .accountPage a {
   color: var(--accent-bright);
 }

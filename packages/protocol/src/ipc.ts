@@ -82,6 +82,22 @@ import type {
   LinearKeySaveInput,
   LinearStatus,
 } from './integrations.js';
+import type {
+  ApifyResearchInput,
+  ConnectionConnectInput,
+  ConnectionGrant,
+  ConnectionGrantInput,
+  ConnectionIdInput,
+  ConnectionRecord,
+  ConnectionsSnapshot,
+  ConnectorJob,
+  McpControlInput,
+  McpControlResult,
+  SkillBindInput,
+  SkillCreateInput,
+  SkillRecord,
+  XPublishInput,
+} from './connections.js';
 
 import type {
   BrowserCommandInput,
@@ -353,6 +369,16 @@ export const ipcChannels = {
   agentThreadList: 'builderhelm:agent:thread-list',
   agentThreadGet: 'builderhelm:agent:thread-get',
   agentDiff: 'builderhelm:agent:diff',
+  connectionSnapshot: 'builderhelm:connection:snapshot',
+  connectionConnect: 'builderhelm:connection:connect',
+  connectionTest: 'builderhelm:connection:test',
+  connectionDisconnect: 'builderhelm:connection:disconnect',
+  connectionGrant: 'builderhelm:connection:grant',
+  connectionResearch: 'builderhelm:connection:research',
+  connectionPublish: 'builderhelm:connection:publish',
+  connectionSkillCreate: 'builderhelm:connection:skill-create',
+  connectionSkillBind: 'builderhelm:connection:skill-bind',
+  connectionMcp: 'builderhelm:connection:mcp',
   agentEvent: 'builderhelm:agent:event',
 } as const;
 
@@ -491,6 +517,18 @@ export interface BuilderHelmDesktopApi {
       sessionId: string,
       listener: (event: BoardPaneEventEnvelope) => void,
     ): () => void;
+  };
+  readonly connections: {
+    snapshot(): Promise<ConnectionsSnapshot>;
+    connect(input: ConnectionConnectInput): Promise<ConnectionRecord>;
+    test(input: ConnectionIdInput): Promise<ConnectionRecord>;
+    disconnect(input: ConnectionIdInput): Promise<ConnectionRecord>;
+    grant(input: ConnectionGrantInput): Promise<ConnectionGrant | null>;
+    research(input: ApifyResearchInput): Promise<ConnectorJob>;
+    publish(input: XPublishInput): Promise<ConnectorJob>;
+    createSkill(input: SkillCreateInput): Promise<SkillRecord>;
+    bindSkill(input: SkillBindInput): Promise<SkillRecord>;
+    mcp(input: McpControlInput): Promise<McpControlResult>;
   };
   readonly integrations: {
     listGitHubIssues(input: GitHubIssueListInput): Promise<GitHubIssue[]>;

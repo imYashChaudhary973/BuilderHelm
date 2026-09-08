@@ -15,6 +15,8 @@ import { KanbanBoard } from './components/kanban-board.js';
 import { ActionsPage } from './routes/actions.js';
 import { AgentsPage } from './routes/agents.js';
 import { NotBuilt } from './components/not-built.js';
+import { PluginsPage } from './routes/plugins.js';
+import { SkillsPage } from './routes/skills.js';
 import { BoardPage } from './routes/board.js';
 import { ChatPage } from './routes/chat.js';
 import { MemoryPage } from './routes/memory.js';
@@ -128,28 +130,12 @@ const searchRoute = createRoute({
 const pluginsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/plugins',
-  component: () => (
-    <NotBuilt
-      titleId="plugins-title"
-      title="Plugins"
-      summary="Connect accounts like GitHub, Slack, or Notion and let agents act through them with approval."
-      instead={{
-        label: 'Today:',
-        detail: 'GitHub and Linear issues import onto the Board.',
-      }}
-    />
-  ),
+  component: PluginsPage,
 });
 const skillsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/skills',
-  component: () => (
-    <NotBuilt
-      titleId="skills-title"
-      title="Skills"
-      summary="Reusable instructions an agent loads before it starts, so a way of working survives the run."
-    />
-  ),
+  component: SkillsPage,
 });
 const automationsRoute = createRoute({
   getParentRoute: () => rootRoute,

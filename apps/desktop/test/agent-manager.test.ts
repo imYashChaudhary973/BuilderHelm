@@ -92,6 +92,8 @@ function manager(): AgentManager {
             mark: 'diamond',
             agent: { ...codex, args: ['--profile'] },
             defaultCwd: null,
+            launch: null,
+            instructions: '',
             createdAt: '2026-09-07T00:00:00.000Z',
             lastOpenedAt: '2026-09-07T00:00:00.000Z',
           }

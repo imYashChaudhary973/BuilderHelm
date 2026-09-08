@@ -46,6 +46,7 @@ import { NoSleepService } from './no-sleep/no-sleep-service.js';
 import { AuthService } from './auth/auth-service.js';
 import { VoiceService, type VoiceModelInventory } from './voice/voice-service.js';
 import { AccountsService } from './accounts/accounts-service.js';
+import { ConnectionService, ownedConfigDir } from './connections/connection-service.js';
 
 export interface CoreOptions {
   readonly databasePath: string;
@@ -73,6 +74,7 @@ export interface CoreRuntime {
   readonly review: GitReviewService;
   readonly githubIssues: GitHubIssuesService;
   readonly linearIssues: LinearIssuesService;
+  readonly connections: ConnectionService;
   readonly previewArtifacts: PreviewArtifactService;
   readonly browserSettings: BrowserSettingsService;
   /**
@@ -154,6 +156,12 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     logger,
     options.secretStore,
   );
+  const connections = new ConnectionService(
+    database,
+    options.secretStore,
+    logger,
+    ownedConfigDir(options.databasePath),
+  );
   const previewArtifacts = new PreviewArtifactService(
     new PreviewArtifactRepository(database),
   );
@@ -207,6 +215,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     review,
     githubIssues,
     linearIssues,
+    connections,
     previewArtifacts,
     browserSettings,
     settings,

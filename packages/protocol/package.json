@@ -95,6 +95,10 @@
     "./integrations": {
       "types": "./dist/integrations.d.ts",
       "import": "./src/integrations.ts"
+    },
+    "./connections": {
+      "types": "./dist/connections.d.ts",
+      "import": "./src/connections.ts"
     }
   },
   "dependencies": {
