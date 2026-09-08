@@ -41,6 +41,7 @@ import { AuthHandoff } from './auth-handoff.js';
 import { AgentManager } from './acp/manager.js';
 import { PermissionRules } from './acp/permission-rules.js';
 import { AgentRegistry } from './acp/registry.js';
+import { createRuntimeCapabilityService } from './runtime-capabilities.js';
 import { AgentProfiles } from './acp/profiles.js';
 import { AgentThreads } from './acp/threads.js';
 
@@ -348,6 +349,7 @@ app
     // live sessions and needs a way to reach the renderer, since a permission
     // request has to be answered by a person.
     const agentRegistry = new AgentRegistry(runtime.settings);
+    const runtimeCapabilities = createRuntimeCapabilityService(agentRegistry);
     const agentProfiles = new AgentProfiles(runtime.settings);
     agentManager = new AgentManager({
       emit: (event) => {
@@ -407,6 +409,7 @@ app
       },
       authHandoff,
       { manager: agentManager, registry: agentRegistry, profiles: agentProfiles },
+      { capabilities: runtimeCapabilities },
     );
     setTimeout(hookClaude, 400);
     installApplicationMenu();

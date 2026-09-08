@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { CoreRuntime } from '@builderhelm/core';
+import type { CoreRuntime, RuntimeCapabilityService } from '@builderhelm/core';
 import {
   accountAddRequestSchema,
   accountConfirmLoginRequestSchema,
@@ -32,6 +32,7 @@ import {
 import {
   agentCancelInputSchema,
   agentCandidatesIpcResponseSchema,
+  runtimeCapabilitiesIpcResponseSchema,
   agentConfigureInputSchema,
   agentDiffInputSchema,
   agentForgetInputSchema,
@@ -387,6 +388,7 @@ export function registerIpcHandlers(
   onNoSleepActivity?: (active: boolean) => void,
   auth?: AuthHandoff,
   agents?: { manager: AgentManager; registry: AgentRegistry; profiles: AgentProfiles },
+  runtimes?: { capabilities: RuntimeCapabilityService },
 ): () => void {
   const preview = new PreviewBrowser(core.browserSettings);
   const desktop = new DesktopControl();
@@ -2631,6 +2633,16 @@ export function registerIpcHandlers(
 
   // Agent sessions. Every handler needs `agents`, so the guard is one helper
   // rather than a repeated undefined check.
+  function requireRuntimes(): RuntimeCapabilityService {
+    if (runtimes === undefined) {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'Runtime capability detection is not available.',
+      );
+    }
+    return runtimes.capabilities;
+  }
+
   function requireAgents(): NonNullable<typeof agents> {
     if (agents === undefined) {
       throw new BuilderHelmError('INTEGRATION_OFFLINE', 'Agent chat is not available.');
@@ -2645,6 +2657,19 @@ export function registerIpcHandlers(
       return agentCandidatesIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
       return agentCandidatesIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+
+  ipcMain.handle(ipcChannels.runtimeCapabilities, async (_event, input: unknown) => {
+    try {
+      systemHealthRequestSchema.parse(input);
+      const value = await requireRuntimes().snapshot();
+      return runtimeCapabilitiesIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return runtimeCapabilitiesIpcResponseSchema.parse({
         ok: false,
         error: ipcError(error),
       });
@@ -2924,6 +2949,7 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.noSleepSet);
     ipcMain.removeHandler(ipcChannels.authRead);
     ipcMain.removeHandler(ipcChannels.agentForget);
+    ipcMain.removeHandler(ipcChannels.runtimeCapabilities);
     ipcMain.removeHandler(ipcChannels.agentProfileList);
     ipcMain.removeHandler(ipcChannels.agentProfileUpsert);
     ipcMain.removeHandler(ipcChannels.agentProfileDelete);

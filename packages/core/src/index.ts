@@ -29,3 +29,4 @@ export * from './browser/browser-settings-service.js';
 export * from './no-sleep/no-sleep-service.js';
 export * from './auth/auth-service.js';
 export * from './auth/licence.js';
+export * from './runtimes/runtime-capability-service.js';

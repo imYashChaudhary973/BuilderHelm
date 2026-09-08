@@ -1,6 +1,8 @@
 import type { CorrelationId } from '@builderhelm/shared';
 import { z } from 'zod';
 
+import type { RuntimeSnapshot } from './runtime.js';
+
 import type {
   AccountAddInput,
   AccountConfirmLoginInput,
@@ -335,6 +337,7 @@ export const ipcChannels = {
   agentCandidates: 'builderhelm:agent:candidates',
   agentConfigure: 'builderhelm:agent:configure',
   agentForget: 'builderhelm:agent:forget',
+  runtimeCapabilities: 'builderhelm:runtimes:capabilities',
   agentProfileList: 'builderhelm:agent:profile-list',
   agentProfileUpsert: 'builderhelm:agent:profile-upsert',
   agentProfileDelete: 'builderhelm:agent:profile-delete',
@@ -593,6 +596,10 @@ export interface BuilderHelmDesktopApi {
     signOut(): Promise<AuthState>;
     openAccount(): Promise<AuthState>;
     onChange(listener: (state: AuthState) => void): () => void;
+  };
+  /** The consolidated, honestly-tiered runtime capability matrix. */
+  readonly runtimes: {
+    capabilities(): Promise<RuntimeSnapshot>;
   };
   readonly agents: {
     /** Configured agents plus known ones found on PATH. */

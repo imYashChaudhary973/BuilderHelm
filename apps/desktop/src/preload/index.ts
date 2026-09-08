@@ -250,6 +250,7 @@ import {
   agentTranscriptIpcResponseSchema,
   agentVoidIpcResponseSchema,
 } from '@builderhelm/protocol/agent-session';
+import { runtimeCapabilitiesIpcResponseSchema } from '@builderhelm/protocol/runtime';
 import {
   agentProfileIpcResponseSchema,
   agentProfileListIpcResponseSchema,
@@ -1354,6 +1355,15 @@ const api: BuilderHelmDesktopApi = {
       return () => {
         ipcRenderer.removeListener(ipcChannels.authEvent, handler);
       };
+    },
+  },
+  runtimes: {
+    async capabilities() {
+      const response: unknown = await ipcRenderer.invoke(
+        ipcChannels.runtimeCapabilities,
+        { correlationId: globalThis.crypto.randomUUID() },
+      );
+      return unwrap(runtimeCapabilitiesIpcResponseSchema.parse(response));
     },
   },
   agents: {

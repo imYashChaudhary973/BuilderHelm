@@ -39,6 +39,11 @@ Status labels used below:
   end to end through `@agentclientprotocol/codex-acp` — live turn, file
   write through the hosted fs, and session resume after a full app restart.
 - Permissioned actions, approvals, and receipts.
+- Runtime capability matrix: every known agent probed on PATH (binary path
+  and version), tiered unavailable / untested / terminal / structured-chat /
+  orchestration-ready, with verification evidence named in code. Readable via
+  `window.builderHelm.runtimes.capabilities()`; see
+  [docs/features/runtime-capabilities.md](features/runtime-capabilities.md).
 - Project dashboard and Git continuity.
 - Space setup with real xterm.js terminals backed by node-pty.
 - Per-pane installed-agent selection and plain-shell mode.

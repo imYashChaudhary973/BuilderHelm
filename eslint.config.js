@@ -35,6 +35,13 @@ export default tseslint.config(
     },
   },
   {
+    // Manual evidence run: prints the probed matrix for the report.
+    files: ['packages/core/test/runtime-capability-real.test.ts'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+  {
     files: ['**/*.mjs'],
     languageOptions: {
       globals: {

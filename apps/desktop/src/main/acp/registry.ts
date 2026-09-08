@@ -37,6 +37,16 @@ const KNOWN: readonly {
   { id: 'kimi', label: 'Kimi', command: 'kimi', args: ['acp'] },
 ];
 
+/** The known ACP invocations, for surfaces that list the whole matrix. */
+export function knownAcpAgents(): readonly {
+  id: string;
+  label: string;
+  command: string;
+  args: readonly string[];
+}[] {
+  return KNOWN;
+}
+
 const SETTINGS_KEY = 'agent.configured';
 
 const configuredSchema = z.array(
