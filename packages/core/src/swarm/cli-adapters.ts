@@ -5,10 +5,12 @@ import { join } from 'node:path';
 
 import {
   boardAgentCatalogEntry,
+  RUNTIME_LAUNCH_NONE,
   SWARM_PLAN_JSON_SCHEMA,
   SWARM_REVIEW_JSON_SCHEMA,
   swarmReviewSchema,
   type BoardAgentId,
+  type RuntimeLaunch,
   type SwarmLaunchMode,
   type SwarmReviewVerdict,
   type SwarmSeatArgv,
@@ -58,7 +60,6 @@ function execCli(
   });
 }
 const SWARM_PROMPT_MAX = 100_000;
-const OPENCODE_MODEL = 'openrouter/stealth/ox-alpha';
 
 export interface AgentUsage {
   readonly tokensUsed: number;
@@ -70,10 +71,19 @@ export interface StructuredCallOptions {
   readonly cwd: string;
   readonly executable?: string;
   readonly timeoutMs?: number;
+  /**
+   * What the person selected for this call. Absent means no selection, and
+   * the runtime's own default applies — never a substituted model.
+   */
+  readonly launch?: RuntimeLaunch;
 }
 
 interface CliAdapter {
-  readonly seatArgs?: (prompt: string, mode: SwarmLaunchMode) => string[];
+  readonly seatArgs?: (
+    prompt: string,
+    mode: SwarmLaunchMode,
+    launch: RuntimeLaunch,
+  ) => string[];
   readonly structuredCall?: (
     executable: string,
     options: StructuredCallOptions,
@@ -188,6 +198,7 @@ async function callCodexStructured(
       executable,
       [
         'exec',
+        ...modelArgv('codex', options.launch),
         '--sandbox',
         'read-only',
         '--ephemeral',
@@ -208,12 +219,45 @@ async function callCodexStructured(
   }
 }
 
+/**
+ * Model flags BuilderHelm has verified for headless runs. A selected model
+ * outside this map fails the launch loudly instead of being dropped, and no
+ * entry here invents a default model — the runtime's own default applies
+ * when nothing was selected.
+ */
+const MODEL_FLAG: Partial<Record<BoardAgentId, string>> = {
+  claude: '--model',
+  codex: '--model',
+  gemini: '--model',
+  opencode: '-m',
+};
+
+function modelArgv(agentId: BoardAgentId, launch?: RuntimeLaunch): string[] {
+  const selected = launch ?? RUNTIME_LAUNCH_NONE;
+  if (selected.effort !== null) {
+    throw new Error(`${agentId} cannot set an explicit effort yet; refusing to launch`);
+  }
+  const flag = MODEL_FLAG[agentId];
+  if (selected.model !== null && flag === undefined) {
+    throw new Error(`${agentId} cannot set an explicit model; refusing to launch`);
+  }
+  return selected.model === null || flag === undefined ? [] : [flag, selected.model];
+}
+
 export const CLI_ADAPTERS: Readonly<Partial<Record<BoardAgentId, CliAdapter>>> = {
   claude: {
-    seatArgs: (prompt, mode) =>
+    seatArgs: (prompt, mode, launch) =>
       mode === 'full'
-        ? ['-p', prompt, '--output-format', 'json', '--dangerously-skip-permissions']
+        ? [
+            ...modelArgv('claude', launch),
+            '-p',
+            prompt,
+            '--output-format',
+            'json',
+            '--dangerously-skip-permissions',
+          ]
         : [
+            ...modelArgv('claude', launch),
             '-p',
             prompt,
             '--output-format',
@@ -223,6 +267,7 @@ export const CLI_ADAPTERS: Readonly<Partial<Record<BoardAgentId, CliAdapter>>> =
           ],
     structuredCall: (executable, options, prompt, schema) =>
       execStructured(executable, options, [
+        ...modelArgv('claude', options.launch),
         '-p',
         prompt,
         '--output-format',
@@ -235,17 +280,39 @@ export const CLI_ADAPTERS: Readonly<Partial<Record<BoardAgentId, CliAdapter>>> =
     usage: parseReportedUsage,
   },
   codex: {
-    seatArgs: (prompt, mode) =>
+    seatArgs: (prompt, mode, launch) =>
       mode === 'full'
-        ? ['exec', '--json', '--dangerously-bypass-approvals-and-sandbox', prompt]
+        ? [
+            'exec',
+            ...modelArgv('codex', launch),
+            '--json',
+            '--dangerously-bypass-approvals-and-sandbox',
+            prompt,
+          ]
         : mode === 'auto'
-          ? ['exec', '--json', '--sandbox', 'workspace-write', '--approve-for-me', prompt]
-          : ['exec', '--json', '--sandbox', 'read-only', prompt],
+          ? [
+              'exec',
+              ...modelArgv('codex', launch),
+              '--json',
+              '--sandbox',
+              'workspace-write',
+              '--approve-for-me',
+              prompt,
+            ]
+          : [
+              'exec',
+              ...modelArgv('codex', launch),
+              '--json',
+              '--sandbox',
+              'read-only',
+              prompt,
+            ],
     structuredCall: callCodexStructured,
     usage: parseReportedUsage,
   },
   gemini: {
-    seatArgs: (prompt, mode) => [
+    seatArgs: (prompt, mode, launch) => [
+      ...modelArgv('gemini', launch),
       '-p',
       prompt,
       '--skip-trust',
@@ -254,7 +321,8 @@ export const CLI_ADAPTERS: Readonly<Partial<Record<BoardAgentId, CliAdapter>>> =
     ],
   },
   grok: {
-    seatArgs: (prompt, mode) => [
+    seatArgs: (prompt, mode, launch) => [
+      ...modelArgv('grok', launch),
       '-p',
       prompt,
       '--permission-mode',
@@ -262,6 +330,7 @@ export const CLI_ADAPTERS: Readonly<Partial<Record<BoardAgentId, CliAdapter>>> =
     ],
     structuredCall: (executable, options, prompt, schema) =>
       execStructured(executable, options, [
+        ...modelArgv('grok', options.launch),
         '-p',
         prompt,
         '--json-schema',
@@ -271,21 +340,28 @@ export const CLI_ADAPTERS: Readonly<Partial<Record<BoardAgentId, CliAdapter>>> =
       ]),
   },
   opencode: {
-    seatArgs: (prompt, mode) =>
-      mode === 'full'
-        ? ['run', '-m', OPENCODE_MODEL, '--auto', prompt]
-        : ['run', '-m', OPENCODE_MODEL, prompt],
+    // No default model here: without a selection, opencode runs on whatever
+    // the person configured in opencode itself.
+    seatArgs: (prompt, mode, launch) => [
+      'run',
+      ...modelArgv('opencode', launch),
+      ...(mode === 'full' ? ['--auto'] : []),
+      prompt,
+    ],
   },
   kimi: {
-    seatArgs: (prompt, mode) =>
-      mode === 'full'
+    seatArgs: (prompt, mode, launch) => [
+      ...modelArgv('kimi', launch),
+      ...(mode === 'full'
         ? ['-p', prompt, '--auto']
         : mode === 'auto'
           ? ['-p', prompt, '-y']
-          : ['-p', prompt],
+          : ['-p', prompt]),
+    ],
   },
   omp: {
-    seatArgs: (prompt, mode) => [
+    seatArgs: (prompt, mode, launch) => [
+      ...modelArgv('omp', launch),
       '-p',
       prompt,
       '--approval-mode',
@@ -293,28 +369,18 @@ export const CLI_ADAPTERS: Readonly<Partial<Record<BoardAgentId, CliAdapter>>> =
     ],
   },
   pi: {
-    seatArgs: (prompt, mode) =>
-      mode === 'auto' ? ['-p', prompt, '--approve'] : ['-p', prompt],
+    seatArgs: (prompt, mode, launch) => [
+      ...modelArgv('pi', launch),
+      ...(mode === 'auto' ? ['-p', prompt, '--approve'] : ['-p', prompt]),
+    ],
   },
-};
-
-/**
- * Ordered schema-CLI fallbacks: if the primary planner or reviewer CLI is
- * unavailable (quota, auth, crash), the next installed structured CLI takes
- * the call with the same cwd instead of failing a run that has healthy seats.
- */
-export const CLI_FALLBACK_IDS: Readonly<
-  Partial<Record<BoardAgentId, readonly BoardAgentId[]>>
-> = {
-  claude: ['codex'],
-  codex: ['claude'],
-  grok: ['claude', 'codex'],
 };
 
 export function swarmSeatArgv(
   agentId: BoardAgentId,
   prompt: string,
   mode: SwarmLaunchMode = 'auto',
+  launch: RuntimeLaunch = RUNTIME_LAUNCH_NONE,
 ): SwarmSeatArgv {
   const profile = boardAgentCatalogEntry(agentId);
   const adapter = CLI_ADAPTERS[agentId];
@@ -326,7 +392,7 @@ export function swarmSeatArgv(
   }
   const body = prompt.trim().slice(0, SWARM_PROMPT_MAX);
   if (body.length === 0) throw new Error('swarm prompt must not be empty');
-  return { binary: profile.command, args: adapter.seatArgs(body, mode) };
+  return { binary: profile.command, args: adapter.seatArgs(body, mode, launch) };
 }
 
 export function parseAgentUsage(agentId: BoardAgentId, output: string): AgentUsage {
@@ -345,62 +411,37 @@ export async function callStructuredAgent(
   if (profile.capabilities.structuredOutput !== 'json-schema' || call === undefined) {
     throw new Error(`${options.agentId} cannot produce schema-constrained output`);
   }
-  return call(options.executable ?? profile.command, options, prompt, schema);
-}
-
-function fallbackOptions(options: StructuredCallOptions): StructuredCallOptions[] {
-  return (CLI_FALLBACK_IDS[options.agentId] ?? []).map((agentId) => {
-    // Destructure to satisfy exactOptionalPropertyTypes: the fallback runs the
-    // catalog binary, never the primary's probed path.
-    const { executable: _omit, ...rest } = options;
-    void _omit;
-    return { ...rest, agentId };
-  });
+  const normalized: StructuredCallOptions = {
+    ...options,
+    launch: options.launch ?? RUNTIME_LAUNCH_NONE,
+  };
+  return call(normalized.executable ?? profile.command, normalized, prompt, schema);
 }
 
 export class CliSwarmPlanner implements SwarmPlanner {
-  private readonly fallbacks: readonly StructuredCallOptions[];
+  constructor(private readonly options: StructuredCallOptions) {}
 
-  constructor(private readonly options: StructuredCallOptions) {
-    this.fallbacks = fallbackOptions(options);
-  }
-
+  /**
+   * The selected runtime plans, or the run fails visibly. There is no
+   * second runtime: silently spending a different subscription or model
+   * than the one selected is exactly what launch consistency forbids.
+   */
   async plan(request: SwarmPlanRequest): Promise<PlannedTask[]> {
     const prompt = buildPlanPrompt(request);
-    const attempts = [this.options, ...this.fallbacks];
-    let last: unknown;
-    for (const attempt of attempts) {
-      try {
-        const raw = await callStructuredAgent(attempt, prompt, SWARM_PLAN_JSON_SCHEMA);
-        return normalizeSwarmPlan(raw, request.maxTasks);
-      } catch (error) {
-        last = error;
-      }
-    }
-    throw last instanceof Error ? last : new Error('planning failed');
+    const raw = await callStructuredAgent(this.options, prompt, SWARM_PLAN_JSON_SCHEMA);
+    return normalizeSwarmPlan(raw, request.maxTasks);
   }
 }
 
 export class CliSwarmReviewer implements SwarmReviewer {
-  private readonly fallbacks: readonly StructuredCallOptions[];
+  constructor(private readonly options: StructuredCallOptions) {}
 
-  constructor(private readonly options: StructuredCallOptions) {
-    this.fallbacks = fallbackOptions(options);
-  }
-
+  /** Same rule as the planner: the selected runtime, or a visible failure. */
   async review(request: SwarmReviewRequest): Promise<SwarmReviewVerdict> {
     const prompt = buildReviewPrompt(request);
-    for (const attempt of [this.options, ...this.fallbacks]) {
-      let raw: unknown;
-      try {
-        raw = await callStructuredAgent(attempt, prompt, SWARM_REVIEW_JSON_SCHEMA);
-      } catch {
-        continue;
-      }
-      const parsed = swarmReviewSchema.safeParse(raw);
-      if (parsed.success) return parsed.data;
-      return { verdict: 'approve', issues: ['reviewer output was not readable'] };
-    }
-    return { verdict: 'approve', issues: ['no reviewer output was readable'] };
+    const raw = await callStructuredAgent(this.options, prompt, SWARM_REVIEW_JSON_SCHEMA);
+    const parsed = swarmReviewSchema.safeParse(raw);
+    if (parsed.success) return parsed.data;
+    return { verdict: 'approve', issues: ['reviewer output was not readable'] };
   }
 }

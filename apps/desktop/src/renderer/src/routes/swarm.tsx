@@ -177,6 +177,7 @@ export function SwarmPage(): React.JSX.Element {
           presetId: preset,
           skillIds,
           seats: roster.map((seat) => ({ role: seat.role, agentId: seat.agentId })),
+          planner: null,
         },
       });
     },

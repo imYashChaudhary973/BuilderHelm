@@ -4,6 +4,7 @@ import {
   agentDescriptorSchema,
   correlationIdSchema,
   ipcResult,
+  runtimeLaunchSchema,
 } from './agent-session.js';
 
 /**
@@ -37,6 +38,12 @@ export const agentProfileSchema = z
     agent: agentDescriptorSchema,
     /** Where this profile's new threads run; null until a folder is chosen. */
     defaultCwd: z.string().max(4096).nullable(),
+    /**
+     * The model, effort, and account this profile launches with. Null fields
+     * mean the runtime's own default — never a substituted choice. Absent in
+     * older stored profiles; the default keeps them parsing.
+     */
+    launch: runtimeLaunchSchema.nullable().default(null),
     createdAt: z.string().datetime(),
     lastOpenedAt: z.string().datetime(),
   })
@@ -55,6 +62,7 @@ export const agentProfileInputSchema = z
     mark: agentProfileMarkSchema,
     agent: agentDescriptorSchema,
     defaultCwd: z.string().max(4096).nullable(),
+    launch: runtimeLaunchSchema.nullable().default(null),
   })
   .strict();
 export type AgentProfileInput = z.infer<typeof agentProfileInputSchema>;

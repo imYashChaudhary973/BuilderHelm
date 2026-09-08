@@ -6,8 +6,6 @@ import { BOARD_AGENT_CATALOG } from '@builderhelm/protocol';
 
 import {
   callStructuredAgent,
-  CLI_ADAPTERS,
-  CLI_FALLBACK_IDS,
   CliSwarmPlanner,
   parseAgentUsage,
   swarmSeatArgv,
@@ -144,47 +142,68 @@ else process.stdout.write(JSON.stringify({ structured_output: JSON.parse(result)
     ).rejects.toThrow(/cannot produce schema-constrained output/);
   });
 
-  it('falls back to the next schema CLI when the primary planner fails', async () => {
-    let codexCalls = 0;
+  it('does not substitute a second runtime when the selected planner fails', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'builderhelm-cli-test-'));
-    // Simulated quota outage: the primary exits 1, so the chain moves on.
+    // Simulated quota outage: the selected CLI exits 1.
     const failer = join(directory, 'primary-fails.cjs');
     await writeFile(failer, `#!/usr/bin/env node\nprocess.exit(1);\n`, {
       mode: 0o755,
     });
 
-    // Mutating module tables in-place keeps the fallback wiring honest without
-    // reaching for a mocking framework.
-    const fallbackIds = CLI_FALLBACK_IDS.claude;
-    const codexCall = CLI_ADAPTERS.codex?.structuredCall;
-    CLI_FALLBACK_IDS.claude = ['codex'];
-    if (CLI_ADAPTERS.codex !== undefined) {
-      CLI_ADAPTERS.codex.structuredCall = async () => {
-        codexCalls += 1;
-        return { tasks: [{ title: 'fallback', files: [] }] };
-      };
-    }
-    try {
-      const planner = new CliSwarmPlanner({
-        agentId: 'claude',
-        cwd: directory,
-        executable: failer,
-      });
-      await expect(
-        planner.plan({
-          mission: 'Write a one-line file named ok.txt containing the word ok.',
-          snapshot: { files: [] },
-          maxTasks: 3,
+    const planner = new CliSwarmPlanner({
+      agentId: 'claude',
+      cwd: directory,
+      executable: failer,
+    });
+    await expect(
+      planner.plan({
+        mission: 'Write a one-line file named ok.txt containing the word ok.',
+        snapshot: { files: [] },
+        maxTasks: 3,
+      }),
+    ).rejects.toThrow(/Command failed/);
+
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  it('passes a selected model into seat argv and runs default when none', () => {
+    // opencode is the regression case: a hardcoded model used to ride every seat.
+    expect(swarmSeatArgv('opencode', 'ship', 'auto').args).toEqual(['run', 'ship']);
+    expect(
+      swarmSeatArgv('opencode', 'ship', 'auto', {
+        model: 'openrouter/free/arbitrary',
+        effort: null,
+        accountRef: null,
+      }).args,
+    ).toEqual(['run', '-m', 'openrouter/free/arbitrary', 'ship']);
+    expect(
+      swarmSeatArgv('claude', 'ship', 'safe', {
+        model: 'claude-sonnet-4-5',
+        effort: null,
+        accountRef: null,
+      }).args,
+    ).toContain('claude-sonnet-4-5');
+  });
+
+  it('refuses selected models on runtimes with no verified flag, loudly', () => {
+    for (const agentId of ['grok', 'kimi', 'omp', 'pi'] as const) {
+      expect(() =>
+        swarmSeatArgv(agentId, 'ship', 'safe', {
+          model: 'some-model',
+          effort: null,
+          accountRef: null,
         }),
-      ).resolves.toMatchObject({ 0: { title: 'fallback' } });
-    } finally {
-      if (fallbackIds === undefined) delete CLI_FALLBACK_IDS.claude;
-      else CLI_FALLBACK_IDS.claude = fallbackIds;
-      if (CLI_ADAPTERS.codex !== undefined) {
-        CLI_ADAPTERS.codex.structuredCall = codexCall;
-      }
-      await rm(directory, { recursive: true, force: true });
+      ).toThrow(/cannot set an explicit model/);
     }
-    expect(codexCalls).toBe(1);
+  });
+
+  it('refuses selected effort everywhere until a flag is verified', () => {
+    expect(() =>
+      swarmSeatArgv('claude', 'ship', 'safe', {
+        model: null,
+        effort: 'high',
+        accountRef: null,
+      }),
+    ).toThrow(/cannot set an explicit effort/);
   });
 });

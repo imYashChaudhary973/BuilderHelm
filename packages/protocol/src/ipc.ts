@@ -25,6 +25,7 @@ import type {
   AgentSessionState,
   AgentThread,
   AgentTranscript,
+  RuntimeLaunch,
 } from './agent-session.js';
 import type {
   BoardAddPaneInput,
@@ -612,6 +613,7 @@ export interface BuilderHelmDesktopApi {
       threadId: string | null;
       resumeSessionId: string | null;
       profileId: string | null;
+      launch?: RuntimeLaunch | null;
     }): Promise<AgentSessionState>;
     profiles(): Promise<readonly AgentProfile[]>;
     profileUpsert(profile: AgentProfileInput): Promise<AgentProfile>;

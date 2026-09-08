@@ -86,6 +86,7 @@ export function ProfileDialog({
         id: editing?.id,
         name: name.trim(),
         mark,
+        launch: editing?.launch ?? null,
         agent: {
           id: agent.id,
           label: agent.label,

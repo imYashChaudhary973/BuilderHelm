@@ -65,6 +65,7 @@ export class AgentProfiles {
         mark: parsed.mark,
         agent: { ...parsed.agent, args: [...parsed.agent.args] },
         defaultCwd: parsed.defaultCwd,
+        launch: parsed.launch,
         createdAt: now,
         lastOpenedAt: now,
       };

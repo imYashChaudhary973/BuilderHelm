@@ -6,6 +6,7 @@ import {
   type BoardAgentLaunchMode,
   type BoardPaneStatus,
 } from './board.js';
+import { runtimeLaunchSchema } from './agent-session.js';
 import type { CorrelationId } from '@builderhelm/shared';
 
 import { modelErrorSchema } from './model.js';
@@ -523,6 +524,20 @@ export const swarmCreateInputSchema = z
       )
       .min(1)
       .max(12),
+    /**
+     * The runtime that decomposes the mission, with its launch selection.
+     * Null (or omitted) means the host auto-picks among orchestration-ready
+     * runtimes and logs the choice — the one remaining non-selected path,
+     * gated by capability evidence rather than catalog order.
+     */
+    planner: z
+      .object({
+        agentId: boardAgentIdSchema,
+        launch: runtimeLaunchSchema.nullable(),
+      })
+      .strict()
+      .nullable()
+      .default(null),
   })
   .strict();
 export type SwarmCreateInput = z.infer<typeof swarmCreateInputSchema>;

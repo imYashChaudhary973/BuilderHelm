@@ -18,6 +18,7 @@ import type {
   AgentSessionState,
   AgentThread,
   AgentToolCall,
+  RuntimeLaunch,
 } from '@builderhelm/protocol';
 import { BuilderHelmError } from '@builderhelm/shared';
 
@@ -76,6 +77,7 @@ export class AgentManager {
     threadId: string | null;
     resumeSessionId: string | null;
     profileId: string | null;
+    launch: RuntimeLaunch | null;
   }): Promise<AgentSessionState> {
     const existing = this.findLive(input.threadId);
     if (existing !== undefined) return existing.state;
@@ -101,10 +103,11 @@ export class AgentManager {
     }
 
     let agent: AgentDescriptor | null;
+    let profile: AgentProfile | null = null;
     if (stored === null && input.profileId !== null) {
       // A profile-backed thread resolves argv here, in main; the renderer
       // named the profile, never the command.
-      const profile = this.options.resolveProfile(input.profileId);
+      profile = this.options.resolveProfile(input.profileId);
       if (profile === null) {
         throw new BuilderHelmError(
           'VALIDATION_FAILED',
@@ -176,6 +179,39 @@ export class AgentManager {
     entry = started;
     this.sessions.set(session.id, started);
     this.options.threads.attach(thread.id, session.id);
+    // Launch consistency: the selection rides the launch, and a runtime that
+    // cannot honor it fails the start instead of quietly keeping its own
+    // previous model. accountRef application lands with account profiles.
+    const launch = input.launch ?? profile?.launch ?? null;
+    if (launch !== null) {
+      try {
+        for (const [category, value] of [
+          ['model', launch.model],
+          ['thought-level', launch.effort],
+        ] as const) {
+          if (value === null) continue;
+          const option = session.configSnapshot.find(
+            (candidate) => candidate.category === category,
+          );
+          if (option === undefined) {
+            throw new BuilderHelmError(
+              'VALIDATION_FAILED',
+              `The agent does not offer a ${category} selection, so "${value}" cannot be applied.`,
+            );
+          }
+          // Already in effect: re-writing an unchanged value trips runtimes
+          // that rebuild their config state on every set.
+          if (option.value === value) continue;
+          await session.setConfigOption(option.id, value);
+        }
+      } catch (error) {
+        // A launch whose selection cannot be honored never leaves a
+        // half-started session behind.
+        this.sessions.delete(session.id);
+        await session.close().catch(() => {});
+        throw error;
+      }
+    }
     return started.state;
   }
 

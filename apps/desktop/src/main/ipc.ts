@@ -32,6 +32,7 @@ import {
 import {
   agentCancelInputSchema,
   agentCandidatesIpcResponseSchema,
+  RUNTIME_LAUNCH_NONE,
   runtimeCapabilitiesIpcResponseSchema,
   agentConfigureInputSchema,
   agentDiffInputSchema,
@@ -53,6 +54,7 @@ import {
   agentTranscriptIpcResponseSchema,
   agentVoidIpcResponseSchema,
 } from '@builderhelm/protocol';
+import type { SwarmCreateInput } from '@builderhelm/protocol';
 import type { AuthHandoff } from './auth-handoff.js';
 import type { AgentManager } from './acp/manager.js';
 import type { AgentRegistry } from './acp/registry.js';
@@ -883,15 +885,42 @@ export function registerIpcHandlers(
   }
 
   /**
-   * Decomposition needs a CLI that can constrain output to a JSON Schema.
-   * Without one the swarm still runs, as a single task for one builder.
+   * Decomposition runs on the selected planning runtime, or — when the run
+   * carries no selection — on an orchestration-ready runtime gated by the
+   * capability matrix instead of catalog order. The choice is logged, never
+   * silent. Without any eligible runtime the swarm still runs, as a single
+   * task for one builder.
    */
-  async function pickSwarmPlanner(folderPath: string): Promise<SwarmPlanner> {
+  async function pickSwarmPlanner(input: SwarmCreateInput): Promise<SwarmPlanner> {
     const detections = await core.board.detectAgents();
-    const structured = detections.find(
+    const structured = detections.filter(
       (item) => item.available && item.capabilities.structuredOutput === 'json-schema',
     );
-    if (structured === undefined) {
+
+    if (input.planner !== null) {
+      const selected = structured.find((item) => item.id === input.planner!.agentId);
+      if (selected === undefined) {
+        throw new BuilderHelmError(
+          'VALIDATION_FAILED',
+          `${input.planner.agentId} cannot plan this run: no schema-constrained headless runtime was detected.`,
+        );
+      }
+      return new CliSwarmPlanner({
+        agentId: selected.id,
+        cwd: input.folderPath,
+        launch: input.planner.launch ?? RUNTIME_LAUNCH_NONE,
+        ...(selected.path === null ? {} : { executable: selected.path }),
+      });
+    }
+
+    const snapshot = await requireRuntimes().snapshot();
+    const ready = new Set(
+      snapshot.runtimes
+        .filter((runtime) => runtime.tier === 'orchestration-ready')
+        .map((runtime) => runtime.id),
+    );
+    const gated = structured.find((item) => ready.has(item.id));
+    if (gated === undefined) {
       return {
         async plan(request) {
           return [
@@ -905,10 +934,15 @@ export function registerIpcHandlers(
         },
       };
     }
+    core.logger.info({
+      event: 'swarm.planner_autopicked',
+      correlationId: createCorrelationId(),
+      data: { runtime: gated.id, basis: 'orchestration-ready capability tier' },
+    });
     return new CliSwarmPlanner({
-      agentId: structured.id,
-      cwd: folderPath,
-      ...(structured.path === null ? {} : { executable: structured.path }),
+      agentId: gated.id,
+      cwd: input.folderPath,
+      ...(gated.path === null ? {} : { executable: gated.path }),
     });
   }
 
@@ -949,7 +983,7 @@ export function registerIpcHandlers(
       void (async () => {
         try {
           await core.swarm.warmSeats(run.id);
-          const planner = await pickSwarmPlanner(request.input.folderPath);
+          const planner = await pickSwarmPlanner(request.input);
           await core.swarm.planTasks(run.id, planner, request.correlationId);
           await core.swarm.pump(run.id);
         } catch (error) {
@@ -2732,6 +2766,7 @@ export function registerIpcHandlers(
         threadId: parsed.threadId,
         resumeSessionId: parsed.resumeSessionId,
         profileId: parsed.profileId,
+        launch: parsed.launch,
       });
       return agentSessionIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {

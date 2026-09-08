@@ -1415,6 +1415,7 @@ const api: BuilderHelmDesktopApi = {
         threadId: input.threadId,
         resumeSessionId: input.resumeSessionId,
         profileId: input.profileId ?? null,
+        launch: input.launch ?? null,
       });
       return unwrap(agentSessionIpcResponseSchema.parse(response));
     },

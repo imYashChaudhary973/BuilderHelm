@@ -44,6 +44,13 @@ Status labels used below:
   orchestration-ready, with verification evidence named in code. Readable via
   `window.builderHelm.runtimes.capabilities()`; see
   [docs/features/runtime-capabilities.md](features/runtime-capabilities.md).
+- Launch consistency: profiles carry a model / effort / account selection
+  (null means the runtime's own default); chat sessions apply it at start and
+  fail loudly when the runtime cannot honor it, leaving no half-started
+  session; swarm seats and structured planner calls take the selection into
+  the argv with no hardcoded model and no silent cross-runtime fallback; the
+  planner auto-pick (when a run selects nothing) is gated to
+  orchestration-ready runtimes and logged.
 - Project dashboard and Git continuity.
 - Space setup with real xterm.js terminals backed by node-pty.
 - Per-pane installed-agent selection and plain-shell mode.
