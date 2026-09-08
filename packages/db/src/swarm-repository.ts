@@ -40,6 +40,7 @@ export interface SwarmTaskWrite {
   readonly dependsOn: readonly string[];
   readonly attempts: number;
   readonly landedCommit: string | null;
+  readonly baseSha: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -48,6 +49,7 @@ export interface SwarmMessageWrite {
   readonly id: string;
   readonly runId: string;
   readonly seatId: string | null;
+  readonly taskId: string | null;
   readonly kind: string;
   readonly body: string;
   readonly createdAt: string;
@@ -93,6 +95,7 @@ interface StoredSwarmTask extends Record<string, unknown> {
   depends_on_json: string;
   attempts: number;
   landed_commit: string | null;
+  base_sha: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -101,6 +104,7 @@ interface StoredSwarmMessage extends Record<string, unknown> {
   id: string;
   run_id: string;
   seat_id: string | null;
+  task_id: string | null;
   kind: string;
   body: string;
   created_at: string;
@@ -151,6 +155,7 @@ function toTaskWrite(row: StoredSwarmTask): SwarmTaskWrite {
     dependsOn: JSON.parse(row.depends_on_json) as string[],
     attempts: row.attempts,
     landedCommit: row.landed_commit,
+    baseSha: row.base_sha,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -161,6 +166,7 @@ function toMessageWrite(row: StoredSwarmMessage): SwarmMessageWrite {
     id: row.id,
     runId: row.run_id,
     seatId: row.seat_id,
+    taskId: row.task_id,
     kind: row.kind,
     body: row.body,
     createdAt: row.created_at,
@@ -282,8 +288,8 @@ export class SwarmRepository {
   insertTask(task: SwarmTaskWrite): void {
     this.database.run(
       `INSERT INTO swarm_tasks (id, run_id, seat_id, title, detail, files_json,
-         status, depends_on_json, attempts, landed_commit, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         status, depends_on_json, attempts, landed_commit, base_sha, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         task.id,
         task.runId,
@@ -295,6 +301,7 @@ export class SwarmRepository {
         JSON.stringify(task.dependsOn),
         task.attempts,
         task.landedCommit,
+        task.baseSha,
         task.createdAt,
         task.updatedAt,
       ],
@@ -304,13 +311,14 @@ export class SwarmRepository {
   updateTask(task: SwarmTaskWrite): void {
     this.database.run(
       `UPDATE swarm_tasks SET seat_id = ?, status = ?, attempts = ?,
-         landed_commit = ?, updated_at = ?
+         landed_commit = ?, base_sha = ?, updated_at = ?
        WHERE id = ?`,
       [
         task.seatId,
         task.status,
         task.attempts,
         task.landedCommit,
+        task.baseSha,
         task.updatedAt,
         task.id,
       ],
@@ -328,12 +336,13 @@ export class SwarmRepository {
 
   appendMessage(message: SwarmMessageWrite): void {
     this.database.run(
-      `INSERT INTO swarm_messages (id, run_id, seat_id, kind, body, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO swarm_messages (id, run_id, seat_id, task_id, kind, body, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         message.id,
         message.runId,
         message.seatId,
+        message.taskId,
         message.kind,
         message.body,
         message.createdAt,

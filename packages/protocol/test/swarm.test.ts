@@ -24,8 +24,8 @@ import {
   swarmMemberStatus,
   swarmRunStatus,
   swarmStuckAction,
+  swarmTaskPhase,
 } from '../src/swarm.js';
-
 function detection(
   id: BoardAgentDetection['id'],
   available: boolean,
@@ -267,6 +267,7 @@ describe('swarm persistence schemas', () => {
       dependsOn: [],
       attempts: 0,
       landedCommit: null,
+      baseSha: null,
       createdAt: '2026-08-25T10:00:00.000Z',
       updatedAt: '2026-08-25T10:00:00.000Z',
     };
@@ -275,6 +276,7 @@ describe('swarm persistence schemas', () => {
       id: '00000000-0000-4000-8000-000000000004',
       runId: baseRun.id,
       seatId: null,
+      taskId: null,
       kind: 'directive',
       body: 'wrap up',
       createdAt: '2026-08-25T10:01:00.000Z',
@@ -298,6 +300,7 @@ describe('swarm persistence schemas', () => {
         dependsOn: [],
         attempts: 0,
         landedCommit: null,
+        baseSha: null,
         createdAt: '2026-08-25T10:00:00.000Z',
         updatedAt: '2026-08-25T10:00:00.000Z',
       }),
@@ -343,5 +346,23 @@ describe('swarm persistence schemas', () => {
     expect(() =>
       swarmStopRequestSchema.parse({ correlationId, runId: 'nope' }),
     ).toThrow();
+  });
+});
+
+describe('swarmTaskPhase', () => {
+  it('keeps execution waiting separate from review and landing', () => {
+    const parent = {
+      id: '00000000-0000-4000-8000-000000000001',
+      status: 'review' as const,
+    };
+    const child = {
+      status: 'pending' as const,
+      dependsOn: [parent.id],
+    };
+    expect(swarmTaskPhase(child, [parent])).toBe('waiting');
+    expect(swarmTaskPhase({ status: 'review', dependsOn: [] }, [])).toBe('finished');
+    expect(swarmTaskPhase({ status: 'skipped', dependsOn: [parent.id] }, [parent])).toBe(
+      'blocked',
+    );
   });
 });

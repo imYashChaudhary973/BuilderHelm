@@ -46,6 +46,12 @@ Status labels used below:
   never a fallback. ACP approvals bind to session+request and cancel with
   the run. Swarm reviewer fails closed. See
   [docs/features/security-modes.md](features/security-modes.md).
+- Parallel orchestration: Swarm dispatcher caps concurrent builders at 2
+  (1–4). Planner output is path-checked and never starts work. Dependents
+  wait for a landed SHA and record `baseSha`. Failed required work makes
+  the run `partial`, not `done`. Task-scoped question/handoff/progress/
+  artifact messages route to the owning seat. Land is idempotent.
+
 - Runtime capability matrix: every known agent probed on PATH (binary path
   and version), tiered unavailable / untested / terminal / structured-chat /
   orchestration-ready, with verification evidence named in code. Readable via

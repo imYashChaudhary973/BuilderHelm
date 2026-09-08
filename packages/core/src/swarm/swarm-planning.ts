@@ -40,14 +40,23 @@ export interface PlannedTask {
   readonly title: string;
   readonly detail: string | null;
   readonly files: readonly string[];
+  readonly inputs: readonly string[];
   /** Indices into the returned array; always strictly earlier entries. */
   readonly dependsOn: readonly number[];
 }
 
+/** Owned paths stay inside the repo. Absolute, `..`, and empty segments are out. */
+export function isSwarmOwnedPath(file: string): boolean {
+  if (file.length === 0 || file.startsWith('/') || file.includes('\\')) return false;
+  const parts = file.split('/');
+  return parts.every((part) => part.length > 0 && part !== '.' && part !== '..');
+}
+
 /**
  * Turns raw model output into a safe plan: caps task count, enforces exclusive
- * file ownership so two builders never edit one file, and keeps dependencies a
- * DAG by allowing edges to earlier tasks only.
+ * file ownership so two builders never edit one file, keeps dependencies a
+ * DAG by allowing edges to earlier tasks only, and drops escaped paths.
+ * The planner cannot start work — the host still has to insert and pump.
  */
 export function normalizeSwarmPlan(plan: unknown, maxTasks: number): PlannedTask[] {
   const parsed = swarmPlanSchema.parse(plan);
@@ -56,20 +65,29 @@ export function normalizeSwarmPlan(plan: unknown, maxTasks: number): PlannedTask
     title: string;
     detail: string | null;
     files: string[];
+    inputs: string[];
     dependsOn: number[];
   }[] = [];
   const indexMap = new Map<number, number>();
 
   parsed.tasks.forEach((task, originalIndex) => {
     if (kept.length >= maxTasks) return;
-    const files = task.files.filter((file) => !claimed.has(file));
-    if (task.files.length > 0 && files.length === 0) return; // fully duplicated work
-    for (const file of files) claimed.add(file);
+    const owned = task.files.filter(
+      (file) => isSwarmOwnedPath(file) && !claimed.has(file),
+    );
+    if (task.files.length > 0 && owned.length === 0) return;
+    for (const file of owned) claimed.add(file);
+    const acceptance = (task.acceptance ?? []).filter((line) => line.trim().length > 0);
+    const detailParts = [
+      task.detail ?? null,
+      acceptance.length > 0 ? `Accept: ${acceptance.join('; ')}` : null,
+    ].filter((part): part is string => part !== null && part.length > 0);
     indexMap.set(originalIndex, kept.length);
     kept.push({
       title: task.title,
-      detail: task.detail ?? null,
-      files,
+      detail: detailParts.length === 0 ? null : detailParts.join('\n'),
+      files: owned,
+      inputs: [...new Set((task.inputs ?? []).filter((file) => isSwarmOwnedPath(file)))],
       dependsOn: [...new Set(task.dependsOn ?? [])]
         .map((dep) => indexMap.get(dep))
         .filter((dep): dep is number => dep !== undefined && dep < kept.length),
@@ -104,6 +122,9 @@ export function buildPlanPrompt(request: SwarmPlanRequest): string {
     '',
     'Rules:',
     '- Every task names the exact files it owns. No two tasks may share a file.',
+    '- Paths are repo-relative; never `..` or absolute.',
+    '- inputs are read-only references and may overlap; files are exclusive writes.',
+    '- acceptance is the commands that must pass before review.',
     '- Use dependsOn only when a task truly needs an earlier task landed first.',
     '- Prefer fewer, larger tasks over many trivial ones.',
     '- Each title is an imperative one-liner; detail carries acceptance criteria.',

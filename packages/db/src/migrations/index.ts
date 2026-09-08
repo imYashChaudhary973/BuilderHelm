@@ -18,6 +18,7 @@ import { previewAnnotationsMigration } from './0017-preview-annotations.js';
 import { reviewPersistenceMigration } from './0018-review.js';
 import { githubIssuesMigration } from './0019-github-issues.js';
 import { linearIssuesMigration } from './0020-linear-issues.js';
+import { swarmOrchestrationMigration } from './0021-swarm-orchestration.js';
 
 export const migrations = [
   foundationMigration,
@@ -40,7 +41,8 @@ export const migrations = [
   reviewPersistenceMigration,
   githubIssuesMigration,
   linearIssuesMigration,
-] as const;
+  swarmOrchestrationMigration,
+];
 
 export {
   chatPersistenceMigration,
@@ -63,4 +65,5 @@ export {
   reviewPersistenceMigration,
   githubIssuesMigration,
   linearIssuesMigration,
+  swarmOrchestrationMigration,
 };

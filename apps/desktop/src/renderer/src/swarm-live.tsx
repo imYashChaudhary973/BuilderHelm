@@ -170,10 +170,14 @@ export function SwarmLive({
           </p>
         </div>
       ) : null}
-      {status === 'done' || status === 'failed' ? (
+      {status === 'done' || status === 'failed' || status === 'partial' ? (
         <div className="swarmSummary" data-status={status} role="status">
           <strong>
-            {status === 'done' ? 'Swarm finished' : 'Swarm stopped with failures'}
+            {status === 'done'
+              ? 'Swarm finished'
+              : status === 'partial'
+                ? 'Swarm finished with failures'
+                : 'Swarm stopped with failures'}
           </strong>
           <p>
             {landed} landed

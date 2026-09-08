@@ -928,6 +928,7 @@ export function registerIpcHandlers(
               title: request.mission.split('\n')[0]?.slice(0, 200) ?? 'Swarm mission',
               detail: request.mission,
               files: [],
+              inputs: [],
               dependsOn: [],
             },
           ];
