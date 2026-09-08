@@ -263,7 +263,7 @@ export const CLI_ADAPTERS: Readonly<Partial<Record<BoardAgentId, CliAdapter>>> =
             '--output-format',
             'json',
             '--permission-mode',
-            mode === 'auto' ? 'acceptEdits' : 'dontAsk',
+            mode === 'auto' ? 'acceptEdits' : 'plan',
           ],
     structuredCall: (executable, options, prompt, schema) =>
       execStructured(executable, options, [
@@ -326,7 +326,7 @@ export const CLI_ADAPTERS: Readonly<Partial<Record<BoardAgentId, CliAdapter>>> =
       '-p',
       prompt,
       '--permission-mode',
-      mode === 'full' ? 'bypassPermissions' : mode === 'auto' ? 'acceptEdits' : 'dontAsk',
+      mode === 'full' ? 'bypassPermissions' : mode === 'auto' ? 'acceptEdits' : 'plan',
     ],
     structuredCall: (executable, options, prompt, schema) =>
       execStructured(executable, options, [
@@ -433,6 +433,33 @@ export class CliSwarmPlanner implements SwarmPlanner {
   }
 }
 
+const SENSITIVE_REVIEW_PATH =
+  /(?:^|\/)(?:\.env(?:\..+)?|credentials(?:\.[^/]+)?|auth\.json|id_rsa|id_ed25519|[^/]+\.pem)$/i;
+
+export function parseReviewVerdict(raw: unknown): SwarmReviewVerdict {
+  const parsed = swarmReviewSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new Error('reviewer output was not readable');
+  }
+  return parsed.data;
+}
+
+export function gateReviewVerdict(
+  verdict: SwarmReviewVerdict,
+  files: readonly string[],
+): SwarmReviewVerdict {
+  if (
+    verdict.verdict === 'approve' &&
+    files.some((file) => SENSITIVE_REVIEW_PATH.test(file))
+  ) {
+    return {
+      verdict: 'fix',
+      issues: ['reviewer cannot approve credential or key files'],
+    };
+  }
+  return verdict;
+}
+
 export class CliSwarmReviewer implements SwarmReviewer {
   constructor(private readonly options: StructuredCallOptions) {}
 
@@ -440,8 +467,7 @@ export class CliSwarmReviewer implements SwarmReviewer {
   async review(request: SwarmReviewRequest): Promise<SwarmReviewVerdict> {
     const prompt = buildReviewPrompt(request);
     const raw = await callStructuredAgent(this.options, prompt, SWARM_REVIEW_JSON_SCHEMA);
-    const parsed = swarmReviewSchema.safeParse(raw);
-    if (parsed.success) return parsed.data;
-    return { verdict: 'approve', issues: ['reviewer output was not readable'] };
+    const parsed = parseReviewVerdict(raw);
+    return gateReviewVerdict(parsed, request.files);
   }
 }

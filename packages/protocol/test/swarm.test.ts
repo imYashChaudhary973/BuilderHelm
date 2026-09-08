@@ -67,7 +67,7 @@ describe('swarm assignment', () => {
       detection('opencode', true),
       detection('pi', true),
     ];
-    expect(availableSwarmAgents(agents, 'safe')).toEqual(['claude', 'pi']);
+    expect(availableSwarmAgents(agents, 'safe')).toEqual(['claude']);
     expect(availableSwarmAgents(agents, 'full')).toEqual(['claude', 'opencode']);
   });
 

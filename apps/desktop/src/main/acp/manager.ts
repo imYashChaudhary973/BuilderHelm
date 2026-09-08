@@ -20,6 +20,7 @@ import type {
   AgentToolCall,
   RuntimeLaunch,
 } from '@builderhelm/protocol';
+import { accessFromConfig, resolveAgentPermission } from '@builderhelm/protocol';
 import { BuilderHelmError } from '@builderhelm/shared';
 
 import { AcpSession, confinePath } from './session.js';
@@ -42,6 +43,7 @@ export const MAX_LIVE_AGENT_SESSIONS = 8;
 const APPROVAL_DEADLINE_MS = 10 * 60_000;
 
 interface Waiter {
+  readonly sessionId: string;
   readonly resolve: (decision: AgentPermissionDecision) => void;
   readonly timer: NodeJS.Timeout;
 }
@@ -293,6 +295,7 @@ export class AgentManager {
   }
 
   cancel(sessionId: string): void {
+    this.flushWaiters(sessionId, 'cancelled');
     this.require(sessionId).session.cancel();
   }
 
@@ -305,12 +308,12 @@ export class AgentManager {
   }
 
   /**
-   * Answers a pending request. Unknown ids are ignored rather than thrown: a
-   * duplicate click, or an answer arriving after a cancel, is ordinary.
+   * Answers a pending request. Unknown ids, other sessions, and late clicks
+   * are ignored: a stale or replayed answer must not execute.
    */
   respond(sessionId: string, requestId: string, decision: AgentPermissionDecision): void {
     const waiter = this.waiters.get(requestId);
-    if (waiter === undefined) return;
+    if (waiter === undefined || waiter.sessionId !== sessionId) return;
     this.waiters.delete(requestId);
     clearTimeout(waiter.timer);
 
@@ -328,6 +331,7 @@ export class AgentManager {
   async close(sessionId: string): Promise<void> {
     const entry = this.sessions.get(sessionId);
     if (entry === undefined) return;
+    this.flushWaiters(sessionId, 'cancelled');
     this.sessions.delete(sessionId);
     await entry.session.close();
   }
@@ -353,10 +357,16 @@ export class AgentManager {
       readonly options: readonly AgentPermissionOption[];
     },
   ): Promise<AgentPermissionDecision> {
-    const remembered = this.options.rules.lookup(cwd, request.toolCall.kind);
-    if (remembered !== null) return remembered;
-
     const entry = this.sessions.get(request.sessionId);
+    const access = accessFromConfig(entry?.state.configOptions ?? []);
+    const remembered = this.options.rules.lookup(cwd, request.toolCall.kind);
+    const resolved = resolveAgentPermission({
+      access,
+      kind: request.toolCall.kind,
+      remembered,
+    });
+    if (resolved !== 'ask') return resolved;
+
     entry?.pendingKinds.set(request.requestId, request.toolCall.kind);
 
     return await new Promise<AgentPermissionDecision>((resolve) => {
@@ -366,8 +376,22 @@ export class AgentManager {
         resolve('reject-once');
       }, APPROVAL_DEADLINE_MS);
       timer.unref();
-      this.waiters.set(request.requestId, { resolve, timer });
+      this.waiters.set(request.requestId, {
+        sessionId: request.sessionId,
+        resolve,
+        timer,
+      });
     });
+  }
+
+  private flushWaiters(sessionId: string, decision: AgentPermissionDecision): void {
+    for (const [requestId, waiter] of this.waiters) {
+      if (waiter.sessionId !== sessionId) continue;
+      this.waiters.delete(requestId);
+      clearTimeout(waiter.timer);
+      waiter.resolve(decision);
+    }
+    this.sessions.get(sessionId)?.pendingKinds.clear();
   }
 
   private require(sessionId: string): Entry {

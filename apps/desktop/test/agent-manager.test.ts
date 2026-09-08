@@ -7,15 +7,36 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { AgentCapabilities, AgentConfigOption } from '@builderhelm/protocol';
+import type {
+  AgentCapabilities,
+  AgentConfigOption,
+  AgentPermissionDecision,
+  AgentToolCall,
+} from '@builderhelm/protocol';
 import { AgentManager, MAX_LIVE_AGENT_SESSIONS } from '../src/main/acp/manager.js';
 import { AgentThreads } from '../src/main/acp/threads.js';
 import { PermissionRules } from '../src/main/acp/permission-rules.js';
 
+const hoisted = vi.hoisted(() => ({
+  resolvePermission: undefined as
+    | ((request: {
+        readonly requestId: string;
+        readonly sessionId: string;
+        readonly toolCall: AgentToolCall;
+        readonly options: readonly never[];
+      }) => Promise<AgentPermissionDecision>)
+    | undefined,
+}));
+
 vi.mock('../src/main/acp/session.js', () => ({
   confinePath: (cwd: string, candidate: string) => `${cwd}/${candidate}`,
   AcpSession: {
-    start: vi.fn(async () => fakeSession()),
+    start: vi.fn(
+      async (options: { resolvePermission: typeof hoisted.resolvePermission }) => {
+        hoisted.resolvePermission = options.resolvePermission;
+        return fakeSession();
+      },
+    ),
   },
 }));
 
@@ -140,5 +161,61 @@ describe('agent manager', () => {
         profileId: null,
       }),
     ).rejects.toThrowError(/does not exist/);
+  });
+
+  it('cancels a pending approval so a late click cannot execute', async () => {
+    const helm = manager();
+    const started = await helm.start({
+      agentId: 'codex',
+      cwd: '/tmp',
+      threadId: null,
+      resumeSessionId: null,
+      profileId: null,
+      launch: null,
+    });
+    const pending = hoisted.resolvePermission!({
+      requestId: 'req-1',
+      sessionId: started.sessionId,
+      toolCall: {
+        toolCallId: 't1',
+        title: 'run',
+        kind: 'execute',
+        status: 'pending',
+        content: [],
+        paths: [],
+      },
+      options: [],
+    });
+    helm.cancel(started.sessionId);
+    await expect(pending).resolves.toBe('cancelled');
+    helm.respond(started.sessionId, 'req-1', 'allow-once');
+  });
+
+  it('ignores an approval answered for a different session', async () => {
+    const helm = manager();
+    const started = await helm.start({
+      agentId: 'codex',
+      cwd: '/tmp',
+      threadId: null,
+      resumeSessionId: null,
+      profileId: null,
+      launch: null,
+    });
+    const pending = hoisted.resolvePermission!({
+      requestId: 'req-2',
+      sessionId: started.sessionId,
+      toolCall: {
+        toolCallId: 't2',
+        title: 'run',
+        kind: 'execute',
+        status: 'pending',
+        content: [],
+        paths: [],
+      },
+      options: [],
+    });
+    helm.respond('other-session', 'req-2', 'allow-once');
+    helm.respond(started.sessionId, 'req-2', 'reject-once');
+    await expect(pending).resolves.toBe('reject-once');
   });
 });

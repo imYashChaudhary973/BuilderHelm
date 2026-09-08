@@ -8,6 +8,8 @@ import {
   callStructuredAgent,
   CliSwarmPlanner,
   parseAgentUsage,
+  parseReviewVerdict,
+  gateReviewVerdict,
   swarmSeatArgv,
 } from '../src/index.js';
 
@@ -27,7 +29,7 @@ describe('CLI capability adapters', () => {
   it('enables machine-readable usage output for Claude and Codex seats', () => {
     expect(swarmSeatArgv('claude', 'ship', 'safe')).toEqual({
       binary: 'claude',
-      args: ['-p', 'ship', '--output-format', 'json', '--permission-mode', 'dontAsk'],
+      args: ['-p', 'ship', '--output-format', 'json', '--permission-mode', 'plan'],
     });
     expect(swarmSeatArgv('codex', 'ship', 'auto')).toEqual({
       binary: 'codex',
@@ -63,8 +65,29 @@ describe('CLI capability adapters', () => {
     expect(() => swarmSeatArgv('opencode', 'job', 'safe')).toThrow(
       /does not support safe/,
     );
+    expect(() => swarmSeatArgv('kimi', 'job', 'safe')).toThrow(/does not support safe/);
+    expect(() => swarmSeatArgv('pi', 'job', 'safe')).toThrow(/does not support safe/);
     expect(() => swarmSeatArgv('pi', 'job', 'full')).toThrow(/does not support full/);
     expect(() => swarmSeatArgv('claude', '   ', 'auto')).toThrow(/must not be empty/);
+  });
+
+  it('never puts a bypass flag on a safe seat', () => {
+    for (const profile of BOARD_AGENT_CATALOG) {
+      if (!profile.capabilities.swarmModes.includes('safe')) continue;
+      const joined = swarmSeatArgv(profile.id, 'ship the task', 'safe').args.join(' ');
+      expect(joined).not.toMatch(/dangerously|yolo|bypass/i);
+    }
+  });
+
+  it('fails closed when the reviewer cannot be read or tries to approve secrets', () => {
+    expect(() => parseReviewVerdict({ verdict: 'maybe' })).toThrow(/not readable/);
+    expect(parseReviewVerdict({ verdict: 'fix', issues: ['nits'] })).toEqual({
+      verdict: 'fix',
+      issues: ['nits'],
+    });
+    expect(
+      gateReviewVerdict({ verdict: 'approve' }, ['.env', 'src/app.ts']).verdict,
+    ).toBe('fix');
   });
 
   it('parses only usage formats advertised by the selected adapter', () => {
@@ -188,7 +211,7 @@ else process.stdout.write(JSON.stringify({ structured_output: JSON.parse(result)
   it('refuses selected models on runtimes with no verified flag, loudly', () => {
     for (const agentId of ['grok', 'kimi', 'omp', 'pi'] as const) {
       expect(() =>
-        swarmSeatArgv(agentId, 'ship', 'safe', {
+        swarmSeatArgv(agentId, 'ship', 'auto', {
           model: 'some-model',
           effort: null,
           accountRef: null,

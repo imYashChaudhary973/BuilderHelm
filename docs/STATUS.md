@@ -39,6 +39,13 @@ Status labels used below:
   end to end through `@agentclientprotocol/codex-acp` — live turn, file
   write through the hosted fs, and session resume after a full app restart.
 - Permissioned actions, approvals, and receipts.
+- Security modes: Safe/Auto-edit/Full split into execution, access, and
+  approval. Claude/Grok Safe is `--permission-mode plan`; Codex Safe is
+  `--sandbox read-only`. Plan cannot write (host fs + permission deny even
+  against remembered always-allow). Accept-edits is files only. Full is
+  never a fallback. ACP approvals bind to session+request and cancel with
+  the run. Swarm reviewer fails closed. See
+  [docs/features/security-modes.md](features/security-modes.md).
 - Runtime capability matrix: every known agent probed on PATH (binary path
   and version), tiered unavailable / untested / terminal / structured-chat /
   orchestration-ready, with verification evidence named in code. Readable via

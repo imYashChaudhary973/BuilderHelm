@@ -152,7 +152,7 @@ export const BOARD_AGENT_CATALOG: readonly BoardAgentCatalogEntry[] = [
       headless: true,
       structuredOutput: 'json',
       sessionResume: true,
-      swarmModes: [...boardAgentLaunchModes],
+      swarmModes: ['auto', 'full'],
     }),
   },
   {
@@ -163,7 +163,7 @@ export const BOARD_AGENT_CATALOG: readonly BoardAgentCatalogEntry[] = [
       headless: true,
       structuredOutput: 'json',
       sessionResume: true,
-      swarmModes: ['safe', 'auto'],
+      swarmModes: ['auto'],
     }),
   },
   {
@@ -172,7 +172,7 @@ export const BOARD_AGENT_CATALOG: readonly BoardAgentCatalogEntry[] = [
     command: 'kimi',
     capabilities: capabilities({
       headless: true,
-      swarmModes: [...boardAgentLaunchModes],
+      swarmModes: ['auto', 'full'],
     }),
   },
   {
