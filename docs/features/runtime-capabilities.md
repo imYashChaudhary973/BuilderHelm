@@ -29,13 +29,17 @@ working one.
 
 ## Current verification state
 
-- Claude and Codex: orchestration-ready, proven by
-  `packages/core/test/cli-real-smoke.test.ts` (run with
-  `BUILDERHELM_CLI_SMOKE=1`).
-- Gemini, OpenCode, and Kimi ACP invocations: structured-chat, verified
-  locally against the installed CLIs (see the ACP registry notes).
-- Every other detected runtime: `untested` by default, with the binary path
-  and version attached. Untested is a waiting state, not a failure.
+- Claude and Codex headless json-schema: orchestration-ready, proven by
+  `packages/core/test/cli-real-smoke.test.ts` (`BUILDERHELM_CLI_SMOKE=1`).
+- ACP initialize (no prompt): Gemini, OpenCode, Kimi, Grok, Codex (`codex-acp`
+  1.10.0), Oh My Pi (`omp acp` 18.1.14). See
+  [runtime-matrix.md](runtime-matrix.md).
+- Claude ACP wrapper `claude-agent-acp`: unavailable here. Structured path is
+  the CLI json-schema adapter, not ACP.
+- Copilot: not installed; no ACP argv. Cursor 3.19.13: editor binary, no ACP.
+- Pi: terminal/PTY first. `--mode rpc` untested. Codex `app-server` is
+  quota-only and does not replace `codex-acp`.
+- Every other detected runtime: `untested`, with path and version attached.
 
 ## Surfaces
 

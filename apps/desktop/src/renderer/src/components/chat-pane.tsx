@@ -370,6 +370,7 @@ export function ChatPane({
       threadId: activeThreadId,
       resumeSessionId: activeThread?.acpSessionId ?? null,
       profileId: profile.id,
+      launch: profile.launch,
     });
     sessionIdRef.current = started.sessionId;
     setSession(started);

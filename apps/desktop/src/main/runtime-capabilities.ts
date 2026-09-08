@@ -17,12 +17,17 @@ import { RuntimeCapabilityService } from '@builderhelm/core';
 import { knownAcpAgents, type AgentRegistry } from './acp/registry.js';
 
 /**
- * ACP invocations verified locally, matching the registry's own notes:
- * `gemini --acp`, `opencode acp`, and `kimi acp` run structured sessions.
- * The wrapper commands for Claude, Codex, and Grok are documented by their
- * projects, not verified here, so they stay untested.
+ * ACP initialize handshake verified locally (no paid prompt). Claude's ACP
+ * wrapper is still untested; its working structured path is CLI json-schema.
  */
-const VERIFIED_ACP: ReadonlySet<string> = new Set(['gemini', 'opencode', 'kimi']);
+const VERIFIED_ACP: ReadonlySet<string> = new Set([
+  'gemini',
+  'opencode',
+  'kimi',
+  'grok',
+  'codex',
+  'omp',
+]);
 
 /**
  * Headless structured output with resume and usage reporting, proven by the

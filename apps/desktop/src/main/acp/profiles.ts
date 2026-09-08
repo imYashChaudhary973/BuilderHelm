@@ -65,7 +65,7 @@ export class AgentProfiles {
         mark: parsed.mark,
         agent: { ...parsed.agent, args: [...parsed.agent.args] },
         defaultCwd: parsed.defaultCwd,
-        launch: parsed.launch,
+        launch: parsed.launch ?? null,
         createdAt: now,
         lastOpenedAt: now,
       };
@@ -95,6 +95,7 @@ export class AgentProfiles {
       mark: parsed.mark,
       agent: { ...parsed.agent, args: [...parsed.agent.args] },
       defaultCwd: parsed.defaultCwd,
+      launch: parsed.launch !== undefined ? parsed.launch : existing.launch,
     });
     profiles[at] = updated;
     this.save(profiles);

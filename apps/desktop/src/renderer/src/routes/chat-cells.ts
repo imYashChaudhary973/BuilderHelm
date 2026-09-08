@@ -13,6 +13,8 @@ export interface ConfigChip {
   readonly value: string | boolean;
   readonly choices: readonly AgentConfigChoice[];
   readonly isToggle: boolean;
+  /** True when the current value is not in the advertised catalog. */
+  readonly missing: boolean;
 }
 
 export interface ConfigChipGroups {
@@ -46,11 +48,15 @@ function toChip(option: AgentConfigOption): ConfigChip {
                 : choice.label,
   }));
   let currentLabel: string;
+  let missing = false;
   if (isToggle) {
     currentLabel = option.value === true ? 'On' : 'Off';
   } else {
     const current = choices.find((choice) => choice.value === String(option.value));
-    currentLabel = current?.label ?? String(option.value);
+    missing = current === undefined && String(option.value).length > 0;
+    currentLabel =
+      current?.label ??
+      (missing ? `${String(option.value)} (unavailable)` : String(option.value));
   }
   return {
     id: option.id,
@@ -59,6 +65,7 @@ function toChip(option: AgentConfigOption): ConfigChip {
     value: option.value,
     choices,
     isToggle,
+    missing,
   };
 }
 

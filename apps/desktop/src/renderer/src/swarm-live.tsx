@@ -273,7 +273,7 @@ export function SwarmLive({
                   <p>
                     {seat.role} · {seat.agentId}
                     {seat.tokensUsed > 0
-                      ? ` · ${seat.tokensUsed} tok · ${money(seat.costUsd)}`
+                      ? ` · ${seat.tokensUsed} tok${seat.costUsd > 0 ? ` · ${money(seat.costUsd)}` : ''}`
                       : ''}
                   </p>
                   <button
@@ -304,7 +304,9 @@ export function SwarmLive({
                   <dd>{selected.branch ?? 'not created yet'}</dd>
                   <dt>Spend</dt>
                   <dd>
-                    {selected.tokensUsed} tokens · {money(selected.costUsd)}
+                    {selected.tokensUsed > 0
+                      ? `${selected.tokensUsed} tokens${selected.costUsd > 0 ? ` · ${money(selected.costUsd)}` : ''}`
+                      : 'Not reported'}
                   </dd>
                 </dl>
               )}

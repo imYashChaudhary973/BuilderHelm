@@ -66,11 +66,30 @@ export const accountProviderSchema = z
 export type AccountProvider = z.infer<typeof accountProviderSchema>;
 export type AccountHome = z.infer<typeof accountHomeSchema>;
 
+/** A credential location named without reading its contents. */
+export const authSourceSchema = z
+  .object({
+    kind: z.enum(['system-default', 'isolated-home']),
+    path: z.string().min(1).max(4_096),
+  })
+  .strict();
+export type AuthSource = z.infer<typeof authSourceSchema>;
+
+/** Two or more credential sources for one provider. Paths only, never values. */
+export const authConflictSchema = z
+  .object({
+    provider: quotaProviderIdSchema,
+    sources: z.array(authSourceSchema).min(2).max(16),
+  })
+  .strict();
+export type AuthConflict = z.infer<typeof authConflictSchema>;
+
 export const accountSnapshotSchema = z
   .object({
     providers: z.array(accountProviderSchema),
     occurredAt: z.string().min(1),
     hookSystemDefault: z.boolean(),
+    authConflicts: z.array(authConflictSchema).max(8),
   })
   .strict();
 export type AccountSnapshot = z.infer<typeof accountSnapshotSchema>;

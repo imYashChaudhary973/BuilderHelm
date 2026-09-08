@@ -51,6 +51,22 @@ Status labels used below:
   the argv with no hardcoded model and no silent cross-runtime fallback; the
   planner auto-pick (when a run selects nothing) is gated to
   orchestration-ready runtimes and logged.
+- Tested runtime matrix (ACP initialize, no billed prompt): Gemini, OpenCode,
+  Kimi, Grok, Codex (`codex-acp` 1.10.0), Oh My Pi (`omp acp`). Claude
+  structured path is CLI `--json-schema`, not ACP. Copilot missing; Cursor
+  3.19.13 has no ACP. Pi terminal-first, RPC untested. Codex app-server
+  remains quota-only. See [docs/features/runtime-matrix.md](features/runtime-matrix.md).
+- Account homes: labels + isolated config dirs; login is the runtime's own
+  CLI. New runs bind `accountRef` into child env (`CLAUDE_CONFIG_DIR` /
+  `CODEX_HOME` / `GROK_HOME`); running sessions keep the env they started
+  with. Conflicting credential paths are named without reading values.
+- Model picker searches advertised catalogs (capped at 80 visible rows;
+  type to narrow), keeps exact IDs, and will not substitute a removed model.
+  Effort chips exist only when the runtime advertises thought-level. Profile
+  launch selection is applied on Agents-mode start.
+- Usage kinds stay unmixed: Usage page = subscription windows; chat = reported
+  tokens when present; swarm hides unreported spend. Claude OAuth quota reader
+  assessed (in-memory token, never persisted). No automatic paid fallback.
 - Project dashboard and Git continuity.
 - Space setup with real xterm.js terminals backed by node-pty.
 - Per-pane installed-agent selection and plain-shell mode.

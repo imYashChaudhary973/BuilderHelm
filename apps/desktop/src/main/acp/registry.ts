@@ -18,10 +18,11 @@ import type { AgentDescriptor } from '@builderhelm/protocol';
 import { z } from 'zod';
 
 /**
- * The ACP invocation for agents that ship one, verified locally:
- * `gemini --acp`, `opencode acp`, and `kimi acp`. Grok and Claude are
- * documented rather than verified here, Claude via the adapter its own registry
- * entry points at.
+ * The ACP invocation for agents that ship one, verified by an initialize
+ * handshake against the installed CLI (no paid prompt): `gemini --acp`,
+ * `opencode acp`, `kimi acp`, `grok agent stdio`, `codex-acp`, and `omp acp`.
+ * `claude-agent-acp` is documented by its project and stays untested here.
+ * Copilot and Cursor have no ACP argv on the versions we inspected.
  */
 const KNOWN: readonly {
   id: string;
@@ -35,6 +36,7 @@ const KNOWN: readonly {
   { id: 'claude', label: 'Claude', command: 'claude-agent-acp', args: [] },
   { id: 'codex', label: 'Codex', command: 'codex-acp', args: [] },
   { id: 'kimi', label: 'Kimi', command: 'kimi', args: ['acp'] },
+  { id: 'omp', label: 'Oh My Pi', command: 'omp', args: ['acp'] },
 ];
 
 /** The known ACP invocations, for surfaces that list the whole matrix. */

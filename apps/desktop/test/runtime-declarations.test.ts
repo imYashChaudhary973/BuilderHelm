@@ -45,9 +45,12 @@ describe('runtime declarations', () => {
     expect(byId.get('gemini')?.verified).toBe('structured-chat');
     expect(byId.get('opencode')?.verified).toBe('structured-chat');
     expect(byId.get('kimi')?.verified).toBe('structured-chat');
-    // Wrapper commands documented by their projects, never run here.
+    expect(byId.get('grok')?.verified).toBe('structured-chat');
+    expect(byId.get('codex')?.verified).toBe('structured-chat');
+    expect(byId.get('omp')?.verified).toBe('structured-chat');
+    expect(byId.get('omp')?.command).toBe('omp');
+    // Wrapper documented by its project; binary often absent.
     expect(byId.get('claude')?.verified).toBeNull();
-    expect(byId.get('codex')?.verified).toBeNull();
     expect(byId.get('claude')?.command).toBe('claude-agent-acp');
     expect(byId.get('codex')?.command).toBe('codex-acp');
   });

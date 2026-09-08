@@ -62,7 +62,7 @@ export const agentProfileInputSchema = z
     mark: agentProfileMarkSchema,
     agent: agentDescriptorSchema,
     defaultCwd: z.string().max(4096).nullable(),
-    launch: runtimeLaunchSchema.nullable().default(null),
+    launch: runtimeLaunchSchema.nullable().optional(),
   })
   .strict();
 export type AgentProfileInput = z.infer<typeof agentProfileInputSchema>;

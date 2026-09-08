@@ -61,6 +61,8 @@ export interface AcpSessionOptions {
   readonly resolvePermission: PermissionResolver;
   /** Prior ACP session to `session/load`. Null starts a new one. */
   readonly resumeSessionId?: string | null;
+  /** Config-dir redirects for this run. Captured at spawn; later account changes do not apply. */
+  readonly env?: Readonly<Record<string, string>>;
 }
 
 interface PendingPermission {
@@ -128,6 +130,7 @@ export class AcpSession {
       command: options.agent.command,
       args: options.agent.args,
       cwd: options.cwd,
+      ...(options.env === undefined ? {} : { env: options.env }),
       onExit: (code, stderr) => {
         this.options.emit({
           type: 'session.exited',

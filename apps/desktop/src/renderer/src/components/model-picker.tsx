@@ -2,6 +2,8 @@ import { useId, useRef, useState } from 'react';
 import type { ConfigChip } from '../routes/chat-cells.js';
 import { ChevronDownIcon } from './rail-icons.js';
 
+const VISIBLE = 80;
+
 /** Search a harness's advertised catalog; keep its exact IDs on the wire. */
 export function ModelPicker({
   chip,
@@ -20,6 +22,8 @@ export function ModelPicker({
   const filtered = chip.choices.filter((choice) =>
     `${choice.label} ${choice.value}`.toLowerCase().includes(query.toLowerCase()),
   );
+  const shown = filtered.slice(0, VISIBLE);
+  const hidden = filtered.length - shown.length;
   return (
     <>
       <button
@@ -88,7 +92,7 @@ export function ModelPicker({
             }
           }}
         >
-          {filtered.map((choice) => (
+          {shown.map((choice) => (
             <button
               type="button"
               key={choice.value}
@@ -105,11 +109,23 @@ export function ModelPicker({
             </button>
           ))}
           {filtered.length === 0 && <p role="status">No matching models.</p>}
+          {hidden > 0 && (
+            <p role="status" className="modelMenuHint">
+              {hidden} more — keep typing to narrow. Exact IDs stay on the wire.
+            </p>
+          )}
         </div>
-        <p className="modelMenuHint">
-          Models advertised by this harness. Access depends on its connected provider
-          accounts.
-        </p>
+        {chip.missing ? (
+          <p className="modelMenuHint" role="status">
+            {String(chip.value)} is no longer advertised. Pick another — BuilderHelm will
+            not substitute a model.
+          </p>
+        ) : (
+          <p className="modelMenuHint">
+            Models advertised by this harness. Access depends on its connected provider
+            accounts.
+          </p>
+        )}
       </div>
     </>
   );

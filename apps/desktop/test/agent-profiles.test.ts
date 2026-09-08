@@ -85,6 +85,24 @@ describe('agent profiles', () => {
     expect(reread.find(legacy.id)?.launch).toBeNull();
   });
 
+  it('writes an explicit launch on update', () => {
+    const profiles = new AgentProfiles(memoryStore());
+    const created = profiles.upsert({
+      ...input,
+      launch: { model: 'a', effort: null, accountRef: null },
+    });
+    const updated = profiles.upsert({
+      ...input,
+      id: created.id,
+      launch: { model: 'b', effort: 'high', accountRef: 'codex:system' },
+    });
+    expect(updated.launch).toEqual({
+      model: 'b',
+      effort: 'high',
+      accountRef: 'codex:system',
+    });
+  });
+
   it('removes a profile and keeps its threads readable afterwards', () => {
     const profiles = new AgentProfiles(memoryStore());
     const created = profiles.upsert(input);

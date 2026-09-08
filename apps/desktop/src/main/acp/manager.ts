@@ -63,6 +63,8 @@ export interface AgentManagerOptions {
   readonly threads: AgentThreads;
   readonly resolveAgent: (agentId: string) => AgentDescriptor | null;
   readonly resolveProfile: (profileId: string) => AgentProfile | null;
+  /** Config-dir env for a new run. Omitted in tests. */
+  readonly resolveEnv?: (accountRef: string | null) => Record<string, string>;
 }
 
 export class AgentManager {
@@ -144,12 +146,16 @@ export class AgentManager {
         ? this.options.threads.create(agent, cwd, input.profileId)
         : stored.thread;
     const resumeSessionId = input.resumeSessionId ?? stored?.thread.acpSessionId ?? null;
+    const launch = input.launch ?? profile?.launch ?? null;
 
     let entry: Entry | null = null;
     const session = await AcpSession.start({
       agent,
       cwd,
       resumeSessionId,
+      ...(this.options.resolveEnv === undefined
+        ? {}
+        : { env: this.options.resolveEnv(launch?.accountRef ?? null) }),
       emit: (event) => {
         this.options.threads.append(thread.id, event);
         if (entry !== null) applyToState(entry, event);
@@ -181,8 +187,7 @@ export class AgentManager {
     this.options.threads.attach(thread.id, session.id);
     // Launch consistency: the selection rides the launch, and a runtime that
     // cannot honor it fails the start instead of quietly keeping its own
-    // previous model. accountRef application lands with account profiles.
-    const launch = input.launch ?? profile?.launch ?? null;
+    // previous model. accountRef already bound the child env at spawn.
     if (launch !== null) {
       try {
         for (const [category, value] of [

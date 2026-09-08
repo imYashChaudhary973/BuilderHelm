@@ -362,6 +362,7 @@ app
       threads: new AgentThreads(runtime.settings),
       resolveAgent: (agentId) => agentRegistry.resolve(agentId),
       resolveProfile: (profileId) => agentProfiles.find(profileId),
+      resolveEnv: (accountRef) => core?.accounts.cliEnvFor(accountRef) ?? {},
     });
     setExtraTerminalEnv(() => core?.accounts.cliEnv() ?? {});
     const hookClaude = (): void => {
