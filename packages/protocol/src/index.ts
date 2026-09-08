@@ -10,6 +10,7 @@ export * from './ipc.js';
 export * from './json.js';
 export * from './integrations.js';
 export * from './connections.js';
+export * from './schedules.js';
 export * from './knowledge.js';
 export * from './model.js';
 export * from './providers.js';

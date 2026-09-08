@@ -37,8 +37,10 @@ must not spawn a process. Switching tabs must not cancel a running task.
 - `apps/desktop/src/main/keyring-secret-store.ts`: credential adapter.
 - Code already uses xterm.js and node-pty. Keep those services and the existing
   workspace, Git, file, and review operations.
-- Plugins and Automations are placeholders. ACP and model API chat are distinct
-  backends; the visible Chats tab currently uses ACP, per ADR 0008.
+- Plugins and Skills are host connectors on this branch. Automations are
+  desktop-open schedules; see [automations.md](automations.md). ACP and model
+  API chat are distinct backends; the visible Chats tab currently uses ACP,
+  per ADR 0008.
 
 ## Execution architecture
 

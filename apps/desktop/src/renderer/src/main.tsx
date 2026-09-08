@@ -17,6 +17,7 @@ import { AgentsPage } from './routes/agents.js';
 import { NotBuilt } from './components/not-built.js';
 import { PluginsPage } from './routes/plugins.js';
 import { SkillsPage } from './routes/skills.js';
+import { AutomationsPage } from './routes/automations.js';
 import { BoardPage } from './routes/board.js';
 import { ChatPage } from './routes/chat.js';
 import { MemoryPage } from './routes/memory.js';
@@ -140,13 +141,7 @@ const skillsRoute = createRoute({
 const automationsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/automations',
-  component: () => (
-    <NotBuilt
-      titleId="automations-title"
-      title="Automations"
-      summary="Runs that start on a trigger instead of a click, and report back when they finish."
-    />
-  ),
+  component: AutomationsPage,
 });
 const creditsRoute = createRoute({
   getParentRoute: () => rootRoute,

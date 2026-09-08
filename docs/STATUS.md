@@ -71,6 +71,13 @@ Status labels used below:
   `mcpServers` stays empty; tools run on the host. Fixture-tested; no live
   paid Apify or X call.
 
+- Automations: versioned schedules (trigger, timezone, task, profile, budget,
+  overlap=skip, next run, in-app notice). Lifetime is desktop-open — the
+  Electron process ticks every 30s; there is no daemon. Sleep/wake, missed
+  paid slots, duplicate trigger IDs, expired auth, quota=0, and host restart
+  do not start extra paid connector jobs. Local cancel does not claim the
+  remote job died. Fixture-tested; Automations page not clicked live.
+
 - Runtime capability matrix: every known agent probed on PATH (binary path
   and version), tiered unavailable / untested / terminal / structured-chat /
   orchestration-ready, with verification evidence named in code. Readable via
@@ -195,6 +202,13 @@ Status labels used below:
 
 Live branch ledger. Ahead-counts are not independence proofs; re-verify
 positions against `origin/main` before any integration.
+
+### ADE automations (Phase 7)
+
+- Feature: desktop-open schedules for Apify research / X publish.
+- Branch: `feat/ade-automations` (from `feat/ade-mcp`).
+
+- Next required action: accept Phase 7 before Phase 8 remote/mobile.
 
 ### Workspace launcher (uncommitted WIP — decision recorded)
 

@@ -20,6 +20,7 @@ import { githubIssuesMigration } from './0019-github-issues.js';
 import { linearIssuesMigration } from './0020-linear-issues.js';
 import { swarmOrchestrationMigration } from './0021-swarm-orchestration.js';
 import { connectionsSkillsMigration } from './0022-connections-skills.js';
+import { schedulesMigration } from './0023-schedules.js';
 
 export const migrations = [
   foundationMigration,
@@ -44,6 +45,7 @@ export const migrations = [
   linearIssuesMigration,
   swarmOrchestrationMigration,
   connectionsSkillsMigration,
+  schedulesMigration,
 ];
 
 export {
@@ -69,4 +71,5 @@ export {
   linearIssuesMigration,
   swarmOrchestrationMigration,
   connectionsSkillsMigration,
+  schedulesMigration,
 };

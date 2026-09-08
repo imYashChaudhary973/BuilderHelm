@@ -47,6 +47,7 @@ import { AuthService } from './auth/auth-service.js';
 import { VoiceService, type VoiceModelInventory } from './voice/voice-service.js';
 import { AccountsService } from './accounts/accounts-service.js';
 import { ConnectionService, ownedConfigDir } from './connections/connection-service.js';
+import { ScheduleService } from './schedules/schedule-service.js';
 
 export interface CoreOptions {
   readonly databasePath: string;
@@ -75,6 +76,7 @@ export interface CoreRuntime {
   readonly githubIssues: GitHubIssuesService;
   readonly linearIssues: LinearIssuesService;
   readonly connections: ConnectionService;
+  readonly schedules: ScheduleService;
   readonly previewArtifacts: PreviewArtifactService;
   readonly browserSettings: BrowserSettingsService;
   /**
@@ -162,6 +164,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     logger,
     ownedConfigDir(options.databasePath),
   );
+  const schedules = new ScheduleService(database, connections, logger);
   const previewArtifacts = new PreviewArtifactService(
     new PreviewArtifactRepository(database),
   );
@@ -216,6 +219,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     githubIssues,
     linearIssues,
     connections,
+    schedules,
     previewArtifacts,
     browserSettings,
     settings,

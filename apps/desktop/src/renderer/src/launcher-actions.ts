@@ -138,6 +138,15 @@ export function buildLauncherActions(ctx: LauncherContext): LauncherAction[] {
       detail: 'Apify research and X publish — grants are per profile',
       run: () => ctx.navigate('/plugins'),
     },
+    {
+      id: 'manage.automations',
+      group: 'manage',
+      label: 'Automations',
+      keywords: ['schedule', 'cron', 'repeat'],
+      available: true,
+      detail: 'Runs only while BuilderHelm is open — missed paid work is not replayed',
+      run: () => ctx.navigate('/automations'),
+    },
   );
 
   return actions;

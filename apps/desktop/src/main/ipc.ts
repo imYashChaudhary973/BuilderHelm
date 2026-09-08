@@ -172,6 +172,16 @@ import {
   skillRecordIpcResponseSchema,
   xPublishRequestSchema,
 } from '@builderhelm/protocol/connections';
+import {
+  scheduleCreateRequestSchema,
+  scheduleIdRequestSchema,
+  scheduleRecordIpcResponseSchema,
+  scheduleRunIpcResponseSchema,
+  scheduleRunIdRequestSchema,
+  schedulesSnapshotIpcResponseSchema,
+  schedulesSnapshotRequestSchema,
+  scheduleUpdateRequestSchema,
+} from '@builderhelm/protocol/schedules';
 
 import {
   chatCreateRequestSchema,
@@ -1775,6 +1785,90 @@ export function registerIpcHandlers(
       });
     } catch (error) {
       return mcpControlIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.scheduleSnapshot, (_event, input: unknown) => {
+    try {
+      schedulesSnapshotRequestSchema.parse(input);
+      return schedulesSnapshotIpcResponseSchema.parse({
+        ok: true,
+        value: core.schedules.snapshot(),
+      });
+    } catch (error) {
+      return schedulesSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.scheduleCreate, (_event, input: unknown) => {
+    try {
+      const request = scheduleCreateRequestSchema.parse(input);
+      return scheduleRecordIpcResponseSchema.parse({
+        ok: true,
+        value: core.schedules.create(request.input, request.correlationId),
+      });
+    } catch (error) {
+      return scheduleRecordIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.scheduleUpdate, (_event, input: unknown) => {
+    try {
+      const request = scheduleUpdateRequestSchema.parse(input);
+      return scheduleRecordIpcResponseSchema.parse({
+        ok: true,
+        value: core.schedules.update(request.input, request.correlationId),
+      });
+    } catch (error) {
+      return scheduleRecordIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.schedulePause, (_event, input: unknown) => {
+    try {
+      const request = scheduleIdRequestSchema.parse(input);
+      return scheduleRecordIpcResponseSchema.parse({
+        ok: true,
+        value: core.schedules.pause(request.input.scheduleId, request.correlationId),
+      });
+    } catch (error) {
+      return scheduleRecordIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.scheduleResume, (_event, input: unknown) => {
+    try {
+      const request = scheduleIdRequestSchema.parse(input);
+      return scheduleRecordIpcResponseSchema.parse({
+        ok: true,
+        value: core.schedules.resume(request.input.scheduleId, request.correlationId),
+      });
+    } catch (error) {
+      return scheduleRecordIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.scheduleCancelRun, async (_event, input: unknown) => {
+    try {
+      const request = scheduleRunIdRequestSchema.parse(input);
+      return scheduleRunIpcResponseSchema.parse({
+        ok: true,
+        value: await core.schedules.cancelRun(request.input.runId, request.correlationId),
+      });
+    } catch (error) {
+      return scheduleRunIpcResponseSchema.parse({
         ok: false,
         error: ipcError(error),
       });

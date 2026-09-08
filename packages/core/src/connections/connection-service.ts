@@ -647,6 +647,58 @@ export class ConnectionService {
     return this.requireJob(job.id);
   }
 
+  async observe(jobId: string, correlationId: CorrelationId): Promise<ConnectorJob> {
+    const job = this.requireJob(jobId);
+    if (job.status !== 'running') return job;
+    if (job.remoteJobId === null) return job;
+    const connection = this.requireConnection(job.connectionId);
+    try {
+      const token = await this.requireToken(connection);
+      const state = await this.transport.getRun(connection.kind, token, job.remoteJobId);
+      if (job.toolName === 'apify.research') {
+        return this.finishResearch(job.id, token, 25, state);
+      }
+      if (state.status === 'running') return job;
+      this.database.run(
+        `UPDATE connector_jobs SET status = ?, updated_at = ? WHERE id = ?`,
+        [state.status, utcNow(), job.id],
+      );
+      return this.requireJob(job.id);
+    } catch {
+      this.database.run(
+        `UPDATE connector_jobs SET status = 'outcomeUnknown', report = ?,
+           updated_at = ? WHERE id = ?`,
+        ['Remote job status could not be confirmed', utcNow(), job.id],
+      );
+      this.logger.info({
+        event: 'connection.observe_unknown',
+        correlationId,
+        data: { jobId: job.id },
+      });
+      return this.requireJob(job.id);
+    }
+  }
+
+  async cancelLocal(jobId: string, correlationId: CorrelationId): Promise<ConnectorJob> {
+    const job = this.requireJob(jobId);
+    if (job.status !== 'running') return job;
+    const status = job.remoteJobId === null ? 'cancelled' : 'outcomeUnknown';
+    const report =
+      job.remoteJobId === null
+        ? 'Cancelled locally before the provider accepted the job'
+        : 'Cancelled locally; remote termination was not confirmed';
+    this.database.run(
+      `UPDATE connector_jobs SET status = ?, report = ?, updated_at = ? WHERE id = ?`,
+      [status, report, utcNow(), job.id],
+    );
+    this.logger.info({
+      event: 'connection.cancel_local',
+      correlationId,
+      data: { jobId: job.id, remoteConfirmed: false },
+    });
+    return this.requireJob(job.id);
+  }
+
   createSkill(input: SkillCreateInput): SkillRecord {
     const parsed = skillCreateInputSchema.parse(input);
     const row = skillRecordSchema.parse({

@@ -98,6 +98,15 @@ import type {
   SkillRecord,
   XPublishInput,
 } from './connections.js';
+import type {
+  ScheduleCreateInput,
+  ScheduleIdInput,
+  ScheduleRecord,
+  ScheduleRun,
+  ScheduleRunIdInput,
+  SchedulesSnapshot,
+  ScheduleUpdateInput,
+} from './schedules.js';
 
 import type {
   BrowserCommandInput,
@@ -379,6 +388,12 @@ export const ipcChannels = {
   connectionSkillCreate: 'builderhelm:connection:skill-create',
   connectionSkillBind: 'builderhelm:connection:skill-bind',
   connectionMcp: 'builderhelm:connection:mcp',
+  scheduleSnapshot: 'builderhelm:schedule:snapshot',
+  scheduleCreate: 'builderhelm:schedule:create',
+  scheduleUpdate: 'builderhelm:schedule:update',
+  schedulePause: 'builderhelm:schedule:pause',
+  scheduleResume: 'builderhelm:schedule:resume',
+  scheduleCancelRun: 'builderhelm:schedule:cancel-run',
   agentEvent: 'builderhelm:agent:event',
 } as const;
 
@@ -529,6 +544,14 @@ export interface BuilderHelmDesktopApi {
     createSkill(input: SkillCreateInput): Promise<SkillRecord>;
     bindSkill(input: SkillBindInput): Promise<SkillRecord>;
     mcp(input: McpControlInput): Promise<McpControlResult>;
+  };
+  readonly schedules: {
+    snapshot(): Promise<SchedulesSnapshot>;
+    create(input: ScheduleCreateInput): Promise<ScheduleRecord>;
+    update(input: ScheduleUpdateInput): Promise<ScheduleRecord>;
+    pause(input: ScheduleIdInput): Promise<ScheduleRecord>;
+    resume(input: ScheduleIdInput): Promise<ScheduleRecord>;
+    cancelRun(input: ScheduleRunIdInput): Promise<ScheduleRun>;
   };
   readonly integrations: {
     listGitHubIssues(input: GitHubIssueListInput): Promise<GitHubIssue[]>;

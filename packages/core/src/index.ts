@@ -10,6 +10,7 @@ export * from './models/model-service.js';
 export * from './integrations/github-issues.js';
 export * from './integrations/linear-issues.js';
 export * from './connections/connection-service.js';
+export * from './schedules/schedule-service.js';
 export * from './accounts/accounts-service.js';
 export * from './accounts/quota.js';
 export * from './accounts/claude-oauth-usage.js';

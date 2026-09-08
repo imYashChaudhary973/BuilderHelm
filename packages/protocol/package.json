@@ -99,6 +99,10 @@
     "./connections": {
       "types": "./dist/connections.d.ts",
       "import": "./src/connections.ts"
+    },
+    "./schedules": {
+      "types": "./dist/schedules.d.ts",
+      "import": "./src/schedules.ts"
     }
   },
   "dependencies": {
