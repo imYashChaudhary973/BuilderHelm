@@ -1,14 +1,16 @@
 # Modes
 
-BuilderHelm is one workspace with three modes. Shared rail items
-(Search, Tasks, Plugins, Skills, Automations) stay put while the mode
-changes the main working context.
+BuilderHelm is one workspace with three modes. Each mode owns its
+sidebar. Search, Board, Swarm, and the honest stubs stay on `⌘K`.
 
-| Mode   | Route homes                  | Purpose                                   |
-| ------ | ---------------------------- | ----------------------------------------- |
-| Agents | `/agents`                    | Your named agent profiles and their chats |
-| Code   | `/space`, `/board`, `/swarm` | Project: terminals, files, tasks, review  |
-| Chats  | `/chat`                      | Conversation with an installed ACP agent  |
+| Mode   | Route homes                  | Sidebar      | Purpose                                  |
+| ------ | ---------------------------- | ------------ | ---------------------------------------- |
+| Agents | `/agents`                    | Agent roster | Named agent profiles and their chats     |
+| Code   | `/space`, `/board`, `/swarm` | Workspaces   | Project: terminals, files, tasks, review |
+| Chats  | `/chat`                      | Threads      | Conversation with an installed ACP agent |
+
+Settings is not a mode. It replaces the Code rail with General, Voice,
+Browser, and Account.
 
 The plus menu (`⌘K`) is the fast path. It does not install agents or
 grant plugin access. Plugins, Skills, and Automations remain honest

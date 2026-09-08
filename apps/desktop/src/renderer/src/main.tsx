@@ -21,12 +21,14 @@ import { MemoryPage } from './routes/memory.js';
 import { VoicePage } from './routes/settings/voice.js';
 import { BrowserSettingsPage } from './routes/settings/browser.js';
 import { AccountsPage } from './routes/settings/accounts.js';
+import { GeneralPage } from './routes/settings/general.js';
 import { UsagePage } from './routes/settings/usage.js';
 import { SwarmPage } from './routes/swarm.js';
 import { TodayPage } from './routes/today.js';
 import { ProjectsPage } from './routes/projects.js';
 import './shaders/threeui.css';
 import './styles.css';
+import './product.css';
 
 const rootRoute = createRootRoute({ component: App });
 const indexRoute = createRoute({
@@ -58,6 +60,11 @@ const accountsSettingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings/accounts',
   component: AccountsPage,
+});
+const generalSettingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/general',
+  component: GeneralPage,
 });
 const chatRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -188,6 +195,7 @@ const routeTree = rootRoute.addChildren([
   automationsRoute,
   creditsRoute,
   voiceRoute,
+  generalSettingsRoute,
   browserSettingsRoute,
   accountsSettingsRoute,
   usageRoute,

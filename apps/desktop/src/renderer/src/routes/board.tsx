@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import type {
   BoardAgentDetection,
   BoardAgentId,
@@ -16,13 +16,12 @@ import {
   gridForCount,
 } from '@builderhelm/protocol/board';
 import type { CorrelationId } from '@builderhelm/shared';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { TerminalPane } from '../components/terminal-pane.js';
-import { SignalField } from '../components/signal-field.js';
-import { AgentMark } from '../components/agent-mark.js';
+import { AgentGlyph, AgentMark } from '../components/agent-mark.js';
 import { useBoards } from '../board-store.js';
 import { useSpaces } from '../space-store.js';
-import logo from '../assets/logo.png';
+
 const PANE_COUNTS: readonly BoardPaneCount[] = [1, 2, 4, 6, 8, 10, 12, 16];
 const RECENTS_KEY = 'builderhelm.space.recents';
 const AI_AGENTS = BOARD_AGENT_CATALOG.filter((entry) => entry.id !== 'shell');
@@ -37,40 +36,15 @@ const FEATURED_AGENT_IDS: readonly BoardAgentId[] = [
   'pi',
   'omp',
 ];
-const MODES = [
-  {
-    id: 'space',
-    name: 'BuilderHelm Space',
-    shortcut: '⌘T',
-    enabled: true,
-    promise:
-      'The terminal built for vibe coding. Split panes, command blocks, and an agent in every shell.',
-  },
-  {
-    id: 'swarm',
-    name: 'BuilderHelm Swarm',
-    shortcut: '⌘S',
-    enabled: true,
-    promise:
-      'Many agents, one job. Coordinators, builders, scouts, and reviewers with budgets and guardrails.',
-  },
-  {
-    id: 'board',
-    name: 'BuilderHelm Board',
-    shortcut: '⌘B',
-    enabled: true,
-    promise:
-      'Plan the work. Work the plan. A Kanban board built for builders — turn loose ideas into shipped tasks.',
-  },
-  {
-    id: 'memory',
-    name: 'BuilderHelm Memory',
-    shortcut: '⌘M',
-    enabled: true,
-    promise:
-      'A living knowledge graph. Persistent memory your agents read and write as they build. Context that compounds.',
-  },
-] as const;
+const VIBE_AGENT_IDS: readonly BoardAgentId[] = [
+  'claude',
+  'codex',
+  'cursor',
+  'gemini',
+  'copilot',
+  'omp',
+  'shell',
+];
 
 function SpaceStepper({ step }: { readonly step: 1 | 2 | 3 }): React.JSX.Element {
   const items = [
@@ -92,149 +66,6 @@ function SpaceStepper({ step }: { readonly step: 1 | 2 | 3 }): React.JSX.Element
         </li>
       ))}
     </ol>
-  );
-}
-
-function ModeGlyph({
-  id,
-}: {
-  readonly id: (typeof MODES)[number]['id'];
-}): React.JSX.Element {
-  if (id === 'space') {
-    return (
-      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-        <path
-          d="M7 8.5 10.5 12 7 15.5M13 16.5h4.5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    );
-  }
-  if (id === 'swarm') {
-    return (
-      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-        <circle
-          cx="12"
-          cy="6.5"
-          r="2"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-        />
-        <circle
-          cx="6.8"
-          cy="16.5"
-          r="2"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-        />
-        <circle
-          cx="17.2"
-          cy="16.5"
-          r="2"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-        />
-        <path
-          d="M10.4 8.1 8.2 14.4M13.6 8.1l2.2 6.3M8.8 16.5h6.4"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        />
-      </svg>
-    );
-  }
-  if (id === 'board') {
-    return (
-      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-        <rect
-          x="4.5"
-          y="5.5"
-          width="4"
-          height="13"
-          rx="1.2"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-        />
-        <rect
-          x="10"
-          y="5.5"
-          width="4"
-          height="8.5"
-          rx="1.2"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-        />
-        <rect
-          x="15.5"
-          y="5.5"
-          width="4"
-          height="11"
-          rx="1.2"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-        />
-      </svg>
-    );
-  }
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-      <circle cx="7" cy="12" r="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-      <circle
-        cx="17"
-        cy="7.5"
-        r="2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.7"
-      />
-      <circle
-        cx="17"
-        cy="16.5"
-        r="2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.7"
-      />
-      <path
-        d="M9 12h6M15.2 8.8 9 11.3M15.2 15.2 9 12.7"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-    </svg>
-  );
-}
-
-function LockGlyph(): React.JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
-      <rect
-        x="6.5"
-        y="11"
-        width="11"
-        height="8.5"
-        rx="1.6"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.7"
-      />
-      <path
-        d="M9 11V8.4a3 3 0 0 1 6 0V11"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.7"
-      />
-    </svg>
   );
 }
 
@@ -341,6 +172,8 @@ export function BoardPage(): React.JSX.Element {
   const spaceStore = useSpaces();
   const session =
     spaceStore.spaces.find((item) => item.sessionId === spaceStore.activeId) ?? null;
+  const panePicker = useRef<HTMLDialogElement>(null);
+  const [addAfter, setAddAfter] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>('home');
   const [folderPath, setFolderPath] = useState('');
   const [homeDir, setHomeDir] = useState('');
@@ -484,6 +317,38 @@ export function BoardPage(): React.JSX.Element {
     });
   }
 
+  async function launchOne(agentId: BoardAgentId): Promise<void> {
+    let working = looksLikeCd(folderPath)
+      ? resolveFolder(homeDir, folderPath, homeDir)
+      : folderPath.trim();
+    if (working.length === 0 || working === homeDir) {
+      try {
+        const picked = await window.builderHelm.board.selectFolder();
+        if (picked === null) return;
+        working = picked;
+        setFolderPath(picked);
+      } catch {
+        setError('The project folder could not be opened.');
+        return;
+      }
+    }
+    const catalog = BOARD_AGENT_CATALOG.find((entry) => entry.id === agentId);
+    launch.mutate({
+      correlationId: crypto.randomUUID() as CorrelationId,
+      folderPath: working,
+      paneCount: 1,
+      isolation: 'shared',
+      panes: [
+        {
+          slot: 0,
+          agentId,
+          ...(catalog !== undefined && catalog.command.length > 0
+            ? { command: catalog.command }
+            : {}),
+        },
+      ],
+    });
+  }
   const previewLand = useMutation({
     mutationFn: (branch: string) => {
       if (session === null) throw new Error('No live Space session');
@@ -563,13 +428,13 @@ export function BoardPage(): React.JSX.Element {
     setMaximizedBySession((current) => ({ ...current, [sessionId]: null }));
   }
 
-  async function addTerminal(afterPaneId: string): Promise<void> {
+  async function addTerminal(afterPaneId: string, agentId: BoardAgentId): Promise<void> {
     if (session === null || session.panes.length >= 16) return;
     try {
       const pane = await window.builderHelm.board.addPane({
         correlationId: crypto.randomUUID() as CorrelationId,
         sessionId: session.sessionId,
-        agentId: 'shell',
+        agentId,
       });
       const ordered = session.panes.slice().sort((left, right) => left.slot - right.slot);
       const index = ordered.findIndex((item) => item.paneId === afterPaneId);
@@ -659,7 +524,10 @@ export function BoardPage(): React.JSX.Element {
   }
 
   if (!spaceStore.draft && session !== null) {
-    const layout = gridForCount(session.panes.length);
+    const layout =
+      session.panes.length === 3
+        ? { cols: 2, rows: 2 }
+        : gridForCount(session.panes.length);
     const maximized = maximizedSlot !== null;
     const visiblePanes = session.panes
       .slice()
@@ -682,6 +550,46 @@ export function BoardPage(): React.JSX.Element {
             {error}
           </p>
         )}
+        <dialog
+          ref={panePicker}
+          className="profileDialog paneLauncher"
+          aria-labelledby="pane-launch-title"
+        >
+          <h2 id="pane-launch-title">Add an agent or terminal</h2>
+          <div className="vibeAgents">
+            {VIBE_AGENT_IDS.map((id) => {
+              const item = BOARD_AGENT_CATALOG.find((entry) => entry.id === id);
+              const available =
+                id === 'shell' ||
+                agents.data?.some((entry) => entry.id === id && entry.available);
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  className="vibeAgent"
+                  disabled={!available}
+                  onClick={() => {
+                    panePicker.current?.close();
+                    if (addAfter !== null) void addTerminal(addAfter, id);
+                  }}
+                >
+                  <AgentGlyph id={id} />
+                  {item?.label ?? id}
+                </button>
+              );
+            })}
+          </div>
+          <div className="profileDialogActions">
+            <span className="profileDialogSpacer" />
+            <button
+              type="button"
+              className="profileButton"
+              onClick={() => panePicker.current?.close()}
+            >
+              Cancel
+            </button>
+          </div>
+        </dialog>
         <div
           className={`boardGrid${maximized ? ' boardGridMaximized' : ''}`}
           style={{
@@ -708,7 +616,10 @@ export function BoardPage(): React.JSX.Element {
               onAdd={
                 session.panes.length >= 16
                   ? undefined
-                  : () => void addTerminal(pane.paneId)
+                  : () => {
+                      setAddAfter(pane.paneId);
+                      panePicker.current?.showModal();
+                    }
               }
               onDragStart={() => setDraggedPaneId(pane.paneId)}
               onDrop={() => {
@@ -736,84 +647,40 @@ export function BoardPage(): React.JSX.Element {
   }
 
   if (phase === 'home') {
+    const folder = folderName(folderPath);
+    const named = folder.length > 0 && folderPath !== homeDir;
+    const available = new Set(
+      (agents.data ?? []).filter((entry) => entry.available).map((entry) => entry.id),
+    );
     return (
       <section
         className="spaceStage"
         aria-labelledby="space-home-title"
         data-core-status="ready"
       >
-        <SignalField />
-        <div className="spaceHome">
-          <div className="spaceHomeBrand">
-            <img className="spaceHomeLogo" src={logo} width={56} height={56} alt="" />
-            BuilderHelm
-          </div>
-          <h1 id="space-home-title">
-            Your agents.
-            <br />
-            You at the helm.
-          </h1>
-          <p className="wizardLabel">
-            Workspaces <span>Choose how you want to work</span>
-          </p>
-          <ul className="spaceModes">
-            {MODES.map((mode) => (
-              <li key={mode.id}>
+        <div className="vibeHome">
+          <h1 id="space-home-title">Start vibe coding{named ? ` in ${folder}` : ''}</h1>
+          <p>Choose an agent or open a simple terminal.</p>
+          <div className="vibeAgents">
+            {VIBE_AGENT_IDS.map((id) => {
+              const entry = BOARD_AGENT_CATALOG.find((item) => item.id === id);
+              const ready = id === 'shell' || available.has(id);
+              return (
                 <button
+                  key={id}
                   type="button"
-                  className="spaceMode"
-                  disabled={!mode.enabled}
-                  onClick={() => {
-                    if (mode.id === 'board') {
-                      boards.choose();
-                      void navigate({ to: '/board' });
-                      return;
-                    }
-                    if (mode.id === 'memory') {
-                      void navigate({ to: '/memory' });
-                      return;
-                    }
-                    if (mode.id === 'swarm') {
-                      void navigate({ to: '/swarm' });
-                      return;
-                    }
-                    if (mode.enabled) setPhase('workspace');
-                  }}
+                  className="vibeAgent"
+                  disabled={!ready || launch.isPending}
+                  onClick={() => void launchOne(id)}
                 >
-                  <span className="spaceModeIcon">
-                    <ModeGlyph id={mode.id} />
-                  </span>
-                  <span className="spaceModeText">
-                    <strong>{mode.name}</strong>
-                    <span className="spaceModeHint" aria-hidden="true">
-                      <span>{mode.promise}</span>
-                    </span>
-                  </span>
-                  {mode.enabled ? (
-                    <>
-                      <kbd>{mode.shortcut}</kbd>
-                      <span className="spaceModeOpen">Open →</span>
-                    </>
-                  ) : (
-                    <span className="spaceModeSoon">
-                      <LockGlyph />
-                      Soon
-                    </span>
-                  )}
+                  <AgentGlyph id={id} />
+                  {entry?.label ?? id}
                 </button>
-              </li>
-            ))}
-          </ul>
-          <p className="spaceHomeKeys">
-            <span>
-              <kbd>⌘T</kbd> BuilderHelm Space
-            </span>
-            <span>
-              <kbd>⌘S</kbd> BuilderHelm Swarm
-            </span>
-            <Link to="/settings/voice">
-              <kbd>⌘,</kbd> Settings
-            </Link>
+              );
+            })}
+          </div>
+          <p className="vibeHint">
+            These run in real terminals over your own folders. Swarm and Board stay on ⌘K.
           </p>
         </div>
       </section>

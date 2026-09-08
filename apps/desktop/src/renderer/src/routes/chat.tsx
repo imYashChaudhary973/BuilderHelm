@@ -53,12 +53,9 @@ export function ChatPage(): React.JSX.Element {
 
   return (
     <div className="chatPage">
-      <aside className="threadPanel" aria-label="Conversations">
+      <aside className="threadPanel" aria-label="Threads">
         <div className="threadPanelHeader">
-          <div>
-            <p className="eyebrow">Local history</p>
-            <h1>Conversations</h1>
-          </div>
+          <h1>Threads</h1>
           <button
             className="newThreadButton"
             type="button"

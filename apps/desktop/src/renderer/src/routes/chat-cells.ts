@@ -29,14 +29,27 @@ const CHIP_CATEGORIES: ReadonlySet<AgentConfigOption['category']> = new Set([
 ]);
 
 function toChip(option: AgentConfigOption): ConfigChip {
-  const isToggle = option.choices.length === 0;
+  const isToggle = typeof option.value === 'boolean';
+  const choices = option.choices.map((choice) => ({
+    ...choice,
+    label:
+      option.id === 'collaboration_mode' && choice.value === 'default'
+        ? 'Build'
+        : choice.label === 'Approve for me'
+          ? 'AI approval'
+          : choice.label === 'Ask for approval'
+            ? 'Human review'
+            : choice.label === 'build'
+              ? 'Build'
+              : choice.label === 'plan'
+                ? 'Plan'
+                : choice.label,
+  }));
   let currentLabel: string;
   if (isToggle) {
     currentLabel = option.value === true ? 'On' : 'Off';
   } else {
-    const current = option.choices.find(
-      (choice) => choice.value === String(option.value),
-    );
+    const current = choices.find((choice) => choice.value === String(option.value));
     currentLabel = current?.label ?? String(option.value);
   }
   return {
@@ -44,7 +57,7 @@ function toChip(option: AgentConfigOption): ConfigChip {
     label: option.label,
     currentLabel,
     value: option.value,
-    choices: option.choices,
+    choices,
     isToggle,
   };
 }
@@ -59,6 +72,11 @@ export function buildConfigChips(
     if (CHIP_CATEGORIES.has(option.category)) chips.push(chip);
     else overflow.push(chip);
   }
+  const rank = (id: string): number => {
+    const category = options.find((option) => option.id === id)?.category;
+    return category === 'model' ? 0 : category === 'thought-level' ? 1 : 2;
+  };
+  chips.sort((left, right) => rank(left.id) - rank(right.id));
   return { chips, overflow };
 }
 

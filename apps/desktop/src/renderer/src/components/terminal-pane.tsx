@@ -114,7 +114,7 @@ export function TerminalPane({
         getCellSizePixels: true,
         getWinSizeChars: true,
       },
-      theme: { background: '#0b0d12', foreground: '#e8eaf0', cursor: '#e3e3dc' },
+      theme: { background: '#111111', foreground: '#e8e8ef', cursor: '#a99bff' },
     });
     const fit = new FitAddon();
     const serialize = new SerializeAddon();
@@ -447,7 +447,7 @@ export function TerminalPane({
             className="iconButton"
             type="button"
             onClick={onAdd}
-            title="New terminal to the right"
+            title="Add agent or terminal"
           >
             +
           </button>

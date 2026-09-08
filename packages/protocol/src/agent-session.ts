@@ -124,7 +124,7 @@ export const agentConfigOptionSchema = z
     description: z.string().max(400).nullable(),
     category: agentConfigCategorySchema,
     value: z.union([z.string().max(256), z.boolean()]),
-    choices: z.array(agentConfigChoiceSchema).max(256).readonly(),
+    choices: z.array(agentConfigChoiceSchema).max(2048).readonly(),
   })
   .strict();
 export type AgentConfigOption = z.infer<typeof agentConfigOptionSchema>;
