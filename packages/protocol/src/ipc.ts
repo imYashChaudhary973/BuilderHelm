@@ -2,6 +2,7 @@ import type { CorrelationId } from '@builderhelm/shared';
 import { z } from 'zod';
 
 import type { RuntimeSnapshot } from './runtime.js';
+import { modelErrorSchema } from './model.js';
 
 import type {
   AccountAddInput,
@@ -229,6 +230,7 @@ import type {
 
 export const ipcChannels = {
   systemHealth: 'builderhelm:system:health',
+  diagnosticsExport: 'builderhelm:system:diagnostics-export',
   providerList: 'builderhelm:provider:list',
   providerCreate: 'builderhelm:provider:create',
   providerUpdate: 'builderhelm:provider:update',
@@ -433,9 +435,34 @@ export const systemHealthResponseSchema = z
 export type SystemHealthRequest = z.infer<typeof systemHealthRequestSchema>;
 export type SystemHealthResponse = z.infer<typeof systemHealthResponseSchema>;
 
+export const diagnosticsExportRequestSchema = z
+  .object({
+    correlationId: z
+      .string()
+      .uuid()
+      .transform((value) => value as CorrelationId),
+  })
+  .strict();
+
+export const diagnosticsExportIpcResponseSchema = z.discriminatedUnion('ok', [
+  z
+    .object({
+      ok: z.literal(true),
+      value: z.object({ path: z.string().nullable() }).strict(),
+    })
+    .strict(),
+  z.object({ ok: z.literal(false), error: modelErrorSchema }).strict(),
+]);
+
+export type DiagnosticsExportRequest = z.infer<typeof diagnosticsExportRequestSchema>;
+export type DiagnosticsExportIpcResponse = z.infer<
+  typeof diagnosticsExportIpcResponseSchema
+>;
+
 export interface BuilderHelmDesktopApi {
   readonly system: {
     health(): Promise<SystemHealthResponse>;
+    exportDiagnostics(): Promise<{ path: string | null }>;
   };
   readonly providers: {
     list(): Promise<ProviderSummary[]>;

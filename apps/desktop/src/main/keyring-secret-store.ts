@@ -12,24 +12,34 @@ const validSecretRefs: readonly RegExp[] = [
   /^builderhelm\.linear\.api-key$/,
   /^builderhelm\.session$/,
   /^builderhelm\.connection\.[0-9a-f-]{36}\.token$/,
+  /^remote\.host\.ed25519$/,
+  /^remote\.session\.[0-9a-f-]{36}\.key$/,
 ];
+
+export function supportsCredentialStore(platform: string): boolean {
+  return platform === 'darwin' || platform === 'win32' || platform === 'linux';
+}
+
+export function isAllowedSecretRef(ref: string): boolean {
+  return validSecretRefs.some((pattern) => pattern.test(ref));
+}
 
 /** Keychain has no item under this ref; every other error is a real failure. */
 function isMissingEntry(error: unknown): boolean {
-  return /no matching entry|not found|no such|nsosstatuserrordomain error -25300/i.test(
+  return /no matching entry|not found|no such|element not found|secret service|nsosstatuserrordomain error -25300/i.test(
     error instanceof Error ? error.message : String(error),
   );
 }
 
 export class KeyringSecretStore implements SecretStore {
   private entry(ref: string): AsyncEntry {
-    if (process.platform !== 'darwin') {
+    if (!supportsCredentialStore(process.platform)) {
       throw new BuilderHelmError(
         'INTEGRATION_OFFLINE',
-        'Secure provider credentials currently require macOS Keychain',
+        'Secure credentials require macOS Keychain, Windows Credential Manager, or Linux Secret Service',
       );
     }
-    if (!validSecretRefs.some((pattern) => pattern.test(ref))) {
+    if (!isAllowedSecretRef(ref)) {
       throw new BuilderHelmError(
         'VALIDATION_FAILED',
         'Invalid secure credential reference',

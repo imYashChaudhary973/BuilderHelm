@@ -1,10 +1,14 @@
+import { useState } from 'react';
+
 export function GeneralPage(): React.JSX.Element {
+  const [diagnosticsStatus, setDiagnosticsStatus] = useState<string | null>(null);
+
   return (
     <div className="generalSettings">
       <header className="settingsHeader">
         <div>
           <h1>General</h1>
-          <p>Theme, the notch, and updates.</p>
+          <p>Theme, the notch, updates, and diagnostics.</p>
         </div>
       </header>
       <section aria-labelledby="appearance-title">
@@ -40,7 +44,7 @@ export function GeneralPage(): React.JSX.Element {
         <div className="generalRow">
           <div>
             <strong>Check automatically</strong>
-            <p>Automatic updates are not available in this build.</p>
+            <p>Automatic updates are not available until a signed release exists.</p>
           </div>
           <input
             type="checkbox"
@@ -57,6 +61,38 @@ export function GeneralPage(): React.JSX.Element {
           </div>
           <button type="button" disabled>
             Check now
+          </button>
+        </div>
+      </section>
+      <section aria-labelledby="diagnostics-title">
+        <h2 id="diagnostics-title">Diagnostics</h2>
+        <div className="generalRow">
+          <div>
+            <strong>Export a redacted report</strong>
+            <p>
+              Writes platform, schema version, and recent logs. Secrets are redacted. The
+              database is not included.
+            </p>
+            {diagnosticsStatus !== null ? <p>{diagnosticsStatus}</p> : null}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              void window.builderHelm.system
+                .exportDiagnostics()
+                .then((result) => {
+                  setDiagnosticsStatus(
+                    result.path === null ? 'Cancelled.' : `Wrote ${result.path}`,
+                  );
+                })
+                .catch((error: unknown) => {
+                  setDiagnosticsStatus(
+                    error instanceof Error ? error.message : 'Export failed.',
+                  );
+                });
+            }}
+          >
+            Export diagnostics
           </button>
         </div>
       </section>

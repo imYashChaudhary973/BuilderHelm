@@ -27,6 +27,7 @@ import {
   extractPreviewOrigins,
   type PreviewOrigin,
 } from '@builderhelm/protocol';
+import { defaultShell, killProcessTree, pathFromEnv } from '@builderhelm/core';
 import { BuilderHelmError } from '@builderhelm/shared';
 import { Notification, type WebContents } from 'electron';
 import { spawn, type IPty } from 'node-pty';
@@ -113,12 +114,23 @@ export function setExtraTerminalEnv(get: () => Record<string, string>): void {
 }
 
 function terminalEnv(): Record<string, string> {
+  if (process.platform === 'win32') {
+    return {
+      ...process.env,
+      USERPROFILE: process.env.USERPROFILE ?? homedir(),
+      USERNAME: process.env.USERNAME ?? '',
+      ComSpec: process.env.ComSpec ?? process.env.COMSPEC ?? 'cmd.exe',
+      TERM: 'xterm-256color',
+      PATH: pathFromEnv(process.env, 'win32'),
+      ...extraTerminalEnv(),
+    };
+  }
   return {
     ...process.env,
     HOME: process.env.HOME ?? homedir(),
     USER: process.env.USER ?? '',
     LOGNAME: process.env.LOGNAME ?? process.env.USER ?? '',
-    SHELL: '/bin/zsh',
+    SHELL: defaultShell(process.platform, process.env).binary,
     TERM: 'xterm-256color',
     COLORTERM: 'truecolor',
     LANG: process.env.LANG ?? 'en_US.UTF-8',
@@ -127,6 +139,9 @@ function terminalEnv(): Record<string, string> {
       '/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin',
     TMPDIR: process.env.TMPDIR ?? '/tmp',
     PWD: process.env.PWD ?? homedir(),
+    DISPLAY: process.env.DISPLAY ?? '',
+    WAYLAND_DISPLAY: process.env.WAYLAND_DISPLAY ?? '',
+    XDG_RUNTIME_DIR: process.env.XDG_RUNTIME_DIR ?? '',
     ...extraTerminalEnv(),
   };
 }
@@ -136,20 +151,24 @@ function resolveWorkdir(cwd: string): string {
     const resolved = realpathSync(cwd);
     if (statSync(resolved).isDirectory()) return resolved;
   } catch {
-    // fall through to home
+    // Fall through to the explicit failure below.
   }
-  return homedir();
+  throw new BuilderHelmError(
+    'VALIDATION_FAILED',
+    `Agent working directory does not exist: ${cwd}`,
+  );
 }
 
-function spawnHelperPath(): string {
+function spawnHelperPath(): string | null {
+  if (process.platform === 'win32') return null;
   const require = createRequire(import.meta.url);
   const unix = require.resolve('node-pty/lib/unixTerminal.js');
   return resolve(dirname(unix), '../build/Release/spawn-helper');
 }
 
-function ensureHelper(): string {
+function ensureHelper(): string | null {
   const helper = spawnHelperPath();
-  if (existsSync(helper)) {
+  if (helper !== null && existsSync(helper)) {
     try {
       chmodSync(helper, 0o755);
     } catch {
@@ -157,6 +176,13 @@ function ensureHelper(): string {
     }
   }
   return helper;
+}
+
+function killOwnedPty(pty: IPty | null): void {
+  if (pty === null) return;
+  const pid = pty.pid;
+  pty.kill();
+  killProcessTree(pid);
 }
 
 function spawnArgvPty(
@@ -188,12 +214,12 @@ function spawnArgvPty(
 }
 
 function spawnPty(cwd: string, cols: number, rows: number): IPty {
-  const shell = existsSync('/bin/zsh') ? '/bin/zsh' : '/bin/bash';
+  const shell = defaultShell(process.platform, process.env);
   const workdir = resolveWorkdir(cwd);
   // Agent panes are a real interactive shell that the command is typed into,
   // not `zsh -c <agent>`: the shell must survive the agent exiting so the user
   // drops to a usable prompt. The manager types it once the size settles.
-  return spawn(shell, ['-i'], {
+  return spawn(shell.binary, [...shell.args], {
     name: 'xterm-256color',
     cols,
     rows,
@@ -207,10 +233,10 @@ export function probePty(cwd: string): string {
   try {
     const pty = spawnPty(cwd, 80, 24);
     const pid = pty.pid;
-    pty.kill();
-    return `ok pid=${pid} helper=${helper}`;
+    killOwnedPty(pty);
+    return `ok pid=${pid} helper=${helper ?? 'conpty'}`;
   } catch (error) {
-    return `fail helper=${helper} exists=${existsSync(helper)} err=${error instanceof Error ? error.message : String(error)}`;
+    return `fail helper=${helper} exists=${helper !== null && existsSync(helper)} err=${error instanceof Error ? error.message : String(error)}`;
   }
 }
 
@@ -325,7 +351,7 @@ export class BoardPtyManager {
     } catch (error) {
       for (const pane of session.panes.values()) {
         this.cancelDataFlush(pane);
-        pane.pty?.kill();
+        killOwnedPty(pane.pty);
       }
       // Creation is transactional: a session that never opened must not leave
       // worktrees and branches behind for the panes that did succeed.
@@ -551,7 +577,7 @@ export class BoardPtyManager {
     clearTimeout(pane.commandTimer ?? undefined);
     pane.pendingCommand = null;
     this.closing.add(input.paneId);
-    pane.pty?.kill();
+    killOwnedPty(pane.pty);
     pane.pty = null;
     session.panes.delete(input.paneId);
     this.reindexSlots(session);
@@ -605,7 +631,7 @@ export class BoardPtyManager {
         clearTimeout(pane.commandTimer ?? undefined);
         pane.pendingCommand = null;
         this.closing.add(paneId);
-        pane.pty?.kill();
+        killOwnedPty(pane.pty);
         pane.pty = null;
       }
     }

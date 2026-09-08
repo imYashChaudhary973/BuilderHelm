@@ -9,6 +9,7 @@ export {
   type MigrationDatabase,
   type MigrationResult,
 } from './migration-runner.js';
+export { backupDatabaseFile, databaseBackupPath, restoreDatabaseFile } from './backup.js';
 export {
   chatPersistenceMigration,
   migrations,

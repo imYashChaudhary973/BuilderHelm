@@ -33,3 +33,6 @@ export * from './no-sleep/no-sleep-service.js';
 export * from './auth/auth-service.js';
 export * from './auth/licence.js';
 export * from './runtimes/runtime-capability-service.js';
+export * from './platform/host-paths.js';
+export * from './platform/process-tree.js';
+export * from './diagnostics/diagnostics-service.js';

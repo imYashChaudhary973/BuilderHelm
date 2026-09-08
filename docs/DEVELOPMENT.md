@@ -5,7 +5,7 @@
 - Node.js 24.18.0 or newer within Node 24 LTS.
 - pnpm 11.16.0 through Corepack.
 - Git with worktree support.
-- macOS for the currently verified Electron runtime.
+- macOS for the currently verified Electron runtime. Windows and Linux hosts are not a verified desktop distribution; see [features/release.md](features/release.md).
 
 ```bash
 corepack enable
@@ -44,6 +44,10 @@ BUILDERHELM_DATABASE_PATH=/private/tmp/builderhelm-dev.sqlite pnpm dev
 
 Never point these at live user data. `BUILDERHELM_SMOKE_TEST` and
 `BUILDERHELM_PTY_PROBE` are diagnostics, not product configuration.
+
+Packaged macOS arm64: `pnpm dist` then `pnpm smoke:packaged`. That app is unsigned.
+Export a redacted diagnostics JSON from Settings → General. The live database
+is copied to `*.sqlite.bak` before migrations; restore that file to downgrade.
 
 ## Migrating from a pre-reset build
 

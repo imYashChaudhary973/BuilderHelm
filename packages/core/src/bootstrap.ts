@@ -1,5 +1,6 @@
 import {
   ActionRepository,
+  backupDatabaseFile,
   ChatRepository,
   KnowledgeRepository,
   migrations,
@@ -54,6 +55,10 @@ import { AccountsService } from './accounts/accounts-service.js';
 import { ConnectionService, ownedConfigDir } from './connections/connection-service.js';
 import { ScheduleService } from './schedules/schedule-service.js';
 import { RemoteSessionService } from './remote/remote-session-service.js';
+import {
+  buildDiagnostics,
+  type DiagnosticBundle,
+} from './diagnostics/diagnostics-service.js';
 
 export interface CoreOptions {
   readonly databasePath: string;
@@ -97,16 +102,29 @@ export interface CoreRuntime {
   readonly voice: VoiceService;
   readonly accounts: AccountsService;
   health(correlationId: CorrelationId): SystemHealthResponse;
+  diagnostics(): DiagnosticBundle;
   close(): void;
 }
 
 export function bootstrapCore(options: CoreOptions): CoreRuntime {
-  const logger = createLogger(options.logSink);
+  backupDatabaseFile(options.databasePath);
+  const recentLogs: unknown[] = [];
+  const logger = createLogger((line) => {
+    try {
+      recentLogs.push(JSON.parse(line) as unknown);
+      if (recentLogs.length > 200) recentLogs.shift();
+    } catch {
+      // Non-JSON sink lines stay out of diagnostics.
+    }
+    if (options.logSink !== undefined) options.logSink(line);
+    else process.stdout.write(`${line}\n`);
+  });
   const startupCorrelationId = createCorrelationId();
   const database = openDatabase(options.databasePath);
-
+  let schemaVersion = 0;
   try {
     const migrationResult = runMigrations(database, migrations);
+    schemaVersion = migrationResult.currentVersion;
     logger.info({
       event: 'core.started',
       correlationId: startupCorrelationId,
@@ -288,6 +306,12 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
         occurredAt: utcNow(),
         correlationId,
       };
+    },
+    diagnostics() {
+      return buildDiagnostics({
+        schemaVersion,
+        logs: recentLogs,
+      });
     },
     close() {
       if (closed) {

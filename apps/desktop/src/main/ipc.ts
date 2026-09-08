@@ -288,7 +288,12 @@ import {
   reviewPrDraftIpcResponseSchema,
   reviewPrDraftRequestSchema,
 } from '@builderhelm/protocol/review';
-import { ipcChannels, systemHealthRequestSchema } from '@builderhelm/protocol/ipc';
+import {
+  diagnosticsExportIpcResponseSchema,
+  diagnosticsExportRequestSchema,
+  ipcChannels,
+  systemHealthRequestSchema,
+} from '@builderhelm/protocol/ipc';
 import {
   knowledgeAnswerIpcResponseSchema,
   knowledgeQueryRequestSchema,
@@ -457,6 +462,36 @@ export function registerIpcHandlers(
   ipcMain.handle(ipcChannels.systemHealth, (_event, input: unknown) => {
     const request = systemHealthRequestSchema.parse(input);
     return core.health(request.correlationId);
+  });
+  ipcMain.handle(ipcChannels.diagnosticsExport, async (_event, input: unknown) => {
+    try {
+      diagnosticsExportRequestSchema.parse(input);
+      const selected = await dialog.showSaveDialog({
+        title: 'Export diagnostics',
+        defaultPath: 'builderhelm-diagnostics.json',
+        filters: [{ name: 'JSON', extensions: ['json'] }],
+      });
+      if (selected.canceled || selected.filePath === undefined) {
+        return diagnosticsExportIpcResponseSchema.parse({
+          ok: true,
+          value: { path: null },
+        });
+      }
+      await writeFile(
+        selected.filePath,
+        `${JSON.stringify(core.diagnostics(), null, 2)}\n`,
+        'utf8',
+      );
+      return diagnosticsExportIpcResponseSchema.parse({
+        ok: true,
+        value: { path: selected.filePath },
+      });
+    } catch (error) {
+      return diagnosticsExportIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
   });
   ipcMain.handle(ipcChannels.providerList, (_event, input: unknown) => {
     providerListRequestSchema.parse(input);
@@ -3245,6 +3280,7 @@ export function registerIpcHandlers(
     activeStreams.clear();
     preview.dispose();
     ipcMain.removeHandler(ipcChannels.systemHealth);
+    ipcMain.removeHandler(ipcChannels.diagnosticsExport);
     ipcMain.removeHandler(ipcChannels.providerList);
     ipcMain.removeHandler(ipcChannels.providerCreate);
     ipcMain.removeHandler(ipcChannels.providerUpdate);
@@ -3390,5 +3426,16 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.connectionSkillCreate);
     ipcMain.removeHandler(ipcChannels.connectionSkillBind);
     ipcMain.removeHandler(ipcChannels.connectionMcp);
+    ipcMain.removeHandler(ipcChannels.scheduleSnapshot);
+    ipcMain.removeHandler(ipcChannels.scheduleCreate);
+    ipcMain.removeHandler(ipcChannels.scheduleUpdate);
+    ipcMain.removeHandler(ipcChannels.schedulePause);
+    ipcMain.removeHandler(ipcChannels.scheduleResume);
+    ipcMain.removeHandler(ipcChannels.scheduleCancelRun);
+    ipcMain.removeHandler(ipcChannels.remoteSnapshot);
+    ipcMain.removeHandler(ipcChannels.remoteListen);
+    ipcMain.removeHandler(ipcChannels.remoteStop);
+    ipcMain.removeHandler(ipcChannels.remotePairOffer);
+    ipcMain.removeHandler(ipcChannels.remoteRevoke);
   };
 }

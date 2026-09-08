@@ -215,7 +215,16 @@ positions against `origin/main` before any integration.
 - Feature: loopback/private-network pairing, scoped companion commands, revoke,
   replay-safe approvals, reconnect by event seq. No relay.
 - Branch: `feat/ade-remote` (from `feat/ade-automations`).
-- Next required action: accept Phase 8 before Phase 9 hardening.
+- Next required action: stacked under `feat/ade-release`.
+
+### ADE release (Phase 9)
+
+- Feature: unsigned macOS arm64 packaged smoke, redacted diagnostics, SQLite
+  `.bak` before migrate, PATH/PATHEXT/PTY/credential helpers for Windows and
+  Linux. Swarm cap stays 2. No signing, no auto-update.
+- Branch: `feat/ade-release` (from `feat/ade-remote`).
+- Next required action: accept Phase 9. Windows/Linux packages, notarization,
+  and packaged real-agent checks remain unexercised.
 
 ### Workspace launcher (uncommitted WIP — decision recorded)
 
@@ -371,9 +380,11 @@ and add a workspace switcher. Re-run these scenarios as the acceptance gate.
 
 ## Current verification boundary
 
-macOS is the only exercised desktop platform. Windows, Linux, a packaged
-React Native binary, a live relay, real hosted CI integration, and release
-signing require future evidence.
+macOS unpackaged desktop smoke is exercised. Packaged macOS arm64 smoke is on
+`feat/ade-release` (`pnpm smoke:packaged` after `pnpm dist`). Windows, Linux,
+a packaged React Native binary, a live relay, real hosted CI integration, and
+release signing require future evidence.
+See [docs/features/release.md](features/release.md).
 
 ## Architecture-reset compatibility
 

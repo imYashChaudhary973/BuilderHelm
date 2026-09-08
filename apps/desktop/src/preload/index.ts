@@ -141,6 +141,7 @@ import {
 } from '@builderhelm/protocol/remote';
 
 import {
+  diagnosticsExportIpcResponseSchema,
   ipcChannels,
   systemHealthResponseSchema,
   type BuilderHelmDesktopApi,
@@ -329,6 +330,12 @@ const api: BuilderHelmDesktopApi = {
         correlationId: globalThis.crypto.randomUUID(),
       });
       return systemHealthResponseSchema.parse(response);
+    },
+    async exportDiagnostics() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.diagnosticsExport, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(diagnosticsExportIpcResponseSchema.parse(response));
     },
   },
   providers: {

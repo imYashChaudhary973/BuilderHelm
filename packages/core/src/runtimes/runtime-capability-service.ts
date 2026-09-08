@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
-import { access, constants } from 'node:fs/promises';
 
+import { resolveOnPath } from '../platform/host-paths.js';
 import {
   RUNTIME_TIERS,
   runtimeSnapshotSchema,
@@ -31,19 +31,7 @@ export interface RuntimeProbeOptions {
 }
 
 async function defaultResolve(command: string): Promise<string | null> {
-  const segments =
-    process.env.PATH?.split(process.platform === 'win32' ? ';' : ':') ?? [];
-  for (const segment of segments) {
-    if (segment.length === 0) continue;
-    const candidate = `${segment}/${command}`;
-    try {
-      await access(candidate, constants.X_OK);
-      return candidate;
-    } catch {
-      // Not here; keep scanning PATH.
-    }
-  }
-  return null;
+  return resolveOnPath(command, process.env, process.platform);
 }
 
 function defaultRunVersion(
