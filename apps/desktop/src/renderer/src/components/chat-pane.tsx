@@ -14,11 +14,19 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { bootDictation } from '../voice/dictation.js';
 import { buildConfigChips, compactTokens, earlierWindow } from '../routes/chat-cells.js';
 import { deriveStatus } from '../routes/chat-status.js';
-import { SettingsIcon } from './rail-icons.js';
+import { ArrowUpIcon, SettingsIcon } from './rail-icons.js';
+import { ProfileMark } from './agent-roster.js';
+import { ModelPicker } from './model-picker.js';
 
 export function threadTitle(thread: AgentThread): string {
   return thread.title ?? 'Untitled thread';
 }
+
+const CHAT_STARTERS = [
+  'Plan the next release',
+  'Review the current code',
+  'Draft an introduction',
+] as const;
 
 interface TurnBlock {
   readonly turnId: string;
@@ -153,10 +161,10 @@ export function ChatPane({
   onUsage,
   onEditProfile,
   onStreamingChange,
+  kind = 'threads',
 }: {
   readonly profile: AgentProfile | null;
   readonly fallbackCwd: string;
-  /** Lifted to the route so its aside can share selection. */
   readonly threads: readonly AgentThread[];
   readonly activeThreadId: string | null;
   readonly onActiveThreadChange: (threadId: string | null) => void;
@@ -166,8 +174,8 @@ export function ChatPane({
     modelLabel: string | null;
   }) => void;
   readonly onEditProfile?: (profile: AgentProfile) => void;
-  /** Lets a route-side aside disable its controls while a turn runs. */
   readonly onStreamingChange?: (streaming: boolean) => void;
+  readonly kind?: 'roster' | 'threads';
 }): React.JSX.Element {
   const [candidates, setCandidates] = useState<readonly AgentCandidate[]>([]);
   const [events, setEvents] = useState<AgentSessionEvent[]>([]);
@@ -179,7 +187,7 @@ export function ChatPane({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   /** Which composer chip's choice popover is open, if any. */
-  const [openChipId, setOpenChipId] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
   const [showAllTurns, setShowAllTurns] = useState(false);
   const sessionIdRef = useRef<string | null>(null);
   sessionIdRef.current = session?.sessionId ?? null;
@@ -197,8 +205,6 @@ export function ChatPane({
   const permission = useMemo(() => pendingPermission(events), [events]);
   const usage = lastUsage(events);
   const auth = session?.auth === 'required' ? lastAuth(events) : null;
-  const modelOptions = configByCategory(session?.configOptions ?? [], 'model');
-  const thoughtOptions = configByCategory(session?.configOptions ?? [], 'thought-level');
   const { chips, overflow } = useMemo(
     () => buildConfigChips(session?.configOptions ?? []),
     [session?.configOptions],
@@ -221,8 +227,8 @@ export function ChatPane({
   }, [usage, modelLabel, onUsage]);
 
   useEffect(() => {
-    onStreamingChange?.(streaming);
-  }, [streaming, onStreamingChange]);
+    onStreamingChange?.(streaming || connecting);
+  }, [streaming, connecting, onStreamingChange]);
 
   useEffect(() => {
     let active = true;
@@ -256,10 +262,17 @@ export function ChatPane({
       return;
     }
     let active = true;
-    void window.builderHelm.agents
-      .transcript(activeThreadId)
-      .then((stored) => {
-        if (active) setEvents([...stored.events]);
+    void Promise.all([
+      window.builderHelm.agents.transcript(activeThreadId),
+      window.builderHelm.agents.sessions(),
+    ])
+      .then(([stored, sessions]) => {
+        if (!active) return;
+        const live = sessions.find((item) => item.threadId === activeThreadId) ?? null;
+        setEvents([...stored.events]);
+        setSession(live);
+        sessionIdRef.current = live?.sessionId ?? null;
+        setStreaming(live?.activeTurnId != null);
       })
       .catch(() => {
         if (active) setError('This conversation could not be loaded.');
@@ -309,6 +322,9 @@ export function ChatPane({
     if (streaming) return;
     setError(null);
     setDraft('');
+    setSession(null);
+    setEvents([]);
+    loadedThreadIdRef.current = null;
     onActiveThreadChange(null);
   }
 
@@ -367,7 +383,7 @@ export function ChatPane({
 
   async function sendMessage(): Promise<void> {
     const text = draft.trim();
-    if (text.length === 0 || streaming) return;
+    if (text.length === 0 || streaming || connecting) return;
     setError(null);
     setDraft('');
     setStreaming(true);
@@ -440,8 +456,22 @@ export function ChatPane({
     }
   }
 
+  async function connectControls(): Promise<void> {
+    if (connecting || streaming) return;
+    setConnecting(true);
+    setError(null);
+    try {
+      await ensureSession();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not load agent controls.');
+    } finally {
+      setConnecting(false);
+    }
+  }
+
   async function setOptionRaw(configId: string, value: string | boolean): Promise<void> {
-    if (session === null) return;
+    if (session === null || streaming || connecting) return;
+    setConnecting(true);
     try {
       await window.builderHelm.agents.setConfigOption({
         sessionId: session.sessionId,
@@ -450,6 +480,8 @@ export function ChatPane({
       });
     } catch {
       setError('That setting could not be changed.');
+    } finally {
+      setConnecting(false);
     }
   }
 
@@ -461,32 +493,27 @@ export function ChatPane({
         : 'New conversation';
 
   return (
-    <section className="conversationPanel" aria-label="Chat conversation">
+    <section
+      className={
+        !loading && turns.length === 0
+          ? 'conversationPanel conversationPanelEmpty'
+          : 'conversationPanel'
+      }
+      aria-label="Chat conversation"
+      data-chat-kind={kind}
+    >
       <header className="chatHeader">
-        {profile !== null ? (
-          <div className="chatIdentity">
-            <span
-              className={`markTile mark-head mark-${profile.mark}`}
-              aria-hidden="true"
-            >
-              {profile.name.slice(0, 1).toUpperCase()}
-            </span>
-            <div>
-              <p className="eyebrow">Powered by {profile.agent.label}</p>
-              <h2>{profile.name}</h2>
-            </div>
-          </div>
-        ) : (
+        <div className="chatIdentity">
+          {profile !== null && <ProfileMark profile={profile} size="head" />}
           <div>
-            <p className="eyebrow">
-              {cwd.length === 0
-                ? 'No project folder'
-                : cwd.split('/').filter(Boolean).at(-1)}
+            <h2>{profile?.name ?? (kind === 'roster' ? 'Your agent' : heading)}</h2>
+            <p className="chatSubtitle">
+              {profile !== null
+                ? `Powered by ${profile.agent.label}`
+                : (cwd.split('/').filter(Boolean).at(-1) ?? 'Choose a workspace')}
             </p>
-            <h2>{heading}</h2>
           </div>
-        )}
-
+        </div>
         <div className="chatControls">
           <span className={`statusChip status-${status}`}>
             <span className="statusDot" aria-hidden="true" />
@@ -498,97 +525,29 @@ export function ChatPane({
                   ? 'Working'
                   : 'Ready'}
           </span>
-
-          {profile !== null ? (
+          {profile !== null && (
             <button
               type="button"
-              className="iconButton"
+              className="topbarIcon"
               aria-label={`Edit ${profile.name}`}
-              title="Edit profile"
               onClick={() => onEditProfile?.(profile)}
             >
               <SettingsIcon />
             </button>
-          ) : (
-            <>
-              <label className="modelPicker">
-                <span>Agent</span>
-                <select
-                  value={selected?.id ?? ''}
-                  disabled={streaming || runnable.length === 0}
-                  onChange={(event) => setAgentId(event.target.value)}
-                >
-                  {runnable.length === 0 && <option value="">No agent on PATH</option>}
-                  {runnable.map((candidate) => (
-                    <option value={candidate.id} key={candidate.id}>
-                      {candidate.label}
-                      {candidate.configured ? '' : ' · offered'}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {modelOptions.map((option) => (
-                <label className="modelPicker" key={option.id}>
-                  <span>{option.label}</span>
-                  <select
-                    value={String(option.value)}
-                    disabled={streaming}
-                    onChange={(event) => void setOptionRaw(option.id, event.target.value)}
-                  >
-                    {option.choices.map((choice) => (
-                      <option value={choice.value} key={choice.value}>
-                        {choice.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ))}
-              {thoughtOptions.map((option) => (
-                <label className="modelPicker" key={option.id}>
-                  <span>{option.label}</span>
-                  {option.choices.length === 0 ? (
-                    <input
-                      type="checkbox"
-                      checked={option.value === true}
-                      disabled={streaming}
-                      onChange={(event) =>
-                        void setOptionRaw(option.id, event.target.checked)
-                      }
-                    />
-                  ) : (
-                    <select
-                      value={String(option.value)}
-                      disabled={streaming}
-                      onChange={(event) =>
-                        void setOptionRaw(option.id, event.target.value)
-                      }
-                    >
-                      {option.choices.map((choice) => (
-                        <option value={choice.value} key={choice.value}>
-                          {choice.label}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </label>
-              ))}
-            </>
-          )}
-
-          {profile !== null && (
-            <button
-              type="button"
-              className="newThreadButton"
-              disabled={streaming}
-              aria-label="Start a new conversation with this agent"
-              title="New chat"
-              onClick={beginNewThread}
-            >
-              +
-            </button>
           )}
         </div>
       </header>
+      {kind === 'roster' && (
+        <div className="conversationTabs">
+          <button
+            type="button"
+            disabled={streaming || connecting}
+            onClick={beginNewThread}
+          >
+            New chat <span aria-hidden="true">+</span>
+          </button>
+        </div>
+      )}
 
       {error !== null && (
         <p className="chatError" role="alert">
@@ -700,28 +659,22 @@ export function ChatPane({
             </div>
           </article>
         ))}
-        {!loading && turns.length === 0 && (
+        {!loading && turns.length === 0 && kind !== 'roster' && (
           <div className="chatWelcome">
-            <span className="welcomeMark">0</span>
-            {profile !== null ? (
-              <>
-                <h3>What should we build?</h3>
-                <p>
-                  {profile.defaultCwd === null
-                    ? 'Pick a project folder for this agent first.'
-                    : `Runs in ${profile.defaultCwd} with your installed ${profile.agent.label}.`}
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="eyebrow">Your agents. You at the helm.</p>
-                <h3>Talk to an agent you already have installed.</h3>
-                <p>
-                  BuilderHelm hosts the session. The agent owns sign-in, models, and
-                  billing. Nothing here is an API key.
-                </p>
-              </>
-            )}
+            <h3>What should we work on?</h3>
+            <p>Give your agent a task. Keep the conversation here.</p>
+            <div className="welcomeStarters">
+              {CHAT_STARTERS.map((starter) => (
+                <button
+                  key={starter}
+                  type="button"
+                  className="welcomeStarter"
+                  onClick={() => setDraft(starter)}
+                >
+                  {starter}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         <div ref={transcriptEnd} />
@@ -734,6 +687,12 @@ export function ChatPane({
           void sendMessage();
         }}
       >
+        {!loading && turns.length === 0 && kind === 'roster' && (
+          <div className="agentWelcome">
+            <h3>What should we build?</h3>
+            {profile === null && <p>Create an agent to get started.</p>}
+          </div>
+        )}
         <div className="composerPill">
           <label className="srOnly" htmlFor="chat-message">
             Message
@@ -741,7 +700,12 @@ export function ChatPane({
           <textarea
             id="chat-message"
             value={draft}
-            disabled={streaming || runnable.length === 0 || cwd.length === 0}
+            disabled={
+              streaming ||
+              connecting ||
+              (profile === null && runnable.length === 0) ||
+              cwd.length === 0
+            }
             maxLength={100_000}
             rows={2}
             placeholder={
@@ -751,7 +715,9 @@ export function ChatPane({
                   ? profile !== null
                     ? 'Pick a project folder for this agent first'
                     : 'Open a Space so the agent has a folder'
-                  : 'Ask anything…'
+                  : kind === 'roster' || profile !== null
+                    ? 'Ask anything…'
+                    : 'Ask about your code. @ a file, or add files and folders'
             }
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
@@ -762,168 +728,154 @@ export function ChatPane({
             }}
           />
 
-          {(chips.length > 0 || overflow.length > 0) && (
+          <div className="composerBar">
             <div className="chipRow">
-              {chips.map((chip) =>
-                chip.isToggle ? (
+              <label
+                className="composerSelect harnessSelect"
+                title="Choose a harness for a new conversation"
+              >
+                <span className="providerDot" aria-hidden="true" />
+                <span className="srOnly">Harness</span>
+                <select
+                  aria-label="Harness"
+                  value={
+                    profile?.agent.id ?? activeThread?.agent.id ?? selected?.id ?? ''
+                  }
+                  disabled={
+                    streaming || connecting || profile !== null || runnable.length === 0
+                  }
+                  onChange={(event) => {
+                    beginNewThread();
+                    setAgentId(event.target.value);
+                  }}
+                >
+                  {runnable.length === 0 && <option value="">No harness</option>}
+                  {runnable.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {session === null ? (
+                <button
+                  className="configChip"
+                  type="button"
+                  disabled={
+                    connecting ||
+                    streaming ||
+                    cwd.length === 0 ||
+                    (profile === null && selected === null)
+                  }
+                  onClick={() => void connectControls()}
+                >
+                  {connecting ? 'Connecting…' : 'Choose model & mode'}{' '}
+                  <span aria-hidden="true">⌄</span>
+                </button>
+              ) : null}
+              {chips.concat(overflow).map((chip) =>
+                session?.configOptions.find((option) => option.id === chip.id)
+                  ?.category === 'model' ? (
+                  <ModelPicker
+                    key={chip.id}
+                    chip={chip}
+                    disabled={streaming || connecting}
+                    onSelect={(value) => void setOptionRaw(chip.id, value)}
+                  />
+                ) : chip.isToggle ? (
                   <button
                     key={chip.id}
+                    className="configChip"
                     type="button"
-                    className={`configChip ${chip.value === true ? 'configChipOn' : ''}`}
                     aria-pressed={chip.value === true}
-                    disabled={streaming}
+                    disabled={streaming || connecting}
                     onClick={() => void setOptionRaw(chip.id, !(chip.value === true))}
                   >
-                    <span className="chipCheck" aria-hidden="true">
-                      ✓
-                    </span>
-                    {chip.label}
+                    {chip.label}: {chip.currentLabel}
                   </button>
                 ) : (
-                  <div className="chipAnchor" key={chip.id}>
-                    <button
-                      type="button"
-                      className={`configChip ${openChipId === chip.id ? 'configChipOpen' : ''}`}
-                      aria-expanded={openChipId === chip.id}
-                      disabled={streaming}
-                      onClick={() =>
-                        setOpenChipId((current) => (current === chip.id ? null : chip.id))
-                      }
+                  <label key={chip.id} className="composerSelect" title={chip.label}>
+                    <span className="srOnly">{chip.label}</span>
+                    <select
+                      aria-label={chip.label}
+                      value={String(chip.value)}
+                      disabled={streaming || connecting}
+                      onChange={(event) => void setOptionRaw(chip.id, event.target.value)}
                     >
-                      {chip.label}: <strong>{chip.currentLabel}</strong>
-                    </button>
-                    {openChipId === chip.id && (
-                      <div className="chipPopover" role="listbox" aria-label={chip.label}>
-                        {chip.choices.map((choice) => (
-                          <button
-                            key={choice.value}
-                            type="button"
-                            role="option"
-                            aria-selected={choice.value === String(chip.value)}
-                            className={`chipChoice ${choice.value === String(chip.value) ? 'chipChoiceActive' : ''}`}
-                            onClick={() => {
-                              setOpenChipId(null);
-                              void setOptionRaw(chip.id, choice.value);
-                            }}
-                          >
-                            {choice.label}
-                            {choice.description !== null && (
-                              <small>{choice.description}</small>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                      {chip.choices.map((choice) => (
+                        <option
+                          key={choice.value}
+                          value={choice.value}
+                          title={choice.description ?? choice.label}
+                        >
+                          {choice.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 ),
               )}
-              {overflow.length > 0 && (
-                <div className="chipAnchor">
-                  <button
-                    type="button"
-                    className={`configChip ${openChipId === '…' ? 'configChipOpen' : ''}`}
-                    aria-expanded={openChipId === '…'}
-                    aria-label="More agent settings"
-                    disabled={streaming}
-                    onClick={() =>
-                      setOpenChipId((current) => (current === '…' ? null : '…'))
-                    }
-                  >
-                    ⋯
-                  </button>
-                  {openChipId === '…' && (
-                    <div
-                      className="chipPopover"
-                      role="menu"
-                      aria-label="More agent settings"
-                    >
-                      {overflow.map((chip) => (
-                        <label key={chip.id} className="chipOverflowRow">
-                          <span>{chip.label}</span>
-                          {chip.isToggle ? (
-                            <input
-                              type="checkbox"
-                              checked={chip.value === true}
-                              onChange={(event) =>
-                                void setOptionRaw(chip.id, event.target.checked)
-                              }
-                            />
-                          ) : (
-                            <select
-                              value={String(chip.value)}
-                              onChange={(event) =>
-                                void setOptionRaw(chip.id, event.target.value)
-                              }
-                            >
-                              {chip.choices.map((choice) => (
-                                <option value={choice.value} key={choice.value}>
-                                  {choice.label}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
+              {session !== null && chips.length + overflow.length === 0 && (
+                <span className="composerUnavailable">
+                  This harness exposes no model or mode controls.
+                </span>
               )}
             </div>
-          )}
+            <div className="composerFooter">
+              <span className="composerTokens" title="Tokens used in this conversation">
+                {usage !== null && usage.usedTokens !== null
+                  ? compactTokens(usage.usedTokens)
+                  : '—'}
+              </span>
 
-          <div className="composerFooter">
-            <span className="composerTokens" title="Tokens used in this conversation">
-              {usage !== null && usage.usedTokens !== null
-                ? compactTokens(usage.usedTokens)
-                : '—'}
-            </span>
-            <span className="composerHint">Enter to send</span>
-            <button
-              type="button"
-              className="micButton"
-              aria-label="Dictate a message"
-              title="Dictate (inserts into this box)"
-              onClick={() => {
-                const box = document.querySelector('#chat-message');
-                if (box instanceof HTMLTextAreaElement) box.focus();
-                void bootDictation().start();
-              }}
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                <path
-                  d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Zm-6 9a6 6 0 0 0 12 0m-6 9v-3"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </button>
-            {streaming ? (
               <button
                 type="button"
-                className="stopCircle"
-                aria-label="Stop the running turn"
-                title="Stop"
-                onClick={() => void stopTurn()}
+                className="micButton"
+                aria-label="Dictate a message"
+                title="Dictate (inserts into this box)"
+                onClick={() => {
+                  const box = document.querySelector('#chat-message');
+                  if (box instanceof HTMLTextAreaElement) box.focus();
+                  void bootDictation().start();
+                }}
               >
-                <span aria-hidden="true" />
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path
+                    d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Zm-6 9a6 6 0 0 0 12 0m-6 9v-3"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </svg>
               </button>
-            ) : (
-              <button
-                className="sendCircle"
-                type="submit"
-                aria-label="Send message"
-                title="Send"
-                disabled={
-                  draft.trim().length === 0 ||
-                  (profile === null && (selected === null || cwd.length === 0)) ||
-                  (profile !== null && profile.defaultCwd === null)
-                }
-              >
-                ↑
-              </button>
-            )}
+              {streaming ? (
+                <button
+                  type="button"
+                  className="stopCircle"
+                  aria-label="Stop the running turn"
+                  title="Stop"
+                  onClick={() => void stopTurn()}
+                >
+                  <span aria-hidden="true" />
+                </button>
+              ) : (
+                <button
+                  className="sendCircle"
+                  type="submit"
+                  aria-label="Send message"
+                  title="Send"
+                  disabled={
+                    connecting ||
+                    draft.trim().length === 0 ||
+                    (profile === null && (selected === null || cwd.length === 0)) ||
+                    (profile !== null && profile.defaultCwd === null)
+                  }
+                >
+                  <ArrowUpIcon />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </form>

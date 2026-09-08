@@ -93,13 +93,7 @@ export function AgentsPage(): React.JSX.Element {
   async function handleSaved(saved: AgentProfile | null): Promise<void> {
     setDialog(null);
     await reload();
-    if (saved === null) {
-      setActiveId((current) =>
-        profiles.some((profile) => profile.id === current)
-          ? current
-          : (profiles[0]?.id ?? null),
-      );
-    }
+    if (saved !== null) setActiveId(saved.id);
   }
 
   return (
@@ -117,6 +111,8 @@ export function AgentsPage(): React.JSX.Element {
       />
 
       <ChatPane
+        key={activeId ?? 'no-profile'}
+        kind="roster"
         profile={active}
         fallbackCwd={homeDir}
         threads={threads}

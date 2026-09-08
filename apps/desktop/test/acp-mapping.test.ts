@@ -6,6 +6,7 @@
  * the documented shape for a variant those two do not emit.
  */
 import { describe, expect, it } from 'vitest';
+import { agentConfigOptionSchema } from '@builderhelm/protocol';
 
 import {
   choosePermissionOption,
@@ -88,6 +89,56 @@ describe('ACP config options', () => {
     });
     expect(option?.value).toBe(false);
     expect(option?.choices).toEqual([]);
+  });
+
+  it('preserves provider-grouped model IDs and labels without inventing choices', () => {
+    const [option] = mapConfigOptions({
+      configOptions: [
+        {
+          id: 'model',
+          name: 'Model',
+          category: 'model',
+          currentValue: 'gpt-6-astra',
+          options: [
+            {
+              group: 'openai',
+              name: 'OpenAI',
+              options: [
+                { value: 'gpt-6-astra', name: 'Astra' },
+                { value: 'gpt-6-sol', name: 'Sol' },
+              ],
+            },
+            {
+              group: 'Anthropic',
+              options: [{ value: 'sonnet-5', name: 'Sonnet 5' }, { name: 'Missing ID' }],
+            },
+          ],
+        },
+      ],
+    });
+    expect(option?.choices).toEqual([
+      { value: 'gpt-6-astra', label: 'OpenAI · Astra', description: null },
+      { value: 'gpt-6-sol', label: 'OpenAI · Sol', description: null },
+      { value: 'sonnet-5', label: 'Anthropic · Sonnet 5', description: null },
+    ]);
+    expect(option?.value).toBe('gpt-6-astra');
+  });
+
+  it('accepts a large installed-provider catalog without truncating models', () => {
+    const [mapped] = mapConfigOptions({
+      configOptions: [
+        {
+          id: 'model',
+          category: 'model',
+          currentValue: 'model-456',
+          options: Array.from({ length: 457 }, (_, i) => ({
+            value: `model-${i}`,
+            name: `Model ${i}`,
+          })),
+        },
+      ],
+    });
+    expect(agentConfigOptionSchema.parse(mapped).choices).toHaveLength(457);
   });
 
   it('drops an option with no id rather than inventing one', () => {

@@ -1,34 +1,17 @@
-import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import type { BoardSessionSummary } from '@builderhelm/protocol/board';
 
-import { useBoards } from '../board-store.js';
 import { SPACE_COLORS, useSpaces } from '../space-store.js';
 import {
   AccountIcon,
-  AutomationsIcon,
   BackIcon,
   BrowserIcon,
-  CreditsIcon,
-  GitHubMark,
-  LinearMark,
-  PluginsIcon,
-  SearchIcon,
-  SettingsIcon,
-  SkillsIcon,
-  TasksIcon,
+  GeneralIcon,
   TerminalGlyph,
-  UsageIcon,
   VoiceIcon,
 } from './rail-icons.js';
 
-/**
- * Rail entries that have a surface behind them, and entries that are chrome
- * for a feature nobody has built. Keeping the split explicit means a nav item
- * cannot quietly imply a product that does not exist: `to` navigates, `stub`
- * routes to a panel that says plainly it is not built.
- */
 type NavEntry = {
   readonly id: string;
   readonly label: string;
@@ -38,22 +21,16 @@ type NavEntry = {
 
 export function AppRail({
   collapsed,
-  onSearch,
 }: {
   readonly collapsed: boolean;
-  readonly onSearch?: () => void;
 }): React.JSX.Element {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const spaces = useSpaces();
-  const boards = useBoards();
   const [menuId, setMenuId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
-  const boardProjects = useQuery({
-    queryKey: ['kanban-projects'],
-    queryFn: () => window.builderHelm.board.listProjects({}),
-  });
-
+  const settingsOn = pathname.startsWith('/settings');
+  const iconOnly = !settingsOn && collapsed;
   useEffect(() => {
     if (menuId === null && renamingId === null) return undefined;
     function dismiss(): void {
@@ -64,68 +41,37 @@ export function AppRail({
     return () => window.removeEventListener('click', dismiss);
   }, [menuId, renamingId]);
 
-  const activeBoard =
-    (boardProjects.data ?? []).find((project) => project.id === boards.activeId) ?? null;
-
-  const primary: readonly NavEntry[] = [
-    { id: 'search', label: 'Search', icon: <SearchIcon />, to: '/search' },
-    { id: 'tasks', label: 'Tasks', icon: <TasksIcon />, to: '/board' },
-    { id: 'plugins', label: 'Plugins', icon: <PluginsIcon />, to: '/plugins' },
-    { id: 'skills', label: 'Skills', icon: <SkillsIcon />, to: '/skills' },
-    {
-      id: 'automations',
-      label: 'Automations',
-      icon: <AutomationsIcon />,
-      to: '/automations',
-    },
-  ];
-
-  const footer: readonly NavEntry[] = [
-    { id: 'credits', label: 'Credits', icon: <CreditsIcon />, to: '/credits' },
-    { id: 'usage', label: 'Usage', icon: <UsageIcon />, to: '/usage' },
-    { id: 'settings', label: 'Settings', icon: <SettingsIcon />, to: '/settings/voice' },
-  ];
-
   function openSpace(session: BoardSessionSummary): void {
     spaces.activate(session.sessionId);
     void navigate({ to: '/space' });
   }
 
   function navRow(entry: NavEntry): React.JSX.Element {
-    const on = pathname === entry.to || (entry.to === '/board' && pathname === '/board');
+    const on = pathname === entry.to;
     return (
       <button
         key={entry.id}
         type="button"
         className={on ? 'navRow navRowOn' : 'navRow'}
-        title={collapsed ? entry.label : undefined}
+        title={iconOnly ? entry.label : undefined}
         aria-current={on ? 'page' : undefined}
-        onClick={() => {
-          if (entry.id === 'search' && onSearch !== undefined) {
-            onSearch();
-            return;
-          }
-          if (entry.id === 'tasks' && activeBoard === null) boards.choose();
-          void navigate({ to: entry.to });
-        }}
+        onClick={() => void navigate({ to: entry.to })}
       >
         <span className="navIcon" aria-hidden="true">
           {entry.icon}
         </span>
-        {collapsed ? null : <span className="navLabel">{entry.label}</span>}
-        {collapsed ? null : entry.id === 'tasks' ? (
-          <span className="navSources" aria-hidden="true">
-            <GitHubMark />
-            <LinearMark />
-          </span>
-        ) : null}
+        {iconOnly ? null : <span className="navLabel">{entry.label}</span>}
       </button>
     );
   }
 
-  const settingsOn = pathname.startsWith('/settings');
   const settingsRows: readonly NavEntry[] = [
-    { id: 'back', label: 'Back to app', icon: <BackIcon />, to: '/' },
+    {
+      id: 'general',
+      label: 'General',
+      icon: <GeneralIcon />,
+      to: '/settings/general',
+    },
     { id: 'voice', label: 'Voice', icon: <VoiceIcon />, to: '/settings/voice' },
     { id: 'browser', label: 'Browser', icon: <BrowserIcon />, to: '/settings/browser' },
     { id: 'account', label: 'Account', icon: <AccountIcon />, to: '/settings/accounts' },
@@ -133,7 +79,16 @@ export function AppRail({
 
   if (settingsOn) {
     return (
-      <aside className={collapsed ? 'rail railCollapsed' : 'rail'} aria-label="Settings">
+      <aside className="rail settingsRail" aria-label="Settings">
+        <button
+          type="button"
+          className="settingsNavBack"
+          onClick={() => void navigate({ to: '/agents' })}
+        >
+          <BackIcon />
+          Back
+        </button>
+        <p className="settingsTitle">Settings</p>
         <nav className="navGroup" aria-label="Settings">
           {settingsRows.map(navRow)}
         </nav>
@@ -143,18 +98,14 @@ export function AppRail({
 
   return (
     <aside
-      className={collapsed ? 'rail railCollapsed' : 'rail'}
-      aria-label="BuilderHelm navigation"
+      className={
+        collapsed ? 'rail railCollapsed railWorkspacesOnly' : 'rail railWorkspacesOnly'
+      }
+      aria-label="Workspaces"
     >
-      <nav className="navGroup" aria-label="Tools">
-        {primary.map(navRow)}
-      </nav>
-
-      <div className="railDivider" role="presentation" />
-
       <div className="railWorkspaces">
-        <div className="railSectionHead">
-          {collapsed ? null : <span>Workspaces</span>}
+        <div className="railWorkspaceHead">
+          {collapsed ? null : <h1>Workspaces</h1>}
           <button
             type="button"
             className="railAdd"
@@ -273,10 +224,6 @@ export function AppRail({
           })}
         </div>
       </div>
-
-      <nav className="navFooter" aria-label="Account">
-        {footer.map(navRow)}
-      </nav>
     </aside>
   );
 }

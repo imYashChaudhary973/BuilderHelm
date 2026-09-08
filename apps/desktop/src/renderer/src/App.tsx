@@ -8,15 +8,17 @@ import { SidePanel } from './components/side-panel.js';
 import { AppRail } from './components/app-rail.js';
 import { Launcher } from './components/launcher.js';
 import {
+  AgentsModeIcon,
   BellIcon,
-  RailToggleIcon,
-  SearchIcon,
+  ChatsModeIcon,
+  CodeModeIcon,
+  SettingsIcon,
   ToolsIcon,
 } from './components/rail-icons.js';
 import { SplashScreen, splashEnabled } from './components/splash-screen.js';
 import { LoginScreen } from './components/login-screen.js';
-import { DictationHud } from './components/dictation-hud.js';
 import { NoSleep } from './components/no-sleep.js';
+import { DictationHud } from './components/dictation-hud.js';
 import { PreviewProvider, usePreview } from './preview-store.js';
 import { SpaceProvider } from './space-store.js';
 
@@ -24,25 +26,18 @@ function Shell(): React.JSX.Element {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const preview = usePreview();
   const [launcherOpen, setLauncherOpen] = useState(false);
-  const [railCollapsed, setRailCollapsed] = useState(() => {
-    try {
-      const stored = localStorage.getItem('builderhelm.rail.collapsed');
-      return stored === null ? true : stored === '1';
-    } catch {
-      return true;
-    }
-  });
   const settingsActive = pathname.startsWith('/settings');
+  const ownSidebar = pathname.startsWith('/agents') || pathname.startsWith('/chat');
+  const codeChrome = !ownSidebar && !settingsActive;
   const navigate = useNavigate();
 
-  // Escape leaves Settings, mirroring the visible back control. The router has
-  // nowhere back when a deep link opened the app, so it goes home instead.
+  // Escape leaves Settings, mirroring the visible back control.
   useEffect(() => {
     if (!settingsActive || launcherOpen) return;
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return;
       event.preventDefault();
-      void navigate({ to: '/' });
+      void navigate({ to: '/agents' });
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -72,18 +67,11 @@ function Shell(): React.JSX.Element {
     void window.builderHelm?.browser.command({ action: 'hide' }).catch(() => undefined);
   }, [preview.open, preview.tab, launcherOpen]);
 
-  function toggleRail(): void {
-    setRailCollapsed((current) => {
-      const next = !current;
-      localStorage.setItem('builderhelm.rail.collapsed', next ? '1' : '0');
-      return next;
-    });
-  }
-
   const shellClass = [
     'shell',
     preview.open ? 'shellBrowserOn' : '',
-    railCollapsed ? 'shellRailOff' : '',
+    settingsActive ? 'shellSettingsOn' : '',
+    ownSidebar ? 'shellSolo' : '',
   ]
     .filter((item) => item.length > 0)
     .join(' ');
@@ -105,47 +93,35 @@ function Shell(): React.JSX.Element {
           <img className="brandLogo" src={logo} width={24} height={24} alt="" />
           BuilderHelm
         </div>
-        <button
-          type="button"
-          className={
-            railCollapsed ? 'topbarIcon railToggle' : 'topbarIcon topbarIconOn railToggle'
-          }
-          title={railCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-          aria-pressed={!railCollapsed}
-          onClick={toggleRail}
-        >
-          <RailToggleIcon />
-        </button>
         <ModeTabs />
         <div className="topbarEnd">
-          <span className="buildStamp" title="Branch and commit this build came from">
-            {__BUILD_STAMP__}
-          </span>
-          <button
-            type="button"
-            className={launcherOpen ? 'topbarIcon topbarIconOn' : 'topbarIcon'}
-            title="Search (⌘K)"
-            aria-pressed={launcherOpen}
-            onClick={() => setLauncherOpen(true)}
-          >
-            <SearchIcon />
-          </button>
-          <button
-            type="button"
-            className={preview.open ? 'topbarIcon topbarIconOn' : 'topbarIcon'}
-            title="Tools"
-            aria-pressed={preview.open}
-            onClick={() => preview.toggle()}
-          >
-            <ToolsIcon />
-          </button>
+          {codeChrome ? (
+            <button
+              type="button"
+              className={preview.open ? 'topbarIcon topbarIconOn' : 'topbarIcon'}
+              title="Tools"
+              aria-pressed={preview.open}
+              onClick={() => preview.toggle()}
+            >
+              <ToolsIcon />
+            </button>
+          ) : null}
+          <NoSleep />
           <button type="button" className="topbarIcon" title="Notifications">
             <BellIcon />
           </button>
-          <NoSleep />
+          <button
+            type="button"
+            className={settingsActive ? 'topbarIcon topbarIconOn' : 'topbarIcon'}
+            title="Settings"
+            aria-pressed={settingsActive}
+            onClick={() => void navigate({ to: '/settings/general' })}
+          >
+            <SettingsIcon />
+          </button>
         </div>
       </header>
-      <AppRail collapsed={railCollapsed} onSearch={() => setLauncherOpen(true)} />
+      {ownSidebar ? null : <AppRail collapsed={false} />}
       <main className="content" role="main">
         <Outlet />
       </main>
@@ -163,16 +139,28 @@ function Shell(): React.JSX.Element {
 const MODES: readonly {
   readonly label: string;
   readonly to: string;
+  readonly Icon: () => React.JSX.Element;
   readonly match: (pathname: string) => boolean;
 }[] = [
-  { label: 'Agents', to: '/agents', match: (path) => path.startsWith('/agents') },
+  {
+    label: 'Agents',
+    to: '/agents',
+    Icon: AgentsModeIcon,
+    match: (path) => path.startsWith('/agents'),
+  },
   {
     label: 'Code',
     to: '/space',
+    Icon: CodeModeIcon,
     match: (path) =>
       path.startsWith('/space') || path.startsWith('/board') || path.startsWith('/swarm'),
   },
-  { label: 'Chats', to: '/chat', match: (path) => path.startsWith('/chat') },
+  {
+    label: 'Chats',
+    to: '/chat',
+    Icon: ChatsModeIcon,
+    match: (path) => path.startsWith('/chat'),
+  },
 ];
 
 function ModeTabs(): React.JSX.Element {
@@ -191,6 +179,7 @@ function ModeTabs(): React.JSX.Element {
             className={on ? 'modeTab modeTabOn' : 'modeTab'}
             onClick={() => void navigate({ to: mode.to })}
           >
+            <mode.Icon />
             {mode.label}
           </button>
         );

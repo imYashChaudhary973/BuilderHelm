@@ -1,6 +1,7 @@
 import type { AgentCandidate, AgentProfile } from '@builderhelm/protocol';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
+import { BotMark } from './agent-roster.js';
 import type { AgentProfileMark } from '@builderhelm/protocol';
 
 const MARKS: readonly AgentProfileMark[] = [
@@ -28,6 +29,10 @@ export function ProfileDialog({
   readonly onClose: () => void;
   readonly onSaved: (profile: AgentProfile | null) => void;
 }): React.JSX.Element {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    dialogRef.current?.showModal();
+  }, []);
   const [name, setName] = useState(editing?.name ?? '');
   const [mark, setMark] = useState<AgentProfileMark>(editing?.mark ?? 'diamond');
   const [agentId, setAgentId] = useState(editing?.agent.id ?? '');
@@ -60,8 +65,12 @@ export function ProfileDialog({
   const canSave = name.trim().length > 0 && agentId.length > 0 && !busy;
 
   async function chooseFolder(): Promise<void> {
-    const folder = await window.builderHelm.board.selectFolder();
-    if (folder !== null) setDefaultCwd(folder);
+    try {
+      const folder = await window.builderHelm.board.selectFolder();
+      if (folder !== null) setDefaultCwd(folder);
+    } catch {
+      setError('The folder picker could not be opened.');
+    }
   }
 
   async function save(): Promise<void> {
@@ -111,101 +120,109 @@ export function ProfileDialog({
   }
 
   return (
-    <div className="dialogBackdrop" role="presentation">
-      <section
-        className="profileDialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="profile-dialog-title"
+    <dialog
+      ref={dialogRef}
+      onCancel={(event) => {
+        event.preventDefault();
+        if (!busy) onClose();
+      }}
+      className="profileDialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="profile-dialog-title"
+    >
+      <h2 id="profile-dialog-title">{editing === null ? 'New agent' : 'Edit agent'}</h2>
+
+      <label className="wizardLabel" htmlFor="profile-name">
+        Name
+      </label>
+      <input
+        id="profile-name"
+        value={name}
+        maxLength={80}
+        placeholder="Social Content Manager"
+        autoFocus
+        onChange={(event) => setName(event.target.value)}
+      />
+
+      <p className="wizardLabel">Mark</p>
+      <div className="markPicker" role="radiogroup" aria-label="Mark">
+        {MARKS.map((option) => (
+          <button
+            key={option}
+            type="button"
+            role="radio"
+            aria-checked={option === mark}
+            aria-label={`Mark ${option}`}
+            className={`markChoice ${option === mark ? 'markPicked' : ''}`}
+            onClick={() => setMark(option)}
+          >
+            <BotMark mark={option} />
+          </button>
+        ))}
+      </div>
+
+      <label className="wizardLabel" htmlFor="profile-agent">
+        Runs with
+      </label>
+      <select
+        id="profile-agent"
+        value={agentId}
+        disabled={runnable.length === 0}
+        onChange={(event) => setAgentId(event.target.value)}
       >
-        <h2 id="profile-dialog-title">{editing === null ? 'New agent' : 'Edit agent'}</h2>
+        {runnable.length === 0 && <option value="">No ACP agent on PATH</option>}
+        {runnable.map((candidate) => (
+          <option value={candidate.id} key={candidate.id}>
+            {candidate.label}
+            {candidate.configured ? '' : ' · offered'}
+          </option>
+        ))}
+      </select>
 
-        <label className="wizardLabel" htmlFor="profile-name">
-          Name
-        </label>
-        <input
-          id="profile-name"
-          value={name}
-          maxLength={80}
-          placeholder="Social Content Manager"
-          autoFocus
-          onChange={(event) => setName(event.target.value)}
-        />
-
-        <p className="wizardLabel">Mark</p>
-        <div className="markPicker" role="radiogroup" aria-label="Mark">
-          {MARKS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              role="radio"
-              aria-checked={option === mark}
-              aria-label={`Mark ${option}`}
-              className={`markTile mark-row mark-${option} ${option === mark ? 'markPicked' : ''}`}
-              onClick={() => setMark(option)}
-            >
-              {(editing?.name ?? name).slice(0, 1).toUpperCase() || 'A'}
-            </button>
-          ))}
-        </div>
-
-        <label className="wizardLabel" htmlFor="profile-agent">
-          Runs with
-        </label>
-        <select
-          id="profile-agent"
-          value={agentId}
-          disabled={runnable.length === 0}
-          onChange={(event) => setAgentId(event.target.value)}
+      <p className="wizardLabel">Project folder</p>
+      <div className="profileFolderRow">
+        <code className="profileFolderPath">{defaultCwd ?? 'Not chosen'}</code>
+        <button
+          className="profileButton"
+          type="button"
+          disabled={busy}
+          onClick={() => void chooseFolder()}
         >
-          {runnable.length === 0 && <option value="">No ACP agent on PATH</option>}
-          {runnable.map((candidate) => (
-            <option value={candidate.id} key={candidate.id}>
-              {candidate.label}
-              {candidate.configured ? '' : ' · offered'}
-            </option>
-          ))}
-        </select>
+          Choose…
+        </button>
+      </div>
 
-        <p className="wizardLabel">Project folder</p>
-        <div className="profileFolderRow">
-          <code className="profileFolderPath">{defaultCwd ?? 'Not chosen'}</code>
-          <button type="button" onClick={() => void chooseFolder()}>
-            Choose…
-          </button>
-        </div>
+      {error !== null && (
+        <p className="chatError" role="alert">
+          {error}
+        </p>
+      )}
 
-        {error !== null && (
-          <p className="chatError" role="alert">
-            {error}
-          </p>
-        )}
-
-        <div className="profileDialogActions">
-          {editing !== null && (
-            <button
-              type="button"
-              className="stopButton"
-              disabled={busy}
-              onClick={() => void remove()}
-            >
-              Delete
-            </button>
-          )}
-          <span className="profileDialogSpacer" />
-          <button type="button" onClick={onClose}>
-            Cancel
-          </button>
+      <div className="profileDialogActions">
+        {editing !== null && (
           <button
             type="button"
-            className="sendButton"
-            disabled={!canSave}
-            onClick={() => void save()}
+            className="stopButton"
+            disabled={busy}
+            onClick={() => void remove()}
           >
-            {editing === null ? 'Create' : 'Save'}
+            Delete
           </button>
-        </div>
-      </section>
-    </div>
+        )}
+        <span className="profileDialogSpacer" />
+        <button className="profileButton" type="button" disabled={busy} onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="profileButton profileButtonPrimary"
+          disabled={!canSave}
+          onClick={() => void save()}
+        >
+          {editing === null ? 'Create' : 'Save'}
+        </button>
+      </div>
+    </dialog>
   );
 }

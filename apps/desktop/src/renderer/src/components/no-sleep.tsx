@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NoSleepMode, NoSleepState } from '@builderhelm/protocol/no-sleep';
 import { useEffect, useRef, useState } from 'react';
+import { CupIcon } from './rail-icons.js';
 
 const OPTIONS: readonly {
   readonly mode: NoSleepMode;
@@ -13,25 +14,6 @@ const OPTIONS: readonly {
 ];
 
 const LABELS: Record<NoSleepMode, string> = { on: 'On', agent: 'Agent', off: 'Off' };
-
-function CupGlyph(): React.JSX.Element {
-  // Drawn at the box's centre rather than cropped to it: cropping the viewBox
-  // would also magnify the glyph and thicken its stroke. The coordinates are
-  // the original cup shifted +1.6 x and -2.5 y so the ink centre lands on
-  // (12, 12).
-  return (
-    <svg viewBox="0 0 24 24" width={13} height={13} aria-hidden="true">
-      <path
-        d="M5.6 5.5h11v5a5 5 0 0 1-5 5H10.6a5 5 0 0 1-5-5V5.5Zm11 1.5h1.6a2.4 2.4 0 0 1 0 4.8H16.6M6.1 18.5h10"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
 /**
  * The No Sleep control: a bar chip on the right of the status bar plus a mode
@@ -68,34 +50,41 @@ export function NoSleep(): React.JSX.Element {
         setOpen(false);
       }
     };
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        rootRef.current?.querySelector('button')?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
     window.addEventListener('mousedown', onDown);
     return () => window.removeEventListener('mousedown', onDown);
+    window.removeEventListener('keydown', onKey);
   }, [open]);
 
   const current = state.data?.mode ?? 'off';
-  const held = state.data?.blockerActive ?? false;
-  const status = current === 'off' ? 'Off' : held ? 'Active' : 'Idle';
 
   return (
     <div className="noSleep" ref={rootRef}>
       {/* Icon only; the mode menu carries the words. */}
       <button
         type="button"
-        className={current === 'off' ? 'noSleepChip' : 'noSleepChip noSleepChipOn'}
+        className="topbarIcon noSleepTrigger"
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label={`No Sleep: ${LABELS[current]} · ${status}`}
-        title={`No Sleep: ${LABELS[current]} · ${status}`}
+        aria-label={`No Sleep: ${LABELS[current]}`}
+        title={`No Sleep: ${LABELS[current]}`}
         onClick={() => setOpen((value) => !value)}
       >
-        <CupGlyph />
+        <CupIcon />
       </button>
       {open ? (
         <div className="noSleepMenu" role="menu" aria-label="No Sleep">
           <header className="noSleepMenuHead">
             <strong>No Sleep</strong>
-            <span className="usageMeta">
-              {LABELS[current]} · {status}
+            <span className="noSleepCurrent" data-mode={current}>
+              <i aria-hidden="true" />
+              {LABELS[current]}
             </span>
           </header>
           <ul className="noSleepList">
@@ -106,10 +95,10 @@ export function NoSleep(): React.JSX.Element {
                   role="menuitemradio"
                   aria-checked={current === option.mode}
                   className="noSleepOption"
+                  data-mode={option.mode}
                   disabled={mutate.isPending}
                   onClick={() => {
-                    mutate.mutate(option.mode);
-                    setOpen(false);
+                    mutate.mutate(option.mode, { onSuccess: () => setOpen(false) });
                   }}
                 >
                   <span
@@ -128,6 +117,11 @@ export function NoSleep(): React.JSX.Element {
               </li>
             ))}
           </ul>
+          {mutate.isError && (
+            <p className="noSleepError" role="alert">
+              Could not change No Sleep. Try again.
+            </p>
+          )}
         </div>
       ) : null}
     </div>

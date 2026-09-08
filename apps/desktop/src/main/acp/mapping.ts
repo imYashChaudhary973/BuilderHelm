@@ -108,14 +108,26 @@ export function mapConfigOptions(source: unknown): AgentConfigOption[] {
     const id = text(option.id);
     if (id === null) continue;
     const choicesRaw = Array.isArray(option.options) ? option.options : [];
-    const choices = choicesRaw.flatMap((choice) => {
+    const flattened = choicesRaw.flatMap((choice) => {
+      const group = record(choice);
+      return Array.isArray(group.options)
+        ? group.options.map((item) => ({
+            ...record(item),
+            providerGroup: text(group.name) ?? text(group.group),
+          }))
+        : [choice];
+    });
+    const choices = flattened.flatMap((choice) => {
       const item = record(choice);
       const value = item.value;
       if (typeof value !== 'string' || value.length === 0) return [];
       return [
         {
           value,
-          label: text(item.name) ?? value,
+          label:
+            text(item.providerGroup) === null
+              ? (text(item.name) ?? value)
+              : `${text(item.providerGroup)} · ${text(item.name) ?? value}`,
           description: text(item.description),
         },
       ];

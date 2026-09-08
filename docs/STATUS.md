@@ -26,8 +26,9 @@ Status labels used below:
   Codex ACP, or any configured command). Threads persist locally. Permission
   rules are remembered per workspace. The tab has not been clicked live in a
   packaged build.
-- Three-mode shell (Agents, Code, Chats) and a ⌘K plus menu that runs existing
-  surfaces. Plugins, Skills, and Automations remain labeled stubs.
+- Three-mode shell (Agents, Code, Chats). Agents and Chats own their sidebars;
+  Code's rail is Workspaces. ⌘K still reaches Board, Swarm, Search, and the
+  honest stubs (Plugins, Skills, Automations). Settings opens with General.
 - Named agent profiles with a roster sidebar in Agents mode (marks, live
   dots, usage footer, "Powered by …" headers) and a shared chat pane:
   config chips rendered from what each agent advertises (model, thought

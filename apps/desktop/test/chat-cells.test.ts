@@ -65,6 +65,34 @@ describe('buildConfigChips', () => {
     expect(chips[0]?.currentLabel).toBe('On');
   });
 
+  it('does not turn an empty model list into a boolean switch', () => {
+    expect(
+      buildConfigChips([option({ choices: [], value: '' })]).chips[0]?.isToggle,
+    ).toBe(false);
+  });
+
+  it('uses product labels without changing the harness permission values', () => {
+    const { chips } = buildConfigChips([
+      option({
+        id: 'mode',
+        category: 'mode',
+        value: 'agent',
+        choices: [
+          {
+            value: 'agent',
+            label: 'Approve for me',
+            description: 'Review potentially unsafe actions',
+          },
+          { value: 'read-only', label: 'Ask for approval', description: null },
+        ],
+      }),
+    ]);
+    expect(chips[0]?.value).toBe('agent');
+    expect(chips[0]?.currentLabel).toBe('AI approval');
+    expect(chips[0]?.choices[1]?.value).toBe('read-only');
+    expect(chips[0]?.choices[1]?.label).toBe('Human review');
+  });
+
   it('falls back to the raw value when the agent sends an unknown choice', () => {
     const { chips } = buildConfigChips([
       option({ id: 'model', label: 'Model', value: 'mystery' }),

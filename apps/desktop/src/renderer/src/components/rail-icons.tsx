@@ -172,6 +172,48 @@ export function AccountIcon(): React.JSX.Element {
   );
 }
 
+export function GeneralIcon(): React.JSX.Element {
+  return (
+    <Icon>
+      <path d="M4 21v-7" />
+      <path d="M4 10V3" />
+      <path d="M12 21v-9" />
+      <path d="M12 8V3" />
+      <path d="M20 21v-5" />
+      <path d="M20 12V3" />
+      <path d="M1 14h6" />
+      <path d="M9 8h6" />
+      <path d="M17 16h6" />
+    </Icon>
+  );
+}
+
+export function AgentsModeIcon(): React.JSX.Element {
+  return (
+    <Icon>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </Icon>
+  );
+}
+
+export function CodeModeIcon(): React.JSX.Element {
+  return (
+    <Icon>
+      <path d="m16 18 6-6-6-6" />
+      <path d="m8 6-6 6 6 6" />
+    </Icon>
+  );
+}
+
+export function ChatsModeIcon(): React.JSX.Element {
+  return (
+    <Icon>
+      <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+    </Icon>
+  );
+}
+
 /** Matches the workspace rows in the rail, which are terminal-backed. */
 export function TerminalGlyph(): React.JSX.Element {
   return (
@@ -206,5 +248,35 @@ export function LinearMark(): React.JSX.Element {
         d="M1.2 9.5a6.8 6.8 0 0 0 5.3 5.3L1.2 9.5zM1.03 7.7 8.3 14.97a6.8 6.8 0 0 0 1.66-.36L1.39 6.04a6.8 6.8 0 0 0-.36 1.66zM2.1 4.6l9.3 9.3a6.9 6.9 0 0 0 1.15-.9L3 3.45a6.9 6.9 0 0 0-.9 1.15zM4.35 2.36 13.64 11.65a6.8 6.8 0 1 0-9.29-9.29z"
       />
     </svg>
+  );
+}
+
+export function CupIcon(): React.JSX.Element {
+  return (
+    <Icon>
+      <path d="M5 8h12v7a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4Z" />
+      <path d="M17 9h2a3 3 0 1 1 0 6h-2M3 22h18M8 2v2M12 2v2M16 2v2" />
+    </Icon>
+  );
+}
+export function ChevronDownIcon(): React.JSX.Element {
+  return (
+    <Icon>
+      <path d="m6 9 6 6 6-6" />
+    </Icon>
+  );
+}
+export function PlusIcon(): React.JSX.Element {
+  return (
+    <Icon>
+      <path d="M12 5v14M5 12h14" />
+    </Icon>
+  );
+}
+export function ArrowUpIcon(): React.JSX.Element {
+  return (
+    <Icon>
+      <path d="M12 19V5m-6 6 6-6 6 6" />
+    </Icon>
   );
 }

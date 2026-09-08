@@ -2,7 +2,39 @@ import type { AgentProfile, AgentThread } from '@builderhelm/protocol';
 
 import { compactTokens, recentProfiles } from '../routes/chat-status.js';
 
-/** The agent's roster tile: a CSS shape holding the profile's initial. */
+const SHAPES = {
+  square: 'M12 5H28Q35 5 35 12V28Q35 35 28 35H12Q5 35 5 28V12Q5 5 12 5Z',
+  circle: 'M20 4a16 16 0 1 0 0 32a16 16 0 1 0 0-32',
+  diamond: 'M20 3 37 20 20 37 3 20Z',
+  triangle: 'M20 4 37 35H3Z',
+  hexagon: 'M12 4h16l9 16-9 16H12L3 20Z',
+  star: 'M20 3 25 13 37 15 29 24 31 36 20 30 9 36 11 24 3 15 15 13Z',
+  wave: 'M5 13Q10 0 21 6Q39 3 35 20Q39 36 23 34Q4 39 5 24Z',
+  bolt: 'M22 3 6 23h12l-1 14 17-22H22Z',
+} as const;
+
+export function BotMark({
+  mark,
+}: {
+  readonly mark: AgentProfile['mark'];
+}): React.JSX.Element {
+  return (
+    <svg
+      className="botMark"
+      viewBox="0 0 40 40"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d={SHAPES[mark]} />
+      <ellipse cx="15.5" cy={mark === 'triangle' ? 25 : 18} rx="1.8" ry="3.6" />
+      <ellipse cx="24.5" cy={mark === 'triangle' ? 25 : 18} rx="1.8" ry="3.6" />
+    </svg>
+  );
+}
+
 export function ProfileMark({
   profile,
   size,
@@ -11,8 +43,8 @@ export function ProfileMark({
   readonly size: 'tile' | 'row' | 'head';
 }): React.JSX.Element {
   return (
-    <span className={`markTile mark-${size} mark-${profile.mark}`} aria-hidden="true">
-      {profile.name.slice(0, 1).toUpperCase()}
+    <span className={`profileMark profileMark-${size}`}>
+      <BotMark mark={profile.mark} />
     </span>
   );
 }
@@ -54,10 +86,7 @@ export function AgentRoster({
   return (
     <aside className="threadPanel rosterPanel" aria-label="Agent roster">
       <div className="threadPanelHeader">
-        <div>
-          <p className="eyebrow">Your agents</p>
-          <h1>Agents</h1>
-        </div>
+        <h1>Agents</h1>
         <button
           className="newThreadButton"
           type="button"
@@ -80,6 +109,7 @@ export function AgentRoster({
               className={`rosterTile ${profile.id === activeId ? 'rosterTileActive' : ''}`}
               aria-label={`Open ${profile.name}`}
               title={profile.name}
+              onClick={() => onSelect(profile.id)}
             >
               <ProfileMark profile={profile} size="tile" />
             </button>
