@@ -25,3 +25,4 @@ export * from './no-sleep.js';
 export * from './auth.js';
 export * from './review.js';
 export * from './security-modes.js';
+export * from './workspaces.js';

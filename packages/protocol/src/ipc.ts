@@ -3,6 +3,13 @@ import { z } from 'zod';
 
 import type { RuntimeSnapshot } from './runtime.js';
 import { modelErrorSchema } from './model.js';
+import type {
+  EditorDraft,
+  EditorDraftInput,
+  WorkspaceMeta,
+  WorkspaceRecord,
+  WorkspaceSnapshot,
+} from './workspaces.js';
 
 import type {
   AccountAddInput,
@@ -542,6 +549,16 @@ export interface BuilderHelmDesktopApi {
     }): Promise<SwarmRunRecord | null>;
     /** Push: a run's ledger changed; refetch its state. */
     onEvent(listener: (runId: string) => void): () => void;
+  };
+  readonly workspaces: {
+    snapshot(): Promise<WorkspaceSnapshot>;
+    select(id: string | null, paneId?: string): Promise<void>;
+    metadata(input: WorkspaceMeta): Promise<void>;
+    importLegacy(entries: readonly WorkspaceMeta[]): Promise<void>;
+    restart(id: string): Promise<WorkspaceRecord>;
+    order(id: string, paneIds: readonly string[]): Promise<void>;
+    drafts(root: string): Promise<EditorDraft[]>;
+    saveDraft(input: EditorDraftInput): Promise<void>;
   };
   readonly board: {
     homeDir(): Promise<string>;

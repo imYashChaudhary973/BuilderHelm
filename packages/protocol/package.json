@@ -107,6 +107,10 @@
     "./remote": {
       "types": "./dist/remote.d.ts",
       "import": "./src/remote.ts"
+    },
+    "./workspaces": {
+      "types": "./dist/workspaces.d.ts",
+      "import": "./src/workspaces.ts"
     }
   },
   "dependencies": {

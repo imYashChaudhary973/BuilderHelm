@@ -1,4 +1,18 @@
 import {
+  FOUNDATION_CHANNELS,
+  workspaceSnapshotResultSchema,
+  workspaceRecordResultSchema,
+  foundationOkResultSchema,
+  editorDraftListResultSchema,
+  workspaceSelectInputSchema,
+  workspaceIdInputSchema,
+  workspaceMetaSchema,
+  workspaceImportInputSchema,
+  workspaceOrderInputSchema,
+  editorDraftInputSchema,
+  editorDraftListInputSchema,
+} from '@builderhelm/protocol/workspaces';
+import {
   accountAddInputSchema,
   accountConfirmLoginInputSchema,
   accountLoginTerminalInputSchema,
@@ -605,6 +619,88 @@ const api: BuilderHelmDesktopApi = {
         swarmStopSeatRequestSchema.parse(input),
       );
       return unwrap(swarmStopSeatIpcResponseSchema.parse(response));
+    },
+  },
+  workspaces: {
+    async snapshot() {
+      return unwrap(
+        workspaceSnapshotResultSchema.parse(
+          await ipcRenderer.invoke(FOUNDATION_CHANNELS.snapshot),
+        ),
+      );
+    },
+    async select(id, paneId) {
+      unwrap(
+        foundationOkResultSchema.parse(
+          await ipcRenderer.invoke(
+            FOUNDATION_CHANNELS.select,
+            workspaceSelectInputSchema.parse({
+              id,
+              ...(paneId === undefined ? {} : { paneId }),
+            }),
+          ),
+        ),
+      );
+    },
+    async metadata(input) {
+      unwrap(
+        foundationOkResultSchema.parse(
+          await ipcRenderer.invoke(
+            FOUNDATION_CHANNELS.metadata,
+            workspaceMetaSchema.parse(input),
+          ),
+        ),
+      );
+    },
+    async importLegacy(entries) {
+      unwrap(
+        foundationOkResultSchema.parse(
+          await ipcRenderer.invoke(
+            FOUNDATION_CHANNELS.importLegacy,
+            workspaceImportInputSchema.parse({ entries }),
+          ),
+        ),
+      );
+    },
+    async restart(id) {
+      return unwrap(
+        workspaceRecordResultSchema.parse(
+          await ipcRenderer.invoke(
+            FOUNDATION_CHANNELS.restart,
+            workspaceIdInputSchema.parse({ id }),
+          ),
+        ),
+      );
+    },
+    async order(id, paneIds) {
+      unwrap(
+        foundationOkResultSchema.parse(
+          await ipcRenderer.invoke(
+            FOUNDATION_CHANNELS.order,
+            workspaceOrderInputSchema.parse({ id, paneIds }),
+          ),
+        ),
+      );
+    },
+    async drafts(root) {
+      return unwrap(
+        editorDraftListResultSchema.parse(
+          await ipcRenderer.invoke(
+            FOUNDATION_CHANNELS.drafts,
+            editorDraftListInputSchema.parse({ root }),
+          ),
+        ),
+      );
+    },
+    async saveDraft(input) {
+      unwrap(
+        foundationOkResultSchema.parse(
+          await ipcRenderer.invoke(
+            FOUNDATION_CHANNELS.saveDraft,
+            editorDraftInputSchema.parse(input),
+          ),
+        ),
+      );
     },
   },
   board: {

@@ -33,6 +33,7 @@ import { Notification, type WebContents } from 'electron';
 import { spawn, type IPty } from 'node-pty';
 
 import { scanStartupChunk } from './startup-ack.js';
+import { stopOwnedPty } from './owned-pty.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -178,11 +179,15 @@ function ensureHelper(): string | null {
   return helper;
 }
 
-function killOwnedPty(pty: IPty | null): void {
+function stopPanePty(pty: IPty | null): void {
   if (pty === null) return;
-  const pid = pty.pid;
-  pty.kill();
-  killProcessTree(pid);
+  if (process.platform === 'win32') {
+    const pid = pty.pid;
+    pty.kill();
+    killProcessTree(pid);
+    return;
+  }
+  stopOwnedPty(pty);
 }
 
 function spawnArgvPty(
@@ -233,7 +238,7 @@ export function probePty(cwd: string): string {
   try {
     const pty = spawnPty(cwd, 80, 24);
     const pid = pty.pid;
-    killOwnedPty(pty);
+    stopPanePty(pty);
     return `ok pid=${pid} helper=${helper ?? 'conpty'}`;
   } catch (error) {
     return `fail helper=${helper} exists=${helper !== null && existsSync(helper)} err=${error instanceof Error ? error.message : String(error)}`;
@@ -257,6 +262,14 @@ async function worktreeHasUncommittedWork(worktreePath: string): Promise<boolean
 }
 
 export class BoardPtyManager {
+  onOutput: ((sessionId: string, paneId: string, text: string) => void) | null = null;
+  private readonly outputTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private persistOutput(sessionId: string, paneId: string, pane: PaneMeta): void {
+    const key = `${sessionId}:${paneId}`;
+    clearTimeout(this.outputTimers.get(key));
+    this.outputTimers.delete(key);
+    this.onOutput?.(sessionId, paneId, pane.output.slice(-262144));
+  }
   private readonly sessions = new Map<string, SessionRecord>();
   private readonly closing = new Set<string>();
   private readonly exitWaiters = new Map<
@@ -322,8 +335,8 @@ export class BoardPtyManager {
     input: BoardCreateInput,
     locate: (slot: number) => Promise<{ cwd: string; branch: string | null }>,
     sender: WebContents,
+    sessionId: string = randomUUID(),
   ): Promise<BoardSessionSummary> {
-    const sessionId = randomUUID();
     const worktreeTag = randomUUID().slice(0, 8);
     const session: SessionRecord = {
       sender,
@@ -351,15 +364,9 @@ export class BoardPtyManager {
     } catch (error) {
       for (const pane of session.panes.values()) {
         this.cancelDataFlush(pane);
-        killOwnedPty(pane.pty);
+        stopPanePty(pane.pty);
       }
-      // Creation is transactional: a session that never opened must not leave
-      // worktrees and branches behind for the panes that did succeed.
-      if (session.isolation === 'worktree') {
-        for (const pane of session.panes.values()) {
-          await this.discardWorktree(session.folderPath, pane.cwd, pane.branch);
-        }
-      }
+      // Retain provisioned checkouts for explicit recovery; they may contain user work.
       this.sessions.delete(sessionId);
       throw error;
     }
@@ -368,6 +375,34 @@ export class BoardPtyManager {
       folderPath: input.folderPath,
       paneCount: panes.length,
       isolation: input.isolation,
+      panes,
+    };
+  }
+
+  hasSession(id: string): boolean {
+    return this.sessions.has(id);
+  }
+
+  snapshot(id: string, sender?: WebContents): BoardSessionSummary {
+    const session = this.sessions.get(id);
+    if (!session) {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Workspace is interrupted.');
+    }
+    if (sender) session.sender = sender;
+    const panes = [...session.panes.entries()].map(([paneId, pane]) => ({
+      paneId,
+      slot: pane.slot,
+      agentId: pane.agentId,
+      title: pane.title,
+      status: pane.status,
+      branch: pane.branch,
+      cwd: pane.cwd,
+    }));
+    return {
+      sessionId: id,
+      folderPath: session.folderPath,
+      isolation: session.isolation,
+      paneCount: panes.length,
       panes,
     };
   }
@@ -576,8 +611,9 @@ export class BoardPtyManager {
     this.flushData(input.sessionId, input.paneId, pane);
     clearTimeout(pane.commandTimer ?? undefined);
     pane.pendingCommand = null;
+    this.persistOutput(input.sessionId, input.paneId, pane);
     this.closing.add(input.paneId);
-    killOwnedPty(pane.pty);
+    stopPanePty(pane.pty);
     pane.pty = null;
     session.panes.delete(input.paneId);
     this.reindexSlots(session);
@@ -625,13 +661,14 @@ export class BoardPtyManager {
   }
 
   dispose(): void {
-    for (const session of this.sessions.values()) {
+    for (const [sessionId, session] of this.sessions) {
       for (const [paneId, pane] of session.panes) {
         this.cancelDataFlush(pane);
         clearTimeout(pane.commandTimer ?? undefined);
         pane.pendingCommand = null;
+        this.persistOutput(sessionId, paneId, pane);
         this.closing.add(paneId);
-        killOwnedPty(pane.pty);
+        stopPanePty(pane.pty);
         pane.pty = null;
       }
     }
@@ -673,6 +710,10 @@ export class BoardPtyManager {
       });
     }
     this.applyBackpressure(pane);
+    this.outputTimers.set(
+      `${sessionId}:${paneId}`,
+      setTimeout(() => this.persistOutput(sessionId, paneId, pane), 1000),
+    );
   }
 
   /**

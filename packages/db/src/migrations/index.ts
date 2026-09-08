@@ -22,6 +22,7 @@ import { swarmOrchestrationMigration } from './0021-swarm-orchestration.js';
 import { connectionsSkillsMigration } from './0022-connections-skills.js';
 import { schedulesMigration } from './0023-schedules.js';
 import { remoteSessionsMigration } from './0024-remote-sessions.js';
+import { workspaceFoundationMigration } from './0025-workspace-foundation.js';
 
 export const migrations = [
   foundationMigration,
@@ -48,6 +49,7 @@ export const migrations = [
   connectionsSkillsMigration,
   schedulesMigration,
   remoteSessionsMigration,
+  workspaceFoundationMigration,
 ];
 
 export {
@@ -75,4 +77,5 @@ export {
   connectionsSkillsMigration,
   schedulesMigration,
   remoteSessionsMigration,
+  workspaceFoundationMigration,
 };

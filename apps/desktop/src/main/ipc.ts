@@ -372,6 +372,7 @@ import {
   stageGitPath,
   writeEditorFile,
 } from './file-reader.js';
+import { registerWorkspaceIpc } from './workspace-ipc.js';
 import {
   BrowserWindow,
   clipboard,
@@ -438,6 +439,7 @@ export function registerIpcHandlers(
 ): () => void {
   const preview = new PreviewBrowser(core.browserSettings);
   const desktop = new DesktopControl();
+  const unregisterWorkspaces = registerWorkspaceIpc(core, board);
   registerBrowserMenuIpc();
   setPreviewZoomHandlers({
     in: () => preview.nudgeZoom(1),
@@ -1179,8 +1181,11 @@ export function registerIpcHandlers(
   });
 
   ipcMain.handle(ipcChannels.boardCreate, async (event, input: unknown) => {
+    let id: string | null = null;
     try {
-      const request = boardCreateInputSchema.parse(input);
+      const record = await core.workspaces.begin(boardCreateInputSchema.parse(input));
+      id = record.id;
+      const request = record.request;
       const tag = randomUUID().slice(0, 8);
       const value = await requireBoard().createSession(
         request,
@@ -1192,7 +1197,13 @@ export function registerIpcHandlers(
                 `p${slot + 1}-${tag}`,
                 request.correlationId,
               );
-              return { cwd: worktree.path, branch: worktree.branch };
+              const location = {
+                slot,
+                cwd: worktree.path,
+                branch: worktree.branch,
+              };
+              core.workspaces.location(record.id, location);
+              return location;
             } catch (error) {
               const branch = await core.board.readBranch(request.folderPath);
               if (branch === null) {
@@ -1204,15 +1215,21 @@ export function registerIpcHandlers(
               throw error;
             }
           }
-          return {
+          const location = {
+            slot,
             cwd: request.folderPath,
             branch: await core.board.readBranch(request.folderPath),
           };
+          core.workspaces.location(record.id, location);
+          return location;
         },
         event.sender,
+        record.id,
       );
+      core.workspaces.finish(record.id, value);
       return boardCreateIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
+      if (id !== null) core.workspaces.interrupt(id);
       core.logger.error({
         event: 'board.create_failed',
         correlationId: createCorrelationId(),
@@ -1260,6 +1277,9 @@ export function registerIpcHandlers(
     try {
       const request = boardPaneCloseInputSchema.parse(input);
       await requireBoard().closePane(request);
+      if (core.workspaces.has(request.sessionId)) {
+        core.workspaces.closePane(request.sessionId, request.paneId);
+      }
       return boardPaneCloseIpcResponseSchema.parse({
         ok: true,
         value: { closed: true },
@@ -1296,6 +1316,9 @@ export function registerIpcHandlers(
           };
         },
       );
+      if (core.workspaces.has(request.sessionId)) {
+        core.workspaces.finish(request.sessionId, host.snapshot(request.sessionId));
+      }
       return boardAddPaneIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
       return boardAddPaneIpcResponseSchema.parse({
@@ -1307,6 +1330,16 @@ export function registerIpcHandlers(
   ipcMain.handle(ipcChannels.boardPaneDrain, (_event, input: unknown) => {
     try {
       const request = boardPaneDrainInputSchema.parse(input);
+      if (
+        !requireBoard().hasSession(request.sessionId) &&
+        core.workspaces.has(request.sessionId)
+      ) {
+        const data = core.workspaces.output(request.sessionId, request.paneId);
+        return boardPaneDrainIpcResponseSchema.parse({
+          ok: true,
+          value: { data, offset: data.length },
+        });
+      }
       return boardPaneDrainIpcResponseSchema.parse({
         ok: true,
         value: requireBoard().drainPane(request),
@@ -2481,6 +2514,7 @@ export function registerIpcHandlers(
         request.input.path,
         request.input.text,
       );
+      core.workspaces.saved(request.input.root, value.path, value.text);
       return editorWriteIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
       return editorWriteIpcResponseSchema.parse({
@@ -3276,6 +3310,7 @@ export function registerIpcHandlers(
   });
 
   return () => {
+    unregisterWorkspaces();
     for (const active of activeStreams.values()) active.controller.abort();
     activeStreams.clear();
     preview.dispose();

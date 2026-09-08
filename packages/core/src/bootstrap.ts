@@ -36,6 +36,7 @@ import { createWorkToolRegistry, PermissionEngine } from '@builderhelm/tools';
 import { ProjectService } from './projects/project-service.js';
 import { GitReviewService } from './projects/git-review.js';
 import { BoardService } from './board/board-service.js';
+import { WorkspaceStore } from './board/workspace-store.js';
 import { GitHubIssuesService } from './integrations/github-issues.js';
 import { LinearIssuesService } from './integrations/linear-issues.js';
 import { PnpmTaskVerifier } from './swarm/pnpm-verifier.js';
@@ -82,6 +83,7 @@ export interface CoreRuntime {
   readonly actions: ActionService;
   readonly projects: ProjectService;
   readonly board: BoardService;
+  readonly workspaces: WorkspaceStore;
   readonly swarm: SwarmService;
   readonly review: GitReviewService;
   readonly githubIssues: GitHubIssuesService;
@@ -168,6 +170,8 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     logger,
   );
   const board = new BoardService(database, logger);
+  const workspaces = new WorkspaceStore(database);
+  workspaces.reconcile();
   const voice = new VoiceService(
     new VoiceRepository(database),
     options.secretStore,
@@ -285,6 +289,7 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     actions,
     projects,
     board,
+    workspaces,
     swarm,
     review,
     githubIssues,

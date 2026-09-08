@@ -301,8 +301,25 @@ export function EditorSidebar(): React.JSX.Element {
     setError(null);
     try {
       const file = await window.builderHelm.editor.read({ root, path });
-      setDocs((current) => [...current, { file, draft: file.text }]);
+      const recovered = (await window.builderHelm.workspaces.drafts(root)).find(
+        (draft) => draft.path === file.path,
+      );
+      setDocs((current) => [
+        ...current,
+        {
+          file,
+          draft: recovered?.text ?? file.text,
+        },
+      ]);
       setActivePath(file.path);
+      if (recovered !== undefined && recovered.text !== recovered.baseText) {
+        void window.builderHelm.workspaces.saveDraft({
+          root,
+          path: file.path,
+          text: recovered.text,
+          baseText: file.text,
+        });
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Open failed');
     }
@@ -610,6 +627,15 @@ export function EditorSidebar(): React.JSX.Element {
                       doc.file.path === active.file.path ? { ...doc, draft: text } : doc,
                     ),
                   );
+                }}
+                onBlur={(event) => {
+                  if (root === null) return;
+                  void window.builderHelm.workspaces.saveDraft({
+                    root,
+                    path: active.file.path,
+                    text: event.currentTarget.value,
+                    baseText: active.file.text,
+                  });
                 }}
               />
             </div>
