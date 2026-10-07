@@ -50,7 +50,7 @@ Task
 - **Isolated by default.** Every run gets its own project context, Git branch, and optional worktree, so agents don't trip over each other's files.
 - **Real terminals.** xterm.js rendering on top of node-pty, with bounded terminal events and a pane UI inspired by Ghostty.
 - **Space.** One project with one or more live terminal panes.
-- **Swarm.** Coordinated agents with roles, budgets, worktrees, review, and land. *In development.*
+- **Swarm.** Coordinated agents with roles, budgets, worktrees, review, and land. _In development._
 - **Board.** Persistent project tasks and stages.
 - **Memory.** Local knowledge retrieval with inspectable citations.
 - **Editor.** Workspace-scoped files, tabs, save, and autosave.
@@ -99,16 +99,16 @@ The exact implementation boundary is maintained in [Status](docs/STATUS.md).
 
 ## Stack
 
-| Layer     | Technology                                                     |
-| --------- | -------------------------------------------------------------- |
-| Shell     | Electron desktop app                                           |
-| Renderer  | React and Vite                                                 |
-| Language  | TypeScript across desktop, packages, CLI, relay, and mobile    |
+| Layer     | Technology                                                       |
+| --------- | ---------------------------------------------------------------- |
+| Shell     | Electron desktop app                                             |
+| Renderer  | React and Vite                                                   |
+| Language  | TypeScript across desktop, packages, CLI, relay, and mobile      |
 | Runtime   | Node.js 24 LTS for development, CLI, relay, and desktop services |
-| Terminal  | xterm.js rendering, node-pty local PTY processes               |
-| Storage   | SQLite for local durable state                                 |
-| Contracts | Zod validation at every IPC and network boundary               |
-| Mobile    | React Native companion for iOS and Android (planned)           |
+| Terminal  | xterm.js rendering, node-pty local PTY processes                 |
+| Storage   | SQLite for local durable state                                   |
+| Contracts | Zod validation at every IPC and network boundary                 |
+| Mobile    | React Native companion for iOS and Android (planned)             |
 
 There is no Rust runtime, sidecar, crate, or native UI rewrite in the product architecture. See [Architecture](docs/ARCHITECTURE.md) and the accepted [TypeScript platform decision](docs/adr/0007-typescript-platform.md).
 
@@ -153,19 +153,19 @@ scripts/       repository automation and safety checks
 tests/         repository-wide architecture and security tests
 ```
 
-| Package                 | Responsibility                                  |
-| ----------------------- | ----------------------------------------------- |
-| `apps/desktop`          | Electron app, sandboxed renderer, desktop services |
-| `apps/cli`              | Command-line client                             |
-| `apps/relay`            | Relay for remote companions                     |
-| `apps/mobile`           | React Native companion                          |
-| `packages/core`         | Domain types and logic                          |
-| `packages/db`           | SQLite storage and migrations                   |
-| `packages/protocol`     | Validated IPC and network contracts             |
-| `packages/model-gateway`| Model access boundary                           |
-| `packages/tools`        | Tool definitions and execution                  |
-| `packages/observability`| Logging and diagnostics                         |
-| `packages/shared`       | Shared utilities                                |
+| Package                  | Responsibility                                     |
+| ------------------------ | -------------------------------------------------- |
+| `apps/desktop`           | Electron app, sandboxed renderer, desktop services |
+| `apps/cli`               | Command-line client                                |
+| `apps/relay`             | Relay for remote companions                        |
+| `apps/mobile`            | React Native companion                             |
+| `packages/core`          | Domain types and logic                             |
+| `packages/db`            | SQLite storage and migrations                      |
+| `packages/protocol`      | Validated IPC and network contracts                |
+| `packages/model-gateway` | Model access boundary                              |
+| `packages/tools`         | Tool definitions and execution                     |
+| `packages/observability` | Logging and diagnostics                            |
+| `packages/shared`        | Shared utilities                                   |
 
 ---
 
@@ -183,17 +183,17 @@ tests/         repository-wide architecture and security tests
 
 ## Documentation
 
-| Document                                  | What it covers                                  |
-| ----------------------------------------- | ----------------------------------------------- |
-| [Product](docs/PRODUCT.md)                | What BuilderHelm is and who it is for           |
-| [Architecture](docs/ARCHITECTURE.md)      | Module contracts and system design              |
-| [Status](docs/STATUS.md)                  | What works today and what is planned            |
-| [Roadmap](docs/ROADMAP.md)                | Where the project is going                      |
-| [Development](docs/DEVELOPMENT.md)        | Setting up and working in the repo              |
-| [Features](docs/features/README.md)       | Space, Swarm, Board, Memory, Editor, Git, and more |
-| [Security](docs/SECURITY.md)              | Threat model and safeguards                     |
-| [Contributing](CONTRIBUTING.md)           | Rules for changing the repository               |
-| [AGENTS.md](AGENTS.md)                    | Instructions for coding agents working here     |
+| Document                             | What it covers                                     |
+| ------------------------------------ | -------------------------------------------------- |
+| [Product](docs/PRODUCT.md)           | What BuilderHelm is and who it is for              |
+| [Architecture](docs/ARCHITECTURE.md) | Module contracts and system design                 |
+| [Status](docs/STATUS.md)             | What works today and what is planned               |
+| [Roadmap](docs/ROADMAP.md)           | Where the project is going                         |
+| [Development](docs/DEVELOPMENT.md)   | Setting up and working in the repo                 |
+| [Features](docs/features/README.md)  | Space, Swarm, Board, Memory, Editor, Git, and more |
+| [Security](docs/SECURITY.md)         | Threat model and safeguards                        |
+| [Contributing](CONTRIBUTING.md)      | Rules for changing the repository                  |
+| [AGENTS.md](AGENTS.md)               | Instructions for coding agents working here        |
 
 ---
 
