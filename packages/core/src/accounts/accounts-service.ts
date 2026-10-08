@@ -350,6 +350,76 @@ export function readProviderEmail(
   }
 }
 
+/**
+ * A stable, non-secret account id for usage attribution: Claude's
+ * `oauthAccount.accountUuid` plus organization, or the ChatGPT account id (else `sub`) claimed in
+ * Codex's id_token. Allowlisted claims only; never a token.
+ */
+export function readAccountIdentity(
+  provider: QuotaProviderId,
+  configRoot: string | null,
+): string | null {
+  try {
+    if (provider === 'claude') {
+      const paths =
+        configRoot === null
+          ? [join(homedir(), '.claude.json')]
+          : [join(configRoot, '.claude.json'), join(configRoot, '.config.json')];
+      for (const path of paths) {
+        if (!existsSync(path)) continue;
+        const parsed = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+        const oauth = parsed.oauthAccount as Record<string, unknown> | undefined;
+        const uuid = oauth?.accountUuid;
+        const org = oauth?.organizationUuid;
+        const id = /^[0-9a-f-]{8,64}$/i;
+        // One person can hold seats in several organizations, each with its
+        // own limits, so the organization is part of the identity.
+        if (typeof uuid === 'string' && id.test(uuid)) {
+          return typeof org === 'string' && id.test(org) ? `${uuid}:${org}` : uuid;
+        }
+      }
+      return null;
+    }
+    if (provider === 'codex') {
+      const authPath = join(configRoot ?? join(homedir(), '.codex'), 'auth.json');
+      if (!existsSync(authPath)) return null;
+      const parsed = JSON.parse(readFileSync(authPath, 'utf8')) as Record<
+        string,
+        unknown
+      >;
+      const tokens = parsed.tokens as Record<string, unknown> | undefined;
+      const idToken = tokens?.id_token;
+      if (typeof idToken !== 'string') return null;
+      const part = idToken.split('.')[1];
+      if (part === undefined) return null;
+      const claims = JSON.parse(
+        Buffer.from(part.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString(
+          'utf8',
+        ),
+      ) as Record<string, unknown>;
+      const auth = claims['https://api.openai.com/auth'] as
+        Record<string, unknown> | undefined;
+      const account = auth?.chatgpt_account_id ?? claims.sub;
+      return typeof account === 'string' && account.length > 0 && account.length <= 128
+        ? account
+        : null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** One login, with the folder its history lives in. */
+export interface LoginLocation {
+  readonly provider: QuotaProviderId;
+  readonly accountRef: string;
+  readonly label: string;
+  /** The config/data folder; the system login resolves to the CLI default. */
+  readonly root: string;
+  readonly identity: string | null;
+}
+
 function findEmail(value: unknown): string | null {
   if (Array.isArray(value)) {
     for (const entry of value) {
@@ -512,6 +582,34 @@ export class AccountsService {
       .claude.filter((home) => home.kind === 'attached')
       .map((home) => home.configRoot);
     return [join(homedir(), '.claude'), ...attached];
+  }
+
+  /**
+   * Every login with its history folder: each provider's system default plus
+   * added and attached homes. Read-only; used to find usage history.
+   */
+  logins(): LoginLocation[] {
+    const homes = this.homes();
+    return QUOTA_PROVIDER_IDS.flatMap((provider) => {
+      const systemEmail = homeEmail(provider, null);
+      const system: LoginLocation = {
+        provider,
+        accountRef: `${provider}:${SYSTEM_ACCOUNT_ID}`,
+        label: systemEmail ?? `${LABELS[provider]} (system)`,
+        root: SYSTEM_AUTH_ROOT[provider],
+        identity: readAccountIdentity(provider, null),
+      };
+      return [
+        system,
+        ...homes[provider].map((home) => ({
+          provider,
+          accountRef: `${provider}:${home.id}`,
+          label: homeEmail(provider, home.configRoot) ?? home.label,
+          root: home.configRoot,
+          identity: readAccountIdentity(provider, home.configRoot),
+        })),
+      ];
+    });
   }
 
   /** The folder behind a stored home; null for the system login or a missing id. */

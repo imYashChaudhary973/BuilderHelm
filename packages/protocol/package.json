@@ -12,6 +12,10 @@
       "types": "./dist/accounts.d.ts",
       "import": "./src/accounts.ts"
     },
+    "./usage": {
+      "types": "./dist/usage.d.ts",
+      "import": "./src/usage.ts"
+    },
     "./no-sleep": {
       "types": "./dist/no-sleep.d.ts",
       "import": "./src/no-sleep.ts"
