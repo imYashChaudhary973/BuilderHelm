@@ -115,18 +115,11 @@ clients, Windows/Linux, and hosted CI are not established by this evidence.
   CLI. New runs bind `accountRef` into child env (`CLAUDE_CONFIG_DIR` /
   `CODEX_HOME` / `GROK_HOME`); running sessions keep the env they started
   with. Conflicting credential paths are named without reading values.
-  Existing login folders can be attached (never deleted) and any login
-  renamed; agent profiles can pin a login; OpenCode is listed with its single
-  system login. The Claude statusLine hook only ever removes its own command.
-  Limits are stored per login and pooled per provider (statusLine for
-  Claude, app-server per `CODEX_HOME` for Codex); the Claude OAuth-token
-  reader was removed.
-  See [docs/features/ACCOUNTS_USAGE.md](features/ACCOUNTS_USAGE.md).
 - Model picker searches advertised catalogs (capped at 80 visible rows;
   type to narrow), keeps exact IDs, and will not substitute a removed model.
   Effort chips exist only when the runtime advertises thought-level. Profile
   launch selection is applied on Agents-mode start.
-- Usage kinds stay unmixed: Usage page = subscription windows; chat = reported
+- Usage kinds on `main` stay unmixed: Usage page = subscription windows; chat = reported
   tokens when present; swarm hides unreported spend. Claude OAuth quota reader
   assessed (in-memory token, never persisted). No automatic paid fallback.
 - Project dashboard and Git continuity.

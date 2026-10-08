@@ -58,6 +58,14 @@ configured connections are not implemented.
 
 Users can add, attach, rename, disconnect, disable, and manually select logins
 (up to 15 additional folders per provider).
+System logins use the CLI's default folder. Managed logins use a folder created
+under BuilderHelm's data directory and the CLI's own sign-in command. Attached
+folders are selected through the native picker, resolved to a real directory,
+and must already contain a login. The home directory or its parents, the system
+login folder, and BuilderHelm-managed folders cannot be attached again.
+Removing a managed login deletes only its validated managed folder; removing an
+attached login leaves the folder alone. Custom labels are kept, while generic
+labels can become the login email when it becomes available.
 Disabling keeps usage history and prevents new turns, including on an already
 connected ACP process. Removing an attached login forgets its configuration
 reference and leaves its folder alone. System default stays enabled. A selected
@@ -90,7 +98,9 @@ Grok refresh reads the log already written by the user’s CLI; it does not spaw
 interactive billing pull. Codex reads are limited to two concurrent logins.
 
 Claude statusLine integration is opt-in for system and attached folders and restores
-previous settings when turned off. Errors keep the last reading visibly stale.
+previous settings when turned off. Managed folders receive the hook automatically;
+removal only changes a statusLine command owned by BuilderHelm.
+Errors keep the last reading visibly stale.
 Raw provider error payloads and ACP stderr do not enter client-visible errors or
 persisted thread events; authentication failures keep a safe sign-in instruction.
 
