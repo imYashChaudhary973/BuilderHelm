@@ -42,7 +42,7 @@ export const accountQuotaSchema = z
   .object({
     fiveHour: quotaWindowSchema.nullable(),
     sevenDay: quotaWindowSchema.nullable(),
-    source: z.enum(['statusline', 'app-server', 'run', 'oauth']),
+    source: z.enum(['statusline', 'app-server', 'run']),
     occurredAt: z.string().min(1),
     resetCreditsAvailable: z.number().int().min(0).optional(),
   })
@@ -57,6 +57,11 @@ export const accountHomeSchema = z
     configRoot: z.string().min(1).max(4_096).nullable(),
     email: z.string().min(3).max(200).nullable(),
     active: z.boolean(),
+    /**
+     * This login's own session and weekly windows, null until it reports. A
+     * window whose reset has passed reads as fresh (0% used, reset unknown).
+     */
+    quota: accountQuotaSchema.nullable(),
     /** Provider-reported usage for this home; Grok fills it from its billing log. */
     billing: z
       .object({
@@ -78,7 +83,6 @@ export const accountProviderSchema = z
     installed: z.boolean(),
     /** False when the CLI cannot be pointed at a separate login folder. */
     multiAccount: z.boolean(),
-    quota: accountQuotaSchema.nullable(),
     homes: z.array(accountHomeSchema).min(1),
   })
   .strict();

@@ -9,22 +9,31 @@ Four numbers, never mixed:
 | Actual API charges       | Provider invoice / billed USD               | Stay unknown — we do not invent it |
 | Estimated API-equivalent | Hypothetical API cost of a subscription run | Stay unknown                       |
 
-The Usage page shows **subscription quota only**. Chat shows reported tokens
-when the agent emits `usage.updated`. Swarm shows tokens/cost only when the
-adapter parsed a positive report — never a coerced `$0.00`.
+The Usage page shows **subscription quota only**, per login. Each login's
+windows are stored under its account ref (`claude:<id>`), and each provider
+shows a pooled card per window: the mean of what each reporting login has
+left, the share of the pool the soonest reset returns, and one segment per
+login. A login that has not reported shows "No data" and is left out of the
+pool, never counted as full. A window whose reset time has passed reads as
+fresh (0% used, reset unknown) until the login reports again.
 
-## OAuth-token quota reader (assessed)
+Chat shows reported tokens when the agent emits `usage.updated`. Swarm shows
+tokens/cost only when the adapter parsed a positive report — never a coerced
+`$0.00`.
 
-`packages/core/src/accounts/claude-oauth-usage.ts` reads
-`claudeAiOauth.accessToken` from `.credentials.json` in memory and GETs
-Anthropic's OAuth usage endpoint. It never logs or persists the token, never
-copies it into BuilderHelm storage, and never rotates accounts to dodge
-quota. The snapshot labels that source `oauth`. Prefer the in-session
-statusLine (`source: statusline`) when it has fired. Do not add more
-token-reading quota scrapers.
+## Sources
 
-Codex quota uses `codex app-server --stdio` `account/rateLimits/read` — no
-auth.json read. Grok quota reads the CLI billing log, not a token.
+- **Claude:** the statusLine hook only. Each installed command carries its
+  login's ref (`"<script>" claude:<id>`), so a report lands on that login.
+  It fires only while an interactive Claude Code session runs in that
+  login, so an idle login keeps its last figures. BuilderHelm does not read
+  Claude's OAuth token: on macOS it lives in the Keychain, and the former
+  reader fell back to `~/.claude`'s token, which attributed one account's
+  limits to another.
+- **Codex:** `codex app-server --stdio` `account/rateLimits/read`, run once
+  per signed-in login with that login's `CODEX_HOME` on Refresh. No
+  `auth.json` read.
+- **Grok:** each login's CLI billing log, not a token.
 
 No automatic paid fallback when a subscription is exhausted (the silent
 cross-runtime planner fallback was removed in 2.2).

@@ -18,7 +18,7 @@ import {
 } from '@builderhelm/db';
 import type { Logger } from '@builderhelm/observability';
 import { BuilderHelmError } from '@builderhelm/shared';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   AccountsService,
@@ -26,7 +26,6 @@ import {
   readGrokEmail,
 } from '../src/accounts/accounts-service.js';
 import {
-  parseClaudeOAuthUsage,
   parseClaudeRateLimits,
   parseCodexRateLimits,
   formatQuotaLine,
@@ -50,20 +49,20 @@ function setupWith(
   ) => Promise<unknown> = async () => {
     throw new Error('skip-codex');
   },
-): { accounts: AccountsService; settings: SettingsRepository; root: string } {
+): {
+  accounts: AccountsService;
+  settings: SettingsRepository;
+  board: BoardService;
+  root: string;
+} {
   const database = openDatabase(':memory:');
   databases.push(database);
   runMigrations(database, migrations);
   const root = tempFolder('builderhelm-accounts-');
   const settings = new SettingsRepository(database);
-  const accounts = new AccountsService(
-    settings,
-    new BoardService(database, logger),
-    logger,
-    root,
-    readCodex,
-  );
-  return { accounts, settings, root };
+  const board = new BoardService(database, logger);
+  const accounts = new AccountsService(settings, board, logger, root, readCodex);
+  return { accounts, settings, board, root };
 }
 
 function setup(...args: Parameters<typeof setupWith>): AccountsService {
@@ -127,29 +126,6 @@ describe('quota parsers', () => {
       fiveHour: { usedPercent: 100 },
       sevenDay: { usedPercent: 19 },
       source: 'statusline',
-    });
-  });
-
-  it('maps the OAuth usage endpoint response with utilization percent', () => {
-    expect(
-      parseClaudeOAuthUsage(
-        {
-          five_hour: {
-            utilization: 100.0,
-            resets_at: '2026-09-02T19:10:00.071442+00:00',
-          },
-          seven_day: {
-            utilization: 19.0,
-            resets_at: '2026-09-02T16:00:00.071463+00:00',
-          },
-          seven_day_opus: null,
-        },
-        '2026-08-31T00:00:00.000Z',
-      ),
-    ).toMatchObject({
-      fiveHour: { usedPercent: 100 },
-      sevenDay: { usedPercent: 19 },
-      source: 'oauth',
     });
   });
 
@@ -245,11 +221,11 @@ describe('readGrokBilling', () => {
 });
 
 describe('AccountsService', () => {
-  it('keeps Claude ingest on the snapshot', async () => {
+  it('keeps Claude ingest on the login that reported it', async () => {
     const accounts = setup();
     const future = new Date(Date.now() + 3_600_000).toISOString();
     expect(
-      accounts.ingestClaude({
+      accounts.ingestClaude('claude:system', {
         rate_limits: { five_hour: { used_percentage: 12, resets_at: future } },
       })?.fiveHour?.usedPercent,
     ).toBe(12);
@@ -261,24 +237,26 @@ describe('AccountsService', () => {
       'opencode',
     ]);
     expect(
-      snapshot.providers.find((provider) => provider.id === 'claude')?.quota?.source,
+      snapshot.providers.find((provider) => provider.id === 'claude')?.homes[0]?.quota
+        ?.source,
     ).toBe('statusline');
   });
 
-  it('hides a window whose reset has passed instead of faking a limit', async () => {
+  it('reports a window whose reset has passed as fresh, not as its old figure', async () => {
     const accounts = setup();
     const past = new Date(Date.now() - 60_000).toISOString();
     const future = new Date(Date.now() + 3_600_000).toISOString();
-    accounts.ingestClaude({
+    accounts.ingestClaude('claude:system', {
       rate_limits: {
         five_hour: { used_percentage: 100, resets_at: past },
         seven_day: { used_percentage: 19, resets_at: future },
       },
     });
     const snapshot = await accounts.snapshot();
-    const claude = snapshot.providers.find((provider) => provider.id === 'claude');
-    expect(claude?.quota?.fiveHour).toBeNull();
-    expect(claude?.quota?.sevenDay?.usedPercent).toBe(19);
+    const quota = snapshot.providers.find((provider) => provider.id === 'claude')
+      ?.homes[0]?.quota;
+    expect(quota?.fiveHour).toEqual({ usedPercent: 0, resetsAt: null });
+    expect(quota?.sevenDay?.usedPercent).toBe(19);
   });
 
   it('adds an isolated home and points cliEnv at it', async () => {
@@ -290,7 +268,9 @@ describe('AccountsService', () => {
     expect(extra?.active).toBe(true);
     expect(extra?.configRoot).toMatch(/claude/);
     expect(accounts.cliEnv().CLAUDE_CONFIG_DIR).toBe(extra?.configRoot);
-    expect(accounts.claudeHookRoots()).toEqual([extra?.configRoot]);
+    expect(accounts.claudeHookTargets()).toEqual([
+      { configRoot: extra?.configRoot, accountRef: `claude:${extra?.id}` },
+    ]);
   });
 
   it('keeps a home whose login is still writing, and drops an untouched one', async () => {
@@ -434,9 +414,14 @@ describe('AccountsService', () => {
     });
     expect(accounts.cliEnvFor(`claude:${home!.id}`).CLAUDE_CONFIG_DIR).toBe(folder);
     // Not BuilderHelm's folder, so no statusLine without consent.
-    expect(accounts.claudeHookRoots()).not.toContain(folder);
+    const roots = (): string[] =>
+      accounts.claudeHookTargets().map((target) => target.configRoot);
+    expect(roots()).not.toContain(folder);
     accounts.setHookSystemDefault(true);
-    expect(accounts.claudeHookRoots()).toContain(folder);
+    expect(accounts.claudeHookTargets()).toContainEqual({
+      configRoot: folder,
+      accountRef: `claude:${home!.id}`,
+    });
     await accounts.remove('claude', home!.id);
     expect(existsSync(join(folder, '.claude.json'))).toBe(true);
   });
@@ -494,12 +479,71 @@ describe('AccountsService', () => {
     const accounts = setup();
     const snapshot = await accounts.snapshot();
     const opencode = snapshot.providers.find((provider) => provider.id === 'opencode');
-    expect(opencode).toMatchObject({ multiAccount: false, quota: null });
+    expect(opencode).toMatchObject({ multiAccount: false });
     expect(opencode?.homes.map((home) => home.kind)).toEqual(['system']);
     await expect(accounts.add('opencode')).rejects.toThrow(/opencode auth login/);
     await expect(accounts.attach('opencode', tempFolder('oc-'))).rejects.toThrow(
       /opencode auth login/,
     );
     expect(accounts.cliEnvFor('opencode:system')).toEqual(accounts.cliEnv());
+  });
+
+  it('keeps each Claude login’s limits apart and drops them with the login', async () => {
+    const accounts = setup();
+    const folder = signedInClaudeFolder('team@example.com');
+    const attached = await accounts.attach('claude', folder);
+    const team = attached.providers
+      .find((provider) => provider.id === 'claude')
+      ?.homes.find((home) => home.kind === 'attached');
+    const future = new Date(Date.now() + 3_600_000).toISOString();
+    const report = (used: number) => ({
+      rate_limits: { five_hour: { used_percentage: used, resets_at: future } },
+    });
+    accounts.ingestClaude('claude:system', report(70));
+    accounts.ingestClaude(`claude:${team!.id}`, report(5));
+    // A login BuilderHelm does not know, or another provider's ref, is ignored.
+    expect(accounts.ingestClaude('claude:unknown', report(99))).toBeNull();
+    expect(accounts.ingestClaude('codex:system', report(99))).toBeNull();
+    const used = async (): Promise<(number | undefined)[]> =>
+      (await accounts.snapshot()).providers
+        .find((provider) => provider.id === 'claude')!
+        .homes.map((home) => home.quota?.fiveHour?.usedPercent);
+    expect(await used()).toEqual([70, 5]);
+    await accounts.remove('claude', team!.id);
+    await accounts.attach('claude', folder);
+    expect(await used()).toEqual([70, undefined]);
+  });
+
+  it('asks Codex for every signed-in login under its own CODEX_HOME', async () => {
+    const asked: string[] = [];
+    const { accounts, board } = setupWith(async (_executable, env) => {
+      asked.push(env.CODEX_HOME ?? '');
+      const used = env.CODEX_HOME?.includes('codex-b') === true ? 80 : 10;
+      return {
+        rateLimits: {
+          primary: { usedPercent: used, windowDurationMins: 300, resetsAt: null },
+        },
+      };
+    });
+    vi.spyOn(board, 'detectAgents').mockResolvedValue([
+      { id: 'codex', available: true, path: '/usr/bin/codex' } as never,
+    ]);
+    const signedIn = (name: string): string => {
+      const folder = tempFolder(name);
+      writeFileSync(join(folder, 'auth.json'), '{}');
+      return folder;
+    };
+    const a = signedIn('codex-a-');
+    const b = signedIn('codex-b-');
+    await accounts.attach('codex', a);
+    await accounts.attach('codex', b);
+    const snapshot = await accounts.snapshot(true);
+    expect(asked).toEqual(expect.arrayContaining([a, b]));
+    const homes = snapshot.providers.find((provider) => provider.id === 'codex')!.homes;
+    expect(
+      homes
+        .filter((home) => home.kind === 'attached')
+        .map((home) => home.quota?.fiveHour?.usedPercent),
+    ).toEqual([10, 80]);
   });
 });

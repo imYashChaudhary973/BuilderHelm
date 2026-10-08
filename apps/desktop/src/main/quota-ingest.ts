@@ -10,13 +10,20 @@ const MAX_BODY = 64 * 1024;
 
 export function startQuotaIngest(options: {
   readonly userData: string;
-  readonly ingestClaude: (payload: unknown) => AccountQuota | null;
+  readonly ingestClaude: (accountRef: string, payload: unknown) => AccountQuota | null;
   readonly onReady?: (scriptPath: string) => void;
 }): { scriptPath(): string | null; close(): void } {
   const token = randomBytes(24).toString('hex');
   let scriptPath: string | null = null;
   const server: Server = createServer((request, response) => {
-    if (request.method !== 'POST' || request.url !== '/claude-statusline') {
+    const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+    const accountRef = url.searchParams.get('account');
+    if (
+      request.method !== 'POST' ||
+      url.pathname !== '/claude-statusline' ||
+      accountRef === null ||
+      !ACCOUNT_REF.test(accountRef)
+    ) {
       response.writeHead(404);
       response.end();
       return;
@@ -45,7 +52,7 @@ export function startQuotaIngest(options: {
       if (rejected) return;
       try {
         const body: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-        const quota = options.ingestClaude(body);
+        const quota = options.ingestClaude(accountRef, body);
         if (quota === null) {
           response.writeHead(204);
           response.end();
@@ -66,7 +73,8 @@ export function startQuotaIngest(options: {
     writeFileSync(
       scriptPath,
       `#!/bin/sh
-curl -sS -X POST "http://127.0.0.1:${address.port}/claude-statusline" \\
+# $1 names the login this hook was installed in, e.g. claude:system.
+curl -sS -X POST "http://127.0.0.1:${address.port}/claude-statusline?account=$1" \\
   -H "Authorization: Bearer ${token}" \\
   -H "Content-Type: application/json" \\
   --data-binary @- \\
@@ -95,6 +103,8 @@ interface StashedStatusLine {
 
 const STASH_KEY = 'x-builderhelm-statusline-stash';
 const SCRIPT_NAME = 'claude-statusline.sh';
+/** Account refs are `claude:<id>`; ids are generated, so this is the full alphabet. */
+const ACCOUNT_REF = /^claude:[A-Za-z0-9-]{1,64}$/;
 
 function statusLineCommand(settings: Record<string, unknown>): string | undefined {
   const current = settings.statusLine;
@@ -103,10 +113,16 @@ function statusLineCommand(settings: Record<string, unknown>): string | undefine
   return typeof command === 'string' ? command : undefined;
 }
 
-/** BuilderHelm writes its script path quoted, so match it with quotes removed. */
+/**
+ * BuilderHelm writes `"<script>" claude:<id>`; older installs wrote the quoted
+ * path alone. Match on the script's file name either way.
+ */
 function isBuilderHelmCommand(command: string | undefined): boolean {
   if (command === undefined) return false;
-  return basename(command.trim().replace(/^"(.*)"$/, '$1')) === SCRIPT_NAME;
+  const trimmed = command.trim();
+  const quoted = /^"([^"]*)"/.exec(trimmed);
+  const program = quoted?.[1] ?? trimmed.split(/\s+/)[0] ?? '';
+  return basename(program) === SCRIPT_NAME;
 }
 
 /**
@@ -114,8 +130,13 @@ function isBuilderHelmCommand(command: string | undefined): boolean {
  * opted in), so a foreign statusLine command is stashed and replaced, never
  * silently ignored. Removing the hook restores the stashed command.
  */
-export function installClaudeStatusLine(configRoot: string, scriptPath: string): void {
-  if (!existsSync(configRoot)) return;
+export function installClaudeStatusLine(
+  configRoot: string,
+  scriptPath: string,
+  accountRef: string,
+): void {
+  if (!existsSync(configRoot) || !ACCOUNT_REF.test(accountRef)) return;
+  const desired = `"${scriptPath}" ${accountRef}`;
   const settingsPath = join(configRoot, 'settings.json');
   mkdirSync(dirname(settingsPath), { recursive: true });
   let settings: Record<string, unknown> = {};
@@ -130,9 +151,14 @@ export function installClaudeStatusLine(configRoot: string, scriptPath: string):
   }
   const current = settings.statusLine;
   const command = statusLineCommand(settings);
-  // Already ours: re-stashing now would overwrite the person's command with
-  // BuilderHelm's own and lose it.
-  if (isBuilderHelmCommand(command)) return;
+  if (command === desired) return;
+  // Already ours but outdated: rewrite it and keep the stash. Re-stashing here
+  // would overwrite the person's command with BuilderHelm's own and lose it.
+  if (isBuilderHelmCommand(command)) {
+    settings.statusLine = { type: 'command', command: desired };
+    writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
+    return;
+  }
   if (command !== undefined && command.length > 0) {
     const stashed: StashedStatusLine = {
       previous: (current ?? null) as Record<string, unknown> | null,
@@ -141,7 +167,7 @@ export function installClaudeStatusLine(configRoot: string, scriptPath: string):
   } else {
     delete settings[STASH_KEY];
   }
-  settings.statusLine = { type: 'command', command: `"${scriptPath}"` };
+  settings.statusLine = { type: 'command', command: desired };
   writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
 }
 

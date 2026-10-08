@@ -13,6 +13,8 @@ import {
 const folders: string[] = [];
 const SCRIPT = '/Users/x/Library/Application Support/BuilderHelm/claude-statusline.sh';
 const MINE = { type: 'command', command: '~/bin/my-statusline' };
+const REF = 'claude:system';
+const OURS = { type: 'command', command: `"${SCRIPT}" ${REF}` };
 
 afterEach(() => {
   for (const folder of folders.splice(0))
@@ -44,19 +46,36 @@ describe('Claude statusLine hook', () => {
 
   it('keeps the original statusLine across repeated installs and restores it', () => {
     const folder = claudeFolder({ statusLine: MINE });
-    installClaudeStatusLine(folder, SCRIPT);
+    installClaudeStatusLine(folder, SCRIPT, REF);
     // Every launch installs again; the second must not stash our own script.
-    installClaudeStatusLine(folder, SCRIPT);
-    expect(read(folder).statusLine).toEqual({ type: 'command', command: `"${SCRIPT}"` });
+    installClaudeStatusLine(folder, SCRIPT, REF);
+    expect(read(folder).statusLine).toEqual(OURS);
     uninstallClaudeStatusLine(folder);
     expect(read(folder)).toEqual({ statusLine: MINE });
   });
 
   it('removes only its own statusLine when there was none before', () => {
     const folder = claudeFolder({ theme: 'dark' });
-    installClaudeStatusLine(folder, SCRIPT);
+    installClaudeStatusLine(folder, SCRIPT, REF);
     uninstallClaudeStatusLine(folder);
     expect(read(folder)).toEqual({ theme: 'dark' });
+  });
+
+  it('upgrades a hook from before logins were named without losing the stash', () => {
+    const folder = claudeFolder({
+      statusLine: { type: 'command', command: `"${SCRIPT}"` },
+      'x-builderhelm-statusline-stash': { previous: MINE },
+    });
+    installClaudeStatusLine(folder, SCRIPT, REF);
+    expect(read(folder).statusLine).toEqual(OURS);
+    uninstallClaudeStatusLine(folder);
+    expect(read(folder)).toEqual({ statusLine: MINE });
+  });
+
+  it('refuses an account ref that could break out of the command', () => {
+    const folder = claudeFolder({ statusLine: MINE });
+    installClaudeStatusLine(folder, SCRIPT, 'claude:x; rm -rf ~');
+    expect(read(folder)).toEqual({ statusLine: MINE });
   });
 });
 

@@ -45,12 +45,16 @@ no subscription windows.
 
 ## Limits
 
-- Claude: the statusLine hook. BuilderHelm installs it in managed homes; in
+Limits are tracked per login and pooled per provider on Usage.
+
+- Claude: the statusLine hook, installed with the login's ref so each report
+  lands on that login. BuilderHelm installs it in managed homes; in
   `~/.claude` and attached folders only after the person opts in. It stashes
   any existing statusLine and restores it on opt-out or removal, and never
   touches a statusLine it did not write.
-- Codex: `codex app-server` `account/rateLimits/read` on Refresh.
-- Grok: the CLI's own billing log.
+- Codex: `codex app-server` `account/rateLimits/read` for every signed-in
+  login on Refresh.
+- Grok: each login's billing log.
 
 See [usage.md](usage.md) for which numbers are shown and which stay unknown.
 

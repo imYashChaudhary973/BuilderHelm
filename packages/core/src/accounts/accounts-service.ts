@@ -34,19 +34,16 @@ import {
   createId,
   utcNow,
 } from '@builderhelm/shared';
-import { readClaudeOAuthUsage } from './claude-oauth-usage.js';
 import { readGrokBilling, type GrokBilling } from './grok-usage.js';
 import type { BoardService } from '../board/board-service.js';
 import { readCodexRateLimits } from './codex-rate-limits.js';
-import {
-  parseClaudeOAuthUsage,
-  parseClaudeRateLimits,
-  parseCodexRateLimits,
-} from './quota.js';
+import { parseClaudeRateLimits, parseCodexRateLimits } from './quota.js';
 
 const HOMES_KEY = 'accounts.homes';
 const ACTIVE_KEY = 'accounts.active';
-const QUOTA_KEY = 'accounts.quota';
+// Keyed by account ref (`claude:<homeId>`). The older provider-wide
+// `accounts.quota` key cannot be attributed to a login and is ignored.
+const QUOTA_KEY = 'accounts.quotaByHome';
 const HOOK_SYSTEM_KEY = 'accounts.claudeHookSystem';
 const LABELS: Record<QuotaProviderId, string> = {
   claude: 'Claude',
@@ -194,37 +191,37 @@ function parseActive(raw: string | undefined): Record<QuotaProviderId, string> {
   }
 }
 
-function parseQuota(
-  raw: string | undefined,
-): Partial<Record<QuotaProviderId, AccountQuota>> {
+type QuotaMap = Record<string, AccountQuota>;
+
+function parseQuota(raw: string | undefined): QuotaMap {
   if (raw === undefined) return {};
   try {
     const value: unknown = JSON.parse(raw);
     if (value === null || typeof value !== 'object' || Array.isArray(value)) return {};
-    const next: Partial<Record<QuotaProviderId, AccountQuota>> = {};
-    const now = Date.now();
-    for (const id of QUOTA_PROVIDER_IDS) {
-      const parsed = accountQuotaSchema.safeParse((value as Record<string, unknown>)[id]);
-      if (!parsed.success) continue;
-      const quota = parsed.data;
-      // A window whose reset time has passed is a snapshot of a finished
-      // window, not a current limit. Showing it invents a fake limit.
-      const live = (window: QuotaWindow | null): QuotaWindow | null =>
-        window !== null &&
-        (window.resetsAt === null || new Date(window.resetsAt).getTime() > now)
-          ? window
-          : null;
-      const pruned: AccountQuota = {
-        ...quota,
-        fiveHour: live(quota.fiveHour),
-        sevenDay: live(quota.sevenDay),
-      };
-      if (pruned.fiveHour !== null || pruned.sevenDay !== null) next[id] = pruned;
+    const next: QuotaMap = {};
+    for (const [ref, entry] of Object.entries(value as Record<string, unknown>)) {
+      if (parseAccountRef(ref) === null) continue;
+      const parsed = accountQuotaSchema.safeParse(entry);
+      if (parsed.success) next[ref] = parsed.data;
     }
     return next;
   } catch {
     return {};
   }
+}
+
+/**
+ * A window whose reset time has passed has started over. Report it as fresh
+ * with an unknown reset rather than replaying the finished window's figure.
+ */
+function liveQuota(quota: AccountQuota, now: number): AccountQuota {
+  const live = (window: QuotaWindow | null): QuotaWindow | null =>
+    window === null ||
+    window.resetsAt === null ||
+    new Date(window.resetsAt).getTime() > now
+      ? window
+      : { usedPercent: 0, resetsAt: null };
+  return { ...quota, fiveHour: live(quota.fiveHour), sevenDay: live(quota.sevenDay) };
 }
 
 /** Allowlisted key only. Never returns tokens. */
@@ -388,15 +385,8 @@ export class AccountsService {
     private readonly logger: Logger,
     private readonly accountsRoot: string,
     private readonly readCodex: CodexRateLimitReader = readCodexRateLimits,
-    private readonly readClaudeUsage: (
-      configRoot: string | null,
-    ) => Promise<unknown | null> = readClaudeOAuthUsage,
   ) {}
 
-  /** Epoch ms of the last successful OAuth usage fetch; null before the first. */
-  private lastClaudeFetch: number | null = null;
-  /** Epoch ms timestamp while a fetch is in flight; null when idle. */
-  private lastClaudeFetchStarted: number | null = null;
   /** Epoch ms of the last Grok billing pull; the TUI spawn is not free. */
   private lastGrokFetch: number | null = null;
   /** Epoch ms while a Grok pull is in flight; null when idle. */
@@ -412,10 +402,22 @@ export class AccountsService {
     this.settings.write(HOOK_SYSTEM_KEY, enabled ? 'true' : 'false', utcNow());
   }
 
-  ingestClaude(payload: unknown): AccountQuota | null {
+  /**
+   * A statusLine report from one Claude login. The hook command names the
+   * login it was installed in, so the windows land on that account only.
+   */
+  ingestClaude(accountRef: string, payload: unknown): AccountQuota | null {
+    const ref = parseAccountRef(accountRef);
+    if (ref === null || ref.provider !== 'claude') return null;
+    if (
+      ref.id !== SYSTEM_ACCOUNT_ID &&
+      !this.homes().claude.some((home) => home.id === ref.id)
+    ) {
+      return null;
+    }
     const quota = parseClaudeRateLimits(payload, utcNow());
     if (quota === null) return null;
-    this.writeQuota('claude', quota);
+    this.writeQuota(`claude:${ref.id}`, quota);
     return quota;
   }
 
@@ -482,14 +484,26 @@ export class AccountsService {
   }
 
   /**
-   * Roots to hook: homes BuilderHelm created, plus folders the person already
-   * had (~/.claude and attached homes) only when they opted in.
+   * Folders to hook, each with the login it reports for: homes BuilderHelm
+   * created, plus folders the person already had (~/.claude and attached
+   * homes) only when they opted in.
    */
-  claudeHookRoots(): string[] {
-    const managed = this.homes()
-      .claude.filter((home) => home.kind === 'managed')
-      .map((home) => home.configRoot);
-    return this.hookSystemDefault() ? [...managed, ...this.claudeOwnedRoots()] : managed;
+  claudeHookTargets(): { configRoot: string; accountRef: string }[] {
+    const homes = this.homes().claude;
+    const target = (home: StoredHome) => ({
+      configRoot: home.configRoot,
+      accountRef: `claude:${home.id}`,
+    });
+    const managed = homes.filter((home) => home.kind === 'managed').map(target);
+    if (!this.hookSystemDefault()) return managed;
+    return [
+      ...managed,
+      {
+        configRoot: join(homedir(), '.claude'),
+        accountRef: `claude:${SYSTEM_ACCOUNT_ID}`,
+      },
+      ...homes.filter((home) => home.kind === 'attached').map(target),
+    ];
   }
 
   /** Claude folders BuilderHelm did not create; hooked only with consent. */
@@ -506,13 +520,18 @@ export class AccountsService {
   }
   async snapshot(live = false): Promise<AccountSnapshot> {
     if (live) {
-      await Promise.all([this.refreshCodex(), this.refreshClaude(), this.refreshGrok()]);
+      await Promise.all([this.refreshCodex(), this.refreshGrok()]);
     }
     const detections = await this.board.detectAgents();
     const byId = new Map(detections.map((agent) => [agent.id, agent]));
     const homes = this.homes();
     const active = this.active();
-    const quota = this.storedQuota();
+    const now = Date.now();
+    const stored = this.storedQuota();
+    const quotaOf = (provider: QuotaProviderId, homeId: string): AccountQuota | null => {
+      const quota = stored[`${provider}:${homeId}`];
+      return quota === undefined ? null : liveQuota(quota, now);
+    };
     let relabeled = false;
     const providers = QUOTA_PROVIDER_IDS.map((id) => {
       const extra = homes[id];
@@ -530,6 +549,7 @@ export class AccountsService {
         configRoot: null,
         email: systemEmail,
         active: activeId === SYSTEM_ACCOUNT_ID,
+        quota: quotaOf(id, SYSTEM_ACCOUNT_ID),
         billing: id === 'grok' ? grokBillingPayload(readGrokBilling(null)) : null,
       };
       const listed: AccountHome[] = [
@@ -554,6 +574,7 @@ export class AccountsService {
             configRoot: home.configRoot,
             email,
             active: home.id === activeId,
+            quota: quotaOf(id, home.id),
             billing: grokBillingPayload(billing),
           };
         }),
@@ -564,7 +585,6 @@ export class AccountsService {
         label: LABELS[id],
         installed: byId.get(id)?.available === true,
         multiAccount: isIsolated(id),
-        quota: quota[id] ?? null,
         homes: listed,
       };
     });
@@ -767,6 +787,7 @@ export class AccountsService {
     if (active[provider] === id) {
       this.writeActive({ ...active, [provider]: SYSTEM_ACCOUNT_ID });
     }
+    this.forgetQuota(`${provider}:${id}`);
     // Attached folders belong to the person: removing one only forgets it.
     this.deleteManagedFolder(current);
     return this.snapshot();
@@ -793,43 +814,32 @@ export class AccountsService {
     return this.snapshot();
   }
 
+  /**
+   * Asks Codex app-server for every login's windows, each under its own
+   * CODEX_HOME. The CLI reads its own credentials; BuilderHelm never does.
+   */
   private async refreshCodex(): Promise<void> {
     const detections = await this.board.detectAgents();
     const codex = detections.find((agent) => agent.id === 'codex');
     if (codex?.available !== true || codex.path === null) return;
-    const env = this.cliEnv();
-    try {
-      const live = parseCodexRateLimits(
-        await this.readCodex(
-          codex.path,
-          env.CODEX_HOME ? { CODEX_HOME: env.CODEX_HOME } : {},
-        ),
-        utcNow(),
-      );
-      if (live !== null) this.writeQuota('codex', live);
-    } catch {
-      // Keep last stored windows.
-    }
-  }
-
-  private async refreshClaude(): Promise<void> {
-    // The OAuth endpoint rate-limits polling (Orca saw 429s); one call per
-    // 30s window is enough for a live meter and keeps the endpoint happy.
-    if (this.lastClaudeFetchStarted !== null) return;
-    if (this.lastClaudeFetch !== null && Date.now() - this.lastClaudeFetch < 30_000) {
-      return;
-    }
-    this.lastClaudeFetchStarted = Date.now();
-    try {
-      const root = this.cliEnv().CLAUDE_CONFIG_DIR ?? null;
-      const live = parseClaudeOAuthUsage(await this.readClaudeUsage(root), utcNow());
-      if (live !== null) this.writeQuota('claude', live);
-    } catch {
-      // Keep last stored windows.
-    } finally {
-      this.lastClaudeFetchStarted = null;
-      this.lastClaudeFetch = Date.now();
-    }
+    const executable = codex.path;
+    const targets = [
+      { id: SYSTEM_ACCOUNT_ID, configRoot: SYSTEM_AUTH_ROOT.codex },
+      ...this.homes().codex,
+    ].filter((home) => authMarkerExists('codex', home.configRoot));
+    await Promise.all(
+      targets.map(async (home) => {
+        try {
+          const live = parseCodexRateLimits(
+            await this.readCodex(executable, { CODEX_HOME: home.configRoot }),
+            utcNow(),
+          );
+          if (live !== null) this.writeQuota(`codex:${home.id}`, live);
+        } catch {
+          // Keep this login's last stored windows.
+        }
+      }),
+    );
   }
 
   /**
@@ -907,8 +917,15 @@ export class AccountsService {
       return 0;
     }
   }
-  private writeQuota(id: QuotaProviderId, quota: AccountQuota): void {
-    const next = { ...this.storedQuota(), [id]: quota };
+  private writeQuota(ref: string, quota: AccountQuota): void {
+    const next = { ...this.storedQuota(), [ref]: quota };
+    this.settings.write(QUOTA_KEY, JSON.stringify(next), utcNow());
+  }
+
+  private forgetQuota(ref: string): void {
+    const next = this.storedQuota();
+    if (!(ref in next)) return;
+    delete next[ref];
     this.settings.write(QUOTA_KEY, JSON.stringify(next), utcNow());
   }
 
@@ -920,7 +937,7 @@ export class AccountsService {
     this.settings.write(ACTIVE_KEY, JSON.stringify(active), utcNow());
   }
 
-  private storedQuota(): Partial<Record<QuotaProviderId, AccountQuota>> {
+  private storedQuota(): QuotaMap {
     return parseQuota(this.settings.read(QUOTA_KEY));
   }
 

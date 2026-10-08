@@ -368,8 +368,8 @@ app
     const hookClaude = (): void => {
       const script = quotaIngest?.scriptPath();
       if (script === null || script === undefined) return;
-      for (const root of core?.accounts.claudeHookRoots() ?? []) {
-        installClaudeStatusLine(root, script);
+      for (const target of core?.accounts.claudeHookTargets() ?? []) {
+        installClaudeStatusLine(target.configRoot, script, target.accountRef);
       }
       // Consent off: give folders BuilderHelm did not create their previous
       // statusLine back. A statusLine BuilderHelm never wrote is left alone.
@@ -382,7 +382,8 @@ app
     if (process.env.BUILDERHELM_SMOKE_TEST !== '1') {
       quotaIngest = startQuotaIngest({
         userData: app.getPath('userData'),
-        ingestClaude: (payload) => core?.accounts.ingestClaude(payload) ?? null,
+        ingestClaude: (accountRef, payload) =>
+          core?.accounts.ingestClaude(accountRef, payload) ?? null,
         onReady: hookClaude,
       });
     }

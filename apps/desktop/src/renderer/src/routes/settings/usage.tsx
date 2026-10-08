@@ -3,29 +3,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import type {
   AccountHome,
-  AccountProvider,
   IsolatedLoginProviderId,
   QuotaProviderId,
-  QuotaWindow,
 } from '@builderhelm/protocol/accounts';
 import { ISOLATED_LOGIN_PROVIDER_IDS } from '@builderhelm/protocol/accounts';
 
 import { AgentGlyph } from '../../components/agent-mark.js';
-
-function formatReset(iso: string | null): string | null {
-  if (iso === null) return null;
-  const ms = new Date(iso).getTime() - Date.now();
-  if (Number.isNaN(new Date(iso).getTime())) return iso;
-  if (ms <= 0) return 'now';
-  const minutes = Math.max(1, Math.floor(ms / 60_000));
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  if (hours < 48) return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`;
-  const days = Math.floor(hours / 24);
-  const hoursLeft = hours % 24;
-  return hoursLeft === 0 ? `${days}d` : `${days}d ${hoursLeft}h`;
-}
+import { LimitCards } from './usage-limits.js';
 
 function formatAgo(iso: string | undefined): string | null {
   if (iso === undefined) return null;
@@ -38,82 +22,8 @@ function formatAgo(iso: string | undefined): string | null {
   return hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
 }
 
-type Meter = {
-  readonly key: string;
-  readonly title: string;
-  readonly note: string | null;
-  readonly window: QuotaWindow | null;
-};
-
 function isolatedId(id: QuotaProviderId): IsolatedLoginProviderId | null {
   return ISOLATED_LOGIN_PROVIDER_IDS.find((entry) => entry === id) ?? null;
-}
-
-function metersOf(provider: AccountProvider): readonly Meter[] {
-  if (provider.id === 'opencode') return [];
-  if (provider.id === 'grok') {
-    return provider.homes.flatMap((home) =>
-      home.email === null && home.billing === null
-        ? []
-        : [
-            {
-              key: home.id,
-              title: home.email ?? home.label,
-              note: home.billing?.tier ?? null,
-              window:
-                home.billing === null
-                  ? null
-                  : {
-                      usedPercent: home.billing.usedPercent,
-                      resetsAt: home.billing.periodEnd,
-                    },
-            },
-          ],
-    );
-  }
-  const quota = provider.quota;
-  return [
-    { key: '5h', title: 'Session', note: '5 hours', window: quota?.fiveHour ?? null },
-    { key: 'wk', title: 'Weekly', note: '7 days', window: quota?.sevenDay ?? null },
-  ];
-}
-
-function MeterRow({ meter }: { readonly meter: Meter }): React.JSX.Element {
-  const window = meter.window;
-  const reset = window === null ? null : formatReset(window.resetsAt);
-  const hot = window !== null && window.usedPercent >= 90;
-  return (
-    <div className="usageMeterRow">
-      <div className="usageMeterHead">
-        <span className="usageMeterTitle">{meter.title}</span>
-        {meter.note !== null ? (
-          <span className="usageMeterNote">{meter.note}</span>
-        ) : null}
-      </div>
-      <span className="usageTrack" aria-hidden="true">
-        {window === null ? null : (
-          <span
-            className={hot ? 'usageFill usageFillHot' : 'usageFill'}
-            style={{ width: `${Math.max(2, Math.min(100, window.usedPercent))}%` }}
-          />
-        )}
-      </span>
-      <div className="usageMeterFoot">
-        {window === null ? (
-          <span className="usageMeta">No usage reported yet</span>
-        ) : (
-          <>
-            <span className={hot ? 'usageHot' : undefined}>
-              {Math.round(window.usedPercent)}% used
-            </span>
-            <span className="usageMeta">
-              {reset === null ? '' : `Resets in ${reset}`}
-            </span>
-          </>
-        )}
-      </div>
-    </div>
-  );
 }
 
 const HOME_NOTE: Record<AccountHome['kind'], string> = {
@@ -220,11 +130,20 @@ function HomeRow({
 
 const PROVIDER_NOTE: Record<QuotaProviderId, string> = {
   claude:
-    'Subscription windows from the official usage endpoint (oauth source) or the in-session statusLine. Not an API invoice.',
-  codex: 'Subscription windows from Codex app-server. Not token counts or API charges.',
+    'Each login’s session and weekly windows, from Claude Code’s statusLine while a session runs in it. Not an API invoice.',
+  codex:
+    'Each login’s windows from Codex app-server, read on Refresh. Not token counts or API charges.',
   grok: 'Each account’s billing log. First read needs one session. Not an API invoice.',
   opencode:
     'OpenCode signs in to model providers itself (opencode auth login), so it has one login here and no subscription windows.',
+};
+
+const EMPTY_NOTE: Record<QuotaProviderId, string> = {
+  claude:
+    'No limits yet. A login reports once a Claude Code session runs in it; your own folders need the switch at the bottom of this page.',
+  codex: 'No limits yet. Press Refresh to ask each signed-in login.',
+  grok: 'No limits yet. A login reports after its first Grok session.',
+  opencode: '',
 };
 
 export function UsagePage(): React.JSX.Element {
@@ -303,11 +222,11 @@ export function UsagePage(): React.JSX.Element {
         <div className="usagePageTitle">
           <h1 id="usage-title">Usage</h1>
           <p>
-            Subscription windows for Claude, Codex, and Grok, and the CLI logins for them
-            and OpenCode, on this Mac — not conversation token counts, not API invoices,
-            not estimated API-equivalent cost. Those stay unknown unless a runtime reports
-            them on a run. BuilderHelm login is under Settings →{' '}
-            <Link to="/settings/accounts">Account</Link>.
+            Session and weekly windows for each Claude, Codex, and Grok login, pooled per
+            provider, and the CLI logins for them and OpenCode, on this Mac — not
+            conversation token counts, not API invoices, not estimated API-equivalent
+            cost. Those stay unknown unless a runtime reports them on a run. BuilderHelm
+            login is under Settings → <Link to="/settings/accounts">Account</Link>.
           </p>
         </div>
         <div className="usagePageActions">
@@ -357,13 +276,7 @@ export function UsagePage(): React.JSX.Element {
                 <span className="usageBadgeMuted">Not installed</span>
               )}
             </header>
-            {provider.id === 'opencode' ? null : (
-              <div className="usageMeterGrid">
-                {metersOf(provider).map((meter) => (
-                  <MeterRow key={meter.key} meter={meter} />
-                ))}
-              </div>
-            )}
+            <LimitCards provider={provider} emptyNote={EMPTY_NOTE[provider.id]} />
             <div className="usageAccountHead">
               <span>CLI logins</span>
               {isolatedId(provider.id) === null ? null : (

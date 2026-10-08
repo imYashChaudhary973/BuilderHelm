@@ -11090,15 +11090,10 @@ html.is-fullscreen .swarmWizardFoot {
   list-style: none;
   margin: 0;
   padding: 0;
+  /* One provider per row: its logins sit side by side as limit segments. */
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
-  align-items: stretch;
+  grid-template-columns: 1fr;
   gap: 14px;
-}
-
-/* Grok carries one meter per account, so it gets the full row when wrapping. */
-.usageProviderCard.usageProviderWide {
-  grid-column: 1 / -1;
 }
 
 .usageProviderCard {
@@ -11133,62 +11128,6 @@ html.is-fullscreen .swarmWizardFoot {
   color: var(--text-3);
   font-size: 12px;
   line-height: 1.45;
-}
-
-.usageMeterGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
-  gap: 12px 18px;
-  margin: 14px 0 4px;
-  padding: 12px 0 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-/*
- * Account meters are titled by an email plus a tier, so they need ~320px
- * before a second column is honest; below that they stack.
- */
-.usageMeterStack {
-  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
-  gap: 14px 18px;
-}
-.usageMeterRow {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-
-.usageMeterHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  min-width: 0;
-}
-
-.usageMeterTitle {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.usageMeterNote {
-  color: var(--text-3);
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.usageMeterFoot {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 12px;
-  color: var(--text-2);
 }
 
 .usageAccountHead {
@@ -12364,4 +12303,149 @@ html.is-fullscreen .swarmWizardFoot {
   background: transparent;
   color: var(--text);
   font-size: 13px;
+}
+
+/*
+ * Per-login limits: a pooled summary on the left, one segment per login on
+ * the right. The tinted fill is what is left; the hatching is what is used.
+ */
+.limitCards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+  --limit-tint: #4d4d4d;
+}
+
+.limitTone-claude {
+  --limit-tint: #573a30;
+}
+
+.limitTone-grok {
+  --limit-tint: #3c4352;
+}
+
+.limitCard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+  padding: 16px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+}
+
+.limitSummary {
+  flex: 0 0 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.limitTitle {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.limitLeft {
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.limitLeft strong {
+  font-size: 30px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  margin-right: 4px;
+}
+
+.limitNext {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.limitSegments {
+  flex: 1 1 320px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.limitSegment {
+  position: relative;
+  flex: 1 1 180px;
+  min-width: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 6px 0 12px;
+  border-radius: 9px;
+  overflow: hidden;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.05) 0 2px,
+    transparent 2px 7px
+  );
+  font-size: 13px;
+}
+
+.limitSegmentFill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--limit-tint);
+}
+
+.limitSegmentText,
+.limitSegmentReset {
+  position: relative;
+}
+
+.limitSegmentText {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.limitSegmentName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.limitSegmentValue {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.limitSegmentReset {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--text-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.limitSegmentEmpty {
+  color: var(--text-3);
+}
+
+.limitSegmentEmpty .limitSegmentName,
+.limitSegmentEmpty .limitSegmentValue {
+  color: var(--text-3);
+  font-weight: 400;
+}
+
+.limitEmpty {
+  margin: 14px 0 0;
+  color: var(--text-3);
+  font-size: 12px;
 }

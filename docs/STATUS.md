@@ -102,6 +102,9 @@ Status labels used below:
   Existing login folders can be attached (never deleted) and any login
   renamed; agent profiles can pin a login; OpenCode is listed with its single
   system login. The Claude statusLine hook only ever removes its own command.
+  Limits are stored per login and pooled per provider (statusLine for
+  Claude, app-server per `CODEX_HOME` for Codex); the Claude OAuth-token
+  reader was removed.
   See [docs/features/ACCOUNTS_USAGE.md](features/ACCOUNTS_USAGE.md).
 - Model picker searches advertised catalogs (capped at 80 visible rows;
   type to narrow), keeps exact IDs, and will not substitute a removed model.
