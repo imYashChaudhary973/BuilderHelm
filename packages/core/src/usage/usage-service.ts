@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { open, readdir, stat } from 'node:fs/promises';
 import { homedir, hostname } from 'node:os';
@@ -26,7 +25,11 @@ import {
 } from '@builderhelm/protocol';
 import { createCorrelationId, utcNow } from '@builderhelm/shared';
 
-import type { AccountsService, LoginLocation } from '../accounts/accounts-service.js';
+import {
+  identityKey,
+  type AccountsService,
+  type LoginLocation,
+} from '../accounts/accounts-service.js';
 import {
   EMPTY_CODEX_CURSOR,
   parseChatUsage,
@@ -47,11 +50,9 @@ const MIN_SCAN_INTERVAL_MS = 15_000;
 
 /** A non-reversible key for one account; never a raw credential. */
 export function accountKeyFor(login: LoginLocation): string {
-  const basis =
-    login.identity === null
-      ? `${login.provider}:folder:${login.root}`
-      : `${login.provider}:${login.identity}`;
-  return `${login.provider}:${createHash('sha256').update(basis).digest('hex').slice(0, 24)}`;
+  return login.identity === null
+    ? identityKey(login.provider, `folder:${login.root}`)
+    : identityKey(login.provider, login.identity);
 }
 
 function homeRelative(path: string): string {

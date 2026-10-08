@@ -30,8 +30,18 @@ export type IsolatedLoginProviderId = z.infer<typeof isolatedLoginProviderIdSche
 export const accountHomeKindSchema = z.enum(['system', 'managed', 'attached']);
 export type AccountHomeKind = z.infer<typeof accountHomeKindSchema>;
 
+/**
+ * One provider-reported limit window. `id` is stable across reports and
+ * accounts (`session`, `weekly`, `weekly:opus`, `monthly`), so pooling only
+ * ever lines up the same window; unlike windows are never merged.
+ */
 export const quotaWindowSchema = z
   .object({
+    id: z.string().min(1).max(64),
+    label: z.string().min(1).max(80),
+    kind: z.enum(['session', 'weekly', 'monthly', 'other']),
+    /** Model or limit the window applies to; null for the account-wide limit. */
+    scope: z.string().min(1).max(80).nullable(),
     usedPercent: z.number().min(0).max(100),
     resetsAt: z.string().min(1).nullable(),
   })
@@ -40,10 +50,12 @@ export type QuotaWindow = z.infer<typeof quotaWindowSchema>;
 
 export const accountQuotaSchema = z
   .object({
-    fiveHour: quotaWindowSchema.nullable(),
-    sevenDay: quotaWindowSchema.nullable(),
-    source: z.enum(['statusline', 'app-server', 'run']),
+    windows: z.array(quotaWindowSchema).max(16),
+    source: z.enum(['statusline', 'app-server', 'billing-log']),
+    /** When the provider reported these figures. */
     occurredAt: z.string().min(1),
+    /** Plan name exactly as the provider reports it. */
+    plan: z.string().min(1).max(80).nullable(),
     resetCreditsAvailable: z.number().int().min(0).optional(),
   })
   .strict();
@@ -58,10 +70,22 @@ export const accountHomeSchema = z
     email: z.string().min(3).max(200).nullable(),
     active: z.boolean(),
     /**
-     * This login's own session and weekly windows, null until it reports. A
-     * window whose reset has passed reads as fresh (0% used, reset unknown).
+     * This login's own windows, null until it reports. A window whose reset
+     * has passed reads as fresh (0% used, reset unknown).
      */
     quota: accountQuotaSchema.nullable(),
+    /** Whether `quota` can be trusted right now, and why not. */
+    limits: z
+      .object({
+        state: z.enum(['ok', 'stale', 'unknown', 'unavailable', 'error']),
+        message: z.string().max(240).nullable(),
+      })
+      .strict(),
+    /**
+     * Non-secret hash of the provider's account identity. Two logins with the
+     * same key are one account; null when the identity is unknown.
+     */
+    accountKey: z.string().min(1).max(64).nullable(),
     /** Provider-reported usage for this home; Grok fills it from its billing log. */
     billing: z
       .object({

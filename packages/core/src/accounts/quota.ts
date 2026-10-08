@@ -19,7 +19,7 @@ function toIso(resetsAt: unknown): string | null {
   return new Date(ms).toISOString();
 }
 
-function parseClaudeWindow(value: unknown): QuotaWindow | null {
+function usedOf(value: unknown): { used: number; resetsAt: string | null } | null {
   if (typeof value !== 'object' || value === null) return null;
   const raw = value as Record<string, unknown>;
   const used =
@@ -27,34 +27,28 @@ function parseClaudeWindow(value: unknown): QuotaWindow | null {
     finiteNumber(raw.usedPercent) ??
     finiteNumber(raw.utilization);
   if (used === undefined) return null;
-  return {
-    usedPercent: clampPercent(used),
-    resetsAt: toIso(raw.resets_at ?? raw.resetsAt),
-  };
+  return { used: clampPercent(used), resetsAt: toIso(raw.resets_at ?? raw.resetsAt) };
 }
 
-function parseCodexWindow(value: unknown): QuotaWindow | null {
-  if (typeof value !== 'object' || value === null) return null;
-  const raw = value as Record<string, unknown>;
-  const used = finiteNumber(raw.usedPercent) ?? finiteNumber(raw.used_percentage);
-  if (used === undefined) return null;
-  return {
-    usedPercent: clampPercent(used),
-    resetsAt: toIso(raw.resetsAt ?? raw.resets_at),
-  };
+function titleCase(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-function windowMinutes(value: unknown): number | undefined {
-  if (typeof value !== 'object' || value === null) return undefined;
-  return finiteNumber((value as Record<string, unknown>).windowDurationMins);
-}
+const CLAUDE_SESSION_KEYS = ['five_hour', 'fiveHour', 'current_session'];
+const CLAUDE_WEEKLY_KEYS = [
+  'seven_day',
+  'sevenDay',
+  'seven_day_all_models',
+  'weekly_limit',
+  'weekly',
+];
 
 /**
  * Claude Code statusLine JSON. Field names have drifted across versions:
- * five_hour/seven_day (2.1.80), current_session/weekly_limit, and per-model
- * seven_day_* rows. The session window wins fiveHour; the widest weekly row
- * (all-models) wins sevenDay so a boosted all-models limit is not shadowed by
- * a per-model one.
+ * five_hour/seven_day, current_session/weekly_limit, and per-model
+ * seven_day_<model> rows. Account-wide names map to `session` and `weekly`
+ * (the highest reading wins when several aliases appear); each per-model
+ * weekly row keeps its own `weekly:<model>` window.
  */
 export function parseClaudeRateLimits(
   payload: unknown,
@@ -69,29 +63,84 @@ export function parseClaudeRateLimits(
     typeof root.rate_limits === 'object' && root.rate_limits !== null
       ? (root.rate_limits as Record<string, unknown>)
       : root;
-  const fiveHour =
-    parseClaudeWindow(rateLimits.five_hour) ??
-    parseClaudeWindow(rateLimits.fiveHour) ??
-    parseClaudeWindow(rateLimits.current_session);
-  const weeklyKeys = [
-    'seven_day',
-    'sevenDay',
-    'seven_day_all_models',
-    'weekly_limit',
-    'weekly',
-  ];
-  let sevenDay: QuotaWindow | null = null;
-  for (const key of weeklyKeys) {
-    const candidate = parseClaudeWindow(rateLimits[key]);
-    if (
-      candidate !== null &&
-      (sevenDay === null || candidate.usedPercent > sevenDay.usedPercent)
-    ) {
-      sevenDay = candidate;
+  const windows = new Map<string, QuotaWindow>();
+  const keep = (window: QuotaWindow): void => {
+    const current = windows.get(window.id);
+    if (current === undefined || window.usedPercent > current.usedPercent) {
+      windows.set(window.id, window);
+    }
+  };
+  for (const [key, value] of Object.entries(rateLimits)) {
+    const reading = usedOf(value);
+    if (reading === null) continue;
+    const base = { usedPercent: reading.used, resetsAt: reading.resetsAt };
+    if (CLAUDE_SESSION_KEYS.includes(key)) {
+      keep({ id: 'session', label: 'Session', kind: 'session', scope: null, ...base });
+    } else if (CLAUDE_WEEKLY_KEYS.includes(key)) {
+      keep({ id: 'weekly', label: 'Weekly', kind: 'weekly', scope: null, ...base });
+    } else {
+      const model = /^seven_day_([a-z0-9]+)$/i.exec(key)?.[1];
+      if (model !== undefined) {
+        keep({
+          id: `weekly:${model.toLowerCase()}`.slice(0, 64),
+          label: `Weekly · ${titleCase(model)}`.slice(0, 80),
+          kind: 'weekly',
+          scope: titleCase(model).slice(0, 80),
+          ...base,
+        });
+      } else {
+        const label = titleCase(key.replace(/_/g, ' ')).slice(0, 80);
+        keep({
+          id: `other:${key}`.slice(0, 64),
+          label,
+          kind: 'other',
+          scope: null,
+          ...base,
+        });
+      }
     }
   }
-  if (fiveHour === null && sevenDay === null) return null;
-  return { fiveHour, sevenDay, source: 'statusline', occurredAt };
+  if (windows.size === 0) return null;
+  return {
+    windows: [...windows.values()].slice(0, 16),
+    source: 'statusline',
+    occurredAt,
+    plan: null,
+  };
+}
+
+/**
+ * A Codex window is named by its length, not its slot: Codex has reported a
+ * lone weekly window as `primary`, which a slot-based reading would call the
+ * session.
+ */
+function codexWindow(value: unknown, scope: string | null): QuotaWindow | null {
+  const reading = usedOf(value);
+  if (reading === null) return null;
+  const minutes = finiteNumber((value as Record<string, unknown>).windowDurationMins);
+  let kind: QuotaWindow['kind'] = 'other';
+  let label = 'Limit';
+  if (minutes !== undefined && minutes <= 24 * 60) {
+    kind = 'session';
+    label = minutes === 300 ? 'Session' : `${Math.round(minutes / 60)}-hour`;
+  } else if (minutes !== undefined && minutes >= 6 * 1440 && minutes <= 8 * 1440) {
+    kind = 'weekly';
+    label = 'Weekly';
+  } else if (minutes !== undefined && minutes >= 27 * 1440) {
+    kind = 'monthly';
+    label = 'Monthly';
+  } else if (minutes !== undefined) {
+    label = `${Math.round(minutes / 1440)}-day`;
+  }
+  const base = kind === 'other' ? `other:${minutes ?? 'unknown'}` : kind;
+  return {
+    id: (scope === null ? base : `${base}:${scope.toLowerCase()}`).slice(0, 64),
+    label: (scope === null ? label : `${label} · ${scope}`).slice(0, 80),
+    kind,
+    scope,
+    usedPercent: reading.used,
+    resetsAt: reading.resetsAt,
+  };
 }
 
 /** Codex app-server account/rateLimits/read result. */
@@ -108,35 +157,41 @@ export function parseCodexRateLimits(
     typeof root.result === 'object' && root.result !== null
       ? (root.result as Record<string, unknown>)
       : root;
-  const snapshot =
-    typeof result.rateLimits === 'object' && result.rateLimits !== null
-      ? (result.rateLimits as Record<string, unknown>)
-      : result;
-  const primary = snapshot.primary;
-  const secondary = snapshot.secondary;
-  const primaryMins = windowMinutes(primary);
-  const secondaryMins = windowMinutes(secondary);
-  let fiveHour = parseCodexWindow(primary);
-  let sevenDay = parseCodexWindow(secondary);
-  if (
-    primaryMins !== undefined &&
-    secondaryMins !== undefined &&
-    primaryMins > secondaryMins
-  ) {
-    fiveHour = parseCodexWindow(secondary);
-    sevenDay = parseCodexWindow(primary);
+  const buckets =
+    typeof result.rateLimitsByLimitId === 'object' && result.rateLimitsByLimitId !== null
+      ? Object.values(result.rateLimitsByLimitId as Record<string, unknown>)
+      : [result.rateLimits ?? result];
+  const windows: QuotaWindow[] = [];
+  let plan: string | null = null;
+  for (const bucket of buckets) {
+    if (typeof bucket !== 'object' || bucket === null) continue;
+    const row = bucket as Record<string, unknown>;
+    const limitId = typeof row.limitId === 'string' ? row.limitId : 'codex';
+    const name =
+      typeof row.limitName === 'string' && row.limitName.length > 0
+        ? row.limitName
+        : null;
+    // The default `codex` bucket is the account-wide limit.
+    const scope = limitId === 'codex' ? null : (name ?? limitId).slice(0, 80);
+    if (typeof row.planType === 'string' && row.planType.length > 0) plan = row.planType;
+    for (const slot of [row.primary, row.secondary]) {
+      const window = codexWindow(slot, scope);
+      if (window !== null && !windows.some((entry) => entry.id === window.id)) {
+        windows.push(window);
+      }
+    }
   }
-  if (fiveHour === null && sevenDay === null) return null;
+  if (windows.length === 0) return null;
   const credits = result.rateLimitResetCredits;
   const available =
     typeof credits === 'object' && credits !== null
       ? finiteNumber((credits as Record<string, unknown>).availableCount)
       : undefined;
   return {
-    fiveHour,
-    sevenDay,
+    windows: windows.slice(0, 16),
     source: 'app-server',
     occurredAt,
+    plan: plan?.slice(0, 80) ?? null,
     ...(available !== undefined
       ? { resetCreditsAvailable: Math.max(0, Math.round(available)) }
       : {}),
@@ -144,12 +199,14 @@ export function parseCodexRateLimits(
 }
 
 export function formatQuotaLine(quota: AccountQuota): string {
-  const parts: string[] = [];
-  if (quota.fiveHour !== null) {
-    parts.push(`${Math.round(quota.fiveHour.usedPercent)}% 5h`);
-  }
-  if (quota.sevenDay !== null) {
-    parts.push(`${Math.round(quota.sevenDay.usedPercent)}% wk`);
-  }
-  return parts.join(' · ');
+  const short: Record<QuotaWindow['kind'], string> = {
+    session: '5h',
+    weekly: 'wk',
+    monthly: 'mo',
+    other: '',
+  };
+  return quota.windows
+    .filter((window) => window.scope === null && window.kind !== 'other')
+    .map((window) => `${Math.round(window.usedPercent)}% ${short[window.kind]}`)
+    .join(' · ');
 }

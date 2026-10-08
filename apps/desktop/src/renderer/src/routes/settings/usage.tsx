@@ -138,19 +138,13 @@ const PROVIDER_NOTE: Record<QuotaProviderId, string> = {
     'OpenCode signs in to model providers itself (opencode auth login), so it has one login here and no subscription windows.',
 };
 
-const EMPTY_NOTE: Record<QuotaProviderId, string> = {
-  claude:
-    'No limits yet. A login reports once a Claude Code session runs in it; your own folders need the switch at the bottom of this page.',
-  codex: 'No limits yet. Press Refresh to ask each signed-in login.',
-  grok: 'No limits yet. A login reports after its first Grok session.',
-  opencode: '',
-};
-
 export function UsagePage(): React.JSX.Element {
   const queryClient = useQueryClient();
   const snapshot = useQuery({
     queryKey: ['accounts-snapshot'],
-    queryFn: () => window.builderHelm.accounts.snapshot(),
+    // Live: opening the page asks each login for fresh limits. Core rate-limits
+    // the reads per login, so the 30s poll does not respawn Codex each time.
+    queryFn: () => window.builderHelm.accounts.snapshot({ live: true }),
     refetchInterval: 30_000,
   });
   const mutate = useMutation({
@@ -276,7 +270,7 @@ export function UsagePage(): React.JSX.Element {
                 <span className="usageBadgeMuted">Not installed</span>
               )}
             </header>
-            <LimitCards provider={provider} emptyNote={EMPTY_NOTE[provider.id]} />
+            <LimitCards provider={provider} />
             <div className="usageAccountHead">
               <span>CLI logins</span>
               {isolatedId(provider.id) === null ? null : (

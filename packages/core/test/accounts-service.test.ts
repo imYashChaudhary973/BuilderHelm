@@ -104,13 +104,20 @@ describe('quota parsers', () => {
         '2026-08-31T00:00:00.000Z',
       ),
     ).toMatchObject({
-      fiveHour: { usedPercent: 34 },
-      sevenDay: { usedPercent: 94, resetsAt: '2026-09-01T00:00:00.000Z' },
+      windows: [
+        { id: 'session', kind: 'session', usedPercent: 34 },
+        {
+          id: 'weekly',
+          kind: 'weekly',
+          usedPercent: 94,
+          resetsAt: '2026-09-01T00:00:00.000Z',
+        },
+      ],
       source: 'statusline',
     });
   });
 
-  it('maps renamed session and weekly keys for newer Claude Code', () => {
+  it('maps renamed keys and keeps a per-model weekly limit as its own window', () => {
     expect(
       parseClaudeRateLimits(
         {
@@ -123,8 +130,11 @@ describe('quota parsers', () => {
         '2026-08-31T00:00:00.000Z',
       ),
     ).toMatchObject({
-      fiveHour: { usedPercent: 100 },
-      sevenDay: { usedPercent: 19 },
+      windows: [
+        { id: 'session', usedPercent: 100 },
+        { id: 'weekly', usedPercent: 19, scope: null },
+        { id: 'weekly:opus', label: 'Weekly · Opus', scope: 'Opus', usedPercent: 60 },
+      ],
       source: 'statusline',
     });
   });
@@ -150,20 +160,67 @@ describe('quota parsers', () => {
         '2026-08-31T00:00:00.000Z',
       ),
     ).toMatchObject({
-      fiveHour: { usedPercent: 100 },
-      sevenDay: { usedPercent: 32 },
+      windows: [
+        { id: 'session', usedPercent: 100 },
+        { id: 'weekly', usedPercent: 32 },
+      ],
       source: 'app-server',
       resetCreditsAvailable: 0,
     });
   });
 
+  it('names a lone Codex window by its length, not its slot', () => {
+    // Codex 0.161 reports a ChatGPT plan's weekly limit as `primary` alone.
+    const quota = parseCodexRateLimits(
+      {
+        rateLimitsByLimitId: {
+          codex: {
+            limitId: 'codex',
+            primary: {
+              usedPercent: 0,
+              windowDurationMins: 10_080,
+              resetsAt: 1_792_048_808,
+            },
+            secondary: null,
+            planType: 'prolite',
+          },
+        },
+        rateLimitResetCredits: { availableCount: 1 },
+      },
+      '2026-10-08T00:00:00.000Z',
+    );
+    expect(quota).toMatchObject({
+      windows: [{ id: 'weekly', label: 'Weekly', kind: 'weekly', usedPercent: 0 }],
+      plan: 'prolite',
+      resetCreditsAvailable: 1,
+    });
+    expect(quota?.windows).toHaveLength(1);
+  });
+
   it('formats a status line from stored windows', () => {
     expect(
       formatQuotaLine({
-        fiveHour: { usedPercent: 34, resetsAt: null },
-        sevenDay: { usedPercent: 94, resetsAt: null },
+        windows: [
+          {
+            id: 'session',
+            label: 'Session',
+            kind: 'session',
+            scope: null,
+            usedPercent: 34,
+            resetsAt: null,
+          },
+          {
+            id: 'weekly',
+            label: 'Weekly',
+            kind: 'weekly',
+            scope: null,
+            usedPercent: 94,
+            resetsAt: null,
+          },
+        ],
         source: 'statusline',
         occurredAt: '2026-08-31T00:00:00.000Z',
+        plan: null,
       }),
     ).toBe('34% 5h · 94% wk');
   });
@@ -227,7 +284,7 @@ describe('AccountsService', () => {
     expect(
       accounts.ingestClaude('claude:system', {
         rate_limits: { five_hour: { used_percentage: 12, resets_at: future } },
-      })?.fiveHour?.usedPercent,
+      })?.windows[0]?.usedPercent,
     ).toBe(12);
     const snapshot = await accounts.snapshot();
     expect(snapshot.providers.map((provider) => provider.id)).toEqual([
@@ -255,8 +312,11 @@ describe('AccountsService', () => {
     const snapshot = await accounts.snapshot();
     const quota = snapshot.providers.find((provider) => provider.id === 'claude')
       ?.homes[0]?.quota;
-    expect(quota?.fiveHour).toEqual({ usedPercent: 0, resetsAt: null });
-    expect(quota?.sevenDay?.usedPercent).toBe(19);
+    expect(quota?.windows.find((w) => w.id === 'session')).toMatchObject({
+      usedPercent: 0,
+      resetsAt: null,
+    });
+    expect(quota?.windows.find((w) => w.id === 'weekly')?.usedPercent).toBe(19);
   });
 
   it('adds an isolated home and points cliEnv at it', async () => {
@@ -507,7 +567,7 @@ describe('AccountsService', () => {
     const used = async (): Promise<(number | undefined)[]> =>
       (await accounts.snapshot()).providers
         .find((provider) => provider.id === 'claude')!
-        .homes.map((home) => home.quota?.fiveHour?.usedPercent);
+        .homes.map((home) => home.quota?.windows[0]?.usedPercent);
     expect(await used()).toEqual([70, 5]);
     await accounts.remove('claude', team!.id);
     await accounts.attach('claude', folder);
@@ -543,7 +603,80 @@ describe('AccountsService', () => {
     expect(
       homes
         .filter((home) => home.kind === 'attached')
-        .map((home) => home.quota?.fiveHour?.usedPercent),
+        .map((home) => home.quota?.windows[0]?.usedPercent),
     ).toEqual([10, 80]);
+  });
+
+  it('gives two folders signed into one account the same key, and explains missing limits', async () => {
+    const accounts = setup();
+    const signedIn = (email: string, uuid: string): string => {
+      const folder = tempFolder('claude-id-');
+      writeFileSync(
+        join(folder, '.claude.json'),
+        JSON.stringify({
+          oauthAccount: {
+            emailAddress: email,
+            accountUuid: uuid,
+            organizationUuid: '11111111-2222-3333-4444-555555555555',
+          },
+        }),
+      );
+      return folder;
+    };
+    await accounts.attach(
+      'claude',
+      signedIn('a@example.com', 'aaaaaaaa-0000-0000-0000-000000000001'),
+    );
+    await accounts.attach(
+      'claude',
+      signedIn('a@example.com', 'aaaaaaaa-0000-0000-0000-000000000001'),
+    );
+    const snapshot = await accounts.attach(
+      'claude',
+      signedIn('b@example.com', 'bbbbbbbb-0000-0000-0000-000000000002'),
+    );
+    const attached = snapshot.providers
+      .find((provider) => provider.id === 'claude')!
+      .homes.filter((home) => home.kind === 'attached');
+    const keys = attached.map((home) => home.accountKey);
+    expect(keys[0]).not.toBeNull();
+    expect(keys[0]).toBe(keys[1]);
+    expect(keys[2]).not.toBe(keys[0]);
+    // The key is a hash, never the raw identity.
+    expect(JSON.stringify(snapshot)).not.toContain('aaaaaaaa-0000');
+    expect(attached[0]?.limits).toMatchObject({
+      state: 'unknown',
+      message: expect.stringMatching(/status line/),
+    });
+    const opencode = snapshot.providers.find((provider) => provider.id === 'opencode')!;
+    expect(opencode.homes[0]?.limits).toMatchObject({
+      state: 'unavailable',
+      message: expect.stringMatching(/^Limits unavailable for this account/),
+    });
+  });
+
+  it('keeps a failed Codex read out of the message and rate-limits repeat reads', async () => {
+    let calls = 0;
+    const { accounts, board } = setupWith(async () => {
+      calls += 1;
+      throw new Error('token sk-secret-123 rejected for user@example.com');
+    });
+    vi.spyOn(board, 'detectAgents').mockResolvedValue([
+      { id: 'codex', available: true, path: '/usr/bin/codex' } as never,
+    ]);
+    const folder = tempFolder('codex-err-');
+    writeFileSync(join(folder, 'auth.json'), '{}');
+    await accounts.attach('codex', folder);
+    const first = await accounts.snapshot(true);
+    const afterFirst = calls;
+    await accounts.snapshot(true);
+    // Inside the minimum interval, no login is asked again.
+    expect(afterFirst).toBeGreaterThan(0);
+    expect(calls).toBe(afterFirst);
+    const home = first.providers
+      .find((provider) => provider.id === 'codex')!
+      .homes.find((entry) => entry.kind === 'attached');
+    expect(home?.limits.state).toBe('error');
+    expect(JSON.stringify(first)).not.toMatch(/sk-secret|user@example/);
   });
 });

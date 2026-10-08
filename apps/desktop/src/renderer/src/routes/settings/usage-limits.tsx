@@ -4,6 +4,16 @@ import type {
   QuotaWindow,
 } from '@builderhelm/protocol/accounts';
 
+function formatAge(iso: string): string {
+  const minutes = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(iso).getTime()) / 60_000),
+  );
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  return hours < 48 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
+}
+
 export function formatReset(iso: string | null): string | null {
   if (iso === null) return null;
   const ms = new Date(iso).getTime() - Date.now();
@@ -24,9 +34,12 @@ interface Segment {
   readonly label: string;
   readonly window: QuotaWindow | null;
   readonly credits: number;
+  /** When the figures were reported, if they are older than they should be. */
+  readonly staleSince: string | null;
 }
 
 interface LimitCard {
+  readonly id: string;
   readonly title: string;
   readonly segments: readonly Segment[];
 }
@@ -37,48 +50,70 @@ interface Pool {
   readonly next: { readonly gain: number; readonly resetsAt: string } | null;
 }
 
-/** Logins that can report: everything except a home still signing in. */
-function reporting(provider: AccountProvider): readonly AccountHome[] {
-  return provider.homes.filter((home) => home.kind !== 'managed' || home.email !== null);
+const KIND_ORDER: Record<QuotaWindow['kind'], number> = {
+  session: 0,
+  weekly: 1,
+  monthly: 2,
+  other: 3,
+};
+
+/**
+ * The provider's distinct accounts: a home still signing in is left out, and
+ * logins that share an account key (one account attached through two
+ * folders) appear once, using the most recent reading.
+ */
+export function distinctAccounts(provider: AccountProvider): readonly AccountHome[] {
+  const byAccount = new Map<string, AccountHome>();
+  for (const home of provider.homes) {
+    if (home.kind === 'managed' && home.email === null) continue;
+    const key = home.accountKey ?? `home:${home.id}`;
+    const current = byAccount.get(key);
+    const newer =
+      current === undefined ||
+      (home.quota !== null &&
+        (current.quota === null || home.quota.occurredAt > current.quota.occurredAt));
+    if (newer) byAccount.set(key, home);
+  }
+  return [...byAccount.values()];
 }
 
+/** One card per window id; each distinct account is a segment in it. */
 export function limitCards(provider: AccountProvider): readonly LimitCard[] {
-  const homes = reporting(provider);
-  if (provider.id === 'opencode') return [];
-  if (provider.id === 'grok') {
-    return [
-      {
-        title: 'Credits',
-        segments: homes.map((home) => ({
-          key: home.id,
-          label: home.label,
-          credits: 0,
-          window:
-            home.billing === null
-              ? null
-              : {
-                  usedPercent: home.billing.usedPercent,
-                  resetsAt: home.billing.periodEnd,
-                },
-        })),
-      },
-    ];
+  const accounts = distinctAccounts(provider);
+  const windows = new Map<string, QuotaWindow>();
+  for (const home of accounts) {
+    for (const window of home.quota?.windows ?? []) {
+      if (!windows.has(window.id)) windows.set(window.id, window);
+    }
   }
-  const card = (title: string, pick: 'fiveHour' | 'sevenDay'): LimitCard => ({
-    title,
-    segments: homes.map((home) => ({
-      key: home.id,
-      label: home.label,
-      window: home.quota?.[pick] ?? null,
-      credits: home.quota?.resetCreditsAvailable ?? 0,
-    })),
-  });
-  return [card('Session', 'fiveHour'), card('Weekly', 'sevenDay')];
+  return [...windows.values()]
+    .sort(
+      (a, b) =>
+        KIND_ORDER[a.kind] - KIND_ORDER[b.kind] ||
+        Number(a.scope !== null) - Number(b.scope !== null) ||
+        a.label.localeCompare(b.label),
+    )
+    .map((sample) => ({
+      id: sample.id,
+      title: sample.label,
+      segments: accounts.map((home) => ({
+        key: home.id,
+        label: home.label,
+        window: home.quota?.windows.find((window) => window.id === sample.id) ?? null,
+        credits: home.quota?.resetCreditsAvailable ?? 0,
+        staleSince:
+          home.limits.state === 'stale' ? (home.quota?.occurredAt ?? null) : null,
+      })),
+    }));
 }
 
 /**
- * Pooled headroom across the logins that reported: the mean of what each has
- * left. Logins with no figures are left out rather than counted as full.
+ * A visual summary of distinct accounts, not one combined quota: the mean of
+ * the remaining percentage of each account that reported this window.
+ * Accounts with no figures are left out rather than counted as full. The
+ * soonest reset's gain is that account's used share divided by the number of
+ * reporting accounts. A turn still runs on the login you picked; nothing
+ * routes work to the account with the most left.
  */
 export function poolOf(segments: readonly Segment[]): Pool | null {
   const known = segments.flatMap((segment) =>
@@ -123,7 +158,9 @@ function SegmentBar({ segment }: { readonly segment: Segment }): React.JSX.Eleme
   const reset = formatReset(window.resetsAt);
   return (
     <div
-      className="limitSegment"
+      className={
+        segment.staleSince === null ? 'limitSegment' : 'limitSegment limitSegmentStale'
+      }
       title={`${segment.label}: ${Math.round(left)}% left`}
       role="img"
       aria-label={`${segment.label} ${Math.round(left)}% left${reset === null ? '' : `, resets in ${reset}`}`}
@@ -135,6 +172,7 @@ function SegmentBar({ segment }: { readonly segment: Segment }): React.JSX.Eleme
       </span>
       <span className="limitSegmentReset">
         {reset === null ? '—' : `↻ ${reset}`}
+        {segment.staleSince === null ? '' : ` · as of ${formatAge(segment.staleSince)}`}
         {segment.credits > 0
           ? ` · ${segment.credits} reset credit${segment.credits === 1 ? '' : 's'}`
           : ''}
@@ -143,25 +181,46 @@ function SegmentBar({ segment }: { readonly segment: Segment }): React.JSX.Eleme
   );
 }
 
-export function LimitCards({
+/** Accounts that cannot show limits, each with the reason. */
+function LimitIssues({
   provider,
-  emptyNote,
 }: {
   readonly provider: AccountProvider;
-  readonly emptyNote: string;
+}): React.JSX.Element | null {
+  const issues = distinctAccounts(provider).filter(
+    (home) =>
+      home.limits.state !== 'ok' &&
+      home.limits.state !== 'stale' &&
+      home.limits.message !== null,
+  );
+  if (issues.length === 0) return null;
+  return (
+    <ul className="limitIssues">
+      {issues.map((home) => (
+        <li
+          key={home.id}
+          className={home.limits.state === 'error' ? 'limitIssueError' : undefined}
+        >
+          <strong>{home.label}</strong> {home.limits.message}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function LimitCards({
+  provider,
+}: {
+  readonly provider: AccountProvider;
 }): React.JSX.Element | null {
   const cards = limitCards(provider);
-  if (cards.length === 0) return null;
-  if (cards.every((card) => poolOf(card.segments) === null)) {
-    return <p className="limitEmpty">{emptyNote}</p>;
-  }
   return (
     <div className={`limitCards limitTone-${provider.id}`}>
       {cards.map((card) => {
         const pool = poolOf(card.segments);
         const next = pool?.next ?? null;
         return (
-          <section key={card.title} className="limitCard" aria-label={card.title}>
+          <section key={card.id} className="limitCard" aria-label={card.title}>
             <div className="limitSummary">
               <span className="limitTitle">{card.title}</span>
               <span className="limitLeft">
@@ -181,6 +240,7 @@ export function LimitCards({
           </section>
         );
       })}
+      <LimitIssues provider={provider} />
     </div>
   );
 }

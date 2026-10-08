@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   existsSync,
   mkdirSync,
@@ -215,13 +216,47 @@ function parseQuota(raw: string | undefined): QuotaMap {
  * with an unknown reset rather than replaying the finished window's figure.
  */
 function liveQuota(quota: AccountQuota, now: number): AccountQuota {
-  const live = (window: QuotaWindow | null): QuotaWindow | null =>
-    window === null ||
-    window.resetsAt === null ||
-    new Date(window.resetsAt).getTime() > now
+  const live = (window: QuotaWindow): QuotaWindow =>
+    window.resetsAt === null || new Date(window.resetsAt).getTime() > now
       ? window
-      : { usedPercent: 0, resetsAt: null };
-  return { ...quota, fiveHour: live(quota.fiveHour), sevenDay: live(quota.sevenDay) };
+      : { ...window, usedPercent: 0, resetsAt: null };
+  return { ...quota, windows: quota.windows.map(live) };
+}
+
+/** Readings older than this are shown as stale. */
+const STALE_MS: Record<AccountQuota['source'], number> = {
+  statusline: 30 * 60_000,
+  'app-server': 30 * 60_000,
+  'billing-log': 6 * 60 * 60_000,
+};
+/** Codex app-server is spawned per login; read each at most this often. */
+const CODEX_MIN_INTERVAL_MS = 60_000;
+
+/**
+ * Non-secret key for one provider account, shared by limits and usage so
+ * the same account is recognised in both. Never a credential.
+ */
+export function identityKey(provider: string, identity: string): string {
+  return `${provider}:${createHash('sha256').update(`${provider}:${identity}`).digest('hex').slice(0, 24)}`;
+}
+
+function grokQuota(billing: GrokBilling | null): AccountQuota | null {
+  if (billing === null) return null;
+  return {
+    windows: [
+      {
+        id: 'credits',
+        label: 'Credits',
+        kind: 'monthly',
+        scope: null,
+        usedPercent: billing.usedPercent,
+        resetsAt: billing.periodEnd,
+      },
+    ],
+    source: 'billing-log',
+    occurredAt: billing.fetchedAt ?? utcNow(),
+    plan: billing.tier?.slice(0, 80) ?? null,
+  };
 }
 
 /** Allowlisted key only. Never returns tokens. */
@@ -457,6 +492,13 @@ export class AccountsService {
     private readonly readCodex: CodexRateLimitReader = readCodexRateLimits,
   ) {}
 
+  /** Latest failed limit read per account ref, with a message safe to show. */
+  private readonly limitIssues = new Map<
+    string,
+    { state: 'error' | 'unavailable'; message: string }
+  >();
+  /** Epoch ms of the last Codex read per account ref. */
+  private readonly codexReadAt = new Map<string, number>();
   /** Epoch ms of the last Grok billing pull; the TUI spawn is not free. */
   private lastGrokFetch: number | null = null;
   /** Epoch ms while a Grok pull is in flight; null when idle. */
@@ -626,9 +668,69 @@ export class AccountsService {
     const active = this.active();
     const now = Date.now();
     const stored = this.storedQuota();
-    const quotaOf = (provider: QuotaProviderId, homeId: string): AccountQuota | null => {
-      const quota = stored[`${provider}:${homeId}`];
-      return quota === undefined ? null : liveQuota(quota, now);
+    const hooked = new Set(this.claudeHookTargets().map((target) => target.accountRef));
+    const limitsOf = (
+      provider: QuotaProviderId,
+      homeId: string,
+      configRoot: string | null,
+      kind: AccountHome['kind'],
+      email: string | null,
+      billing: GrokBilling | null,
+    ): Pick<AccountHome, 'quota' | 'limits' | 'accountKey'> => {
+      const ref = `${provider}:${homeId}`;
+      const identity =
+        provider === 'grok' ? email : readAccountIdentity(provider, configRoot);
+      const accountKey = identity === null ? null : identityKey(provider, identity);
+      const raw = provider === 'grok' ? grokQuota(billing) : (stored[ref] ?? null);
+      const quota = raw === null ? null : liveQuota(raw, now);
+      const issue = this.limitIssues.get(ref);
+      const limits = ((): AccountHome['limits'] => {
+        if (provider === 'opencode') {
+          return {
+            state: 'unavailable',
+            message:
+              'Limits unavailable for this account: OpenCode uses each model provider’s own billing.',
+          };
+        }
+        if (issue !== undefined && quota === null) return issue;
+        if (quota !== null) {
+          const age = now - new Date(quota.occurredAt).getTime();
+          if (issue?.state === 'error') return { state: 'stale', message: issue.message };
+          return age > STALE_MS[quota.source]
+            ? { state: 'stale', message: null }
+            : { state: 'ok', message: null };
+        }
+        if (kind === 'managed' && email === null) {
+          return { state: 'unknown', message: 'Waiting for the login to finish.' };
+        }
+        if (provider === 'claude') {
+          if (identity === null) {
+            return {
+              state: 'unavailable',
+              message:
+                'Limits unavailable for this account: no Claude subscription sign-in here (API-key logins have none).',
+            };
+          }
+          return hooked.has(ref)
+            ? {
+                state: 'unknown',
+                message:
+                  'No reading yet. Appears after a Claude Code session runs in this login.',
+              }
+            : {
+                state: 'unknown',
+                message:
+                  'Claude reports limits through its status line. Turn on the switch below to install it in this folder.',
+              };
+        }
+        if (provider === 'codex') {
+          return authMarkerExists('codex', configRoot ?? SYSTEM_AUTH_ROOT.codex)
+            ? { state: 'unknown', message: 'No reading yet. Press Refresh.' }
+            : { state: 'unavailable', message: 'Not signed in to Codex here.' };
+        }
+        return { state: 'unknown', message: 'Appears after the first Grok session.' };
+      })();
+      return { quota, limits, accountKey };
     };
     let relabeled = false;
     const providers = QUOTA_PROVIDER_IDS.map((id) => {
@@ -640,6 +742,7 @@ export class AccountsService {
       // Every row is labeled by its account email so it is obvious which login
       // each usage figure belongs to. The system row reads ~/.grok's log.
       const systemEmail = homeEmail(id, null);
+      const systemBilling = id === 'grok' ? readGrokBilling(null) : null;
       const system: AccountHome = {
         id: SYSTEM_ACCOUNT_ID,
         label: systemEmail ?? 'System default',
@@ -647,8 +750,8 @@ export class AccountsService {
         configRoot: null,
         email: systemEmail,
         active: activeId === SYSTEM_ACCOUNT_ID,
-        quota: quotaOf(id, SYSTEM_ACCOUNT_ID),
-        billing: id === 'grok' ? grokBillingPayload(readGrokBilling(null)) : null,
+        ...limitsOf(id, SYSTEM_ACCOUNT_ID, null, 'system', systemEmail, systemBilling),
+        billing: grokBillingPayload(systemBilling),
       };
       const listed: AccountHome[] = [
         system,
@@ -672,7 +775,7 @@ export class AccountsService {
             configRoot: home.configRoot,
             email,
             active: home.id === activeId,
-            quota: quotaOf(id, home.id),
+            ...limitsOf(id, home.id, home.configRoot, home.kind, email, billing),
             billing: grokBillingPayload(billing),
           };
         }),
@@ -925,16 +1028,34 @@ export class AccountsService {
       { id: SYSTEM_ACCOUNT_ID, configRoot: SYSTEM_AUTH_ROOT.codex },
       ...this.homes().codex,
     ].filter((home) => authMarkerExists('codex', home.configRoot));
+    const now = Date.now();
     await Promise.all(
       targets.map(async (home) => {
+        const ref = `codex:${home.id}`;
+        const last = this.codexReadAt.get(ref);
+        if (last !== undefined && now - last < CODEX_MIN_INTERVAL_MS) return;
+        this.codexReadAt.set(ref, now);
         try {
           const live = parseCodexRateLimits(
             await this.readCodex(executable, { CODEX_HOME: home.configRoot }),
             utcNow(),
           );
-          if (live !== null) this.writeQuota(`codex:${home.id}`, live);
+          if (live === null) {
+            this.limitIssues.set(ref, {
+              state: 'unavailable',
+              message:
+                'Limits unavailable for this account: Codex reported no subscription windows (API-key logins have none).',
+            });
+            return;
+          }
+          this.limitIssues.delete(ref);
+          this.writeQuota(ref, live);
         } catch {
-          // Keep this login's last stored windows.
+          // The raw error can carry account details; show a fixed message.
+          this.limitIssues.set(ref, {
+            state: 'error',
+            message: 'Codex could not report limits for this login. Last reading kept.',
+          });
         }
       }),
     );
