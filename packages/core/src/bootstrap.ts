@@ -53,6 +53,8 @@ import { NoSleepService } from './no-sleep/no-sleep-service.js';
 import { AuthService } from './auth/auth-service.js';
 import { VoiceService, type VoiceModelInventory } from './voice/voice-service.js';
 import { AccountsService } from './accounts/accounts-service.js';
+import { PricingService } from './usage/pricing.js';
+import { UsageService } from './usage/usage-service.js';
 import { ConnectionService, ownedConfigDir } from './connections/connection-service.js';
 import { ScheduleService } from './schedules/schedule-service.js';
 import { RemoteSessionService } from './remote/remote-session-service.js';
@@ -103,6 +105,8 @@ export interface CoreRuntime {
   readonly auth: AuthService;
   readonly voice: VoiceService;
   readonly accounts: AccountsService;
+  readonly pricing: PricingService;
+  readonly usage: UsageService;
   health(correlationId: CorrelationId): SystemHealthResponse;
   diagnostics(): DiagnosticBundle;
   close(): void;
@@ -207,6 +211,8 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     logger,
     options.accountsRoot ?? join(dirname(options.databasePath), 'accounts'),
   );
+  const pricing = new PricingService(new SettingsRepository(database));
+  const usage = new UsageService(database, accounts, pricing, logger);
   const swarmRunner: SwarmSeatRunner = options.swarmRunner ?? {
     async execute() {
       return {
@@ -304,6 +310,8 @@ export function bootstrapCore(options: CoreOptions): CoreRuntime {
     auth,
     voice,
     accounts,
+    pricing,
+    usage,
     health(correlationId) {
       return {
         status: 'ok',

@@ -15,6 +15,8 @@ export * from './schedules/schedule-service.js';
 export * from './remote/remote-session-service.js';
 export * from './accounts/accounts-service.js';
 export * from './accounts/quota.js';
+export * from './usage/pricing.js';
+export * from './usage/usage-service.js';
 export * from './providers/provider-service.js';
 export * from './projects/git-inspector.js';
 export * from './projects/project-service.js';

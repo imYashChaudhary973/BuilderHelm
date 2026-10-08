@@ -24,6 +24,12 @@ import {
   accountToggleHookInputSchema,
 } from '@builderhelm/protocol/accounts';
 import {
+  pricingStateIpcResponseSchema,
+  pricingUpdateInputSchema,
+  usageReportInputSchema,
+  usageReportIpcResponseSchema,
+} from '@builderhelm/protocol/usage';
+import {
   noSleepIpcResponseSchema,
   noSleepSetInputSchema,
   noSleepStateSchema,
@@ -1610,6 +1616,28 @@ const api: BuilderHelmDesktopApi = {
         input: accountToggleHookInputSchema.parse(input),
       });
       return unwrap(accountSnapshotIpcResponseSchema.parse(response));
+    },
+  },
+  usage: {
+    async report(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.usageReport, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: usageReportInputSchema.parse(input),
+      });
+      return unwrap(usageReportIpcResponseSchema.parse(response));
+    },
+    async pricing() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.pricingState, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(pricingStateIpcResponseSchema.parse(response));
+    },
+    async updatePricing(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.pricingUpdate, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: pricingUpdateInputSchema.parse(input),
+      });
+      return unwrap(pricingStateIpcResponseSchema.parse(response));
     },
   },
   noSleep: {

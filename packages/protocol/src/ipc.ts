@@ -23,6 +23,12 @@ import type {
   AccountSnapshotInput,
   AccountToggleHookInput,
 } from './accounts.js';
+import type {
+  PricingState,
+  PricingUpdateInput,
+  UsageReport,
+  UsageReportInput,
+} from './usage.js';
 import type { AgentProfile, AgentProfileInput } from './agent-profiles.js';
 import type { NoSleepSetInput, NoSleepState } from './no-sleep.js';
 import type { AuthState } from './auth.js';
@@ -372,6 +378,9 @@ export const ipcChannels = {
   accountRemove: 'builderhelm:accounts:remove',
   accountSetActive: 'builderhelm:accounts:set-active',
   accountToggleHook: 'builderhelm:accounts:toggle-hook',
+  usageReport: 'builderhelm:usage:report',
+  pricingState: 'builderhelm:usage:pricing-state',
+  pricingUpdate: 'builderhelm:usage:pricing-update',
   noSleepRead: 'builderhelm:no-sleep:read',
   noSleepSet: 'builderhelm:no-sleep:set',
   noSleepEvent: 'builderhelm:no-sleep:event',
@@ -720,6 +729,12 @@ export interface BuilderHelmDesktopApi {
     remove(input: AccountRemoveInput): Promise<AccountSnapshot>;
     setActive(input: AccountSetActiveInput): Promise<AccountSnapshot>;
     toggleHook(input: AccountToggleHookInput): Promise<AccountSnapshot>;
+  };
+  /** Measured token usage and its estimated API-equivalent cost. */
+  readonly usage: {
+    report(input: UsageReportInput): Promise<UsageReport>;
+    pricing(): Promise<PricingState>;
+    updatePricing(input: PricingUpdateInput): Promise<PricingState>;
   };
   readonly noSleep: {
     read(): Promise<NoSleepState>;

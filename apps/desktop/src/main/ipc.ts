@@ -18,6 +18,13 @@ import {
   accountToggleHookRequestSchema,
 } from '@builderhelm/protocol/accounts';
 import {
+  pricingStateIpcResponseSchema,
+  pricingStateRequestSchema,
+  pricingUpdateRequestSchema,
+  usageReportIpcResponseSchema,
+  usageReportRequestSchema,
+} from '@builderhelm/protocol/usage';
+import {
   noSleepIpcResponseSchema,
   noSleepReadRequestSchema,
   noSleepSetRequestSchema,
@@ -3065,6 +3072,35 @@ export function registerIpcHandlers(
       });
     }
   });
+  ipcMain.handle(ipcChannels.usageReport, async (_event, input: unknown) => {
+    try {
+      const request = usageReportRequestSchema.parse(input);
+      const value = await core.usage.report(request.input);
+      return usageReportIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return usageReportIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.pricingState, (_event, input: unknown) => {
+    try {
+      pricingStateRequestSchema.parse(input);
+      return pricingStateIpcResponseSchema.parse({
+        ok: true,
+        value: core.pricing.state(),
+      });
+    } catch (error) {
+      return pricingStateIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
+  ipcMain.handle(ipcChannels.pricingUpdate, async (_event, input: unknown) => {
+    try {
+      const request = pricingUpdateRequestSchema.parse(input);
+      const value = await core.pricing.update(request.input);
+      return pricingStateIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return pricingStateIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
+    }
+  });
   ipcMain.handle(ipcChannels.noSleepRead, (_event, input: unknown) => {
     try {
       noSleepReadRequestSchema.parse(input);
@@ -3451,6 +3487,9 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.accountAdd);
     ipcMain.removeHandler(ipcChannels.accountAttach);
     ipcMain.removeHandler(ipcChannels.accountRename);
+    ipcMain.removeHandler(ipcChannels.usageReport);
+    ipcMain.removeHandler(ipcChannels.pricingState);
+    ipcMain.removeHandler(ipcChannels.pricingUpdate);
     ipcMain.removeHandler(ipcChannels.accountConfirmLogin);
     ipcMain.removeHandler(ipcChannels.accountRemove);
     ipcMain.removeHandler(ipcChannels.editorGit);
