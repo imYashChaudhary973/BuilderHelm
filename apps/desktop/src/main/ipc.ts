@@ -7,9 +7,11 @@ import { join } from 'node:path';
 import type { CoreRuntime, RuntimeCapabilityService } from '@builderhelm/core';
 import {
   accountAddRequestSchema,
+  accountAttachRequestSchema,
   accountConfirmLoginRequestSchema,
   accountLoginTerminalRequestSchema,
   accountRemoveRequestSchema,
+  accountRenameRequestSchema,
   accountSetActiveRequestSchema,
   accountSnapshotIpcResponseSchema,
   accountSnapshotRequestSchema,
@@ -55,6 +57,8 @@ import {
   agentVoidIpcResponseSchema,
 } from '@builderhelm/protocol';
 import type { SwarmCreateInput } from '@builderhelm/protocol';
+import { loginTerminalScript } from './login-script.js';
+import { uninstallClaudeStatusLine } from './quota-ingest.js';
 import type { AuthHandoff } from './auth-handoff.js';
 import type { AgentManager } from './acp/manager.js';
 import type { AgentRegistry } from './acp/registry.js';
@@ -2914,7 +2918,11 @@ export function registerIpcHandlers(
   ipcMain.handle(ipcChannels.accountLoginTerminal, (event, input: unknown) => {
     try {
       const request = accountLoginTerminalRequestSchema.parse(input);
-      const { provider, configRoot, accountId } = request.input;
+      const { provider, accountId } = request.input;
+      const configRoot = core.accounts.configRootOf(provider, accountId);
+      if (configRoot === null) {
+        throw new BuilderHelmError('VALIDATION_FAILED', 'That account is gone');
+      }
       const envName =
         provider === 'claude'
           ? 'CLAUDE_CONFIG_DIR'
@@ -2932,10 +2940,7 @@ export function registerIpcHandlers(
       // user signs in with the provider, auth never passes through BuilderHelm.
       execFile(
         'osascript',
-        [
-          '-e',
-          `tell application "Terminal" to do script "${envName}='${configRoot.replace(/'/g, '')}' ${loginCommand}"`,
-        ],
+        ['-e', loginTerminalScript(envName, configRoot, loginCommand)],
         () => {
           // A browser OAuth round trip takes far longer than the CLI takes to
           // start, so poll the home until its identity lands and only then
@@ -2971,9 +2976,53 @@ export function registerIpcHandlers(
       throw ipcError(error);
     }
   });
+  ipcMain.handle(ipcChannels.accountAttach, async (_event, input: unknown) => {
+    try {
+      const request = accountAttachRequestSchema.parse(input);
+      const selected = await dialog.showOpenDialog({
+        title: 'Attach an existing login folder',
+        defaultPath: homedir(),
+        properties: ['openDirectory', 'showHiddenFiles'],
+      });
+      const folder = selected.filePaths[0];
+      const value =
+        selected.canceled || folder === undefined
+          ? await core.accounts.snapshot()
+          : await core.accounts.attach(request.input.provider, folder);
+      onAccountsChanged?.();
+      return accountSnapshotIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return accountSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
+  ipcMain.handle(ipcChannels.accountRename, async (_event, input: unknown) => {
+    try {
+      const request = accountRenameRequestSchema.parse(input);
+      const value = await core.accounts.rename(
+        request.input.provider,
+        request.input.id,
+        request.input.label,
+      );
+      return accountSnapshotIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return accountSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
   ipcMain.handle(ipcChannels.accountRemove, async (_event, input: unknown) => {
     try {
       const request = accountRemoveRequestSchema.parse(input);
+      // A forgotten Claude folder outlives BuilderHelm, so give it back the
+      // statusLine it had. Only BuilderHelm's own command is touched.
+      const root = core.accounts.configRootOf(request.input.provider, request.input.id);
+      if (request.input.provider === 'claude' && root !== null) {
+        uninstallClaudeStatusLine(root);
+      }
       const value = await core.accounts.remove(request.input.provider, request.input.id);
       onAccountsChanged?.();
       return accountSnapshotIpcResponseSchema.parse({ ok: true, value });
@@ -3400,6 +3449,8 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.desktopApprove);
     ipcMain.removeHandler(ipcChannels.editorPick);
     ipcMain.removeHandler(ipcChannels.accountAdd);
+    ipcMain.removeHandler(ipcChannels.accountAttach);
+    ipcMain.removeHandler(ipcChannels.accountRename);
     ipcMain.removeHandler(ipcChannels.accountConfirmLogin);
     ipcMain.removeHandler(ipcChannels.accountRemove);
     ipcMain.removeHandler(ipcChannels.editorGit);

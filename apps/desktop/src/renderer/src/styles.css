@@ -11220,9 +11220,10 @@ html.is-fullscreen .swarmWizardFoot {
 
 .usageAccountRow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px 12px;
   padding: 9px 12px;
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 10px;
@@ -11230,6 +11231,8 @@ html.is-fullscreen .swarmWizardFoot {
 }
 
 .usageAccountId {
+  /* Buttons wrap below the name instead of crushing it in a narrow card. */
+  flex: 1 1 180px;
   min-width: 0;
 }
 
@@ -12338,4 +12341,27 @@ html.is-fullscreen .swarmWizardFoot {
 }
 .conversationPanelEmpty[data-chat-kind='roster'] .chatWelcome {
   flex: none;
+}
+
+.usageAccountHeadActions {
+  display: flex;
+  gap: 8px;
+}
+
+.usageAccountRename {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.usageAccountRename input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
 }

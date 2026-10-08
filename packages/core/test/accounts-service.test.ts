@@ -1,5 +1,12 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
@@ -36,26 +43,47 @@ const logger: Logger = {
   error() {},
 };
 
-function setup(
+function setupWith(
   readCodex: (
     executable: string,
     env: Record<string, string>,
   ) => Promise<unknown> = async () => {
     throw new Error('skip-codex');
   },
-): AccountsService {
+): { accounts: AccountsService; settings: SettingsRepository; root: string } {
   const database = openDatabase(':memory:');
   databases.push(database);
   runMigrations(database, migrations);
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'builderhelm-accounts-')));
-  folders.push(root);
-  return new AccountsService(
-    new SettingsRepository(database),
+  const root = tempFolder('builderhelm-accounts-');
+  const settings = new SettingsRepository(database);
+  const accounts = new AccountsService(
+    settings,
     new BoardService(database, logger),
     logger,
     root,
     readCodex,
   );
+  return { accounts, settings, root };
+}
+
+function setup(...args: Parameters<typeof setupWith>): AccountsService {
+  return setupWith(...args).accounts;
+}
+
+function tempFolder(prefix: string): string {
+  const folder = realpathSync(mkdtempSync(join(tmpdir(), prefix)));
+  folders.push(folder);
+  return folder;
+}
+
+/** A Claude config folder the person signed in with outside BuilderHelm. */
+function signedInClaudeFolder(email: string): string {
+  const folder = tempFolder('claude-personal-');
+  writeFileSync(
+    join(folder, '.claude.json'),
+    JSON.stringify({ oauthAccount: { emailAddress: email } }),
+  );
+  return folder;
 }
 
 afterEach(() => {
@@ -230,6 +258,7 @@ describe('AccountsService', () => {
       'claude',
       'codex',
       'grok',
+      'opencode',
     ]);
     expect(
       snapshot.providers.find((provider) => provider.id === 'claude')?.quota?.source,
@@ -389,5 +418,88 @@ describe('AccountsService', () => {
     expect(JSON.stringify(conflicts)).not.toContain('do-not-read');
     const snapshot = await accounts.snapshot();
     expect(snapshot.authConflicts.some((row) => row.provider === 'codex')).toBe(true);
+  });
+
+  it('attaches a signed-in folder, binds runs to it, and only forgets it on remove', async () => {
+    const accounts = setup();
+    const folder = signedInClaudeFolder('work@example.com');
+    const after = await accounts.attach('claude', folder);
+    const home = after.providers
+      .find((provider) => provider.id === 'claude')
+      ?.homes.find((entry) => entry.kind === 'attached');
+    expect(home).toMatchObject({
+      label: 'work@example.com',
+      configRoot: folder,
+      active: false,
+    });
+    expect(accounts.cliEnvFor(`claude:${home!.id}`).CLAUDE_CONFIG_DIR).toBe(folder);
+    // Not BuilderHelm's folder, so no statusLine without consent.
+    expect(accounts.claudeHookRoots()).not.toContain(folder);
+    accounts.setHookSystemDefault(true);
+    expect(accounts.claudeHookRoots()).toContain(folder);
+    await accounts.remove('claude', home!.id);
+    expect(existsSync(join(folder, '.claude.json'))).toBe(true);
+  });
+
+  it('refuses folders that hold no login, the home folder, its own homes, and repeats', async () => {
+    const { accounts, root } = setupWith();
+    const empty = tempFolder('claude-empty-');
+    await expect(accounts.attach('claude', empty)).rejects.toThrow(/No Claude login/);
+    await expect(accounts.attach('claude', homedir())).rejects.toThrow(/home folder/);
+    await expect(accounts.attach('claude', 'relative/path')).rejects.toThrow(/full path/);
+    const managed = join(root, 'claude', 'x');
+    mkdirSync(managed, { recursive: true });
+    writeFileSync(join(managed, '.claude.json'), '{}');
+    await expect(accounts.attach('claude', managed)).rejects.toThrow(/already manages/);
+    const folder = signedInClaudeFolder('dup@example.com');
+    await accounts.attach('claude', folder);
+    await expect(accounts.attach('claude', folder)).rejects.toThrow(/already attached/);
+  });
+
+  it('never deletes a stored home outside its accounts root', async () => {
+    const { accounts, settings, root } = setupWith();
+    // Shares the accounts root as a string prefix but is a different folder.
+    const sibling = `${root}-sibling`;
+    mkdirSync(sibling);
+    folders.push(sibling);
+    writeFileSync(join(sibling, 'keep.txt'), 'keep');
+    settings.write(
+      'accounts.homes',
+      JSON.stringify({ claude: [{ id: 'old', label: 'Claude 1', configRoot: sibling }] }),
+      new Date().toISOString(),
+    );
+    await accounts.remove('claude', 'old');
+    expect(existsSync(join(sibling, 'keep.txt'))).toBe(true);
+  });
+
+  it('keeps a chosen name instead of relabelling it to the email', async () => {
+    const accounts = setup();
+    const folder = signedInClaudeFolder('me@example.com');
+    const attached = await accounts.attach('claude', folder);
+    const id =
+      attached.providers
+        .find((provider) => provider.id === 'claude')
+        ?.homes.find((entry) => entry.kind === 'attached')?.id ?? '';
+    await accounts.rename('claude', id, '  Personal  ');
+    const snapshot = await accounts.snapshot();
+    const home = snapshot.providers
+      .find((provider) => provider.id === 'claude')
+      ?.homes.find((entry) => entry.id === id);
+    expect(home).toMatchObject({ label: 'Personal', email: 'me@example.com' });
+    await expect(accounts.rename('claude', id, 'Claude 3')).rejects.toThrow(/signing in/);
+    await expect(accounts.rename('claude', 'system', 'Main')).rejects.toThrow(/email/);
+  });
+
+  it('lists OpenCode with one login and no isolated homes', async () => {
+    const accounts = setup();
+    const snapshot = await accounts.snapshot();
+    const opencode = snapshot.providers.find((provider) => provider.id === 'opencode');
+    expect(opencode).toMatchObject({ multiAccount: false, quota: null });
+    expect(opencode?.homes.map((home) => home.kind)).toEqual(['system']);
+    await expect(accounts.add('opencode')).rejects.toThrow(/opencode auth login/);
+    await expect(accounts.attach('opencode', tempFolder('oc-'))).rejects.toThrow(
+      /opencode auth login/,
+    );
+    expect(accounts.cliEnvFor('opencode:system')).toEqual(accounts.cliEnv());
   });
 });

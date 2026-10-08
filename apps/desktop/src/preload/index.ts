@@ -14,6 +14,8 @@ import {
 } from '@builderhelm/protocol/workspaces';
 import {
   accountAddInputSchema,
+  accountAttachInputSchema,
+  accountRenameInputSchema,
   accountConfirmLoginInputSchema,
   accountLoginTerminalInputSchema,
   accountRemoveInputSchema,
@@ -1551,6 +1553,20 @@ const api: BuilderHelmDesktopApi = {
       const response: unknown = await ipcRenderer.invoke(ipcChannels.accountAdd, {
         correlationId: globalThis.crypto.randomUUID(),
         input: accountAddInputSchema.parse(input),
+      });
+      return unwrap(accountSnapshotIpcResponseSchema.parse(response));
+    },
+    async attach(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.accountAttach, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: accountAttachInputSchema.parse(input),
+      });
+      return unwrap(accountSnapshotIpcResponseSchema.parse(response));
+    },
+    async rename(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.accountRename, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: accountRenameInputSchema.parse(input),
       });
       return unwrap(accountSnapshotIpcResponseSchema.parse(response));
     },

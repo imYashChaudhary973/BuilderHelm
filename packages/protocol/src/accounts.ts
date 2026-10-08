@@ -8,11 +8,27 @@ const correlationIdSchema = z
   .uuid()
   .transform((value) => value as CorrelationId);
 
-export const QUOTA_PROVIDER_IDS = ['claude', 'codex', 'grok'] as const;
+export const QUOTA_PROVIDER_IDS = ['claude', 'codex', 'grok', 'opencode'] as const;
 export const quotaProviderIdSchema = z.enum(QUOTA_PROVIDER_IDS);
 export type QuotaProviderId = z.infer<typeof quotaProviderIdSchema>;
 
 export const SYSTEM_ACCOUNT_ID = 'system';
+
+/**
+ * Providers whose login lives in one folder BuilderHelm can point the CLI at.
+ * OpenCode keeps its own multi-provider logins, so it only has the system home.
+ */
+export const ISOLATED_LOGIN_PROVIDER_IDS = ['claude', 'codex', 'grok'] as const;
+export const isolatedLoginProviderIdSchema = z.enum(ISOLATED_LOGIN_PROVIDER_IDS);
+export type IsolatedLoginProviderId = z.infer<typeof isolatedLoginProviderIdSchema>;
+
+/**
+ * `system`: the CLI's own default folder. `managed`: a folder BuilderHelm
+ * created and may delete. `attached`: a folder the person already had;
+ * BuilderHelm never deletes it.
+ */
+export const accountHomeKindSchema = z.enum(['system', 'managed', 'attached']);
+export type AccountHomeKind = z.infer<typeof accountHomeKindSchema>;
 
 export const quotaWindowSchema = z
   .object({
@@ -37,6 +53,7 @@ export const accountHomeSchema = z
   .object({
     id: z.string().min(1).max(64),
     label: z.string().min(1).max(80),
+    kind: accountHomeKindSchema,
     configRoot: z.string().min(1).max(4_096).nullable(),
     email: z.string().min(3).max(200).nullable(),
     active: z.boolean(),
@@ -59,6 +76,8 @@ export const accountProviderSchema = z
     id: quotaProviderIdSchema,
     label: z.string().min(1).max(80),
     installed: z.boolean(),
+    /** False when the CLI cannot be pointed at a separate login folder. */
+    multiAccount: z.boolean(),
     quota: accountQuotaSchema.nullable(),
     homes: z.array(accountHomeSchema).min(1),
   })
@@ -100,7 +119,7 @@ export const accountSnapshotInputSchema = z
 export type AccountSnapshotInput = z.infer<typeof accountSnapshotInputSchema>;
 
 export const accountAddInputSchema = z
-  .object({ provider: quotaProviderIdSchema })
+  .object({ provider: isolatedLoginProviderIdSchema })
   .strict();
 export type AccountAddInput = z.infer<typeof accountAddInputSchema>;
 
@@ -122,10 +141,10 @@ export const accountConfirmLoginInputSchema = z
   .strict();
 export type AccountConfirmLoginInput = z.infer<typeof accountConfirmLoginInputSchema>;
 
+/** Main resolves the folder from the account id; the renderer never sends a path. */
 export const accountLoginTerminalInputSchema = z
   .object({
-    provider: quotaProviderIdSchema,
-    configRoot: z.string().min(1).max(4_096),
+    provider: isolatedLoginProviderIdSchema,
     accountId: z.string().min(1).max(64),
   })
   .strict();
@@ -133,6 +152,28 @@ export type AccountLoginTerminalInput = z.infer<typeof accountLoginTerminalInput
 
 export const accountLoginTerminalRequestSchema = z
   .object({ correlationId: correlationIdSchema, input: accountLoginTerminalInputSchema })
+  .strict();
+
+/** Main opens the folder picker, so the renderer never names a path. */
+export const accountAttachInputSchema = z
+  .object({ provider: isolatedLoginProviderIdSchema })
+  .strict();
+export type AccountAttachInput = z.infer<typeof accountAttachInputSchema>;
+
+export const accountRenameInputSchema = z
+  .object({
+    provider: quotaProviderIdSchema,
+    id: z.string().min(1).max(64),
+    label: z.string().trim().min(1).max(80),
+  })
+  .strict();
+export type AccountRenameInput = z.infer<typeof accountRenameInputSchema>;
+
+export const accountAttachRequestSchema = z
+  .object({ correlationId: correlationIdSchema, input: accountAttachInputSchema })
+  .strict();
+export const accountRenameRequestSchema = z
+  .object({ correlationId: correlationIdSchema, input: accountRenameInputSchema })
   .strict();
 
 export const accountSnapshotRequestSchema = z

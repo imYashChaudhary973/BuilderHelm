@@ -99,6 +99,10 @@ Status labels used below:
   CLI. New runs bind `accountRef` into child env (`CLAUDE_CONFIG_DIR` /
   `CODEX_HOME` / `GROK_HOME`); running sessions keep the env they started
   with. Conflicting credential paths are named without reading values.
+  Existing login folders can be attached (never deleted) and any login
+  renamed; agent profiles can pin a login; OpenCode is listed with its single
+  system login. The Claude statusLine hook only ever removes its own command.
+  See [docs/features/ACCOUNTS_USAGE.md](features/ACCOUNTS_USAGE.md).
 - Model picker searches advertised catalogs (capped at 80 visible rows;
   type to narrow), keeps exact IDs, and will not substitute a removed model.
   Effort chips exist only when the runtime advertises thought-level. Profile

@@ -4,15 +4,17 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   rmSync,
   statSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { basename, isAbsolute, join, relative } from 'node:path';
 
 import type { SettingsRepository } from '@builderhelm/db';
 import type { Logger } from '@builderhelm/observability';
 import {
+  ISOLATED_LOGIN_PROVIDER_IDS,
   QUOTA_PROVIDER_IDS,
   SYSTEM_ACCOUNT_ID,
   accountQuotaSchema,
@@ -22,6 +24,7 @@ import {
   type AccountQuota,
   type AccountSnapshot,
   type AuthConflict,
+  type IsolatedLoginProviderId,
   type QuotaProviderId,
   type QuotaWindow,
 } from '@builderhelm/protocol';
@@ -49,9 +52,10 @@ const LABELS: Record<QuotaProviderId, string> = {
   claude: 'Claude',
   codex: 'Codex',
   grok: 'Grok',
+  opencode: 'OpenCode',
 };
 
-const CONFIG_ENV: Record<QuotaProviderId, string> = {
+const CONFIG_ENV: Record<IsolatedLoginProviderId, string> = {
   claude: 'CLAUDE_CONFIG_DIR',
   codex: 'CODEX_HOME',
   grok: 'GROK_HOME',
@@ -61,13 +65,36 @@ const AUTH_MARKERS: Record<QuotaProviderId, readonly string[]> = {
   claude: ['.credentials.json', '.claude.json', '.config.json'],
   codex: ['auth.json'],
   grok: [join('logs', 'unified.jsonl')],
+  opencode: ['auth.json'],
 };
 
 const SYSTEM_AUTH_ROOT: Record<QuotaProviderId, string> = {
   claude: join(homedir(), '.claude'),
   codex: join(homedir(), '.codex'),
   grok: join(homedir(), '.grok'),
+  opencode: join(
+    process.env.XDG_DATA_HOME ?? join(homedir(), '.local', 'share'),
+    'opencode',
+  ),
 };
+
+function isIsolated(provider: QuotaProviderId): provider is IsolatedLoginProviderId {
+  return (ISOLATED_LOGIN_PROVIDER_IDS as readonly string[]).includes(provider);
+}
+
+/** True when `child` is `parent` or lies under it. Both must be resolved. */
+function contains(parent: string, child: string): boolean {
+  const rel = relative(parent, child);
+  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+}
+
+function resolved(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
+}
 
 /** `provider:homeId`, e.g. `codex:system`. Null or malformed means "use active". */
 export function parseAccountRef(
@@ -102,7 +129,8 @@ export type CodexRateLimitReader = (
 interface StoredHome {
   readonly id: string;
   readonly label: string;
-  readonly configRoot: string | null;
+  readonly kind: 'managed' | 'attached';
+  readonly configRoot: string;
 }
 
 function parseHomes(raw: string | undefined): Record<QuotaProviderId, StoredHome[]> {
@@ -110,13 +138,14 @@ function parseHomes(raw: string | undefined): Record<QuotaProviderId, StoredHome
     claude: [],
     codex: [],
     grok: [],
+    opencode: [],
   };
   if (raw === undefined) return empty;
   try {
     const value: unknown = JSON.parse(raw);
     if (value === null || typeof value !== 'object' || Array.isArray(value)) return empty;
     const next = { ...empty };
-    for (const id of QUOTA_PROVIDER_IDS) {
+    for (const id of ISOLATED_LOGIN_PROVIDER_IDS) {
       const list = (value as Record<string, unknown>)[id];
       if (!Array.isArray(list)) continue;
       next[id] = list.flatMap((entry): StoredHome[] => {
@@ -130,11 +159,10 @@ function parseHomes(raw: string | undefined): Record<QuotaProviderId, StoredHome
           typeof row.configRoot === 'string' && row.configRoot.length > 0
             ? row.configRoot
             : null;
-        if (row.id === SYSTEM_ACCOUNT_ID) {
-          return [{ id: row.id, label: row.label, configRoot: null }];
-        }
-        if (configRoot === null) return [];
-        return [{ id: row.id, label: row.label.slice(0, 80), configRoot }];
+        if (row.id === SYSTEM_ACCOUNT_ID || configRoot === null) return [];
+        // Homes stored before attach existed were all created by BuilderHelm.
+        const kind = row.kind === 'attached' ? 'attached' : 'managed';
+        return [{ id: row.id, label: row.label.slice(0, 80), kind, configRoot }];
       });
     }
     return next;
@@ -148,6 +176,7 @@ function parseActive(raw: string | undefined): Record<QuotaProviderId, string> {
     claude: SYSTEM_ACCOUNT_ID,
     codex: SYSTEM_ACCOUNT_ID,
     grok: SYSTEM_ACCOUNT_ID,
+    opencode: SYSTEM_ACCOUNT_ID,
   };
   if (raw === undefined) return next;
   try {
@@ -220,6 +249,7 @@ export function readGrokEmail(configRoot: string | null): string | null {
 }
 
 function homeEmail(provider: QuotaProviderId, configRoot: string | null): string | null {
+  if (provider === 'opencode') return null;
   if (provider === 'grok') return readGrokEmail(configRoot);
   return readProviderEmail(provider, configRoot);
 }
@@ -339,6 +369,18 @@ function findEmail(value: unknown): string | null {
   }
   return null;
 }
+/** The generic name a home carries until its login identity lands. */
+function isPendingLabel(provider: QuotaProviderId, label: string): boolean {
+  return new RegExp(`^${LABELS[provider]} \\d+$`).test(label);
+}
+
+function singleLoginError(provider: QuotaProviderId): BuilderHelmError {
+  return new BuilderHelmError(
+    'VALIDATION_FAILED',
+    `${LABELS[provider]} keeps its own provider logins. Run \`opencode auth login\` in a terminal.`,
+  );
+}
+
 export class AccountsService {
   constructor(
     private readonly settings: SettingsRepository,
@@ -381,10 +423,9 @@ export class AccountsService {
     const env: Record<string, string> = {};
     const homes = this.homes();
     const active = this.active();
-    for (const id of QUOTA_PROVIDER_IDS) {
+    for (const id of ISOLATED_LOGIN_PROVIDER_IDS) {
       const home = homes[id].find((entry) => entry.id === active[id]);
-      if (home?.configRoot === undefined || home.configRoot === null) continue;
-      if (!existsSync(home.configRoot)) continue;
+      if (home === undefined || !existsSync(home.configRoot)) continue;
       try {
         if (statSync(home.configRoot).isDirectory())
           env[CONFIG_ENV[id]] = home.configRoot;
@@ -403,7 +444,7 @@ export class AccountsService {
   cliEnvFor(accountRef: string | null): Record<string, string> {
     const env = this.cliEnv();
     const selected = parseAccountRef(accountRef);
-    if (selected === null) return env;
+    if (selected === null || !isIsolated(selected.provider)) return env;
     const key = CONFIG_ENV[selected.provider];
     if (selected.id === SYSTEM_ACCOUNT_ID) {
       delete env[key];
@@ -412,8 +453,7 @@ export class AccountsService {
     const home = this.homes()[selected.provider].find(
       (entry) => entry.id === selected.id,
     );
-    if (home?.configRoot === undefined || home.configRoot === null) return env;
-    if (!existsSync(home.configRoot)) return env;
+    if (home === undefined || !existsSync(home.configRoot)) return env;
     env[key] = home.configRoot;
     return env;
   }
@@ -432,7 +472,7 @@ export class AccountsService {
         sources.push({ kind: 'system-default', path: systemRoot });
       }
       for (const home of homes[provider]) {
-        if (home.configRoot === null || !existsSync(home.configRoot)) continue;
+        if (!existsSync(home.configRoot)) continue;
         if (!authMarkerExists(provider, home.configRoot)) continue;
         sources.push({ kind: 'isolated-home', path: home.configRoot });
       }
@@ -441,12 +481,28 @@ export class AccountsService {
     return conflicts;
   }
 
-  /** Roots to hook: BuilderHelm homes, plus ~/.claude when opted in. */
+  /**
+   * Roots to hook: homes BuilderHelm created, plus folders the person already
+   * had (~/.claude and attached homes) only when they opted in.
+   */
   claudeHookRoots(): string[] {
-    const homes = this.homes()
-      .claude.map((home) => home.configRoot)
-      .filter((root): root is string => root !== null);
-    return this.hookSystemDefault() ? [...homes, join(homedir(), '.claude')] : homes;
+    const managed = this.homes()
+      .claude.filter((home) => home.kind === 'managed')
+      .map((home) => home.configRoot);
+    return this.hookSystemDefault() ? [...managed, ...this.claudeOwnedRoots()] : managed;
+  }
+
+  /** Claude folders BuilderHelm did not create; hooked only with consent. */
+  claudeOwnedRoots(): string[] {
+    const attached = this.homes()
+      .claude.filter((home) => home.kind === 'attached')
+      .map((home) => home.configRoot);
+    return [join(homedir(), '.claude'), ...attached];
+  }
+
+  /** The folder behind a stored home; null for the system login or a missing id. */
+  configRootOf(provider: QuotaProviderId, id: string): string | null {
+    return this.homes()[provider].find((entry) => entry.id === id)?.configRoot ?? null;
   }
   async snapshot(live = false): Promise<AccountSnapshot> {
     if (live) {
@@ -470,6 +526,7 @@ export class AccountsService {
       const system: AccountHome = {
         id: SYSTEM_ACCOUNT_ID,
         label: systemEmail ?? 'System default',
+        kind: 'system',
         configRoot: null,
         email: systemEmail,
         active: activeId === SYSTEM_ACCOUNT_ID,
@@ -478,15 +535,13 @@ export class AccountsService {
       const listed: AccountHome[] = [
         system,
         ...extra.map((home) => {
-          const billing =
-            id === 'grok' && home.configRoot !== null
-              ? readGrokBilling(home.configRoot)
-              : null;
+          const billing = id === 'grok' ? readGrokBilling(home.configRoot) : null;
           const email = homeEmail(id, home.configRoot);
-          // Persist the resolved email as the label so the stored list stops
-          // carrying stale generic names after a login completes.
-          const label = email ?? home.label;
-          if (email !== null && home.label !== label) {
+          // Swap the generic pending name for the login email once it lands.
+          // A name the person chose is kept.
+          const label =
+            email !== null && isPendingLabel(id, home.label) ? email : home.label;
+          if (home.label !== label) {
             homes[id] = homes[id].map((entry) =>
               entry.id === home.id ? { ...entry, label } : entry,
             );
@@ -495,6 +550,7 @@ export class AccountsService {
           return {
             id: home.id,
             label,
+            kind: home.kind,
             configRoot: home.configRoot,
             email,
             active: home.id === activeId,
@@ -507,6 +563,7 @@ export class AccountsService {
         id,
         label: LABELS[id],
         installed: byId.get(id)?.available === true,
+        multiAccount: isIsolated(id),
         quota: quota[id] ?? null,
         homes: listed,
       };
@@ -527,10 +584,10 @@ export class AccountsService {
    */
   async add(provider: QuotaProviderId): Promise<AccountSnapshot> {
     const id = quotaProviderIdSchema.parse(provider);
+    if (!isIsolated(id)) throw singleLoginError(id);
     // A double-click on Add Account must not mint two homes: reuse a pending
-    // (generic-label) home created in the last minute instead.
-    const pendingPattern = new RegExp(`^${LABELS[id]} \\d+$`);
-    const pending = this.homes()[id].find((entry) => pendingPattern.test(entry.label));
+    // (generic-label) home instead.
+    const pending = this.homes()[id].find((entry) => isPendingLabel(id, entry.label));
     if (pending !== undefined) {
       this.writeActive({ ...this.active(), [id]: pending.id });
       return this.snapshot();
@@ -541,7 +598,12 @@ export class AccountsService {
     const homes = this.homes();
     homes[id] = [
       ...homes[id],
-      { id: homeId, label: `${LABELS[id]} ${homes[id].length + 1}`, configRoot },
+      {
+        id: homeId,
+        label: `${LABELS[id]} ${homes[id].length + 1}`,
+        kind: 'managed',
+        configRoot,
+      },
     ];
     this.writeHomes(homes);
     this.writeActive({ ...this.active(), [id]: homeId });
@@ -550,6 +612,98 @@ export class AccountsService {
       correlationId: createCorrelationId(),
       data: { provider: id },
     });
+    return this.snapshot();
+  }
+
+  /**
+   * Registers a login folder the person already has, such as
+   * ~/.claude-work. BuilderHelm points the CLI at it but never deletes it.
+   * Only a folder that already holds a login is accepted, so a typo cannot
+   * make the CLI start writing into an unrelated folder.
+   */
+  async attach(provider: QuotaProviderId, path: string): Promise<AccountSnapshot> {
+    const id = quotaProviderIdSchema.parse(provider);
+    if (!isIsolated(id)) throw singleLoginError(id);
+    if (!isAbsolute(path)) {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'Pick a folder by its full path');
+    }
+    let root: string;
+    try {
+      root = realpathSync(path);
+      if (!statSync(root).isDirectory()) throw new Error('not a folder');
+    } catch {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'That folder does not exist');
+    }
+    if (contains(root, resolved(homedir()))) {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        `Pick the ${LABELS[id]} config folder itself, not your home folder or above it`,
+      );
+    }
+    if (root === resolved(SYSTEM_AUTH_ROOT[id])) {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'That folder is already the system default login',
+      );
+    }
+    if (contains(resolved(this.accountsRoot), root)) {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'BuilderHelm already manages that folder',
+      );
+    }
+    const homes = this.homes();
+    if (homes[id].some((home) => resolved(home.configRoot) === root)) {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'That folder is already attached');
+    }
+    if (!authMarkerExists(id, root)) {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        `No ${LABELS[id]} login in that folder. Sign in with ${CONFIG_ENV[id]} pointing at it first.`,
+      );
+    }
+    const label = (homeEmail(id, root) ?? basename(root)).slice(0, 80);
+    homes[id] = [
+      ...homes[id],
+      { id: createId(), label, kind: 'attached', configRoot: root },
+    ];
+    this.writeHomes(homes);
+    this.logger.info({
+      event: 'accounts.attached',
+      correlationId: createCorrelationId(),
+      data: { provider: id },
+    });
+    return this.snapshot();
+  }
+
+  async rename(
+    provider: QuotaProviderId,
+    id: string,
+    label: string,
+  ): Promise<AccountSnapshot> {
+    const name = label.trim().slice(0, 80);
+    if (name.length === 0) {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'A name is required');
+    }
+    if (isPendingLabel(provider, name)) {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        `Names like "${LABELS[provider]} 2" are kept for logins still signing in`,
+      );
+    }
+    const homes = this.homes();
+    if (!homes[provider].some((entry) => entry.id === id)) {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        id === SYSTEM_ACCOUNT_ID
+          ? 'The system default login is named by its email'
+          : 'That account is gone',
+      );
+    }
+    homes[provider] = homes[provider].map((entry) =>
+      entry.id === id ? { ...entry, label: name } : entry,
+    );
+    this.writeHomes(homes);
     return this.snapshot();
   }
 
@@ -576,7 +730,7 @@ export class AccountsService {
       // The CLI may still be writing its credentials when the window closes, so
       // only a home the login never touched is dropped. A home with files stays
       // and snapshot() relabels it once the identity lands.
-      if (home.configRoot !== null && directoryHasEntries(home.configRoot)) {
+      if (home.kind === 'attached' || directoryHasEntries(home.configRoot)) {
         return this.snapshot();
       }
       homes[provider] = homes[provider].filter((entry) => entry.id !== id);
@@ -585,9 +739,7 @@ export class AccountsService {
       if (active[provider] === id) {
         this.writeActive({ ...active, [provider]: SYSTEM_ACCOUNT_ID });
       }
-      if (home.configRoot !== null && existsSync(home.configRoot)) {
-        rmSync(home.configRoot, { recursive: true, force: true });
-      }
+      this.deleteManagedFolder(home);
       return this.snapshot();
     }
     const labelled: Record<QuotaProviderId, StoredHome[]> = {
@@ -615,14 +767,19 @@ export class AccountsService {
     if (active[provider] === id) {
       this.writeActive({ ...active, [provider]: SYSTEM_ACCOUNT_ID });
     }
-    if (
-      current.configRoot !== null &&
-      current.configRoot.startsWith(this.accountsRoot) &&
-      existsSync(current.configRoot)
-    ) {
-      rmSync(current.configRoot, { recursive: true, force: true });
-    }
+    // Attached folders belong to the person: removing one only forgets it.
+    this.deleteManagedFolder(current);
     return this.snapshot();
+  }
+
+  private deleteManagedFolder(home: StoredHome): void {
+    if (home.kind !== 'managed' || !existsSync(home.configRoot)) return;
+    const root = resolved(home.configRoot);
+    const accounts = resolved(this.accountsRoot);
+    // Strictly inside the accounts root, never the root itself or a sibling
+    // that only shares its prefix.
+    if (root === accounts || !contains(accounts, root)) return;
+    rmSync(root, { recursive: true, force: true });
   }
 
   async setActive(provider: QuotaProviderId, id: string): Promise<AccountSnapshot> {
@@ -691,9 +848,7 @@ export class AccountsService {
   private async refreshGrok(): Promise<void> {
     if (this.grokFetchStarted !== null) return;
     const signedIn = this.homes().grok.flatMap((home) =>
-      home.configRoot !== null && readGrokEmail(home.configRoot) !== null
-        ? [home.configRoot]
-        : [],
+      readGrokEmail(home.configRoot) !== null ? [home.configRoot] : [],
     );
     const due = this.lastGrokFetch === null || Date.now() - this.lastGrokFetch >= 120_000;
     const firstEver = signedIn.filter((root) => this.grokBillingCount(root) === 0);

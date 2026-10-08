@@ -1,5 +1,4 @@
 import { existsSync, rmSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import { bootstrapCore, type CoreRuntime } from '@builderhelm/core';
@@ -372,9 +371,12 @@ app
       for (const root of core?.accounts.claudeHookRoots() ?? []) {
         installClaudeStatusLine(root, script);
       }
-      // Consent off: give ~/.claude its previous statusLine back.
-      if (!core?.accounts.hookSystemDefault()) {
-        uninstallClaudeStatusLine(join(homedir(), '.claude'));
+      // Consent off: give folders BuilderHelm did not create their previous
+      // statusLine back. A statusLine BuilderHelm never wrote is left alone.
+      if (core?.accounts.hookSystemDefault() === false) {
+        for (const root of core.accounts.claudeOwnedRoots()) {
+          uninstallClaudeStatusLine(root);
+        }
       }
     };
     if (process.env.BUILDERHELM_SMOKE_TEST !== '1') {

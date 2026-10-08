@@ -1,6 +1,6 @@
 import { createServer, type Server } from 'node:http';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 
 import { formatQuotaLine } from '@builderhelm/core';
@@ -94,6 +94,20 @@ interface StashedStatusLine {
 }
 
 const STASH_KEY = 'x-builderhelm-statusline-stash';
+const SCRIPT_NAME = 'claude-statusline.sh';
+
+function statusLineCommand(settings: Record<string, unknown>): string | undefined {
+  const current = settings.statusLine;
+  if (typeof current !== 'object' || current === null) return undefined;
+  const command = (current as Record<string, unknown>).command;
+  return typeof command === 'string' ? command : undefined;
+}
+
+/** BuilderHelm writes its script path quoted, so match it with quotes removed. */
+function isBuilderHelmCommand(command: string | undefined): boolean {
+  if (command === undefined) return false;
+  return basename(command.trim().replace(/^"(.*)"$/, '$1')) === SCRIPT_NAME;
+}
 
 /**
  * Consent lives upstream (claudeHookRoots only returns ~/.claude when the user
@@ -115,14 +129,11 @@ export function installClaudeStatusLine(configRoot: string, scriptPath: string):
     }
   }
   const current = settings.statusLine;
-  const command =
-    typeof current === 'object' && current !== null
-      ? (current as Record<string, unknown>).command
-      : undefined;
-  if (typeof command === 'string' && command.endsWith('claude-statusline.sh')) {
-    return;
-  }
-  if (typeof command === 'string' && command.length > 0) {
+  const command = statusLineCommand(settings);
+  // Already ours: re-stashing now would overwrite the person's command with
+  // BuilderHelm's own and lose it.
+  if (isBuilderHelmCommand(command)) return;
+  if (command !== undefined && command.length > 0) {
     const stashed: StashedStatusLine = {
       previous: (current ?? null) as Record<string, unknown> | null,
     };
@@ -134,7 +145,10 @@ export function installClaudeStatusLine(configRoot: string, scriptPath: string):
   writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
 }
 
-/** Restores a stashed statusLine written by installClaudeStatusLine. */
+/**
+ * Restores the statusLine installClaudeStatusLine replaced. A statusLine
+ * BuilderHelm did not write is left alone.
+ */
 export function uninstallClaudeStatusLine(configRoot: string): void {
   const settingsPath = join(configRoot, 'settings.json');
   if (!existsSync(settingsPath)) return;
@@ -146,6 +160,7 @@ export function uninstallClaudeStatusLine(configRoot: string): void {
   } catch {
     return;
   }
+  if (!isBuilderHelmCommand(statusLineCommand(settings))) return;
   const stash = settings[STASH_KEY] as StashedStatusLine | undefined;
   if (stash !== undefined && stash.previous !== null && stash.previous !== undefined) {
     settings.statusLine = stash.previous;

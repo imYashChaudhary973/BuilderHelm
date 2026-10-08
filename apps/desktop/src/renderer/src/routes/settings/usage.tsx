@@ -1,12 +1,14 @@
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import type {
   AccountHome,
   AccountProvider,
+  IsolatedLoginProviderId,
   QuotaProviderId,
   QuotaWindow,
 } from '@builderhelm/protocol/accounts';
-import { SYSTEM_ACCOUNT_ID } from '@builderhelm/protocol/accounts';
+import { ISOLATED_LOGIN_PROVIDER_IDS } from '@builderhelm/protocol/accounts';
 
 import { AgentGlyph } from '../../components/agent-mark.js';
 
@@ -43,7 +45,12 @@ type Meter = {
   readonly window: QuotaWindow | null;
 };
 
+function isolatedId(id: QuotaProviderId): IsolatedLoginProviderId | null {
+  return ISOLATED_LOGIN_PROVIDER_IDS.find((entry) => entry === id) ?? null;
+}
+
 function metersOf(provider: AccountProvider): readonly Meter[] {
+  if (provider.id === 'opencode') return [];
   if (provider.id === 'grok') {
     return provider.homes.flatMap((home) =>
       home.email === null && home.billing === null
@@ -109,38 +116,100 @@ function MeterRow({ meter }: { readonly meter: Meter }): React.JSX.Element {
   );
 }
 
+const HOME_NOTE: Record<AccountHome['kind'], string> = {
+  system: 'The login already on this device',
+  managed: 'Isolated home created by BuilderHelm',
+  attached: 'Your folder · removing it here never deletes it',
+};
+
 function HomeRow({
   home,
+  disabled,
   onActive,
   onRemove,
+  onRename,
 }: {
   readonly home: AccountHome;
+  readonly disabled: boolean;
   readonly onActive: () => void;
   readonly onRemove: () => void;
+  readonly onRename: (label: string) => void;
 }): React.JSX.Element {
-  const system = home.id === SYSTEM_ACCOUNT_ID;
-  const signedIn = home.email !== null;
-  const note = system
-    ? 'The login already on this device'
-    : signedIn
-      ? 'Isolated home'
-      : 'Waiting for the login to finish';
+  const [draft, setDraft] = useState<string | null>(null);
+  const system = home.kind === 'system';
+  const pending = home.kind === 'managed' && home.email === null;
+  const showEmail = home.email !== null && home.email !== home.label;
+  const note = pending
+    ? 'Waiting for the login to finish'
+    : showEmail
+      ? `${home.email} · ${HOME_NOTE[home.kind]}`
+      : HOME_NOTE[home.kind];
+  if (draft !== null) {
+    const name = draft.trim();
+    return (
+      <li className="usageAccountRow">
+        <form
+          className="usageAccountRename"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (name.length === 0) return;
+            onRename(name);
+            setDraft(null);
+          }}
+        >
+          <input
+            aria-label={`Name for ${home.label}`}
+            value={draft}
+            maxLength={80}
+            autoFocus
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setDraft(null);
+            }}
+          />
+          <div className="usageAccountActions">
+            <button type="submit" disabled={disabled || name.length === 0}>
+              Save
+            </button>
+            <button type="button" onClick={() => setDraft(null)}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </li>
+    );
+  }
   return (
     <li className="usageAccountRow">
       <div className="usageAccountId">
-        <strong>{signedIn ? home.label : `${home.label} · signing in`}</strong>
+        <strong>{pending ? `${home.label} · signing in` : home.label}</strong>
         <p>{note}</p>
       </div>
       <div className="usageAccountActions">
         {home.active ? (
           <span className="usageBadge">Active</span>
         ) : (
-          <button type="button" onClick={onActive}>
+          <button type="button" disabled={disabled} onClick={onActive}>
             Use
           </button>
         )}
+        {system || pending ? null : (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => setDraft(home.label)}
+            aria-label={`Rename ${home.label}`}
+          >
+            Rename
+          </button>
+        )}
         {system ? null : (
-          <button type="button" onClick={onRemove} aria-label={`Remove ${home.label}`}>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={onRemove}
+            aria-label={`Remove ${home.label}`}
+          >
             Remove
           </button>
         )}
@@ -154,6 +223,8 @@ const PROVIDER_NOTE: Record<QuotaProviderId, string> = {
     'Subscription windows from the official usage endpoint (oauth source) or the in-session statusLine. Not an API invoice.',
   codex: 'Subscription windows from Codex app-server. Not token counts or API charges.',
   grok: 'Each account’s billing log. First read needs one session. Not an API invoice.',
+  opencode:
+    'OpenCode signs in to model providers itself (opencode auth login), so it has one login here and no subscription windows.',
 };
 
 export function UsagePage(): React.JSX.Element {
@@ -166,14 +237,39 @@ export function UsagePage(): React.JSX.Element {
   const mutate = useMutation({
     mutationFn: async (
       action:
-        | { type: 'add'; provider: QuotaProviderId }
+        | { type: 'add'; provider: IsolatedLoginProviderId }
+        | { type: 'attach'; provider: IsolatedLoginProviderId }
+        | { type: 'rename'; provider: QuotaProviderId; id: string; label: string }
         | { type: 'remove'; provider: QuotaProviderId; id: string }
         | { type: 'active'; provider: QuotaProviderId; id: string }
         | { type: 'hook'; enabled: boolean }
         | { type: 'refresh' },
     ) => {
-      if (action.type === 'add')
-        return window.builderHelm.accounts.add({ provider: action.provider });
+      if (action.type === 'add') {
+        const created = await window.builderHelm.accounts.add({
+          provider: action.provider,
+        });
+        queryClient.setQueryData(['accounts-snapshot'], created);
+        const home = created.providers
+          .find((entry) => entry.id === action.provider)
+          ?.homes.find((entry) => entry.active && entry.kind === 'managed');
+        if (home !== undefined) {
+          await window.builderHelm.accounts.openLoginTerminal({
+            provider: action.provider,
+            accountId: home.id,
+          });
+        }
+        return created;
+      }
+      if (action.type === 'attach')
+        return window.builderHelm.accounts.attach({ provider: action.provider });
+      if (action.type === 'rename') {
+        return window.builderHelm.accounts.rename({
+          provider: action.provider,
+          id: action.id,
+          label: action.label,
+        });
+      }
       if (action.type === 'remove') {
         return window.builderHelm.accounts.remove({
           provider: action.provider,
@@ -196,6 +292,7 @@ export function UsagePage(): React.JSX.Element {
     },
   });
   const busy = mutate.isPending || snapshot.isFetching;
+
   const hookOn = snapshot.data?.hookSystemDefault ?? false;
   const providers = snapshot.data?.providers ?? [];
   const updated = formatAgo(snapshot.data?.occurredAt);
@@ -206,10 +303,11 @@ export function UsagePage(): React.JSX.Element {
         <div className="usagePageTitle">
           <h1 id="usage-title">Usage</h1>
           <p>
-            Subscription windows for Claude, Codex, and Grok on this Mac — not
-            conversation token counts, not API invoices, not estimated API-equivalent
-            cost. Those stay unknown unless a runtime reports them on a run. BuilderHelm
-            login is under Settings → <Link to="/settings/accounts">Account</Link>.
+            Subscription windows for Claude, Codex, and Grok, and the CLI logins for them
+            and OpenCode, on this Mac — not conversation token counts, not API invoices,
+            not estimated API-equivalent cost. Those stay unknown unless a runtime reports
+            them on a run. BuilderHelm login is under Settings →{' '}
+            <Link to="/settings/accounts">Account</Link>.
           </p>
         </div>
         <div className="usagePageActions">
@@ -259,40 +357,55 @@ export function UsagePage(): React.JSX.Element {
                 <span className="usageBadgeMuted">Not installed</span>
               )}
             </header>
-            <div className="usageMeterGrid">
-              {metersOf(provider).map((meter) => (
-                <MeterRow key={meter.key} meter={meter} />
-              ))}
-            </div>
+            {provider.id === 'opencode' ? null : (
+              <div className="usageMeterGrid">
+                {metersOf(provider).map((meter) => (
+                  <MeterRow key={meter.key} meter={meter} />
+                ))}
+              </div>
+            )}
             <div className="usageAccountHead">
               <span>CLI logins</span>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={async () => {
-                  const created = await window.builderHelm.accounts.add({
-                    provider: provider.id,
-                  });
-                  queryClient.setQueryData(['accounts-snapshot'], created);
-                  const home = created.providers
-                    .find((entry) => entry.id === provider.id)
-                    ?.homes.find((entry) => entry.active && entry.configRoot !== null);
-                  if (home?.configRoot === undefined || home.configRoot === null) return;
-                  await window.builderHelm.accounts.openLoginTerminal({
-                    provider: provider.id,
-                    configRoot: home.configRoot,
-                    accountId: home.id,
-                  });
-                }}
-              >
-                Add login
-              </button>
+              {isolatedId(provider.id) === null ? null : (
+                <span className="usageAccountHeadActions">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    title="Use a folder you already signed in with, such as ~/.claude-work"
+                    onClick={() => {
+                      const id = isolatedId(provider.id);
+                      if (id !== null) mutate.mutate({ type: 'attach', provider: id });
+                    }}
+                  >
+                    Attach folder
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      const id = isolatedId(provider.id);
+                      if (id !== null) mutate.mutate({ type: 'add', provider: id });
+                    }}
+                  >
+                    Add login
+                  </button>
+                </span>
+              )}
             </div>
             <ul className="usageAccountList">
               {provider.homes.map((home) => (
                 <HomeRow
                   key={home.id}
                   home={home}
+                  disabled={busy}
+                  onRename={(label) =>
+                    mutate.mutate({
+                      type: 'rename',
+                      provider: provider.id,
+                      id: home.id,
+                      label,
+                    })
+                  }
                   onActive={() =>
                     mutate.mutate({ type: 'active', provider: provider.id, id: home.id })
                   }
@@ -307,10 +420,10 @@ export function UsagePage(): React.JSX.Element {
       </ul>
       <div className="usageProviderCard usageHookCard">
         <div>
-          <strong>Include the system Claude login</strong>
+          <strong>Include Claude logins BuilderHelm did not create</strong>
           <p>
-            Installs a status line in ~/.claude so the login outside any isolated home
-            reports its windows too.
+            Installs a status line in ~/.claude and attached Claude folders so they report
+            their windows too. Turning it off restores the status line each had.
           </p>
         </div>
         <button

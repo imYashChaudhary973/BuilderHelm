@@ -13,9 +13,11 @@ import type {
 
 import type {
   AccountAddInput,
+  AccountAttachInput,
   AccountConfirmLoginInput,
   AccountLoginTerminalInput,
   AccountRemoveInput,
+  AccountRenameInput,
   AccountSetActiveInput,
   AccountSnapshot,
   AccountSnapshotInput,
@@ -363,6 +365,8 @@ export const ipcChannels = {
   voiceHotkey: 'builderhelm:voice:hotkey',
   accountSnapshot: 'builderhelm:accounts:snapshot',
   accountAdd: 'builderhelm:accounts:add',
+  accountAttach: 'builderhelm:accounts:attach',
+  accountRename: 'builderhelm:accounts:rename',
   accountConfirmLogin: 'builderhelm:accounts:confirm-login',
   accountLoginTerminal: 'builderhelm:accounts:login-terminal',
   accountRemove: 'builderhelm:accounts:remove',
@@ -706,6 +710,9 @@ export interface BuilderHelmDesktopApi {
   readonly accounts: {
     snapshot(input?: AccountSnapshotInput): Promise<AccountSnapshot>;
     add(input: AccountAddInput): Promise<AccountSnapshot>;
+    /** Opens a folder picker in main; resolves unchanged when cancelled. */
+    attach(input: AccountAttachInput): Promise<AccountSnapshot>;
+    rename(input: AccountRenameInput): Promise<AccountSnapshot>;
     confirmLogin(input: AccountConfirmLoginInput): Promise<AccountSnapshot>;
     openLoginTerminal(
       input: AccountLoginTerminalInput,
