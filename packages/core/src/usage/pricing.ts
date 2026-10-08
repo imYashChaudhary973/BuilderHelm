@@ -124,7 +124,10 @@ export function costOf(tokens: PricedTokens, price: ModelPrice | null): CostResu
   return {
     priced: true,
     categories,
-    cacheSavings: tokens.cacheRead * (perToken(rates.input) - perToken(rates.cacheRead)),
+    cacheSavings: Math.max(
+      0,
+      tokens.cacheRead * (perToken(rates.input) - perToken(rates.cacheRead)),
+    ),
     price,
     note,
   };

@@ -234,6 +234,11 @@ const MODEL_FLAG: Partial<Record<BoardAgentId, string>> = {
 
 function modelArgv(agentId: BoardAgentId, launch?: RuntimeLaunch): string[] {
   const selected = launch ?? RUNTIME_LAUNCH_NONE;
+  if (selected.accountRef !== null) {
+    throw new Error(
+      'This CLI launch cannot bind an explicit login. Use Agents chat for a pinned login, or select the active login on Usage before starting.',
+    );
+  }
   if (selected.effort !== null) {
     throw new Error(`${agentId} cannot set an explicit effort yet; refusing to launch`);
   }

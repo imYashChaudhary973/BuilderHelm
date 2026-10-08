@@ -65,8 +65,14 @@ export interface AgentManagerOptions {
   readonly threads: AgentThreads;
   readonly resolveAgent: (agentId: string) => AgentDescriptor | null;
   readonly resolveProfile: (profileId: string) => AgentProfile | null;
-  /** Config-dir env for a new run. Omitted in tests. */
-  readonly resolveEnv?: (accountRef: string | null) => Record<string, string>;
+  /**
+   * The login a run uses and the env that selects it. Throws when the
+   * requested login cannot be used, which fails the start.
+   */
+  readonly resolveLaunch?: (
+    agentId: string,
+    accountRef: string | null,
+  ) => { env: Record<string, string>; accountRef: string | null };
 }
 
 export class AgentManager {
@@ -84,7 +90,17 @@ export class AgentManager {
     launch: RuntimeLaunch | null;
   }): Promise<AgentSessionState> {
     const existing = this.findLive(input.threadId);
-    if (existing !== undefined) return existing.state;
+    if (existing !== undefined) {
+      const ref = this.options.threads.get(existing.threadId)?.thread.accountRef ?? null;
+      this.options.resolveLaunch?.(existing.agent.id, ref);
+      if (input.launch?.accountRef != null && input.launch.accountRef !== ref) {
+        throw new BuilderHelmError(
+          'VALIDATION_FAILED',
+          'This conversation is bound to another login. Start a new conversation to switch.',
+        );
+      }
+      return existing.state;
+    }
 
     if (this.sessions.size >= MAX_LIVE_AGENT_SESSIONS) {
       throw new BuilderHelmError(
@@ -143,21 +159,45 @@ export class AgentManager {
         { metadata: { cwd } },
       );
     }
+    const launch = input.launch ?? profile?.launch ?? null;
+    // A stored thread continues on the login it started on unless another is
+    // asked for explicitly; that request is refused below.
+    const requestedRef = launch?.accountRef ?? stored?.thread.accountRef ?? null;
+    const login =
+      this.options.resolveLaunch === undefined
+        ? null
+        : this.options.resolveLaunch(agent.id, requestedRef);
+    const boundRef = stored?.thread.accountRef ?? null;
+    if (stored !== null && boundRef === null && login?.accountRef != null) {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'This older conversation has no recorded login. Start a new conversation so its account is known.',
+      );
+    }
+    if (boundRef !== null && login !== null && login.accountRef !== boundRef) {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'This conversation started on another login, and that login keeps its history in its own folder. Switch back to that login, or start a new conversation on this one.',
+        { metadata: { threadId: stored?.thread.id ?? null } },
+      );
+    }
     const thread =
       stored === null
-        ? this.options.threads.create(agent, cwd, input.profileId)
+        ? this.options.threads.create(
+            agent,
+            cwd,
+            input.profileId,
+            login?.accountRef ?? null,
+          )
         : stored.thread;
     const resumeSessionId = input.resumeSessionId ?? stored?.thread.acpSessionId ?? null;
-    const launch = input.launch ?? profile?.launch ?? null;
 
     let entry: Entry | null = null;
     const session = await AcpSession.start({
       agent,
       cwd,
       resumeSessionId,
-      ...(this.options.resolveEnv === undefined
-        ? {}
-        : { env: this.options.resolveEnv(launch?.accountRef ?? null) }),
+      ...(login === null ? {} : { env: login.env }),
       emit: (event) => {
         this.options.threads.append(thread.id, event);
         if (entry !== null) applyToState(entry, event);
@@ -291,7 +331,10 @@ export class AgentManager {
     sessionId: string,
     content: Parameters<AcpSession['prompt']>[0],
   ): Promise<void> {
-    await this.require(sessionId).session.prompt(content);
+    const entry = this.require(sessionId);
+    const ref = this.options.threads.get(entry.threadId)?.thread.accountRef ?? null;
+    this.options.resolveLaunch?.(entry.agent.id, ref);
+    await entry.session.prompt(content);
   }
 
   cancel(sessionId: string): void {

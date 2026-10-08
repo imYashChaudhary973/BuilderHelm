@@ -299,7 +299,7 @@ describe('AccountsService', () => {
     ).toBe('statusline');
   });
 
-  it('reports a window whose reset has passed as fresh, not as its old figure', async () => {
+  it('keeps an expired reading stale until the provider reports again', async () => {
     const accounts = setup();
     const past = new Date(Date.now() - 60_000).toISOString();
     const future = new Date(Date.now() + 3_600_000).toISOString();
@@ -313,9 +313,13 @@ describe('AccountsService', () => {
     const quota = snapshot.providers.find((provider) => provider.id === 'claude')
       ?.homes[0]?.quota;
     expect(quota?.windows.find((w) => w.id === 'session')).toMatchObject({
-      usedPercent: 0,
-      resetsAt: null,
+      usedPercent: 100,
+      resetsAt: past,
     });
+    expect(
+      snapshot.providers.find((provider) => provider.id === 'claude')?.homes[0]?.limits
+        .state,
+    ).toBe('stale');
     expect(quota?.windows.find((w) => w.id === 'weekly')?.usedPercent).toBe(19);
   });
 
@@ -429,7 +433,7 @@ describe('AccountsService', () => {
       id: home!.id,
     });
     expect(accounts.cliEnvFor(`codex:${home!.id}`).CODEX_HOME).toBe(home!.configRoot);
-    expect(accounts.cliEnvFor('codex:system').CODEX_HOME).toBeUndefined();
+    expect(accounts.cliEnvFor('codex:system').CODEX_HOME).toBe(join(homedir(), '.codex'));
   });
 
   it('names conflicting credential paths without reading their contents', async () => {
@@ -679,4 +683,53 @@ describe('AccountsService', () => {
     expect(home?.limits.state).toBe('error');
     expect(JSON.stringify(first)).not.toMatch(/sk-secret|user@example/);
   });
+});
+
+describe('login launch safety', () => {
+  it('rejects disabled, removed, mismatched, and unavailable logins without falling back', async () => {
+    const accounts = setup();
+    const folder = signedInClaudeFolder('work@example.com');
+    const added = await accounts.attach('claude', folder);
+    const home = added.providers
+      .find((provider) => provider.id === 'claude')!
+      .homes.find((entry) => entry.kind === 'attached')!;
+    const ref = `claude:${home.id}`;
+    expect(accounts.launchFor('claude', ref).env.CLAUDE_CONFIG_DIR).toBe(folder);
+    await accounts.setActive('claude', home.id);
+    expect(accounts.launchFor('claude', null).accountRef).toBe(ref);
+    await accounts.setDisabled('claude', home.id, true);
+    expect(() => accounts.launchFor('claude', ref)).toThrow(/disabled/);
+    expect(() => accounts.cliEnvFor(ref)).toThrow(/disabled/);
+    expect(accounts.launchFor('claude', null).accountRef).toBe('claude:system');
+    await expect(accounts.setActive('claude', home.id)).rejects.toThrow(/Enable/);
+    expect(accounts.logins().some((login) => login.accountRef === ref)).toBe(true);
+    await accounts.setDisabled('claude', home.id, false);
+    expect(accounts.launchFor('claude', ref).accountRef).toBe(ref);
+    expect(() => accounts.launchFor('codex', ref)).toThrow(/not a Codex/);
+    rmSync(folder, { recursive: true });
+    expect(() => accounts.launchFor('claude', ref)).toThrow(/folder is unavailable/);
+    await accounts.remove('claude', home.id);
+    expect(() => accounts.launchFor('claude', ref)).toThrow(/removed/);
+  });
+});
+
+it('bounds additional logins before creating another folder', async () => {
+  const { accounts, settings, root } = setupWith();
+  settings.write(
+    'accounts.homes',
+    JSON.stringify({
+      claude: Array.from({ length: 15 }, (_, index) => ({
+        id: `login-${index}`,
+        label: `Team ${index}`,
+        kind: 'attached',
+        configRoot: join(root, `folder-${index}`),
+      })),
+    }),
+    new Date().toISOString(),
+  );
+  await expect(accounts.add('claude')).rejects.toThrow(/15 additional logins/);
+  await expect(
+    accounts.attach('claude', signedInClaudeFolder('extra@example.test')),
+  ).rejects.toThrow(/15 additional logins/);
+  expect(existsSync(join(root, 'claude'))).toBe(false);
 });

@@ -35,6 +35,7 @@ function home(
     configRoot: `/tmp/${id}`,
     email: `${id}@example.com`,
     active: false,
+    disabled: false,
     quota:
       windows === null ? null : { windows, source: 'statusline', occurredAt, plan: null },
     limits:

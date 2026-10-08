@@ -36,6 +36,7 @@ const metaSchema = z
     cwd: z.string().min(1).max(4096),
     /** Roster profile that started the thread; null for ad hoc threads. */
     profileId: z.string().max(64).nullable().default(null),
+    accountRef: z.string().max(128).nullable().default(null),
     title: z.string().min(1).max(200).nullable(),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
@@ -69,6 +70,7 @@ export class AgentThreads {
     agent: AgentDescriptor,
     cwd: string,
     profileId: string | null = null,
+    accountRef: string | null = null,
   ): AgentThread {
     const now = new Date().toISOString();
     const meta: Meta = {
@@ -77,6 +79,7 @@ export class AgentThreads {
       agent: { ...agent, args: [...agent.args] },
       cwd,
       profileId,
+      accountRef,
       title: null,
       createdAt: now,
       updatedAt: now,

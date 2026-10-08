@@ -134,6 +134,14 @@ export class UsageRepository {
     return written;
   }
 
+  /** Replace the superseded OpenCode session-total format with message events. */
+  removeSessionTotals(sourceId: string): void {
+    this.database.run(
+      "DELETE FROM usage_records WHERE source_id = ? AND provider = 'opencode' AND event_key = 'opencode:' || session_id",
+      [sourceId],
+    );
+  }
+
   /** Records at or after `from` (ISO), oldest first. */
   list(from: string | null): UsageRecordRow[] {
     return from === null
@@ -144,6 +152,37 @@ export class UsageRepository {
           'SELECT * FROM usage_records WHERE occurred_at >= ? ORDER BY occurred_at',
           [from],
         );
+  }
+
+  page(
+    from: string | null,
+    environment: string | null,
+    after: { at: string; key: string } | null,
+  ): UsageRecordRow[] {
+    return this.database.queryAll<UsageRecordRow>(
+      `SELECT * FROM usage_records WHERE (? IS NULL OR occurred_at >= ?)
+        AND (? IS NULL OR environment = ?)
+        AND (? IS NULL OR occurred_at > ? OR (occurred_at = ? AND event_key > ?))
+       ORDER BY occurred_at, event_key LIMIT 1000`,
+      [
+        from,
+        from,
+        environment,
+        environment,
+        after?.at ?? null,
+        after?.at ?? null,
+        after?.at ?? null,
+        after?.key ?? null,
+      ],
+    );
+  }
+
+  environments(): string[] {
+    return this.database
+      .queryAll<{ environment: string }>(
+        'SELECT DISTINCT environment FROM usage_records ORDER BY environment LIMIT 64',
+      )
+      .map((row) => row.environment);
   }
 
   countForSource(sourceId: string): number {
@@ -228,7 +267,7 @@ export class UsageRepository {
          FROM chat_usage u
          LEFT JOIN providers p ON p.id = u.provider_id
          LEFT JOIN chat_threads t ON t.id = u.thread_id
-        WHERE ? IS NULL OR u.created_at > ?
+        WHERE ? IS NULL OR u.created_at >= ?
         ORDER BY u.created_at`,
       [afterCreatedAt, afterCreatedAt],
     );

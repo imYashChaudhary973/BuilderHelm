@@ -66,6 +66,8 @@ export const accountHomeSchema = z
     id: z.string().min(1).max(64),
     label: z.string().min(1).max(80),
     kind: accountHomeKindSchema,
+    /** Kept for history; cannot be active or start runs. */
+    disabled: z.boolean(),
     configRoot: z.string().min(1).max(4_096).nullable(),
     email: z.string().min(3).max(200).nullable(),
     active: z.boolean(),
@@ -196,6 +198,18 @@ export const accountRenameInputSchema = z
   })
   .strict();
 export type AccountRenameInput = z.infer<typeof accountRenameInputSchema>;
+
+export const accountSetDisabledInputSchema = z
+  .object({
+    provider: quotaProviderIdSchema,
+    id: z.string().min(1).max(64),
+    disabled: z.boolean(),
+  })
+  .strict();
+export type AccountSetDisabledInput = z.infer<typeof accountSetDisabledInputSchema>;
+export const accountSetDisabledRequestSchema = z
+  .object({ correlationId: correlationIdSchema, input: accountSetDisabledInputSchema })
+  .strict();
 
 export const accountAttachRequestSchema = z
   .object({ correlationId: correlationIdSchema, input: accountAttachInputSchema })

@@ -30,6 +30,10 @@ export function openDatabase(location: string): BuilderHelmDatabase {
   try {
     sqlite = new DatabaseSync(location);
     sqlite.exec('PRAGMA foreign_keys = ON;');
+    // Usage reads run in a worker. WAL lets those reads coexist with app
+    // writes; a short bounded wait covers its small ledger transactions.
+    sqlite.exec('PRAGMA journal_mode = WAL;');
+    sqlite.exec('PRAGMA busy_timeout = 100;');
     sqlite.exec('PRAGMA trusted_schema = OFF;');
   } catch (cause) {
     throw new BuilderHelmError(

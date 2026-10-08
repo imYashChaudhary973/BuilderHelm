@@ -43,8 +43,10 @@ import { AgentRegistry } from './acp/registry.js';
 import { createRuntimeCapabilityService } from './runtime-capabilities.js';
 import { AgentProfiles } from './acp/profiles.js';
 import { AgentThreads } from './acp/threads.js';
+import { UsageWorkerClient } from './usage-worker-client.js';
 
 let core: CoreRuntime | undefined;
+let usageWorker: UsageWorkerClient | undefined;
 let unregisterIpc: (() => void) | undefined;
 let boardPty: BoardPtyManager | undefined;
 let swarmRunner: PtySwarmRunner | undefined;
@@ -362,7 +364,8 @@ app
       threads: new AgentThreads(runtime.settings),
       resolveAgent: (agentId) => agentRegistry.resolve(agentId),
       resolveProfile: (profileId) => agentProfiles.find(profileId),
-      resolveEnv: (accountRef) => core?.accounts.cliEnvFor(accountRef) ?? {},
+      resolveLaunch: (agentId, accountRef) =>
+        core?.accounts.launchFor(agentId, accountRef) ?? { env: {}, accountRef: null },
     });
     setExtraTerminalEnv(() => core?.accounts.cliEnv() ?? {});
     const hookClaude = (): void => {
@@ -397,6 +400,11 @@ app
         data: { result: probePty(process.env.BUILDERHELM_PTY_PROBE) },
       });
     }
+    usageWorker = new UsageWorkerClient(
+      join(__dirname, 'usage-worker.js'),
+      databasePath,
+      () => core?.accounts.logins() ?? [],
+    );
     unregisterIpc = registerIpcHandlers(
       core,
       boardPty,
@@ -415,6 +423,7 @@ app
       authHandoff,
       { manager: agentManager, registry: agentRegistry, profiles: agentProfiles },
       { capabilities: runtimeCapabilities },
+      (input) => usageWorker!.report(input),
     );
     void core.schedules.reconcile(createCorrelationId());
     scheduleTimer = setInterval(() => {
@@ -467,6 +476,8 @@ app.on('before-quit', () => {
   powerController = undefined;
   boardPty?.dispose();
   boardPty = undefined;
+  usageWorker?.close();
+  usageWorker = undefined;
   core?.close();
   core = undefined;
   if (smokeDatabasePath !== undefined) {

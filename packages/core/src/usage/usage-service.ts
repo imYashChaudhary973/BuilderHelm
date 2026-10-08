@@ -8,6 +8,7 @@ import {
   UsageRepository,
   type BuilderHelmDatabase,
   type UsageRecordRow,
+  type UsageRecordWrite,
   type UsageSourceRow,
 } from '@builderhelm/db';
 import type { Logger } from '@builderhelm/observability';
@@ -35,9 +36,9 @@ import {
   parseChatUsage,
   parseClaudeTranscript,
   parseCodexRollout,
-  parseOpenCodeSessions,
+  parseOpenCodeMessages,
   type CodexCursor,
-  type OpenCodeSessionRow,
+  type OpenCodeMessageRow,
   type ParsedUsage,
   type SourceContext,
 } from './adapters.js';
@@ -45,7 +46,7 @@ import { costOf, resolvePrice, type PricingService } from './pricing.js';
 
 export const LOCAL_ENVIRONMENT = 'local';
 /** Bytes read from one file per scan; the rest is read on the next scan. */
-const MAX_READ_BYTES = 64 * 1024 * 1024;
+const MAX_READ_BYTES = 1024 * 1024;
 const MIN_SCAN_INTERVAL_MS = 15_000;
 
 /** A non-reversible key for one account; never a raw credential. */
@@ -259,12 +260,16 @@ export class UsageService {
 
   private async runScan(): Promise<void> {
     const seen = new Set<string>();
+    const labeled = new Set<string>();
     const now = utcNow();
     this.lastError = null;
     try {
       for (const login of this.accounts.logins()) {
         const accountKey = accountKeyFor(login);
-        this.ledger.saveAccount(accountKey, login.provider, login.label, now);
+        if (!labeled.has(accountKey)) {
+          this.ledger.saveAccount(accountKey, login.provider, login.label, now);
+          labeled.add(accountKey);
+        }
         const context = (sourceId: string): SourceContext => ({
           accountKey,
           accountRef: login.accountRef,
@@ -291,11 +296,11 @@ export class UsageService {
             }
           }
         } else if (login.provider === 'opencode') {
-          const id = this.scanOpenCode(context, accountKey, login);
+          const id = await this.scanOpenCode(context, accountKey, login);
           if (id !== null) seen.add(id);
         }
       }
-      this.scanChats(now);
+      await this.scanChats(now);
       seen.add('builderhelm-chat');
       this.ledger.markMissing(seen, now);
     } catch (error) {
@@ -305,6 +310,18 @@ export class UsageService {
         correlationId: createCorrelationId(),
         data: { reason: error instanceof Error ? error.name : 'unknown' },
       });
+    }
+  }
+
+  private async persist(
+    records: readonly UsageRecordWrite[],
+    at: string,
+    replace = false,
+  ): Promise<void> {
+    // Short transactions keep the background writer from blocking app writes.
+    for (let offset = 0; offset < records.length; offset += 64) {
+      this.ledger.upsert(records.slice(offset, offset + 64), at, replace);
+      await new Promise((resolve) => setImmediate(resolve));
     }
   }
 
@@ -367,8 +384,8 @@ export class UsageService {
       const end = buffer.lastIndexOf(0x0a) + 1;
       const parsed = parse(buffer.subarray(0, end).toString('utf8'), context(id), cursor);
       if (parsed.cursor !== undefined) cursor = parsed.cursor as Record<string, unknown>;
-      this.ledger.upsert(parsed.records, at);
-      const partial = offset + end < info.size && length === MAX_READ_BYTES;
+      await this.persist(parsed.records, at);
+      const partial = offset + end < info.size;
       this.ledger.saveSource({
         ...base,
         account_ref: login.accountRef,
@@ -378,10 +395,16 @@ export class UsageService {
         mtime_ms: Math.floor(info.mtimeMs),
         read_offset: offset + end,
         cursor_json: JSON.stringify(cursor),
-        state: partial ? 'partial' : 'ok',
+        state: partial || parsed.skipped > 0 ? 'partial' : 'ok',
         records: this.ledger.countForSource(id),
         skipped: (restart ? 0 : base.skipped) + parsed.skipped,
-        message: partial ? 'Large file; the rest is read on the next refresh' : null,
+        message: partial
+          ? end === 0 && length === MAX_READ_BYTES
+            ? 'A transcript line exceeds the scan limit and cannot be read'
+            : 'Remaining history is read on the next refresh'
+          : parsed.skipped > 0
+            ? 'Some transcript records could not be read'
+            : null,
         last_scan_at: at,
       });
     } catch {
@@ -396,17 +419,19 @@ export class UsageService {
     await new Promise((resolve) => setImmediate(resolve));
   }
 
-  private scanOpenCode(
+  private async scanOpenCode(
     context: (sourceId: string) => SourceContext,
     accountKey: string,
     login: LoginLocation,
-  ): string | null {
+  ): Promise<string | null> {
     const path = join(this.openCodeDataDir, 'opencode.db');
     if (!existsSync(path)) return null;
     const id = `opencode:${path}`;
     const previous = this.ledger.source(id);
     const cursor = previous === undefined ? {} : JSON.parse(previous.cursor_json);
-    const after = typeof cursor.lastUpdated === 'number' ? cursor.lastUpdated : 0;
+    const messageFormat = cursor.format === 'messages-v1';
+    const after =
+      messageFormat && typeof cursor.lastUpdated === 'number' ? cursor.lastUpdated : 0;
     const at = utcNow();
     const base: UsageSourceRow = {
       id,
@@ -428,22 +453,61 @@ export class UsageService {
     };
     try {
       // Only the usage columns; OpenCode's database also holds credentials.
-      const rows = readForeignDatabase<OpenCodeSessionRow>(
-        path,
-        `SELECT id, title, directory, model, cost, tokens_input, tokens_output,
-                tokens_reasoning, tokens_cache_read, tokens_cache_write, time_updated
-           FROM session_v2 WHERE time_updated > ? ORDER BY time_updated LIMIT 5000`,
-        [after],
+      const tables = new Set(
+        readForeignDatabase<{ name: string }>(
+          path,
+          "SELECT name FROM sqlite_master WHERE type = 'table'",
+        ).map((row) => row.name),
       );
-      const parsed = parseOpenCodeSessions(rows, context(id));
-      // Session rows are running totals: replace, never add.
-      this.ledger.upsert(parsed.records, at, true);
-      const last = rows.at(-1)?.time_updated ?? after;
+      const messageTable = tables.has('session_message') ? 'session_message' : 'message';
+      const sessionTable = tables.has('session_v2') ? 'session_v2' : 'session';
+      const lastId =
+        messageFormat && typeof cursor.lastId === 'string' ? cursor.lastId : '';
+      // Extract usage fields only: prompts, tool output, and credentials stay
+      // in OpenCode's database. Table names come from the fixed list above.
+      const rows = readForeignDatabase<OpenCodeMessageRow>(
+        path,
+        `SELECT m.id, m.session_id, s.title, s.directory, m.time_created, m.time_updated,
+                COALESCE(json_extract(m.data, '$.model.id'), json_extract(m.data, '$.model.modelID'), json_extract(m.data, '$.modelID')) AS model_id,
+                json_extract(m.data, '$.cost') AS cost,
+                json_extract(m.data, '$.tokens.input') AS tokens_input,
+                json_extract(m.data, '$.tokens.output') AS tokens_output,
+                json_extract(m.data, '$.tokens.reasoning') AS tokens_reasoning,
+                json_extract(m.data, '$.tokens.cache.read') AS tokens_cache_read,
+                json_extract(m.data, '$.tokens.cache.write') AS tokens_cache_write
+           FROM ${messageTable} m JOIN ${sessionTable} s ON s.id = m.session_id
+          WHERE (m.time_updated > ? OR (m.time_updated = ? AND m.id > ?))
+            AND COALESCE(json_extract(m.data, '$.role'), json_extract(m.data, '$.type'), ${messageTable === 'session_message' ? 'm.type' : "'unknown'"}) = 'assistant'
+          ORDER BY m.time_updated, m.id LIMIT 5000`,
+        [after, after, lastId],
+      );
+      const parsed = parseOpenCodeMessages(rows, context(id));
+      if (!messageFormat) this.ledger.removeSessionTotals(id);
+      await this.persist(parsed.records, at, true);
+      const last = rows.at(-1);
+      const full = rows.length === 5000;
+      // Re-read the final timestamp bucket to catch later updates at that
+      // same timestamp. Event identities replace records without inflating.
       this.ledger.saveSource({
         ...base,
-        cursor_json: JSON.stringify({ lastUpdated: last }),
+        cursor_json: JSON.stringify({
+          lastUpdated:
+            last === undefined
+              ? after
+              : full
+                ? last.time_updated
+                : Math.max(0, last.time_updated - 1),
+          lastId: full ? (last?.id ?? '') : '',
+          format: 'messages-v1',
+        }),
+        state: full || parsed.skipped > 0 ? 'partial' : 'ok',
+        message: full
+          ? 'More history is read on the next refresh'
+          : parsed.skipped > 0
+            ? 'Some message usage could not be read'
+            : null,
         records: this.ledger.countForSource(id),
-        skipped: base.skipped + parsed.skipped,
+        skipped: parsed.skipped,
       });
     } catch {
       this.ledger.saveSource({
@@ -455,7 +519,7 @@ export class UsageService {
     return id;
   }
 
-  private scanChats(at: string): void {
+  private async scanChats(at: string): Promise<void> {
     const id = 'builderhelm-chat';
     const previous = this.ledger.source(id);
     const cursor = previous === undefined ? {} : JSON.parse(previous.cursor_json);
@@ -470,7 +534,7 @@ export class UsageService {
         at,
       );
     }
-    this.ledger.upsert(parsed.records, at);
+    await this.persist(parsed.records, at);
     this.ledger.saveSource({
       id,
       provider: 'api',
@@ -501,11 +565,6 @@ export class UsageService {
     const labels = new Map(
       this.ledger.accounts().map((row) => [row.account_key, row.label] as const),
     );
-    const all = this.ledger.list(from?.toISOString() ?? null);
-    const records =
-      input.environment === null
-        ? all
-        : all.filter((record) => record.environment === input.environment);
 
     const totals = new Totals();
     const byProvider = new Map<string, Totals>();
@@ -514,47 +573,57 @@ export class UsageService {
     const byDay = new Map<string, Totals>();
     const bySession = new Map<string, Totals>();
     const sessionLabels = new Map<string, string>();
-    for (const record of records) {
-      const cost = costOf(
-        {
-          modelId: record.model_id,
-          uncachedInput: record.uncached_input_tokens,
-          cacheRead: record.cache_read_tokens,
-          cacheWrite: record.cache_write_tokens,
-          cacheWrite1h: record.cache_write_1h_tokens,
-          output: record.output_tokens,
-          speed:
-            record.speed === 'fast'
-              ? 'fast'
-              : record.speed === 'standard'
-                ? 'standard'
-                : null,
-          inferenceGeo: record.inference_geo,
-        },
-        resolvePrice(record.model_id, table, aliases),
+    let cursor: { at: string; key: string } | null = null;
+    for (;;) {
+      const records = this.ledger.page(
+        from?.toISOString() ?? null,
+        input.environment,
+        cursor,
       );
-      totals.add(record, cost);
-      group(byProvider, record.provider).add(record, cost);
-      group(byAccount, record.account_key).add(record, cost);
-      group(byModel, `${record.provider}\u0000${record.model_id ?? ''}`).add(
-        record,
-        cost,
-      );
-      group(byDay, localDay(record.occurred_at)).add(record, cost);
-      if (record.session_id !== null) {
-        const key = `${record.provider}\u0000${record.session_id}`;
-        group(bySession, key).add(record, cost);
-        if (record.session_label !== null) sessionLabels.set(key, record.session_label);
+      if (records.length === 0) break;
+      for (const record of records) {
+        const cost = costOf(
+          {
+            modelId: record.model_id,
+            uncachedInput: record.uncached_input_tokens,
+            cacheRead: record.cache_read_tokens,
+            cacheWrite: record.cache_write_tokens,
+            cacheWrite1h: record.cache_write_1h_tokens,
+            output: record.output_tokens,
+            speed:
+              record.speed === 'fast'
+                ? 'fast'
+                : record.speed === 'standard'
+                  ? 'standard'
+                  : null,
+            inferenceGeo: record.inference_geo,
+          },
+          resolvePrice(record.model_id, table, aliases),
+        );
+        totals.add(record, cost);
+        group(byProvider, record.provider).add(record, cost);
+        group(byAccount, record.account_key).add(record, cost);
+        group(byModel, `${record.provider}\u0000${record.model_id ?? ''}`).add(
+          record,
+          cost,
+        );
+        group(byDay, localDay(record.occurred_at)).add(record, cost);
+        if (record.session_id !== null) {
+          const key = `${record.provider}\u0000${record.session_id}`;
+          group(bySession, key).add(record, cost);
+          if (record.session_label !== null) sessionLabels.set(key, record.session_label);
+        }
       }
+      const last = records.at(-1)!;
+      cursor = { at: last.occurred_at, key: last.event_key };
+      await new Promise((resolve) => setImmediate(resolve));
     }
 
     const byTokens = (a: [string, Totals], b: [string, Totals]): number =>
       b[1].tokens().total - a[1].tokens().total;
-    const environments = [
-      ...new Set(this.ledger.list(null).map((record) => record.environment)),
-    ].map((id) => ({
+    const environments = this.ledger.environments().map((id) => ({
       id,
-      label: id === LOCAL_ENVIRONMENT ? `This Mac (${hostname()})` : id,
+      label: id === LOCAL_ENVIRONMENT ? `This device (${hostname()})` : id,
     }));
 
     const report: UsageReport = {
@@ -564,7 +633,7 @@ export class UsageService {
       to: now.toISOString(),
       environments:
         environments.length === 0
-          ? [{ id: LOCAL_ENVIRONMENT, label: `This Mac (${hostname()})` }]
+          ? [{ id: LOCAL_ENVIRONMENT, label: `This device (${hostname()})` }]
           : environments,
       totals: totals.row('total', 'All usage', null),
       byProvider: [...byProvider]
@@ -646,6 +715,32 @@ export class UsageService {
         lastScanAt: row.last_scan_at,
         message: row.message,
       }));
+    for (const login of this.accounts.logins()) {
+      if (
+        login.provider === 'grok' ||
+        rows.some(
+          (row) => row.accountLabel === login.label && row.provider === login.provider,
+        )
+      )
+        continue;
+      const source = this.ledger
+        .sources()
+        .find((row) => row.account_ref === login.accountRef);
+      if (source !== undefined) continue;
+      rows.push({
+        id: `history:${login.accountRef}`,
+        provider: login.provider,
+        kind: 'history',
+        accountLabel: login.label,
+        location: homeRelative(login.root),
+        state: 'missing',
+        records: 0,
+        skipped: 0,
+        lastScanAt:
+          this.lastScanAt === null ? null : new Date(this.lastScanAt).toISOString(),
+        message: 'No readable local usage history found for this login.',
+      });
+    }
     // Providers whose CLI keeps no token history BuilderHelm can read.
     rows.push({
       id: 'grok',
@@ -658,6 +753,19 @@ export class UsageService {
       skipped: 0,
       lastScanAt: null,
       message: 'Grok CLI keeps no token history BuilderHelm can read',
+    });
+    rows.push({
+      id: 'unsupported-runtimes',
+      provider: 'other',
+      kind: 'none',
+      accountLabel: null,
+      location: null,
+      state: 'unavailable',
+      records: 0,
+      skipped: 0,
+      lastScanAt: null,
+      message:
+        'Historical usage from Gemini, Kimi, Pi/OMP, Cursor/Copilot, plain shell, and custom commands is not included by these adapters.',
     });
     return rows;
   }

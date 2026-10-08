@@ -46,7 +46,10 @@ export default defineConfig({
     esbuild: preserveLegalComments,
     build: {
       rollupOptions: {
-        input: { index: resolve(directory, 'src/main/index.ts') },
+        input: {
+          index: resolve(directory, 'src/main/index.ts'),
+          'usage-worker': resolve(directory, 'src/main/usage-worker.ts'),
+        },
         output: {
           entryFileNames: '[name].js',
         },

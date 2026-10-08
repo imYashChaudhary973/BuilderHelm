@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync } from 'node:fs';
+import { copyFileSync, existsSync, rmSync } from 'node:fs';
 
 import { BuilderHelmError } from '@builderhelm/shared';
 
@@ -14,6 +14,8 @@ export function backupDatabaseFile(location: string): string | null {
   for (const suffix of ['-wal', '-shm'] as const) {
     if (existsSync(`${location}${suffix}`)) {
       copyFileSync(`${location}${suffix}`, `${backup}${suffix}`);
+    } else {
+      rmSync(`${backup}${suffix}`, { force: true });
     }
   }
   return backup;
@@ -29,6 +31,8 @@ export function restoreDatabaseFile(location: string): void {
   for (const suffix of ['-wal', '-shm'] as const) {
     if (existsSync(`${backup}${suffix}`)) {
       copyFileSync(`${backup}${suffix}`, `${location}${suffix}`);
+    } else {
+      rmSync(`${location}${suffix}`, { force: true });
     }
   }
 }

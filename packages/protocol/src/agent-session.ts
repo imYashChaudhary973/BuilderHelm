@@ -601,6 +601,12 @@ export const agentThreadSchema = z
     acpSessionId: agentSessionIdSchema.nullable(),
     /** The roster profile that started it; null for threads started ad hoc. */
     profileId: z.string().max(64).nullable(),
+    /**
+     * The login the thread started on (`claude:<id>`). Its conversation lives
+     * in that login's folder, so it only continues there. Null for threads
+     * from before logins were recorded, or agents without logins.
+     */
+    accountRef: z.string().max(128).nullable(),
     agent: agentDescriptorSchema,
     cwd: z.string().min(1).max(4096),
     title: z.string().min(1).max(200).nullable(),

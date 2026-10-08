@@ -10,6 +10,7 @@ import { ISOLATED_LOGIN_PROVIDER_IDS } from '@builderhelm/protocol/accounts';
 
 import { AgentGlyph } from '../../components/agent-mark.js';
 import { LimitCards } from './usage-limits.js';
+import { UsageHistory } from './usage-history.js';
 
 function formatAgo(iso: string | undefined): string | null {
   if (iso === undefined) return null;
@@ -38,22 +39,26 @@ function HomeRow({
   onActive,
   onRemove,
   onRename,
+  onToggleDisabled,
 }: {
   readonly home: AccountHome;
   readonly disabled: boolean;
   readonly onActive: () => void;
   readonly onRemove: () => void;
   readonly onRename: (label: string) => void;
+  readonly onToggleDisabled: () => void;
 }): React.JSX.Element {
   const [draft, setDraft] = useState<string | null>(null);
   const system = home.kind === 'system';
   const pending = home.kind === 'managed' && home.email === null;
   const showEmail = home.email !== null && home.email !== home.label;
-  const note = pending
-    ? 'Waiting for the login to finish'
-    : showEmail
-      ? `${home.email} · ${HOME_NOTE[home.kind]}`
-      : HOME_NOTE[home.kind];
+  const note = home.disabled
+    ? 'Disabled · history kept, cannot start runs'
+    : pending
+      ? 'Waiting for the login to finish'
+      : showEmail
+        ? `${home.email} · ${HOME_NOTE[home.kind]}`
+        : HOME_NOTE[home.kind];
   if (draft !== null) {
     const name = draft.trim();
     return (
@@ -98,9 +103,14 @@ function HomeRow({
       <div className="usageAccountActions">
         {home.active ? (
           <span className="usageBadge">Active</span>
-        ) : (
+        ) : home.disabled ? null : (
           <button type="button" disabled={disabled} onClick={onActive}>
             Use
+          </button>
+        )}
+        {system || pending ? null : (
+          <button type="button" disabled={disabled} onClick={onToggleDisabled}>
+            {home.disabled ? 'Enable' : 'Disable'}
           </button>
         )}
         {system || pending ? null : (
@@ -138,7 +148,7 @@ const PROVIDER_NOTE: Record<QuotaProviderId, string> = {
     'OpenCode signs in to model providers itself (opencode auth login), so it has one login here and no subscription windows.',
 };
 
-export function UsagePage(): React.JSX.Element {
+function LimitsPage(): React.JSX.Element {
   const queryClient = useQueryClient();
   const snapshot = useQuery({
     queryKey: ['accounts-snapshot'],
@@ -154,6 +164,7 @@ export function UsagePage(): React.JSX.Element {
         | { type: 'attach'; provider: IsolatedLoginProviderId }
         | { type: 'rename'; provider: QuotaProviderId; id: string; label: string }
         | { type: 'remove'; provider: QuotaProviderId; id: string }
+        | { type: 'disable'; provider: QuotaProviderId; id: string; disabled: boolean }
         | { type: 'active'; provider: QuotaProviderId; id: string }
         | { type: 'hook'; enabled: boolean }
         | { type: 'refresh' },
@@ -173,6 +184,13 @@ export function UsagePage(): React.JSX.Element {
           });
         }
         return created;
+      }
+      if (action.type === 'disable') {
+        return window.builderHelm.accounts.setDisabled({
+          provider: action.provider,
+          id: action.id,
+          disabled: action.disabled,
+        });
       }
       if (action.type === 'attach')
         return window.builderHelm.accounts.attach({ provider: action.provider });
@@ -214,13 +232,12 @@ export function UsagePage(): React.JSX.Element {
     <section className="usagePage" aria-labelledby="usage-title">
       <header className="usagePageHead">
         <div className="usagePageTitle">
-          <h1 id="usage-title">Usage</h1>
+          <h1 id="usage-title">Limits</h1>
           <p>
-            Session and weekly windows for each Claude, Codex, and Grok login, pooled per
-            provider, and the CLI logins for them and OpenCode, on this Mac — not
-            conversation token counts, not API invoices, not estimated API-equivalent
-            cost. Those stay unknown unless a runtime reports them on a run. BuilderHelm
-            login is under Settings → <Link to="/settings/accounts">Account</Link>.
+            Current provider-reported windows for each account on this device. Each pool
+            is the mean remaining percentage of the distinct accounts reporting that
+            window. Choose logins manually; a pool does not route turns. BuilderHelm login
+            is under Settings → <Link to="/settings/accounts">Account</Link>.
           </p>
         </div>
         <div className="usagePageActions">
@@ -248,12 +265,17 @@ export function UsagePage(): React.JSX.Element {
         </p>
       ) : null}
       {(snapshot.data?.authConflicts ?? []).map((conflict) => (
-        <p key={conflict.provider} className="wizardError" role="status">
-          {conflict.provider}: {conflict.sources.length} credential sources (
-          {conflict.sources.map((source) => source.path).join(', ')}). New runs use the
-          Active home; running sessions keep the account they started with. Contents are
-          not shown.
-        </p>
+        <details key={conflict.provider} className="usageSourceLocations">
+          <summary>
+            {conflict.provider}: {conflict.sources.length} login configuration locations
+          </summary>
+          <p>
+            {conflict.provider}: {conflict.sources.length} credential sources (
+            {conflict.sources.map((source) => source.path).join(', ')}). New runs use the
+            Active home; running sessions keep the account they started with. Contents are
+            not shown.
+          </p>
+        </details>
       ))}
       <ul className="usageProviderList">
         {providers.map((provider) => (
@@ -305,6 +327,14 @@ export function UsagePage(): React.JSX.Element {
                   key={home.id}
                   home={home}
                   disabled={busy}
+                  onToggleDisabled={() =>
+                    mutate.mutate({
+                      type: 'disable',
+                      provider: provider.id,
+                      id: home.id,
+                      disabled: !home.disabled,
+                    })
+                  }
                   onRename={(label) =>
                     mutate.mutate({
                       type: 'rename',
@@ -344,5 +374,26 @@ export function UsagePage(): React.JSX.Element {
         </button>
       </div>
     </section>
+  );
+}
+
+export function UsagePage(): React.JSX.Element {
+  const [view, setView] = useState<'cost' | 'tokens' | 'limits'>('cost');
+  return (
+    <div className="usageViews">
+      <nav className="usageTabs" aria-label="Usage views">
+        {(['cost', 'tokens', 'limits'] as const).map((item) => (
+          <button
+            key={item}
+            type="button"
+            aria-pressed={view === item}
+            onClick={() => setView(item)}
+          >
+            {item.charAt(0).toUpperCase() + item.slice(1)}
+          </button>
+        ))}
+      </nav>
+      {view === 'limits' ? <LimitsPage /> : <UsageHistory view={view} />}
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -49,6 +49,32 @@ describe('database backup', () => {
     openDatabases.pop();
 
     restoreDatabaseFile(location);
+    const restored = openDatabase(location);
+    openDatabases.push(restored);
+    expect(
+      restored.queryOne<{ version: number }>(
+        'SELECT MAX(version) AS version FROM schema_migrations',
+      ),
+    ).toEqual({ version: 1 });
+  });
+
+  it('removes stale sidecars when a new backup or restore has no WAL', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'builderhelm-db-sidecars-'));
+    temporaryDirectories.push(directory);
+    const location = join(directory, 'builderhelm.sqlite');
+    const database = openDatabase(location);
+    runMigrations(database, migrations.slice(0, 1));
+    backupDatabaseFile(location);
+    expect(existsSync(`${location}.bak-wal`)).toBe(true);
+    database.close();
+    backupDatabaseFile(location);
+    expect(existsSync(`${location}.bak-wal`)).toBe(false);
+    expect(existsSync(`${location}.bak-shm`)).toBe(false);
+    writeFileSync(`${location}-wal`, 'stale WAL from a later database');
+    writeFileSync(`${location}-shm`, 'stale SHM from a later database');
+    restoreDatabaseFile(location);
+    expect(existsSync(`${location}-wal`)).toBe(false);
+    expect(existsSync(`${location}-shm`)).toBe(false);
     const restored = openDatabase(location);
     openDatabases.push(restored);
     expect(

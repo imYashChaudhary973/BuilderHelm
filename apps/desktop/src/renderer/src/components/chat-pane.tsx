@@ -9,6 +9,8 @@ import type {
   AgentToolCall,
   AgentUsage,
 } from '@builderhelm/protocol';
+import { useQuery } from '@tanstack/react-query';
+import { QUOTA_PROVIDER_IDS } from '@builderhelm/protocol/accounts';
 import type { RuntimeCapability } from '@builderhelm/protocol/runtime';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -187,6 +189,12 @@ export function ChatPane({
   const loadedThreadIdRef = useRef<string | null>(null);
   const [session, setSession] = useState<AgentSessionState | null>(null);
   const [agentId, setAgentId] = useState('');
+  const [pickedAccount, setPickedAccount] = useState<string | null>(null);
+  const accounts = useQuery({
+    queryKey: ['accounts-snapshot'],
+    queryFn: () => window.builderHelm.accounts.snapshot(),
+    staleTime: 15_000,
+  });
   const [draft, setDraft] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -214,6 +222,35 @@ export function ChatPane({
     runtime !== null &&
     runtime.tier === 'terminal' &&
     !runtime.transports.includes('acp');
+  const accountProviderId =
+    activeThread?.agent.id ?? profile?.agent.id ?? selected?.id ?? '';
+  const hasAccounts = QUOTA_PROVIDER_IDS.some((id) => id === accountProviderId);
+  const accountProvider = accounts.data?.providers.find(
+    (item) => item.id === accountProviderId,
+  );
+  const accountRef =
+    activeThread !== null
+      ? activeThread.accountRef
+      : (profile?.launch?.accountRef ??
+        pickedAccount ??
+        (accountProvider === undefined
+          ? null
+          : `${accountProviderId}:${accountProvider.homes.find((home) => home.active)?.id ?? 'system'}`));
+  const accountHome = accountProvider?.homes.find(
+    (home) => `${accountProviderId}:${home.id}` === accountRef,
+  );
+  const accountBlocked =
+    hasAccounts &&
+    (accounts.isPending ||
+      accounts.isError ||
+      accountHome === undefined ||
+      accountHome.disabled);
+  const accountLabel =
+    accountHome === undefined
+      ? accounts.isPending
+        ? 'Loading login…'
+        : 'Login unavailable'
+      : `${accountHome.label}${accountHome.disabled ? ' · disabled' : ''}`;
   const composerDraftKey = draftStorageKey(profile?.id ?? null, activeThreadId);
   const turns = useMemo(() => foldTurns(events), [events]);
   const permission = useMemo(() => pendingPermission(events), [events]);
@@ -363,6 +400,7 @@ export function ChatPane({
     if (streaming) return;
     setError(null);
     setDraft('');
+    setPickedAccount(null);
     setSession(null);
     setEvents([]);
     loadedThreadIdRef.current = null;
@@ -370,6 +408,8 @@ export function ChatPane({
   }
 
   async function ensureSession(): Promise<AgentSessionState> {
+    if (accountBlocked)
+      throw new Error('Pick an enabled login before starting this conversation.');
     if (session !== null && session.threadId === activeThreadId) return session;
     if (profile === null) {
       if (selected === null) throw new Error('No agent is available on this machine.');
@@ -389,6 +429,7 @@ export function ChatPane({
         threadId: activeThreadId,
         resumeSessionId: activeThread?.acpSessionId ?? null,
         profileId: activeThread?.profileId ?? null,
+        launch: accountRef === null ? null : { model: null, effort: null, accountRef },
       });
       sessionIdRef.current = started.sessionId;
       setSession(started);
@@ -411,7 +452,14 @@ export function ChatPane({
       threadId: activeThreadId,
       resumeSessionId: activeThread?.acpSessionId ?? null,
       profileId: profile.id,
-      launch: profile.launch,
+      launch:
+        accountRef === null
+          ? profile.launch
+          : {
+              model: profile.launch?.model ?? null,
+              effort: profile.launch?.effort ?? null,
+              accountRef,
+            },
     });
     sessionIdRef.current = started.sessionId;
     setSession(started);
@@ -425,7 +473,8 @@ export function ChatPane({
 
   async function sendMessage(): Promise<void> {
     const text = draft.trim();
-    if (text.length === 0 || streaming || connecting || terminalOnly) return;
+    if (text.length === 0 || streaming || connecting || terminalOnly || accountBlocked)
+      return;
     setError(null);
     setDraft('');
     setStreaming(true);
@@ -742,6 +791,13 @@ export function ChatPane({
             {profile === null && <p>Create an agent to get started.</p>}
           </div>
         )}
+        {hasAccounts && accountBlocked && !accounts.isPending ? (
+          <p className="chatError" role="status">
+            {activeThread !== null && activeThread.accountRef === null
+              ? 'This older conversation has no recorded login. Start a new conversation to select one.'
+              : 'This login is unavailable or disabled. Enable it on Usage or start a new conversation with another login.'}
+          </p>
+        ) : null}
         <div className="composerPill">
           <label className="srOnly" htmlFor="chat-message">
             Message
@@ -807,6 +863,45 @@ export function ChatPane({
                   ))}
                 </select>
               </label>
+              {hasAccounts ? (
+                <label
+                  className="composerSelect"
+                  title={
+                    activeThread !== null || profile !== null
+                      ? 'This conversation keeps its selected login. Start a new conversation to switch.'
+                      : 'Login for the next conversation'
+                  }
+                >
+                  <span className="srOnly">Login</span>
+                  <select
+                    aria-label="Login"
+                    value={accountRef ?? ''}
+                    disabled={
+                      streaming ||
+                      connecting ||
+                      session !== null ||
+                      activeThread !== null ||
+                      profile !== null ||
+                      accounts.isPending
+                    }
+                    onChange={(event) => setPickedAccount(event.target.value)}
+                  >
+                    {accountHome === undefined ? (
+                      <option value={accountRef ?? ''}>{accountLabel}</option>
+                    ) : null}
+                    {accountProvider?.homes.map((home) => (
+                      <option
+                        key={home.id}
+                        value={`${accountProviderId}:${home.id}`}
+                        disabled={home.disabled}
+                      >
+                        {home.label}
+                        {home.disabled ? ' · disabled' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
               {session === null ? (
                 <button
                   className="configChip"
@@ -814,6 +909,7 @@ export function ChatPane({
                   disabled={
                     connecting ||
                     streaming ||
+                    accountBlocked ||
                     cwd.length === 0 ||
                     (profile === null && selected === null)
                   }
@@ -918,6 +1014,7 @@ export function ChatPane({
                   disabled={
                     connecting ||
                     draft.trim().length === 0 ||
+                    accountBlocked ||
                     (profile === null && (selected === null || cwd.length === 0)) ||
                     (profile !== null && profile.defaultCwd === null)
                   }

@@ -1,4 +1,3 @@
-import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   existsSync,
@@ -27,7 +26,6 @@ import {
   type AuthConflict,
   type IsolatedLoginProviderId,
   type QuotaProviderId,
-  type QuotaWindow,
 } from '@builderhelm/protocol';
 import {
   BuilderHelmError,
@@ -46,6 +44,7 @@ const ACTIVE_KEY = 'accounts.active';
 // `accounts.quota` key cannot be attributed to a login and is ignored.
 const QUOTA_KEY = 'accounts.quotaByHome';
 const HOOK_SYSTEM_KEY = 'accounts.claudeHookSystem';
+const MAX_EXTRA_HOMES = 15;
 const LABELS: Record<QuotaProviderId, string> = {
   claude: 'Claude',
   codex: 'Codex',
@@ -129,6 +128,8 @@ interface StoredHome {
   readonly label: string;
   readonly kind: 'managed' | 'attached';
   readonly configRoot: string;
+  /** Kept for its history, but never used to start anything. */
+  readonly disabled?: boolean;
 }
 
 function parseHomes(raw: string | undefined): Record<QuotaProviderId, StoredHome[]> {
@@ -146,7 +147,7 @@ function parseHomes(raw: string | undefined): Record<QuotaProviderId, StoredHome
     for (const id of ISOLATED_LOGIN_PROVIDER_IDS) {
       const list = (value as Record<string, unknown>)[id];
       if (!Array.isArray(list)) continue;
-      next[id] = list.flatMap((entry): StoredHome[] => {
+      next[id] = list.slice(0, MAX_EXTRA_HOMES).flatMap((entry): StoredHome[] => {
         if (entry === null || typeof entry !== 'object') return [];
         const row = entry as Record<string, unknown>;
         if (typeof row.id !== 'string' || row.id.length === 0 || row.id.length > 64) {
@@ -154,13 +155,22 @@ function parseHomes(raw: string | undefined): Record<QuotaProviderId, StoredHome
         }
         if (typeof row.label !== 'string' || row.label.length === 0) return [];
         const configRoot =
-          typeof row.configRoot === 'string' && row.configRoot.length > 0
+          typeof row.configRoot === 'string' &&
+          row.configRoot.length > 0 &&
+          row.configRoot.length <= 4096 &&
+          isAbsolute(row.configRoot)
             ? row.configRoot
             : null;
         if (row.id === SYSTEM_ACCOUNT_ID || configRoot === null) return [];
         // Homes stored before attach existed were all created by BuilderHelm.
         const kind = row.kind === 'attached' ? 'attached' : 'managed';
-        return [{ id: row.id, label: row.label.slice(0, 80), kind, configRoot }];
+        const home: StoredHome = {
+          id: row.id,
+          label: row.label.slice(0, 80),
+          kind,
+          configRoot,
+        };
+        return [row.disabled === true ? { ...home, disabled: true } : home];
       });
     }
     return next;
@@ -209,18 +219,6 @@ function parseQuota(raw: string | undefined): QuotaMap {
   } catch {
     return {};
   }
-}
-
-/**
- * A window whose reset time has passed has started over. Report it as fresh
- * with an unknown reset rather than replaying the finished window's figure.
- */
-function liveQuota(quota: AccountQuota, now: number): AccountQuota {
-  const live = (window: QuotaWindow): QuotaWindow =>
-    window.resetsAt === null || new Date(window.resetsAt).getTime() > now
-      ? window
-      : { ...window, usedPercent: 0, resetsAt: null };
-  return { ...quota, windows: quota.windows.map(live) };
 }
 
 /** Readings older than this are shown as stale. */
@@ -499,12 +497,6 @@ export class AccountsService {
   >();
   /** Epoch ms of the last Codex read per account ref. */
   private readonly codexReadAt = new Map<string, number>();
-  /** Epoch ms of the last Grok billing pull; the TUI spawn is not free. */
-  private lastGrokFetch: number | null = null;
-  /** Epoch ms while a Grok pull is in flight; null when idle. */
-  private grokFetchStarted: number | null = null;
-  /** Epoch ms of the last pull for a home that has never reported usage. */
-  private lastGrokFirstPull: number | null = null;
 
   hookSystemDefault(): boolean {
     return this.settings.read(HOOK_SYSTEM_KEY) === 'true';
@@ -534,12 +526,18 @@ export class AccountsService {
   }
 
   cliEnv(): Record<string, string> {
-    const env: Record<string, string> = {};
+    const env: Record<string, string> = {
+      CLAUDE_CONFIG_DIR: SYSTEM_AUTH_ROOT.claude,
+      CODEX_HOME: SYSTEM_AUTH_ROOT.codex,
+      GROK_HOME: SYSTEM_AUTH_ROOT.grok,
+    };
     const homes = this.homes();
     const active = this.active();
     for (const id of ISOLATED_LOGIN_PROVIDER_IDS) {
       const home = homes[id].find((entry) => entry.id === active[id]);
-      if (home === undefined || !existsSync(home.configRoot)) continue;
+      if (home === undefined || home.disabled === true || !existsSync(home.configRoot)) {
+        continue;
+      }
       try {
         if (statSync(home.configRoot).isDirectory())
           env[CONFIG_ENV[id]] = home.configRoot;
@@ -561,15 +559,86 @@ export class AccountsService {
     if (selected === null || !isIsolated(selected.provider)) return env;
     const key = CONFIG_ENV[selected.provider];
     if (selected.id === SYSTEM_ACCOUNT_ID) {
-      delete env[key];
+      env[key] = SYSTEM_AUTH_ROOT[selected.provider];
       return env;
     }
     const home = this.homes()[selected.provider].find(
       (entry) => entry.id === selected.id,
     );
-    if (home === undefined || !existsSync(home.configRoot)) return env;
+    if (home === undefined || home.disabled === true) {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'The selected login is removed or disabled. Pick an enabled login.',
+      );
+    }
+    let available = false;
+    try {
+      available = statSync(home.configRoot).isDirectory();
+    } catch {
+      /* unavailable */
+    }
+    if (!available) {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'The selected login folder is unavailable. Restore it or pick another login.',
+      );
+    }
     env[key] = home.configRoot;
     return env;
+  }
+
+  /**
+   * The login a new agent run uses and the environment that selects it. An
+   * explicit ref must name a usable login: a removed or disabled one fails
+   * the launch instead of quietly running on another account. With no ref,
+   * the provider's active login is used and named in the result.
+   */
+  launchFor(
+    provider: string,
+    accountRef: string | null,
+  ): { env: Record<string, string>; accountRef: string | null } {
+    const known = quotaProviderIdSchema.safeParse(provider);
+    if (!known.success) {
+      if (accountRef !== null)
+        throw new BuilderHelmError(
+          'VALIDATION_FAILED',
+          'This runtime cannot select a provider login.',
+        );
+      return { env: this.cliEnvFor(null), accountRef: null };
+    }
+    const id = known.data;
+    if (accountRef !== null) {
+      const selected = parseAccountRef(accountRef);
+      if (selected === null || selected.provider !== id) {
+        throw new BuilderHelmError(
+          'VALIDATION_FAILED',
+          `This agent is pinned to a login that is not a ${LABELS[id]} login. Pick another in the agent's settings.`,
+        );
+      }
+      if (selected.id !== SYSTEM_ACCOUNT_ID) {
+        const home = this.homes()[id].find((entry) => entry.id === selected.id);
+        if (home === undefined) {
+          throw new BuilderHelmError(
+            'VALIDATION_FAILED',
+            `The ${LABELS[id]} login this agent uses was removed. Pick another login before starting.`,
+          );
+        }
+        if (home.disabled === true) {
+          throw new BuilderHelmError(
+            'VALIDATION_FAILED',
+            `The ${LABELS[id]} login "${home.label}" is disabled. Enable it on Usage or pick another login.`,
+          );
+        }
+      }
+      return { env: this.cliEnvFor(accountRef), accountRef };
+    }
+    const active = this.active()[id];
+    const home = this.homes()[id].find((entry) => entry.id === active);
+    const ref =
+      home === undefined || home.disabled === true
+        ? `${id}:${SYSTEM_ACCOUNT_ID}`
+        : `${id}:${active}`;
+    return { env: this.cliEnvFor(ref), accountRef: ref };
   }
 
   /**
@@ -660,7 +729,7 @@ export class AccountsService {
   }
   async snapshot(live = false): Promise<AccountSnapshot> {
     if (live) {
-      await Promise.all([this.refreshCodex(), this.refreshGrok()]);
+      await this.refreshCodex();
     }
     const detections = await this.board.detectAgents();
     const byId = new Map(detections.map((agent) => [agent.id, agent]));
@@ -682,7 +751,7 @@ export class AccountsService {
         provider === 'grok' ? email : readAccountIdentity(provider, configRoot);
       const accountKey = identity === null ? null : identityKey(provider, identity);
       const raw = provider === 'grok' ? grokQuota(billing) : (stored[ref] ?? null);
-      const quota = raw === null ? null : liveQuota(raw, now);
+      const quota = raw;
       const issue = this.limitIssues.get(ref);
       const limits = ((): AccountHome['limits'] => {
         if (provider === 'opencode') {
@@ -696,7 +765,11 @@ export class AccountsService {
         if (quota !== null) {
           const age = now - new Date(quota.occurredAt).getTime();
           if (issue?.state === 'error') return { state: 'stale', message: issue.message };
-          return age > STALE_MS[quota.source]
+          const expired = quota.windows.some(
+            (window) =>
+              window.resetsAt !== null && new Date(window.resetsAt).getTime() <= now,
+          );
+          return expired || age > STALE_MS[quota.source]
             ? { state: 'stale', message: null }
             : { state: 'ok', message: null };
         }
@@ -747,6 +820,7 @@ export class AccountsService {
         id: SYSTEM_ACCOUNT_ID,
         label: systemEmail ?? 'System default',
         kind: 'system',
+        disabled: false,
         configRoot: null,
         email: systemEmail,
         active: activeId === SYSTEM_ACCOUNT_ID,
@@ -772,6 +846,7 @@ export class AccountsService {
             id: home.id,
             label,
             kind: home.kind,
+            disabled: home.disabled === true,
             configRoot: home.configRoot,
             email,
             active: home.id === activeId,
@@ -813,6 +888,11 @@ export class AccountsService {
       this.writeActive({ ...this.active(), [id]: pending.id });
       return this.snapshot();
     }
+    if (this.homes()[id].length >= MAX_EXTRA_HOMES)
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'Up to 15 additional logins per provider are supported. Disconnect one before adding another.',
+      );
     const homeId = createId();
     const configRoot = join(this.accountsRoot, id, homeId);
     mkdirSync(configRoot, { recursive: true });
@@ -883,6 +963,11 @@ export class AccountsService {
         `No ${LABELS[id]} login in that folder. Sign in with ${CONFIG_ENV[id]} pointing at it first.`,
       );
     }
+    if (homes[id].length >= MAX_EXTRA_HOMES)
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'Up to 15 additional logins per provider are supported. Disconnect one before attaching another.',
+      );
     const label = (homeEmail(id, root) ?? basename(root)).slice(0, 80);
     homes[id] = [
       ...homes[id],
@@ -1004,12 +1089,48 @@ export class AccountsService {
     rmSync(root, { recursive: true, force: true });
   }
 
-  async setActive(provider: QuotaProviderId, id: string): Promise<AccountSnapshot> {
-    if (
-      id !== SYSTEM_ACCOUNT_ID &&
-      !this.homes()[provider].some((home) => home.id === id)
-    ) {
+  /**
+   * A disabled login keeps its usage history and attached folder but cannot
+   * be active or start runs. Disabling the active login makes the system
+   * login active.
+   */
+  async setDisabled(
+    provider: QuotaProviderId,
+    id: string,
+    disabled: boolean,
+  ): Promise<AccountSnapshot> {
+    if (id === SYSTEM_ACCOUNT_ID) {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'The system default login stays enabled',
+      );
+    }
+    const homes = this.homes();
+    if (!homes[provider].some((entry) => entry.id === id)) {
       throw new BuilderHelmError('VALIDATION_FAILED', 'That account is gone');
+    }
+    homes[provider] = homes[provider].map((entry) => {
+      if (entry.id !== id) return entry;
+      return { ...entry, disabled };
+    });
+    this.writeHomes(homes);
+    const active = this.active();
+    if (disabled && active[provider] === id) {
+      this.writeActive({ ...active, [provider]: SYSTEM_ACCOUNT_ID });
+    }
+    return this.snapshot();
+  }
+
+  async setActive(provider: QuotaProviderId, id: string): Promise<AccountSnapshot> {
+    const home = this.homes()[provider].find((entry) => entry.id === id);
+    if (id !== SYSTEM_ACCOUNT_ID && home === undefined) {
+      throw new BuilderHelmError('VALIDATION_FAILED', 'That account is gone');
+    }
+    if (home?.disabled === true) {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'Enable this login before using it',
+      );
     }
     this.writeActive({ ...this.active(), [provider]: id });
     return this.snapshot();
@@ -1029,113 +1150,40 @@ export class AccountsService {
       ...this.homes().codex,
     ].filter((home) => authMarkerExists('codex', home.configRoot));
     const now = Date.now();
-    await Promise.all(
-      targets.map(async (home) => {
-        const ref = `codex:${home.id}`;
-        const last = this.codexReadAt.get(ref);
-        if (last !== undefined && now - last < CODEX_MIN_INTERVAL_MS) return;
-        this.codexReadAt.set(ref, now);
-        try {
-          const live = parseCodexRateLimits(
-            await this.readCodex(executable, { CODEX_HOME: home.configRoot }),
-            utcNow(),
-          );
-          if (live === null) {
+    for (let offset = 0; offset < targets.length; offset += 2) {
+      await Promise.all(
+        targets.slice(offset, offset + 2).map(async (home) => {
+          const ref = `codex:${home.id}`;
+          const last = this.codexReadAt.get(ref);
+          if (last !== undefined && now - last < CODEX_MIN_INTERVAL_MS) return;
+          this.codexReadAt.set(ref, now);
+          try {
+            const live = parseCodexRateLimits(
+              await this.readCodex(executable, { CODEX_HOME: home.configRoot }),
+              utcNow(),
+            );
+            if (live === null) {
+              this.limitIssues.set(ref, {
+                state: 'unavailable',
+                message:
+                  'Limits unavailable for this account: Codex reported no subscription windows (API-key logins have none).',
+              });
+              return;
+            }
+            this.limitIssues.delete(ref);
+            this.writeQuota(ref, live);
+          } catch {
+            // The raw error can carry account details; show a fixed message.
             this.limitIssues.set(ref, {
-              state: 'unavailable',
-              message:
-                'Limits unavailable for this account: Codex reported no subscription windows (API-key logins have none).',
+              state: 'error',
+              message: 'Codex could not report limits for this login. Last reading kept.',
             });
-            return;
           }
-          this.limitIssues.delete(ref);
-          this.writeQuota(ref, live);
-        } catch {
-          // The raw error can carry account details; show a fixed message.
-          this.limitIssues.set(ref, {
-            state: 'error',
-            message: 'Codex could not report limits for this login. Last reading kept.',
-          });
-        }
-      }),
-    );
-  }
-
-  /**
-   * The Grok CLI fetches billing only inside an interactive session — one-shot
-   * prompts never do. Spawn the TUI on a PTY with /usage piped, wait for the
-   * billing line to land in the home log, then quit. No prompt tokens spent;
-   * the /usage panel is a local render of the billing snapshot.
-   *
-   * Only signed-in homes are touched: a pending login would leave the TUI
-   * sitting on its own auth prompt until the timeout, stalling every refresh.
-   * A home that has never reported is pulled on the next refresh whatever the
-   * cadence, since that is the one case where the user watches an empty meter.
-   * Homes that already have numbers follow the two-minute cadence; the figures
-   * are a meter, not a counter.
-   */
-  private async refreshGrok(): Promise<void> {
-    if (this.grokFetchStarted !== null) return;
-    const signedIn = this.homes().grok.flatMap((home) =>
-      readGrokEmail(home.configRoot) !== null ? [home.configRoot] : [],
-    );
-    const due = this.lastGrokFetch === null || Date.now() - this.lastGrokFetch >= 120_000;
-    const firstEver = signedIn.filter((root) => this.grokBillingCount(root) === 0);
-    // Floor the first-ever retry so an account the CLI never reports for does
-    // not spawn a TUI on every poll.
-    const firstEverDue =
-      this.lastGrokFirstPull === null || Date.now() - this.lastGrokFirstPull >= 45_000;
-    const targets = due ? signedIn : firstEverDue ? firstEver : [];
-    if (targets.length === 0) return;
-    this.grokFetchStarted = Date.now();
-    try {
-      await Promise.all(targets.map((configRoot) => this.pullGrokBilling(configRoot)));
-    } finally {
-      this.grokFetchStarted = null;
-      if (due) this.lastGrokFetch = Date.now();
-      if (firstEver.length > 0) this.lastGrokFirstPull = Date.now();
-    }
-  }
-
-  private async pullGrokBilling(configRoot: string): Promise<void> {
-    const before = this.grokBillingCount(configRoot);
-    await new Promise<void>((resolve) => {
-      const child = spawn(
-        'script',
-        [
-          '-q',
-          '/dev/null',
-          'sh',
-          '-c',
-          `printf '/usage\\n' | GROK_HOME='${configRoot.replace(/'/g, '')}' grok`,
-        ],
-        { stdio: 'ignore' },
+        }),
       );
-      const done = (): void => {
-        clearTimeout(timer);
-        clearInterval(poll);
-        child.kill();
-        resolve();
-      };
-      const timer = setTimeout(done, 20_000);
-      const poll = setInterval(() => {
-        if (this.grokBillingCount(configRoot) > before) done();
-      }, 500);
-      child.on('exit', done);
-      child.on('error', done);
-    });
-  }
-
-  private grokBillingCount(configRoot: string): number {
-    try {
-      const log = readFileSync(join(configRoot, 'logs', 'unified.jsonl'), 'utf8');
-      return log
-        .split('\n')
-        .filter((line) => line.includes('billing: fetched credits config')).length;
-    } catch {
-      return 0;
     }
   }
+
   private writeQuota(ref: string, quota: AccountQuota): void {
     const next = { ...this.storedQuota(), [ref]: quota };
     this.settings.write(QUOTA_KEY, JSON.stringify(next), utcNow());

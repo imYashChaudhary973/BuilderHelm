@@ -13,7 +13,7 @@ import {
   parseChatUsage,
   parseClaudeTranscript,
   parseCodexRollout,
-  parseOpenCodeSessions,
+  parseOpenCodeMessages,
   type SourceContext,
 } from '../src/usage/adapters.js';
 
@@ -182,19 +182,21 @@ describe('Codex rollout adapter', () => {
 
 describe('OpenCode adapter', () => {
   it('folds separately reported reasoning into output and keeps the reported cost', () => {
-    const parsed = parseOpenCodeSessions(
+    const parsed = parseOpenCodeMessages(
       [
         {
-          id: 'ses_1',
+          id: 'msg_1',
+          session_id: 'ses_1',
           title: 'Fix login',
           directory: '/w/app',
-          model: '{"providerID":"anthropic","modelID":"claude-sonnet-5-5"}',
+          model_id: 'claude-sonnet-5-5',
           cost: 0.42,
           tokens_input: 1_000,
           tokens_output: 300,
           tokens_reasoning: 50,
           tokens_cache_read: 2_000,
           tokens_cache_write: 100,
+          time_created: Date.parse('2026-10-08T10:00:00Z'),
           time_updated: Date.parse('2026-10-08T10:00:00Z'),
         },
       ],

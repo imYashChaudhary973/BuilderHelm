@@ -134,7 +134,12 @@ export function parseClaudeTranscript(
       inference_geo: geo === 'not_available' ? null : geo,
       source: 'claude-transcript',
       source_id: context.sourceId,
-      complete: true,
+      complete: [
+        'input_tokens',
+        'output_tokens',
+        'cache_read_input_tokens',
+        'cache_creation_input_tokens',
+      ].every((key) => typeof usage[key] === 'number'),
     });
   }
   return { records, skipped };
@@ -248,44 +253,37 @@ export function parseCodexRollout(
 
 // ── OpenCode ────────────────────────────────────────────────────────────────
 
-export interface OpenCodeSessionRow extends Record<string, unknown> {
+export interface OpenCodeMessageRow extends Record<string, unknown> {
   id: string;
+  session_id: string;
   title: string | null;
   directory: string;
-  model: string | null;
-  cost: number;
-  tokens_input: number;
-  tokens_output: number;
-  tokens_reasoning: number;
-  tokens_cache_read: number;
-  tokens_cache_write: number;
+  model_id: string | null;
+  cost: number | null;
+  tokens_input: number | null;
+  tokens_output: number | null;
+  tokens_reasoning: number | null;
+  tokens_cache_read: number | null;
+  tokens_cache_write: number | null;
+  time_created: number;
   time_updated: number;
 }
 
-/** OpenCode stores `{"providerID":..,"modelID":..}` or a bare id. */
-function openCodeModel(raw: string | null): string | null {
-  if (raw === null) return null;
-  const parsed = raw.trim().startsWith('{') ? parseLine(raw) : null;
-  if (parsed !== null) return text(parsed.modelID ?? parsed.id, 200);
-  const slash = raw.lastIndexOf('/');
-  return text(slash >= 0 ? raw.slice(slash + 1) : raw, 200);
-}
-
-/**
- * OpenCode keeps running totals per session, so each session is one record
- * that is replaced as the session grows. It reports reasoning separately
- * from output; here it is folded into output so the categories add up, and
- * kept as the reasoning share. OpenCode's own cost is kept as reported.
- */
-export function parseOpenCodeSessions(
-  rows: readonly OpenCodeSessionRow[],
+/** Message-level counters retain the model and day of each actual call. */
+export function parseOpenCodeMessages(
+  rows: readonly OpenCodeMessageRow[],
   context: SourceContext,
 ): ParsedUsage {
   const records: UsageRecordWrite[] = [];
   let skipped = 0;
   for (const row of rows) {
-    const occurredAt = isoOrNull(row.time_updated);
-    if (occurredAt === null || typeof row.id !== 'string') {
+    const occurredAt = isoOrNull(row.time_created);
+    if (
+      occurredAt === null ||
+      typeof row.id !== 'string' ||
+      row.tokens_input === null ||
+      row.tokens_output === null
+    ) {
       skipped += 1;
       continue;
     }
@@ -295,17 +293,16 @@ export function parseOpenCodeSessions(
     const cacheRead = count(row.tokens_cache_read);
     const cacheWrite = count(row.tokens_cache_write);
     if (uncached + cacheRead + cacheWrite + output === 0) continue;
-    const cost = typeof row.cost === 'number' && row.cost > 0 ? row.cost : null;
     records.push({
       event_key: `opencode:${row.id}`,
       provider: 'opencode',
       account_key: context.accountKey,
       account_ref: context.accountRef,
       environment: context.environment,
-      session_id: row.id.slice(0, 256),
+      session_id: row.session_id.slice(0, 256),
       session_label:
         text(row.title, 200) ?? (basename(row.directory).slice(0, 200) || null),
-      model_id: openCodeModel(row.model),
+      model_id: text(row.model_id, 200),
       occurred_at: occurredAt,
       uncached_input_tokens: uncached,
       cache_read_tokens: cacheRead,
@@ -313,13 +310,19 @@ export function parseOpenCodeSessions(
       cache_write_1h_tokens: 0,
       output_tokens: output,
       reasoning_tokens: reasoning,
-      reported_cost_usd: cost,
+      reported_cost_usd:
+        typeof row.cost === 'number' && Number.isFinite(row.cost) && row.cost >= 0
+          ? row.cost
+          : null,
       service_tier: null,
       speed: null,
       inference_geo: null,
       source: 'opencode-db',
       source_id: context.sourceId,
-      complete: true,
+      complete:
+        row.tokens_cache_read !== null &&
+        row.tokens_cache_write !== null &&
+        row.tokens_reasoning !== null,
     });
   }
   return { records, skipped };

@@ -19,6 +19,7 @@ import type {
   AccountRemoveInput,
   AccountRenameInput,
   AccountSetActiveInput,
+  AccountSetDisabledInput,
   AccountSnapshot,
   AccountSnapshotInput,
   AccountToggleHookInput,
@@ -377,6 +378,7 @@ export const ipcChannels = {
   accountLoginTerminal: 'builderhelm:accounts:login-terminal',
   accountRemove: 'builderhelm:accounts:remove',
   accountSetActive: 'builderhelm:accounts:set-active',
+  accountSetDisabled: 'builderhelm:accounts:set-disabled',
   accountToggleHook: 'builderhelm:accounts:toggle-hook',
   usageReport: 'builderhelm:usage:report',
   pricingState: 'builderhelm:usage:pricing-state',
@@ -728,6 +730,7 @@ export interface BuilderHelmDesktopApi {
     ): Promise<{ readonly opened: true }>;
     remove(input: AccountRemoveInput): Promise<AccountSnapshot>;
     setActive(input: AccountSetActiveInput): Promise<AccountSnapshot>;
+    setDisabled(input: AccountSetDisabledInput): Promise<AccountSnapshot>;
     toggleHook(input: AccountToggleHookInput): Promise<AccountSnapshot>;
   };
   /** Measured token usage and its estimated API-equivalent cost. */

@@ -18,7 +18,7 @@ export function formatReset(iso: string | null): string | null {
   if (iso === null) return null;
   const ms = new Date(iso).getTime() - Date.now();
   if (Number.isNaN(new Date(iso).getTime())) return iso;
-  if (ms <= 0) return 'now';
+  if (ms <= 0) return 'reset passed';
   const minutes = Math.max(1, Math.floor(ms / 60_000));
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
@@ -98,7 +98,7 @@ export function limitCards(provider: AccountProvider): readonly LimitCard[] {
       title: sample.label,
       segments: accounts.map((home) => ({
         key: home.id,
-        label: home.label,
+        label: home.disabled ? `${home.label} · disabled` : home.label,
         window: home.quota?.windows.find((window) => window.id === sample.id) ?? null,
         credits: home.quota?.resetCreditsAvailable ?? 0,
         staleSince:
@@ -188,10 +188,7 @@ function LimitIssues({
   readonly provider: AccountProvider;
 }): React.JSX.Element | null {
   const issues = distinctAccounts(provider).filter(
-    (home) =>
-      home.limits.state !== 'ok' &&
-      home.limits.state !== 'stale' &&
-      home.limits.message !== null,
+    (home) => home.limits.state !== 'ok' && home.limits.message !== null,
   );
   if (issues.length === 0) return null;
   return (

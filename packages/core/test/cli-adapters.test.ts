@@ -230,3 +230,13 @@ else process.stdout.write(JSON.stringify({ structured_output: JSON.parse(result)
     ).toThrow(/cannot set an explicit effort/);
   });
 });
+
+it('refuses an explicit account on a CLI path that cannot bind it', () => {
+  expect(() =>
+    swarmSeatArgv('codex', 'test', 'safe', {
+      model: null,
+      effort: null,
+      accountRef: 'codex:work',
+    }),
+  ).toThrow(/cannot bind an explicit login/);
+});

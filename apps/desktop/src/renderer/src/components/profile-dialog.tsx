@@ -210,7 +210,7 @@ export function ProfileDialog({
         ))}
       </select>
 
-      {logins.length > 1 && (
+      {(logins.length > 0 || pickedMissing) && (
         <>
           <label className="wizardLabel" htmlFor="profile-account">
             Login
@@ -224,12 +224,17 @@ export function ProfileDialog({
           >
             <option value="">Active login (set on Usage)</option>
             {logins.map((home) => (
-              <option value={`${agentId}:${home.id}`} key={home.id}>
+              <option
+                value={`${agentId}:${home.id}`}
+                key={home.id}
+                disabled={home.disabled}
+              >
                 {home.label}
+                {home.disabled ? ' · disabled' : ''}
               </option>
             ))}
             {pickedMissing && (
-              <option value={pickedRef}>Removed login · uses the active one</option>
+              <option value={pickedRef}>Removed login · choose another</option>
             )}
           </select>
         </>

@@ -38,3 +38,7 @@ export * from './runtimes/runtime-capability-service.js';
 export * from './platform/host-paths.js';
 export * from './platform/process-tree.js';
 export * from './diagnostics/diagnostics-service.js';
+
+export { UsageService } from './usage/usage-service.js';
+export { PricingService } from './usage/pricing.js';
+export type { LoginLocation } from './accounts/accounts-service.js';

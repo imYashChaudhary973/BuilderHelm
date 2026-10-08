@@ -13,6 +13,7 @@ import {
   accountRemoveRequestSchema,
   accountRenameRequestSchema,
   accountSetActiveRequestSchema,
+  accountSetDisabledRequestSchema,
   accountSnapshotIpcResponseSchema,
   accountSnapshotRequestSchema,
   accountToggleHookRequestSchema,
@@ -23,6 +24,8 @@ import {
   pricingUpdateRequestSchema,
   usageReportIpcResponseSchema,
   usageReportRequestSchema,
+  type UsageReport,
+  type UsageReportInput,
 } from '@builderhelm/protocol/usage';
 import {
   noSleepIpcResponseSchema,
@@ -447,6 +450,7 @@ export function registerIpcHandlers(
   auth?: AuthHandoff,
   agents?: { manager: AgentManager; registry: AgentRegistry; profiles: AgentProfiles },
   runtimes?: { capabilities: RuntimeCapabilityService },
+  usageReport?: (input: UsageReportInput) => Promise<UsageReport>,
 ): () => void {
   const preview = new PreviewBrowser(core.browserSettings);
   const desktop = new DesktopControl();
@@ -3056,6 +3060,23 @@ export function registerIpcHandlers(
       });
     }
   });
+  ipcMain.handle(ipcChannels.accountSetDisabled, async (_event, input: unknown) => {
+    try {
+      const request = accountSetDisabledRequestSchema.parse(input);
+      const value = await core.accounts.setDisabled(
+        request.input.provider,
+        request.input.id,
+        request.input.disabled,
+      );
+      onAccountsChanged?.();
+      return accountSnapshotIpcResponseSchema.parse({ ok: true, value });
+    } catch (error) {
+      return accountSnapshotIpcResponseSchema.parse({
+        ok: false,
+        error: ipcError(error),
+      });
+    }
+  });
   ipcMain.handle(ipcChannels.accountToggleHook, async (_event, input: unknown) => {
     try {
       const request = accountToggleHookRequestSchema.parse(input);
@@ -3075,7 +3096,9 @@ export function registerIpcHandlers(
   ipcMain.handle(ipcChannels.usageReport, async (_event, input: unknown) => {
     try {
       const request = usageReportRequestSchema.parse(input);
-      const value = await core.usage.report(request.input);
+      const value = await (usageReport === undefined
+        ? core.usage.report(request.input)
+        : usageReport(request.input));
       return usageReportIpcResponseSchema.parse({ ok: true, value });
     } catch (error) {
       return usageReportIpcResponseSchema.parse({ ok: false, error: ipcError(error) });
@@ -3487,6 +3510,7 @@ export function registerIpcHandlers(
     ipcMain.removeHandler(ipcChannels.accountAdd);
     ipcMain.removeHandler(ipcChannels.accountAttach);
     ipcMain.removeHandler(ipcChannels.accountRename);
+    ipcMain.removeHandler(ipcChannels.accountSetDisabled);
     ipcMain.removeHandler(ipcChannels.usageReport);
     ipcMain.removeHandler(ipcChannels.pricingState);
     ipcMain.removeHandler(ipcChannels.pricingUpdate);

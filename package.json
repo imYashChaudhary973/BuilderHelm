@@ -25,7 +25,8 @@
     "test:migrations": "vitest run packages/db/test/migrations.test.ts",
     "smoke:desktop": "pnpm --filter @builderhelm/desktop smoke",
     "smoke:packaged": "pnpm --filter @builderhelm/desktop smoke:packaged",
-    "verify": "pnpm check:architecture && pnpm check:licenses && pnpm check:telemetry && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "verify": "pnpm check:architecture && pnpm check:licenses && pnpm check:telemetry && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "smoke:usage": "pnpm --filter @builderhelm/desktop smoke:usage"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

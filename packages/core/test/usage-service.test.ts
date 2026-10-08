@@ -1,6 +1,7 @@
 import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 
 import {
   migrations,
@@ -50,7 +51,10 @@ function claudeHome(name: string, files: Record<string, string>): string {
   return root;
 }
 
-function setup(logins: LoginLocation[]): {
+function setup(
+  logins: LoginLocation[],
+  openCodeDataDir = join(tmpdir(), 'no-opencode-here'),
+): {
   usage: UsageService;
   pricing: PricingService;
 } {
@@ -63,7 +67,7 @@ function setup(logins: LoginLocation[]): {
     { logins: () => logins },
     pricing,
     logger,
-    join(tmpdir(), 'no-opencode-here'),
+    openCodeDataDir,
   );
   return { usage, pricing };
 }
@@ -167,4 +171,67 @@ describe('UsageService', () => {
       'unavailable',
     );
   });
+});
+
+it('reads OpenCode message models and days, replaces live counters, and preserves cursor ties', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'usage-oc-'));
+  folders.push(root);
+  const db = new DatabaseSync(join(root, 'opencode.db'));
+  db.exec(
+    `CREATE TABLE session_v2 (id TEXT PRIMARY KEY, title TEXT, directory TEXT); CREATE TABLE session_message (id TEXT PRIMARY KEY, session_id TEXT, type TEXT, time_created INTEGER, time_updated INTEGER, data TEXT); INSERT INTO session_v2 VALUES ('session', 'Two models', '/w/app');`,
+  );
+  const write = (
+    id: string,
+    model: string,
+    input: number,
+    created: number,
+    updated: number,
+  ) => {
+    db.prepare('INSERT OR REPLACE INTO session_message VALUES (?, ?, ?, ?, ?, ?)').run(
+      id,
+      'session',
+      'assistant',
+      created,
+      updated,
+      JSON.stringify({
+        model: { id: model },
+        tokens: { input, output: 30, reasoning: 5, cache: { read: 10, write: 0 } },
+        cost: 0.42,
+        content: [{ text: 'This prompt never enters the usage ledger' }],
+      }),
+    );
+  };
+  write('m1', 'first-model', 100, Date.parse('2026-10-01T10:00:00Z'), 1000);
+  write('m2', 'second-model', 200, Date.parse('2026-10-02T10:00:00Z'), 1000);
+  const { usage } = setup(
+    [
+      {
+        provider: 'opencode',
+        accountRef: 'opencode:system',
+        label: 'OpenCode',
+        root,
+        identity: null,
+      },
+    ],
+    root,
+  );
+  try {
+    let report = await usage.report({ range: 'all', environment: null, rescan: true });
+    expect(report.totals.tokens.total).toBe(390);
+    expect(report.byModel.map((row) => row.label)).toEqual([
+      'second-model',
+      'first-model',
+    ]);
+    expect(report.byDay).toHaveLength(2);
+    expect(report.sources.find((source) => source.provider === 'opencode')?.state).toBe(
+      'ok',
+    );
+    write('m1', 'first-model', 150, Date.parse('2026-10-01T10:00:00Z'), 1000);
+    report = await usage.report({ range: 'all', environment: null, rescan: true });
+    expect(report.totals.tokens.records).toBe(2);
+    expect(report.totals.tokens.total).toBe(440);
+    expect(report.totals.cost.reportedUsd).toBeCloseTo(0.84);
+  } finally {
+    db.close();
+  }
 });

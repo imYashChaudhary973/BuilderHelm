@@ -122,9 +122,12 @@ export class AcpConnection {
     });
 
     this.child.on('exit', (code) => {
-      const stderr = this.stderrTail;
-      // The tail is the only diagnostic for an agent that dies at startup, so
-      // it belongs in the message the user actually sees.
+      const stderr =
+        this.stderrTail.trim().length === 0
+          ? ''
+          : 'The agent wrote diagnostics to stderr. Run its CLI locally for details.';
+      // Provider diagnostics may contain credentials. Persist only the fixed
+      // instruction above, while preserving whether diagnostics were written.
       const tail =
         stderr.trim().length === 0 ? '' : ` It wrote: ${stderr.slice(-400).trim()}`;
       this.failAll(
@@ -257,7 +260,7 @@ export class AcpConnection {
           'VALIDATION_FAILED',
           'The agent sent a line that was not JSON.',
           {
-            metadata: { command: this.options.command, preview: line.slice(0, 200) },
+            metadata: { command: this.options.command },
           },
         ),
       );
@@ -281,10 +284,20 @@ export class AcpConnection {
     this.pending.delete(frame.id);
     clearTimeout(waiter.timer);
     if (frame.error !== undefined) {
+      const remoteError =
+        typeof frame.error === 'object' && frame.error !== null ? frame.error : null;
       waiter.reject(
-        new BuilderHelmError('TOOL_EXECUTION_FAILED', frame.error.message, {
-          metadata: { code: frame.error.code, data: frame.error.data },
-        }),
+        new BuilderHelmError(
+          'TOOL_EXECUTION_FAILED',
+          /authentication required|not authenticated|unauthorized|please log in|please sign in/i.test(
+            String(remoteError?.message),
+          )
+            ? 'Agent authentication required. Sign in using its own login flow.'
+            : 'The agent could not complete this request. Check its local CLI for details.',
+          {
+            metadata: { code: remoteError?.code ?? null },
+          },
+        ),
       );
       return;
     }

@@ -16,6 +16,7 @@ import {
   accountAddInputSchema,
   accountAttachInputSchema,
   accountRenameInputSchema,
+  accountSetDisabledInputSchema,
   accountConfirmLoginInputSchema,
   accountLoginTerminalInputSchema,
   accountRemoveInputSchema,
@@ -1607,6 +1608,13 @@ const api: BuilderHelmDesktopApi = {
       const response: unknown = await ipcRenderer.invoke(ipcChannels.accountSetActive, {
         correlationId: globalThis.crypto.randomUUID(),
         input: accountSetActiveInputSchema.parse(input),
+      });
+      return unwrap(accountSnapshotIpcResponseSchema.parse(response));
+    },
+    async setDisabled(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.accountSetDisabled, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: accountSetDisabledInputSchema.parse(input),
       });
       return unwrap(accountSnapshotIpcResponseSchema.parse(response));
     },
