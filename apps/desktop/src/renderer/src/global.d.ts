@@ -17,6 +17,8 @@ declare global {
 
   /** Branch and short SHA injected by electron-vite at build time. */
   const __BUILD_STAMP__: string;
+  /** Explicit opt-in, enabled only by the development server. */
+  const __LOCAL_DEVELOPMENT__: boolean;
 }
 
 export {};

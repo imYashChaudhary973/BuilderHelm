@@ -64,8 +64,14 @@ function wirePath(index: number, count: number): string {
 
 export function LoginScreen({
   state,
+  onContinueLocal,
+  localOpening = false,
+  localError = null,
 }: {
   readonly state: AuthState | null;
+  readonly onContinueLocal?: (() => void) | undefined;
+  readonly localOpening?: boolean;
+  readonly localError?: string | null;
 }): React.JSX.Element {
   // splashEnabled() already encodes prefers-reduced-motion for the launch
   // animation; the gate reuses it so both surfaces agree.
@@ -197,6 +203,24 @@ export function LoginScreen({
             <p className="loginHint">
               Opens your browser once, then hands the session back.
             </p>
+          </div>
+        )}
+        {onContinueLocal === undefined ? null : (
+          <div className="loginActions">
+            {localError === null ? null : (
+              <p className="loginError" role="alert">
+                {localError}
+              </p>
+            )}
+            <button
+              type="button"
+              className="loginButton loginButtonGhost"
+              disabled={localOpening}
+              onClick={onContinueLocal}
+            >
+              {localOpening ? 'Opening local workspace…' : 'Continue locally'}
+            </button>
+            <p className="loginHint">Local development · account stays signed out</p>
           </div>
         )}
       </div>

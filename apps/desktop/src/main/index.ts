@@ -58,6 +58,11 @@ let voiceHotkeys: VoiceHotkeys | undefined;
 let quotaIngest: { scriptPath(): string | null; close(): void } | undefined;
 let smokeDatabasePath: string | undefined;
 let scheduleTimer: ReturnType<typeof setInterval> | undefined;
+// A packaged app always loads its own renderer, even if a shell inherited
+// the dev-server environment variable.
+const developmentRendererUrl = app.isPackaged
+  ? undefined
+  : process.env.ELECTRON_RENDERER_URL;
 
 async function completeSmokeWhenRendererIsReady(window: BrowserWindow): Promise<void> {
   const deadline = Date.now() + 10_000;
@@ -148,8 +153,8 @@ function createWindow(): BrowserWindow {
     }
   });
 
-  if (process.env.ELECTRON_RENDERER_URL) {
-    void window.loadURL(process.env.ELECTRON_RENDERER_URL);
+  if (developmentRendererUrl) {
+    void window.loadURL(developmentRendererUrl);
   } else {
     void window.loadFile(join(__dirname, '../renderer/index.html'));
   }
@@ -276,7 +281,7 @@ app
       const policy = details.url.split('?')[0]?.endsWith(ELEMENTS_HOST_PATH)
         ? buildElementsHostPolicy()
         : buildContentSecurityPolicy({
-            dev: Boolean(process.env.ELECTRON_RENDERER_URL),
+            dev: Boolean(developmentRendererUrl),
           });
       callback({
         responseHeaders: {

@@ -36,6 +36,12 @@ The renderer never receives filesystem, process, database, credential, or raw
 Electron access. The preload exposes one method per operation and validates the
 request and response against `packages/protocol` schemas.
 
+An explicitly opted-in development renderer can open a signed-out local workspace.
+This changes only the development UI gate; the account service and credential
+store retain their real state. Every built renderer disables that entry, and a
+packaged desktop ignores inherited dev-server URLs. The local launcher owns its
+child process tree and uses a temporary database and Electron profile.
+
 ## Package ownership
 
 | Package                  | Owns                                                                   |

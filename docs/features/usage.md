@@ -1,6 +1,6 @@
 # Usage, pricing, and subscription limits
 
-Status: implemented on `feat/providers`; unmerged. The desktop renderer calls
+Status: integrated through PR #39. The desktop renderer calls
 validated preload methods. History scanning, foreign database reads, and report
 aggregation run in a worker, separate from Electron main.
 

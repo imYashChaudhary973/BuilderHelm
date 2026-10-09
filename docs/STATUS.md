@@ -1,7 +1,8 @@
 # Implementation status
 
 Integrated baseline last reviewed: 2026-09-07 (PRs #30 and #31 landed).
-Provider Usage branch reviewed: 2026-10-08.
+Provider Usage integrated: 2026-10-09 (PR #39).
+Local development entry verified: 2026-10-09.
 
 This document distinguishes working code from planned product scope. A feature
 is not shipped merely because a route, mock, fixture, or documentation page exists.
@@ -16,9 +17,9 @@ Status labels used below:
 - **Unmerged** — live branch work; recorded per feature under "Unmerged work".
 - **Planned** — see "Planned, not shipped".
 
-## Provider Usage development — Oct 8, 2026
+## Provider Usage — integrated Oct 9, 2026
 
-`feat/providers` is unmerged. It implements normalized Claude/Codex/OpenCode/API
+PR #39 integrates normalized Claude/Codex/OpenCode/API
 usage, incremental durable scans, API-equivalent prices and overrides, Cost/Tokens
 views, per-account Limits, explicit login selection, and account-bound ACP threads.
 This work does not establish parity with T3 Code where a CLI exposes no history
@@ -28,8 +29,24 @@ Local evidence: 630 tests passed, 7 real-runtime checks skipped; architecture,
 licenses, telemetry, formatting, lint, and typecheck pass. The desktop build and
 built usage-worker smoke pass against temporary data, including concurrent app
 writes. The production-renderer fixture walkthrough exercises the desktop IPC
-backend; real subscription sign-ins/paid turns, packaged click-through, remote
-clients, Windows/Linux, and hosted CI are not established by this evidence.
+backend. Hosted CI passed for PR #39. Real subscription sign-ins/paid turns,
+packaged click-through, remote clients, and Windows/Linux remain unverified.
+
+## Local development entry — Oct 9, 2026
+
+`pnpm dev:local` opens a signed-out local workspace using a temporary database
+and Electron profile. The title bar identifies local mode and offers a return
+to sign-in. Every build disables this opt-in, and packaged apps ignore dev-server
+URLs. The account service keeps its real state; no session or licence is forged.
+See [the local development contract](features/local-development.md).
+
+Local evidence: 632 tests pass, 7 real-runtime checks remain skipped, and repository
+checks and the desktop build/smoke pass. A native Electron walkthrough verifies
+local entry, return to the login screen, Continue locally, and the Account page's
+signed-out state. Unsigned macOS arm64 packaged startup smoke passes with the dev
+flag set and an unreachable renderer URL; packaged click-through remains unverified.
+Live account sign-in, paid provider turns, Windows/Linux, mobile,
+and remote clients are not exercised by this development-mode evidence.
 
 ## Integrated implementation (`main`)
 
