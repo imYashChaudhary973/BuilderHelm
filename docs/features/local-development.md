@@ -1,9 +1,9 @@
 # Local development entry
 
-Status: implemented on `feat/local-development`, based on the unmerged
-`feat/providers` usage feature. This is an opt-in desktop development entry.
+Status: implemented. This is an opt-in desktop development entry alongside
+the integrated provider usage feature.
 
-Run from its worktree:
+Run from a repository checkout:
 
 ```sh
 pnpm dev:local
