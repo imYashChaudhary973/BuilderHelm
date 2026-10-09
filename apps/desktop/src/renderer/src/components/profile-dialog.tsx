@@ -1,6 +1,8 @@
 import type { AgentCandidate, AgentProfile } from '@builderhelm/protocol';
 import type { AccountSnapshot } from '@builderhelm/protocol/accounts';
 import { useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { AgentAvailability } from './agent-availability.js';
 
 import { BotMark } from './agent-roster.js';
 import type { AgentProfileMark } from '@builderhelm/protocol';
@@ -44,6 +46,11 @@ export function ProfileDialog({
   const [candidates, setCandidates] = useState<readonly AgentCandidate[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const runtimes = useQuery({
+    queryKey: ['runtime-capabilities'],
+    queryFn: () => window.builderHelm.runtimes.capabilities(),
+    staleTime: 30_000,
+  });
 
   useEffect(() => {
     let active = true;
@@ -210,6 +217,8 @@ export function ProfileDialog({
         ))}
       </select>
 
+      <AgentAvailability runtimes={runtimes.data?.runtimes ?? []} />
+
       {(logins.length > 0 || pickedMissing) && (
         <>
           <label className="wizardLabel" htmlFor="profile-account">
@@ -263,6 +272,10 @@ export function ProfileDialog({
         placeholder="Optional standing instructions. Skills cannot grant tools."
         onChange={(event) => setInstructions(event.target.value)}
       />
+      <p className="threadPrivacy">
+        Instructions apply to new conversations. Existing conversations keep the
+        instructions they started with.
+      </p>
 
       {error !== null && (
         <p className="chatError" role="alert">

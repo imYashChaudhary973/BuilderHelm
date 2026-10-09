@@ -23,6 +23,26 @@ An agent is a saved configuration, not a permanently running process. A bot is
 an agent profile used for recurring or specialized work. Creating a profile
 must not spawn a process. Switching tabs must not cancel a running task.
 
+### Conversation continuity
+
+New profile-backed ACP threads snapshot their standing instructions locally.
+Each prompt includes those instructions as ACP text context while the visible
+user transcript keeps only the user's message. Editing or deleting the profile
+does not change existing threads, and instructions never authorize a tool.
+
+Threads remember effective model, mode, and thought-level selections. Resume
+restores the model first, then mode and dependent effort, using the agent's fresh
+advertised choices. A missing choice or an ignored configuration response fails
+the connection rather than substituting another model. Legacy threads default
+to empty instruction context and have no saved selections until connected.
+
+Desktop quit rejects new agent starts, cancels pending approvals, and waits for
+owned ACP processes and final events before closing SQLite. Code's initial
+launcher displays errors and exposes explicit Isolated/Shared selection; an
+empty Git repository still needs an initial commit for an isolated worktree.
+The Editor's selected file and unsaved draft survive tool remounts within the
+running workspace. This does not promise active-file restoration after restart.
+
 ## What already exists
 
 - `apps/desktop/src/main/acp/`: installed-agent discovery, sessions, permission

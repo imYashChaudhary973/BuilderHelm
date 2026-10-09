@@ -108,23 +108,40 @@ export class RuntimeCapabilityService {
     checkedAt: string,
   ): Promise<RuntimeCapability> {
     const label = group[0]!.label;
-    const command = group[0]!.command;
-    const path = await this.resolve(command);
+    const detected = await Promise.all(
+      group.map(async (declaration) => ({
+        declaration,
+        path: await this.resolve(declaration.command),
+      })),
+    );
+    const available = detected.filter((entry) => entry.path !== null);
+    const path = available[0]?.path ?? null;
     const version = path === null ? null : await this.probeVersion(path);
 
-    const transports = [...new Set(group.map((entry) => entry.transport))].sort();
-    const verified = group
+    const transports = [
+      ...new Set(available.map((entry) => entry.declaration.transport)),
+    ].sort();
+    const verified = available
+      .map((entry) => entry.declaration)
       .map((entry) => entry.verified)
       .filter((tier): tier is RuntimeTier => tier !== null);
     const tier = deriveTier(path !== null, verified);
 
-    const missing = group.filter((entry) => entry.configured && path === null);
+    const missing = detected.filter(
+      (entry) => entry.declaration.configured && entry.path === null,
+    );
     const unverified = path !== null && verified.length === 0;
     let detail: string | null = null;
+    const missingAcp = detected.find(
+      (entry) => entry.declaration.transport === 'acp' && entry.path === null,
+    );
     if (path === null && missing.length > 0) {
-      detail = `Configured command "${command}" no longer resolves on PATH.`;
+      detail = `Configured command "${missing[0]!.declaration.command}" no longer resolves on PATH.`;
+    } else if (missingAcp !== undefined) {
+      detail =
+        `Structured chat needs ${basename(missingAcp.declaration.command)} on PATH. Install or configure your own ACP adapter, then reopen this view. ${transports.includes('pty') ? `${label} is available in Code terminals.` : ''}`.trim();
     } else if (unverified) {
-      detail = `Detected ${basename(command)} but no BuilderHelm-checked path has exercised it yet.`;
+      detail = `Detected ${basename(path!)} but no BuilderHelm-checked path has exercised it yet.`;
     }
 
     return {
