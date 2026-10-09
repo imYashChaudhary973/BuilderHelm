@@ -58,7 +58,11 @@ configured connections are not implemented.
 
 Users can add, attach, rename, disconnect, disable, and manually select logins
 (up to 15 additional folders per provider).
-System logins use the CLI's default folder. Managed logins use a folder created
+System logins inherit the CLI's native environment, including a host-defined
+`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, or `GROK_HOME`. When these are absent, the CLI
+uses its own defaults; BuilderHelm does not inject a default-looking redirect.
+Explicit System selection removes a managed/attached active-login override.
+Managed logins use a folder created
 under BuilderHelm's data directory and the CLI's own sign-in command. Attached
 folders are selected through the native picker, resolved to a real directory,
 and must already contain a login. The home directory or its parents, the system

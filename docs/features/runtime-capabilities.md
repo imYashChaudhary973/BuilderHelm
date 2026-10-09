@@ -23,11 +23,25 @@ working one.
   when that evidence exists — never because an advert or a config file says so.
 - A configured command that has disappeared stays visible as `unavailable`;
   it is never silently dropped.
+- Each transport's executable resolves independently. Installing `claude` or
+  `codex` does not establish the presence of `claude-agent-acp` or `codex-acp`.
+  Only available transports contribute to the support tier. The reported binary
+  path and version belong to the first available transport declaration.
+- Agents profile setup and the shared Agents/Chats composer explain missing ACP
+  adapters and direct installed terminal-only agents to Code. BuilderHelm does
+  not download an adapter automatically.
 - The renderer reads the matrix through one validated IPC call
   (`runtimes.capabilities()`); launch paths consume the same records in
   Phase 2, so the picker, the launcher, and the swarm gate cannot disagree.
 
 ## Current verification state
+
+The command forms below record earlier verification, not an inventory of every
+current host. On the Oct 9 reliability pass, Claude and Codex headless output
+passed again; their ACP adapters were absent. OpenCode's installed ACP path
+passed profile-instruction and model-continuity checks with two short free-model
+turns (`BUILDERHELM_AGENT_CONTEXT_SMOKE=1`). Availability is always detected
+again from the host's current PATH.
 
 - Claude and Codex headless json-schema: orchestration-ready, proven by
   `packages/core/test/cli-real-smoke.test.ts` (`BUILDERHELM_CLI_SMOKE=1`).

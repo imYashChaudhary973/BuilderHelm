@@ -66,9 +66,9 @@ const AUTH_MARKERS: Record<QuotaProviderId, readonly string[]> = {
 };
 
 const SYSTEM_AUTH_ROOT: Record<QuotaProviderId, string> = {
-  claude: join(homedir(), '.claude'),
-  codex: join(homedir(), '.codex'),
-  grok: join(homedir(), '.grok'),
+  claude: process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'),
+  codex: process.env.CODEX_HOME ?? join(homedir(), '.codex'),
+  grok: process.env.GROK_HOME ?? join(homedir(), '.grok'),
   opencode: join(
     process.env.XDG_DATA_HOME ?? join(homedir(), '.local', 'share'),
     'opencode',
@@ -110,6 +110,7 @@ export function parseAccountRef(
 function authMarkerExists(provider: QuotaProviderId, root: string): boolean {
   if (
     provider === 'claude' &&
+    process.env.CLAUDE_CONFIG_DIR === undefined &&
     existsSync(join(homedir(), '.claude.json')) &&
     root === SYSTEM_AUTH_ROOT.claude
   ) {
@@ -313,6 +314,10 @@ export function readProviderEmail(
   provider: 'claude' | 'codex',
   configRoot: string | null,
 ): string | null {
+  configRoot ??=
+    provider === 'claude'
+      ? (process.env.CLAUDE_CONFIG_DIR ?? null)
+      : SYSTEM_AUTH_ROOT.codex;
   if (provider === 'claude') {
     // .claude.json lives in the HOME dir for the system login, and inside the
     // config dir for isolated homes. Both shapes carry oauthAccount.emailAddress.
@@ -392,6 +397,10 @@ export function readAccountIdentity(
   provider: QuotaProviderId,
   configRoot: string | null,
 ): string | null {
+  configRoot ??=
+    provider === 'claude'
+      ? (process.env.CLAUDE_CONFIG_DIR ?? null)
+      : SYSTEM_AUTH_ROOT[provider];
   try {
     if (provider === 'claude') {
       const paths =
@@ -526,11 +535,10 @@ export class AccountsService {
   }
 
   cliEnv(): Record<string, string> {
-    const env: Record<string, string> = {
-      CLAUDE_CONFIG_DIR: SYSTEM_AUTH_ROOT.claude,
-      CODEX_HOME: SYSTEM_AUTH_ROOT.codex,
-      GROK_HOME: SYSTEM_AUTH_ROOT.grok,
-    };
+    // System accounts inherit the native CLI environment. In particular,
+    // setting CLAUDE_CONFIG_DIR to ~/.claude changes where Claude looks for
+    // onboarding and keychain credentials, even though it is the default folder.
+    const env: Record<string, string> = {};
     const homes = this.homes();
     const active = this.active();
     for (const id of ISOLATED_LOGIN_PROVIDER_IDS) {
@@ -559,7 +567,7 @@ export class AccountsService {
     if (selected === null || !isIsolated(selected.provider)) return env;
     const key = CONFIG_ENV[selected.provider];
     if (selected.id === SYSTEM_ACCOUNT_ID) {
-      env[key] = SYSTEM_AUTH_ROOT[selected.provider];
+      delete env[key];
       return env;
     }
     const home = this.homes()[selected.provider].find(
@@ -680,7 +688,7 @@ export class AccountsService {
     return [
       ...managed,
       {
-        configRoot: join(homedir(), '.claude'),
+        configRoot: SYSTEM_AUTH_ROOT.claude,
         accountRef: `claude:${SYSTEM_ACCOUNT_ID}`,
       },
       ...homes.filter((home) => home.kind === 'attached').map(target),
@@ -692,7 +700,7 @@ export class AccountsService {
     const attached = this.homes()
       .claude.filter((home) => home.kind === 'attached')
       .map((home) => home.configRoot);
-    return [join(homedir(), '.claude'), ...attached];
+    return [SYSTEM_AUTH_ROOT.claude, ...attached];
   }
 
   /**

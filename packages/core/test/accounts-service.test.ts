@@ -61,6 +61,9 @@ function setupWith(
   const root = tempFolder('builderhelm-accounts-');
   const settings = new SettingsRepository(database);
   const board = new BoardService(database, logger);
+  // Account unit tests do not need a login-shell probe on every snapshot.
+  // Tests that exercise installed Codex limits supply their detection below.
+  vi.spyOn(board, 'detectAgents').mockResolvedValue([]);
   const accounts = new AccountsService(settings, board, logger, root, readCodex);
   return { accounts, settings, board, root };
 }
@@ -223,6 +226,31 @@ describe('quota parsers', () => {
         plan: null,
       }),
     ).toBe('34% 5h · 94% wk');
+  });
+});
+
+describe('native system login environment', () => {
+  it('inherits the native system environment and removes only the selected active redirect', async () => {
+    const accounts = setup();
+    expect(accounts.cliEnv()).toEqual({});
+    const folder = signedInClaudeFolder('fixture@example.test');
+    const attached = await accounts.attach('claude', folder);
+    const home = attached.providers
+      .find((provider) => provider.id === 'claude')
+      ?.homes.find((home) => home.configRoot === folder);
+    await accounts.setActive('claude', home!.id);
+    expect(accounts.cliEnv().CLAUDE_CONFIG_DIR).toBe(folder);
+    expect(accounts.launchFor('claude', 'claude:system')).toEqual({
+      accountRef: 'claude:system',
+      env: {},
+    });
+    // An explicit host override is inherited by spawn, never replaced by ~/.claude.
+    vi.stubEnv('CLAUDE_CONFIG_DIR', '/tmp/host-selected-claude');
+    try {
+      expect(accounts.cliEnvFor('claude:system')).not.toHaveProperty('CLAUDE_CONFIG_DIR');
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 
@@ -433,7 +461,7 @@ describe('AccountsService', () => {
       id: home!.id,
     });
     expect(accounts.cliEnvFor(`codex:${home!.id}`).CODEX_HOME).toBe(home!.configRoot);
-    expect(accounts.cliEnvFor('codex:system').CODEX_HOME).toBe(join(homedir(), '.codex'));
+    expect(accounts.cliEnvFor('codex:system')).not.toHaveProperty('CODEX_HOME');
   });
 
   it('names conflicting credential paths without reading their contents', async () => {

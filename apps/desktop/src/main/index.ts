@@ -78,7 +78,7 @@ async function completeSmokeWhenRendererIsReady(window: BrowserWindow): Promise<
         event: 'desktop.smoke_ready',
         correlationId: createCorrelationId(),
       });
-      app.exit(0);
+      app.quit();
       return;
     }
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -456,7 +456,36 @@ app.on('window-all-closed', () => {
   }
 });
 
-app.on('before-quit', () => {
+let shutdownStarted = false;
+let shutdownComplete = false;
+
+app.on('before-quit', (event) => {
+  if (shutdownComplete) return;
+  event.preventDefault();
+  if (shutdownStarted) return;
+  shutdownStarted = true;
+  void shutdownDesktop()
+    .then(() => {
+      shutdownComplete = true;
+      // Electron must finish cancelling the first quit before we start another.
+      // A promise continuation can run inside that native event's microtasks.
+      setImmediate(() => app.quit());
+    })
+    .catch((error: unknown) => {
+      core?.logger.error({
+        event: 'desktop.shutdown_failed',
+        correlationId: createCorrelationId(),
+        data: { error: normalizeError(error) },
+      });
+      dialog.showErrorBox(
+        'BuilderHelm could not finish closing',
+        'Agent cleanup failed. Quit again to retry.',
+      );
+      shutdownStarted = false;
+    });
+});
+
+async function shutdownDesktop(): Promise<void> {
   if (scheduleTimer !== undefined) {
     clearInterval(scheduleTimer);
     scheduleTimer = undefined;
@@ -467,10 +496,7 @@ app.on('before-quit', () => {
   quotaIngest = undefined;
   authHandoff?.close();
   authHandoff = undefined;
-  // Agents are child processes. Not awaited, because before-quit must not
-  // block, but SIGTERM goes out now so they do not outlive the app.
-  void agentManager?.closeAll();
-  agentManager = null;
+  // Reject new IPC work while allowing the final child events to be persisted.
   unregisterIpc?.();
   unregisterIpc = undefined;
   unsubscribeWork?.();
@@ -483,10 +509,12 @@ app.on('before-quit', () => {
   boardPty = undefined;
   usageWorker?.close();
   usageWorker = undefined;
+  await agentManager?.closeAll();
+  agentManager = null;
   core?.close();
   core = undefined;
   if (smokeDatabasePath !== undefined) {
     rmSync(smokeDatabasePath, { force: true });
     smokeDatabasePath = undefined;
   }
-});
+}
