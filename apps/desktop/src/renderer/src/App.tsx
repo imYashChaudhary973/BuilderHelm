@@ -22,7 +22,15 @@ import { DictationHud } from './components/dictation-hud.js';
 import { PreviewProvider, usePreview } from './preview-store.js';
 import { SpaceProvider } from './space-store.js';
 
-function Shell(): React.JSX.Element {
+const LOCAL_DEVELOPMENT = import.meta.env.DEV && __LOCAL_DEVELOPMENT__;
+
+function Shell({
+  localDevelopment,
+  onExitLocal,
+}: {
+  readonly localDevelopment: boolean;
+  readonly onExitLocal: () => void;
+}): React.JSX.Element {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const preview = usePreview();
   const [launcherOpen, setLauncherOpen] = useState(false);
@@ -95,6 +103,17 @@ function Shell(): React.JSX.Element {
         </div>
         <ModeTabs />
         <div className="topbarEnd">
+          {localDevelopment ? (
+            <button
+              type="button"
+              className="localDevelopmentExit"
+              title="Return to sign-in"
+              aria-label="Local development, signed out. Return to sign-in"
+              onClick={onExitLocal}
+            >
+              Local · signed out
+            </button>
+          ) : null}
           {codeChrome ? (
             <button
               type="button"
@@ -193,12 +212,35 @@ export function App(): React.JSX.Element {
   // route change.
   const [splashDone, setSplashDone] = useState(() => !splashEnabled());
   const [auth, setAuth] = useState<AuthState | null>(null);
+  const [localChosen, setLocalChosen] = useState(LOCAL_DEVELOPMENT);
+  const [localOpening, setLocalOpening] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window.builderHelm === 'undefined') return undefined;
-    void window.builderHelm.auth.read().then(setAuth);
-    return window.builderHelm.auth.onChange(setAuth);
+    const receiveAuth = (next: AuthState): void => {
+      setAuth(next);
+      if (next.status === 'signed-in') setLocalChosen(false);
+    };
+    void window.builderHelm.auth.read().then(receiveAuth);
+    return window.builderHelm.auth.onChange(receiveAuth);
   }, []);
+
+  const continueLocally = async (): Promise<void> => {
+    if (!LOCAL_DEVELOPMENT || localOpening) return;
+    setLocalOpening(true);
+    setLocalError(null);
+    try {
+      // Close an outstanding browser handoff without altering credentials.
+      const next = await window.builderHelm.auth.cancel();
+      setAuth(next);
+      setLocalChosen(next.status !== 'signed-in');
+    } catch {
+      setLocalError('Could not close the sign-in attempt. Try again.');
+    } finally {
+      setLocalOpening(false);
+    }
+  };
 
   if (typeof window.builderHelm === 'undefined') {
     return (
@@ -210,13 +252,29 @@ export function App(): React.JSX.Element {
     );
   }
 
-  const locked = auth === null || auth.status !== 'signed-in';
+  const localDevelopment =
+    LOCAL_DEVELOPMENT && localChosen && auth?.status !== 'signed-in';
+  const locked = auth === null || (auth.status !== 'signed-in' && !localDevelopment);
 
   return (
     <BoardProvider>
       <SpaceProvider>
         <PreviewProvider>
-          {locked ? <LoginScreen state={auth} /> : <Shell />}
+          {locked ? (
+            <LoginScreen
+              state={auth}
+              onContinueLocal={
+                LOCAL_DEVELOPMENT ? () => void continueLocally() : undefined
+              }
+              localOpening={localOpening}
+              localError={localError}
+            />
+          ) : (
+            <Shell
+              localDevelopment={localDevelopment}
+              onExitLocal={() => setLocalChosen(false)}
+            />
+          )}
           {splashDone ? null : <SplashScreen onDone={() => setSplashDone(true)} />}
         </PreviewProvider>
       </SpaceProvider>

@@ -28,6 +28,7 @@
     "postinstall": "node scripts/ensure-node-pty.mjs",
     "build": "electron-vite build && pnpm notices",
     "dev": "electron-vite dev",
+    "dev:local": "node scripts/dev-local.mjs",
     "dist": "electron-vite build && pnpm notices && electron-builder --mac --arm64 --publish never",
     "notices": "node ../../scripts/generate-notices.mjs",
     "smoke": "node scripts/smoke.mjs",

@@ -11,6 +11,7 @@
     "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
     "build": "pnpm --filter @builderhelm/desktop build",
     "dev": "pnpm --filter @builderhelm/desktop dev",
+    "dev:local": "pnpm --filter @builderhelm/desktop dev:local",
     "dist": "pnpm --filter @builderhelm/desktop dist",
     "check:architecture": "node scripts/check-architecture.mjs",
     "check:licenses": "node scripts/check-licenses.mjs",

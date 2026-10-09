@@ -31,6 +31,23 @@ writes. The production-renderer fixture walkthrough exercises the desktop IPC
 backend; real subscription sign-ins/paid turns, packaged click-through, remote
 clients, Windows/Linux, and hosted CI are not established by this evidence.
 
+## Local development entry — Oct 9, 2026
+
+`feat/local-development` depends on the unmerged `feat/providers` branch.
+`pnpm dev:local` opens a signed-out local workspace using a temporary database
+and Electron profile. The title bar identifies local mode and offers a return
+to sign-in. Every build disables this opt-in, and packaged apps ignore dev-server
+URLs. The account service keeps its real state; no session or licence is forged.
+See [the local development contract](features/local-development.md).
+
+Local evidence: 632 tests pass, 7 real-runtime checks remain skipped, and repository
+checks and the desktop build/smoke pass. A native Electron walkthrough verifies
+local entry, return to the login screen, Continue locally, and the Account page's
+signed-out state. Unsigned macOS arm64 packaged startup smoke passes with the dev
+flag set and an unreachable renderer URL; packaged click-through remains unverified.
+Live account sign-in, paid provider turns, Windows/Linux, mobile,
+and remote clients are not exercised by this development-mode evidence.
+
 ## Integrated implementation (`main`)
 
 - Secure Electron main/preload/renderer boundary.

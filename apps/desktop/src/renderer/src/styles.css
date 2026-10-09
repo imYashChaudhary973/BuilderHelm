@@ -488,6 +488,22 @@ html.is-fullscreen .shell {
   gap: 10px;
 }
 
+.localDevelopmentExit {
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--panel);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.localDevelopmentExit:hover {
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+
 .topbarItem {
   padding: 6px 10px;
   border: 0;

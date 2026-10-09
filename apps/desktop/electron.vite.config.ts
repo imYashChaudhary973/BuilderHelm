@@ -29,7 +29,7 @@ function buildStamp(): string {
 // and is what the MIT and BSD terms actually require.
 const preserveLegalComments = { legalComments: 'external' } as const;
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   main: {
     plugins: [
       externalizeDepsPlugin({
@@ -82,9 +82,14 @@ export default defineConfig({
     esbuild: preserveLegalComments,
     define: {
       __BUILD_STAMP__: JSON.stringify(buildStamp()),
+      // Opt-in dev-server access. Builds always compile this to false,
+      // including builds made with the development flag set.
+      __LOCAL_DEVELOPMENT__: JSON.stringify(
+        command === 'serve' && process.env.BUILDERHELM_LOCAL_DEVELOPMENT === '1',
+      ),
     },
     // Vite handles TSX directly. Avoiding the React refresh preamble keeps the
     // development renderer compatible with the same strict CSP as production.
     plugins: [],
   },
-});
+}));
