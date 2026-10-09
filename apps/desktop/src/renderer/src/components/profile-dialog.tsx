@@ -1,4 +1,5 @@
 import type { AgentCandidate, AgentProfile } from '@builderhelm/protocol';
+import type { AccountSnapshot } from '@builderhelm/protocol/accounts';
 import { useEffect, useRef, useState } from 'react';
 
 import { BotMark } from './agent-roster.js';
@@ -38,6 +39,8 @@ export function ProfileDialog({
   const [agentId, setAgentId] = useState(editing?.agent.id ?? '');
   const [defaultCwd, setDefaultCwd] = useState(editing?.defaultCwd ?? null);
   const [instructions, setInstructions] = useState(editing?.instructions ?? '');
+  const [accountRef, setAccountRef] = useState(editing?.launch?.accountRef ?? null);
+  const [accounts, setAccounts] = useState<AccountSnapshot | null>(null);
   const [candidates, setCandidates] = useState<readonly AgentCandidate[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +65,26 @@ export function ProfileDialog({
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    void window.builderHelm.accounts
+      .snapshot()
+      .then((next) => active && setAccounts(next))
+      // Without the list the agent keeps using the active login, as before.
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const runnable = candidates.filter((c) => c.available || c.configured);
+  // ACP agent ids match account provider ids, so a Claude agent offers Claude logins.
+  const logins =
+    accounts?.providers.find((provider) => provider.id === agentId)?.homes ?? [];
+  const pickedRef =
+    accountRef !== null && accountRef.startsWith(`${agentId}:`) ? accountRef : null;
+  const pickedMissing =
+    pickedRef !== null && !logins.some((home) => `${agentId}:${home.id}` === pickedRef);
   const canSave = name.trim().length > 0 && agentId.length > 0 && !busy;
 
   async function chooseFolder(): Promise<void> {
@@ -87,7 +109,12 @@ export function ProfileDialog({
         id: editing?.id,
         name: name.trim(),
         mark,
-        launch: editing?.launch ?? null,
+        launch:
+          editing?.launch === null || editing?.launch === undefined
+            ? pickedRef === null
+              ? null
+              : { model: null, effort: null, accountRef: pickedRef }
+            : { ...editing.launch, accountRef: pickedRef },
         agent: {
           id: agent.id,
           label: agent.label,
@@ -182,6 +209,36 @@ export function ProfileDialog({
           </option>
         ))}
       </select>
+
+      {(logins.length > 0 || pickedMissing) && (
+        <>
+          <label className="wizardLabel" htmlFor="profile-account">
+            Login
+          </label>
+          <select
+            id="profile-account"
+            value={pickedRef ?? ''}
+            onChange={(event) =>
+              setAccountRef(event.target.value === '' ? null : event.target.value)
+            }
+          >
+            <option value="">Active login (set on Usage)</option>
+            {logins.map((home) => (
+              <option
+                value={`${agentId}:${home.id}`}
+                key={home.id}
+                disabled={home.disabled}
+              >
+                {home.label}
+                {home.disabled ? ' · disabled' : ''}
+              </option>
+            ))}
+            {pickedMissing && (
+              <option value={pickedRef}>Removed login · choose another</option>
+            )}
+          </select>
+        </>
+      )}
 
       <p className="wizardLabel">Project folder</p>
       <div className="profileFolderRow">

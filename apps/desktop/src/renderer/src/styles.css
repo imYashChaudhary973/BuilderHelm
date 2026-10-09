@@ -8110,7 +8110,7 @@ html.is-fullscreen .swarmWizardFoot {
   border-radius: 999px;
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--text-1);
+  color: var(--text);
   background: var(--glass);
 }
 
@@ -11090,15 +11090,10 @@ html.is-fullscreen .swarmWizardFoot {
   list-style: none;
   margin: 0;
   padding: 0;
+  /* One provider per row: its logins sit side by side as limit segments. */
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
-  align-items: stretch;
+  grid-template-columns: 1fr;
   gap: 14px;
-}
-
-/* Grok carries one meter per account, so it gets the full row when wrapping. */
-.usageProviderCard.usageProviderWide {
-  grid-column: 1 / -1;
 }
 
 .usageProviderCard {
@@ -11135,62 +11130,6 @@ html.is-fullscreen .swarmWizardFoot {
   line-height: 1.45;
 }
 
-.usageMeterGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
-  gap: 12px 18px;
-  margin: 14px 0 4px;
-  padding: 12px 0 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-/*
- * Account meters are titled by an email plus a tier, so they need ~320px
- * before a second column is honest; below that they stack.
- */
-.usageMeterStack {
-  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
-  gap: 14px 18px;
-}
-.usageMeterRow {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-
-.usageMeterHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  min-width: 0;
-}
-
-.usageMeterTitle {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.usageMeterNote {
-  color: var(--text-3);
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.usageMeterFoot {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 12px;
-  color: var(--text-2);
-}
-
 .usageAccountHead {
   display: flex;
   justify-content: space-between;
@@ -11220,9 +11159,10 @@ html.is-fullscreen .swarmWizardFoot {
 
 .usageAccountRow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px 12px;
   padding: 9px 12px;
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 10px;
@@ -11230,6 +11170,8 @@ html.is-fullscreen .swarmWizardFoot {
 }
 
 .usageAccountId {
+  /* Buttons wrap below the name instead of crushing it in a narrow card. */
+  flex: 1 1 180px;
   min-width: 0;
 }
 
@@ -12338,4 +12280,361 @@ html.is-fullscreen .swarmWizardFoot {
 }
 .conversationPanelEmpty[data-chat-kind='roster'] .chatWelcome {
   flex: none;
+}
+
+.usageAccountHeadActions {
+  display: flex;
+  gap: 8px;
+}
+
+.usageAccountRename {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.usageAccountRename input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+}
+
+/*
+ * Per-login limits: a pooled summary on the left, one segment per login on
+ * the right. The tinted fill is what is left; the hatching is what is used.
+ */
+.limitCards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+  --limit-tint: #4d4d4d;
+}
+
+.limitTone-claude {
+  --limit-tint: #573a30;
+}
+
+.limitTone-grok {
+  --limit-tint: #3c4352;
+}
+
+.limitCard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+  padding: 16px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+}
+
+.limitSummary {
+  flex: 0 0 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.limitTitle {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.limitLeft {
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.limitLeft strong {
+  font-size: 30px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  margin-right: 4px;
+}
+
+.limitNext {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.limitSegments {
+  flex: 1 1 320px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.limitSegment {
+  position: relative;
+  flex: 1 1 180px;
+  min-width: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 6px 0 12px;
+  border-radius: 9px;
+  overflow: hidden;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.05) 0 2px,
+    transparent 2px 7px
+  );
+  font-size: 13px;
+}
+
+.limitSegmentFill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--limit-tint);
+}
+
+.limitSegmentText,
+.limitSegmentReset {
+  position: relative;
+}
+
+.limitSegmentText {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.limitSegmentName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.limitSegmentValue {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.limitSegmentReset {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--text-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.limitSegmentEmpty {
+  color: var(--text-3);
+}
+
+.limitSegmentEmpty .limitSegmentName,
+.limitSegmentEmpty .limitSegmentValue {
+  color: var(--text-3);
+  font-weight: 400;
+}
+
+.limitSegmentStale .limitSegmentReset {
+  color: #d9b36c;
+}
+
+.limitIssues {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.limitIssues strong {
+  color: var(--text-2);
+  font-weight: 500;
+  margin-right: 4px;
+}
+
+.limitIssueError {
+  color: #d98c6c;
+}
+
+.usageTabs,
+.usagePager {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.usageTabs button,
+.usagePager button,
+.usagePricing button {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-2);
+  padding: 7px 12px;
+}
+.usageTabs button[aria-pressed='true'] {
+  background: var(--accent-dim);
+  color: var(--text);
+}
+.usagePageActions label,
+.usagePriceForm label,
+.usageAliasForm label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.usagePageActions select,
+.usagePricing input:not([type='checkbox']) {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 7px;
+  min-width: 0;
+}
+.usageMetrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+.usageMetrics > div {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 16px;
+}
+.usageMetrics small,
+.usageTable small,
+.usageSources small {
+  display: block;
+  color: var(--text-3);
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+}
+.usageMetrics strong {
+  display: block;
+  font-size: 24px;
+  margin-top: 12px;
+}
+.usageBreakdown,
+.usageSources,
+.usagePricing {
+  margin-top: 16px;
+}
+.usageBreakdown h2 {
+  margin: 0 0 14px;
+  font-size: 14px;
+}
+.usageTableScroll {
+  overflow: auto;
+  max-height: 480px;
+}
+.usageTable {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+}
+.usageTable th,
+.usageTable td {
+  padding: 12px 9px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  vertical-align: top;
+}
+.usageTable th:first-child {
+  text-align: left;
+  min-width: 140px;
+  max-width: 260px;
+  overflow-wrap: anywhere;
+}
+.usageTable thead th {
+  color: var(--text-3);
+  font-weight: 500;
+}
+.usagePager {
+  justify-content: flex-end;
+  margin: 14px 0 0;
+}
+.usageSources summary,
+.usagePricing summary {
+  cursor: pointer;
+}
+.usageSources ul,
+.usagePricing ul {
+  list-style: none;
+  padding: 0;
+}
+.usageSources li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.usagePricing li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 10px 0;
+}
+.usagePriceForm,
+.usageAliasForm {
+  margin: 18px 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+}
+.usagePriceForm fieldset {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+.usagePriceForm legend {
+  font-size: 12px;
+  padding: 0 6px;
+}
+@container workspace (max-width: 720px) {
+  .usageMetrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .usagePageActions {
+    flex-wrap: wrap;
+  }
+  .usagePriceForm fieldset {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.usageViews {
+  height: 100%;
+  width: 100%;
+  overflow: auto;
+  padding: 24px;
+}
+.usageTabs {
+  max-width: 1440px;
+  margin-inline: auto;
+}
+.usagePageTitle {
+  min-width: 0;
+}
+.usagePageActions select {
+  max-width: 220px;
 }

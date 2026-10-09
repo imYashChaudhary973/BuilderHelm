@@ -15,7 +15,8 @@ export * from './schedules/schedule-service.js';
 export * from './remote/remote-session-service.js';
 export * from './accounts/accounts-service.js';
 export * from './accounts/quota.js';
-export * from './accounts/claude-oauth-usage.js';
+export * from './usage/pricing.js';
+export * from './usage/usage-service.js';
 export * from './providers/provider-service.js';
 export * from './projects/git-inspector.js';
 export * from './projects/project-service.js';
@@ -37,3 +38,7 @@ export * from './runtimes/runtime-capability-service.js';
 export * from './platform/host-paths.js';
 export * from './platform/process-tree.js';
 export * from './diagnostics/diagnostics-service.js';
+
+export { UsageService } from './usage/usage-service.js';
+export { PricingService } from './usage/pricing.js';
+export type { LoginLocation } from './accounts/accounts-service.js';

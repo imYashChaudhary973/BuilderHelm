@@ -14,6 +14,9 @@ import {
 } from '@builderhelm/protocol/workspaces';
 import {
   accountAddInputSchema,
+  accountAttachInputSchema,
+  accountRenameInputSchema,
+  accountSetDisabledInputSchema,
   accountConfirmLoginInputSchema,
   accountLoginTerminalInputSchema,
   accountRemoveInputSchema,
@@ -21,6 +24,12 @@ import {
   accountSnapshotIpcResponseSchema,
   accountToggleHookInputSchema,
 } from '@builderhelm/protocol/accounts';
+import {
+  pricingStateIpcResponseSchema,
+  pricingUpdateInputSchema,
+  usageReportInputSchema,
+  usageReportIpcResponseSchema,
+} from '@builderhelm/protocol/usage';
 import {
   noSleepIpcResponseSchema,
   noSleepSetInputSchema,
@@ -1554,6 +1563,20 @@ const api: BuilderHelmDesktopApi = {
       });
       return unwrap(accountSnapshotIpcResponseSchema.parse(response));
     },
+    async attach(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.accountAttach, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: accountAttachInputSchema.parse(input),
+      });
+      return unwrap(accountSnapshotIpcResponseSchema.parse(response));
+    },
+    async rename(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.accountRename, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: accountRenameInputSchema.parse(input),
+      });
+      return unwrap(accountSnapshotIpcResponseSchema.parse(response));
+    },
     async openLoginTerminal(input) {
       const response: unknown = await ipcRenderer.invoke(
         ipcChannels.accountLoginTerminal,
@@ -1588,12 +1611,41 @@ const api: BuilderHelmDesktopApi = {
       });
       return unwrap(accountSnapshotIpcResponseSchema.parse(response));
     },
+    async setDisabled(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.accountSetDisabled, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: accountSetDisabledInputSchema.parse(input),
+      });
+      return unwrap(accountSnapshotIpcResponseSchema.parse(response));
+    },
     async toggleHook(input) {
       const response: unknown = await ipcRenderer.invoke(ipcChannels.accountToggleHook, {
         correlationId: globalThis.crypto.randomUUID(),
         input: accountToggleHookInputSchema.parse(input),
       });
       return unwrap(accountSnapshotIpcResponseSchema.parse(response));
+    },
+  },
+  usage: {
+    async report(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.usageReport, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: usageReportInputSchema.parse(input),
+      });
+      return unwrap(usageReportIpcResponseSchema.parse(response));
+    },
+    async pricing() {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.pricingState, {
+        correlationId: globalThis.crypto.randomUUID(),
+      });
+      return unwrap(pricingStateIpcResponseSchema.parse(response));
+    },
+    async updatePricing(input) {
+      const response: unknown = await ipcRenderer.invoke(ipcChannels.pricingUpdate, {
+        correlationId: globalThis.crypto.randomUUID(),
+        input: pricingUpdateInputSchema.parse(input),
+      });
+      return unwrap(pricingStateIpcResponseSchema.parse(response));
     },
   },
   noSleep: {

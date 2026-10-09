@@ -53,6 +53,9 @@ importers:
       '@builderhelm/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@builderhelm/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@builderhelm/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol

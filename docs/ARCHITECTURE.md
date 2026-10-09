@@ -111,3 +111,19 @@ the application or an agent prompt.
 - Bound queues, buffers, histories, and concurrent agents.
 - Virtualize large React lists and subscribe per visible pane.
 - Measure before adding another runtime or native implementation.
+
+## Provider usage and limits
+
+Usage ingestion, API-equivalent pricing, and subscription quota are independent.
+The desktop sends validated usage requests through preload to a bounded worker
+queue. The worker reads local CLI histories/foreign SQLite usage columns and
+appends normalized records to the local ledger; reports return through a
+Zod-validated boundary. No provider credential or raw response travels to the
+renderer. The worker is stopped on desktop shutdown.
+
+The app and usage worker share the local SQLite database in WAL mode. Background
+ledger writes use short batches; reports use bounded pages instead of loading all
+history at once. Pricing is resolved when reporting, so overrides apply to history.
+Quota adapters read each login separately and never derive subscription availability
+from usage or price. New ACP threads bind to one login folder; cross-folder resume
+and disabled-account turns fail before a provider action.

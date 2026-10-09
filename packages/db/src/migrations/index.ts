@@ -23,6 +23,7 @@ import { connectionsSkillsMigration } from './0022-connections-skills.js';
 import { schedulesMigration } from './0023-schedules.js';
 import { remoteSessionsMigration } from './0024-remote-sessions.js';
 import { workspaceFoundationMigration } from './0025-workspace-foundation.js';
+import { usageLedgerMigration } from './0026-usage-ledger.js';
 
 export const migrations = [
   foundationMigration,
@@ -50,6 +51,7 @@ export const migrations = [
   schedulesMigration,
   remoteSessionsMigration,
   workspaceFoundationMigration,
+  usageLedgerMigration,
 ];
 
 export {
@@ -78,4 +80,5 @@ export {
   schedulesMigration,
   remoteSessionsMigration,
   workspaceFoundationMigration,
+  usageLedgerMigration,
 };

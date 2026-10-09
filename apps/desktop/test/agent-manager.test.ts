@@ -13,6 +13,7 @@ import type {
   AgentPermissionDecision,
   AgentToolCall,
 } from '@builderhelm/protocol';
+import { AcpSession } from '../src/main/acp/session.js';
 import { AgentManager, MAX_LIVE_AGENT_SESSIONS } from '../src/main/acp/manager.js';
 import { AgentThreads } from '../src/main/acp/threads.js';
 import { PermissionRules } from '../src/main/acp/permission-rules.js';
@@ -219,5 +220,82 @@ describe('agent manager', () => {
     helm.respond('other-session', 'req-2', 'allow-once');
     helm.respond(started.sessionId, 'req-2', 'reject-once');
     await expect(pending).resolves.toBe('reject-once');
+  });
+});
+
+describe('thread login binding', () => {
+  function setupBound() {
+    let active = 'codex:personal';
+    let disabled = false;
+    const store = memoryStore();
+    const threads = new AgentThreads(store);
+    const helm = new AgentManager({
+      emit() {},
+      rules: new PermissionRules(store),
+      threads,
+      resolveAgent: () => codex,
+      resolveProfile: () => null,
+      resolveLaunch: (_id, requested) => {
+        const ref = requested ?? active;
+        if (disabled && ref === 'codex:personal') throw new Error('Login disabled');
+        return { accountRef: ref, env: { CODEX_HOME: `/tmp/${ref}` } };
+      },
+    });
+    return {
+      helm,
+      threads,
+      setActive: (ref: string) => {
+        active = ref;
+      },
+      disable: () => {
+        disabled = true;
+      },
+    };
+  }
+  const startInput = {
+    agentId: 'codex',
+    cwd: '/tmp',
+    threadId: null,
+    resumeSessionId: null,
+    profileId: null,
+  };
+  it('persists the chosen login and resumes on it after the active login changes', async () => {
+    const { helm, threads, setActive } = setupBound();
+    const first = await helm.start(startInput);
+    expect(threads.get(first.threadId)?.thread.accountRef).toBe('codex:personal');
+    await helm.closeAll();
+    setActive('codex:work');
+    await helm.start({ ...startInput, threadId: first.threadId });
+    expect(vi.mocked(AcpSession.start).mock.calls.at(-1)?.[0].env).toEqual({
+      CODEX_HOME: '/tmp/codex:personal',
+    });
+    await helm.closeAll();
+    const before = vi.mocked(AcpSession.start).mock.calls.length;
+    await expect(
+      helm.start({
+        ...startInput,
+        threadId: first.threadId,
+        launch: { model: null, effort: null, accountRef: 'codex:work' },
+      }),
+    ).rejects.toThrow(/another login/);
+    expect(vi.mocked(AcpSession.start).mock.calls.length).toBe(before);
+  });
+  it('refuses new turns on a disabled login even when its process is still live', async () => {
+    const { helm, disable } = setupBound();
+    const first = await helm.start(startInput);
+    disable();
+    await expect(
+      helm.prompt(first.sessionId, [{ type: 'text', text: 'Run a tool' }]),
+    ).rejects.toThrow(/disabled/);
+    await expect(helm.start({ ...startInput, threadId: first.threadId })).rejects.toThrow(
+      /disabled/,
+    );
+  });
+  it('refuses a legacy resume whose account was never recorded', async () => {
+    const { helm, threads } = setupBound();
+    const legacy = threads.create(codex, '/tmp');
+    await expect(helm.start({ ...startInput, threadId: legacy.id })).rejects.toThrow(
+      /no recorded login/,
+    );
   });
 });

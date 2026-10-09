@@ -13,14 +13,23 @@ import type {
 
 import type {
   AccountAddInput,
+  AccountAttachInput,
   AccountConfirmLoginInput,
   AccountLoginTerminalInput,
   AccountRemoveInput,
+  AccountRenameInput,
   AccountSetActiveInput,
+  AccountSetDisabledInput,
   AccountSnapshot,
   AccountSnapshotInput,
   AccountToggleHookInput,
 } from './accounts.js';
+import type {
+  PricingState,
+  PricingUpdateInput,
+  UsageReport,
+  UsageReportInput,
+} from './usage.js';
 import type { AgentProfile, AgentProfileInput } from './agent-profiles.js';
 import type { NoSleepSetInput, NoSleepState } from './no-sleep.js';
 import type { AuthState } from './auth.js';
@@ -363,11 +372,17 @@ export const ipcChannels = {
   voiceHotkey: 'builderhelm:voice:hotkey',
   accountSnapshot: 'builderhelm:accounts:snapshot',
   accountAdd: 'builderhelm:accounts:add',
+  accountAttach: 'builderhelm:accounts:attach',
+  accountRename: 'builderhelm:accounts:rename',
   accountConfirmLogin: 'builderhelm:accounts:confirm-login',
   accountLoginTerminal: 'builderhelm:accounts:login-terminal',
   accountRemove: 'builderhelm:accounts:remove',
   accountSetActive: 'builderhelm:accounts:set-active',
+  accountSetDisabled: 'builderhelm:accounts:set-disabled',
   accountToggleHook: 'builderhelm:accounts:toggle-hook',
+  usageReport: 'builderhelm:usage:report',
+  pricingState: 'builderhelm:usage:pricing-state',
+  pricingUpdate: 'builderhelm:usage:pricing-update',
   noSleepRead: 'builderhelm:no-sleep:read',
   noSleepSet: 'builderhelm:no-sleep:set',
   noSleepEvent: 'builderhelm:no-sleep:event',
@@ -706,13 +721,23 @@ export interface BuilderHelmDesktopApi {
   readonly accounts: {
     snapshot(input?: AccountSnapshotInput): Promise<AccountSnapshot>;
     add(input: AccountAddInput): Promise<AccountSnapshot>;
+    /** Opens a folder picker in main; resolves unchanged when cancelled. */
+    attach(input: AccountAttachInput): Promise<AccountSnapshot>;
+    rename(input: AccountRenameInput): Promise<AccountSnapshot>;
     confirmLogin(input: AccountConfirmLoginInput): Promise<AccountSnapshot>;
     openLoginTerminal(
       input: AccountLoginTerminalInput,
     ): Promise<{ readonly opened: true }>;
     remove(input: AccountRemoveInput): Promise<AccountSnapshot>;
     setActive(input: AccountSetActiveInput): Promise<AccountSnapshot>;
+    setDisabled(input: AccountSetDisabledInput): Promise<AccountSnapshot>;
     toggleHook(input: AccountToggleHookInput): Promise<AccountSnapshot>;
+  };
+  /** Measured token usage and its estimated API-equivalent cost. */
+  readonly usage: {
+    report(input: UsageReportInput): Promise<UsageReport>;
+    pricing(): Promise<PricingState>;
+    updatePricing(input: PricingUpdateInput): Promise<PricingState>;
   };
   readonly noSleep: {
     read(): Promise<NoSleepState>;

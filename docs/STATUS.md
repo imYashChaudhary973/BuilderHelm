@@ -1,6 +1,7 @@
 # Implementation status
 
-Last reviewed: 2026-09-07 (PRs #30 and #31 landed: modes stack and the agent roster).
+Integrated baseline last reviewed: 2026-09-07 (PRs #30 and #31 landed).
+Provider Usage branch reviewed: 2026-10-08.
 
 This document distinguishes working code from planned product scope. A feature
 is not shipped merely because a route, mock, fixture, or documentation page exists.
@@ -14,6 +15,21 @@ Status labels used below:
   current ceiling is startup-only; see "Partial or needing hardening".
 - **Unmerged** — live branch work; recorded per feature under "Unmerged work".
 - **Planned** — see "Planned, not shipped".
+
+## Provider Usage development — Oct 8, 2026
+
+`feat/providers` is unmerged. It implements normalized Claude/Codex/OpenCode/API
+usage, incremental durable scans, API-equivalent prices and overrides, Cost/Tokens
+views, per-account Limits, explicit login selection, and account-bound ACP threads.
+This work does not establish parity with T3 Code where a CLI exposes no history
+or quota. See [the provider contract](features/usage.md) for coverage and limits.
+
+Local evidence: 630 tests passed, 7 real-runtime checks skipped; architecture,
+licenses, telemetry, formatting, lint, and typecheck pass. The desktop build and
+built usage-worker smoke pass against temporary data, including concurrent app
+writes. The production-renderer fixture walkthrough exercises the desktop IPC
+backend; real subscription sign-ins/paid turns, packaged click-through, remote
+clients, Windows/Linux, and hosted CI are not established by this evidence.
 
 ## Integrated implementation (`main`)
 
@@ -103,7 +119,7 @@ Status labels used below:
   type to narrow), keeps exact IDs, and will not substitute a removed model.
   Effort chips exist only when the runtime advertises thought-level. Profile
   launch selection is applied on Agents-mode start.
-- Usage kinds stay unmixed: Usage page = subscription windows; chat = reported
+- Usage kinds on `main` stay unmixed: Usage page = subscription windows; chat = reported
   tokens when present; swarm hides unreported spend. Claude OAuth quota reader
   assessed (in-memory token, never persisted). No automatic paid fallback.
 - Project dashboard and Git continuity.

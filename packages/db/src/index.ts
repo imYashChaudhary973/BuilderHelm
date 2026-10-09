@@ -31,3 +31,4 @@ export * from './voice-repository.js';
 export * from './review-repository.js';
 export * from './preview-artifact-repository.js';
 export * from './settings-repository.js';
+export * from './usage-repository.js';

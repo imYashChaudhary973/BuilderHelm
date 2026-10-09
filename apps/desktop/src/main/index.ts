@@ -1,5 +1,4 @@
 import { existsSync, rmSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import { bootstrapCore, type CoreRuntime } from '@builderhelm/core';
@@ -44,8 +43,10 @@ import { AgentRegistry } from './acp/registry.js';
 import { createRuntimeCapabilityService } from './runtime-capabilities.js';
 import { AgentProfiles } from './acp/profiles.js';
 import { AgentThreads } from './acp/threads.js';
+import { UsageWorkerClient } from './usage-worker-client.js';
 
 let core: CoreRuntime | undefined;
+let usageWorker: UsageWorkerClient | undefined;
 let unregisterIpc: (() => void) | undefined;
 let boardPty: BoardPtyManager | undefined;
 let swarmRunner: PtySwarmRunner | undefined;
@@ -363,24 +364,29 @@ app
       threads: new AgentThreads(runtime.settings),
       resolveAgent: (agentId) => agentRegistry.resolve(agentId),
       resolveProfile: (profileId) => agentProfiles.find(profileId),
-      resolveEnv: (accountRef) => core?.accounts.cliEnvFor(accountRef) ?? {},
+      resolveLaunch: (agentId, accountRef) =>
+        core?.accounts.launchFor(agentId, accountRef) ?? { env: {}, accountRef: null },
     });
     setExtraTerminalEnv(() => core?.accounts.cliEnv() ?? {});
     const hookClaude = (): void => {
       const script = quotaIngest?.scriptPath();
       if (script === null || script === undefined) return;
-      for (const root of core?.accounts.claudeHookRoots() ?? []) {
-        installClaudeStatusLine(root, script);
+      for (const target of core?.accounts.claudeHookTargets() ?? []) {
+        installClaudeStatusLine(target.configRoot, script, target.accountRef);
       }
-      // Consent off: give ~/.claude its previous statusLine back.
-      if (!core?.accounts.hookSystemDefault()) {
-        uninstallClaudeStatusLine(join(homedir(), '.claude'));
+      // Consent off: give folders BuilderHelm did not create their previous
+      // statusLine back. A statusLine BuilderHelm never wrote is left alone.
+      if (core?.accounts.hookSystemDefault() === false) {
+        for (const root of core.accounts.claudeOwnedRoots()) {
+          uninstallClaudeStatusLine(root);
+        }
       }
     };
     if (process.env.BUILDERHELM_SMOKE_TEST !== '1') {
       quotaIngest = startQuotaIngest({
         userData: app.getPath('userData'),
-        ingestClaude: (payload) => core?.accounts.ingestClaude(payload) ?? null,
+        ingestClaude: (accountRef, payload) =>
+          core?.accounts.ingestClaude(accountRef, payload) ?? null,
         onReady: hookClaude,
       });
     }
@@ -394,6 +400,11 @@ app
         data: { result: probePty(process.env.BUILDERHELM_PTY_PROBE) },
       });
     }
+    usageWorker = new UsageWorkerClient(
+      join(__dirname, 'usage-worker.js'),
+      databasePath,
+      () => core?.accounts.logins() ?? [],
+    );
     unregisterIpc = registerIpcHandlers(
       core,
       boardPty,
@@ -412,6 +423,7 @@ app
       authHandoff,
       { manager: agentManager, registry: agentRegistry, profiles: agentProfiles },
       { capabilities: runtimeCapabilities },
+      (input) => usageWorker!.report(input),
     );
     void core.schedules.reconcile(createCorrelationId());
     scheduleTimer = setInterval(() => {
@@ -464,6 +476,8 @@ app.on('before-quit', () => {
   powerController = undefined;
   boardPty?.dispose();
   boardPty = undefined;
+  usageWorker?.close();
+  usageWorker = undefined;
   core?.close();
   core = undefined;
   if (smokeDatabasePath !== undefined) {
