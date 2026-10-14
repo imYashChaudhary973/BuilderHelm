@@ -24,7 +24,7 @@
   <img src="https://img.shields.io/badge/Agents-Claude%20Code%20%7C%20Codex%20%7C%20OpenCode%20%7C%20Grok%20%7C%20Gemini%20%7C%20Pi%2FOMP-1E66D8?style=for-the-badge" alt="Supported agents">
 </p>
 
-BuilderHelm is an agent development environment for developers who run several coding agents at once. It launches the CLI agents already installed on your machine and gives each run its own project context, terminal, Git branch, and optional worktree, so you can run, coordinate, review, and ship their work from one place.
+BuilderHelm is an agent development environment (ADE) for developers who run several coding agents at once. It launches the CLI agents already installed on your machine and gives each run its own project context, terminal, Git branch, and optional worktree, so you can run, coordinate, review, and ship their work from one place.
 
 BuilderHelm does not ship a model. Claude Code, Codex, OpenCode, Grok, Gemini, Pi/OMP, plain shells, and custom commands remain separate tools with their own authentication and terms.
 
