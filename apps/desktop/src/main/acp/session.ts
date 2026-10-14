@@ -65,6 +65,8 @@ export interface AcpSessionOptions {
   readonly resumeSessionId?: string | null;
   /** Config-dir redirects for this run. Captured at spawn; later account changes do not apply. */
   readonly env?: Readonly<Record<string, string>>;
+  readonly signal?: AbortSignal;
+  readonly instructions?: string;
 }
 
 interface PendingPermission {
@@ -126,6 +128,9 @@ export class AcpSession {
    * The methods it advertised are the only actionable thing to show then.
    */
   private authMethods: readonly AgentAuthMethod[] = [];
+  private readonly abort = () => {
+    void this.close();
+  };
 
   private constructor(private readonly options: AcpSessionOptions) {
     this.connection = new AcpConnection({
@@ -165,12 +170,19 @@ export class AcpSession {
     this.connection.handleRequest('fs/write_text_file', (params) =>
       this.onWriteFile(params),
     );
+    options.signal?.addEventListener('abort', this.abort, { once: true });
+    if (options.signal?.aborted === true) this.abort();
   }
 
   static async start(options: AcpSessionOptions): Promise<AcpSession> {
     const session = new AcpSession(options);
-    await session.handshake();
-    return session;
+    try {
+      await session.handshake();
+      return session;
+    } catch (error) {
+      await session.close();
+      throw error;
+    }
   }
 
   get id(): string {
@@ -285,7 +297,20 @@ export class AcpSession {
     try {
       const result = await this.connection.request(
         'session/prompt',
-        { sessionId: this.id, prompt: content.map(toWireContent) },
+        {
+          sessionId: this.id,
+          prompt: [
+            ...(this.options.instructions?.trim()
+              ? [
+                  {
+                    type: 'text',
+                    text: `Agent profile instructions for this conversation:\n${this.options.instructions}\n\n`,
+                  },
+                ]
+              : []),
+            ...content.map(toWireContent),
+          ],
+        },
         // A turn can legitimately run for many minutes; the transport default is
         // for handshake-shaped calls, not for work.
         30 * 60_000,
@@ -338,6 +363,17 @@ export class AcpSession {
   }
 
   async setConfigOption(configId: string, value: string | boolean): Promise<void> {
+    const option = this.configOptions.find((candidate) => candidate.id === configId);
+    if (
+      option === undefined ||
+      (typeof value === 'string' &&
+        !option.choices.some((choice) => choice.value === value))
+    ) {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'That saved model, mode, or effort is no longer available. Start a new conversation to choose another.',
+      );
+    }
     const result = await this.connection.request('session/set_config_option', {
       sessionId: this.id,
       configId,
@@ -347,6 +383,14 @@ export class AcpSession {
     // The reply is the complete config state, because changing a model can
     // change which reasoning levels exist.
     this.configOptions = mapConfigOptions(result);
+    if (
+      this.configOptions.find((candidate) => candidate.id === configId)?.value !== value
+    ) {
+      throw new BuilderHelmError(
+        'VALIDATION_FAILED',
+        'The agent did not apply the requested selection. Check its local CLI or choose another in a new conversation.',
+      );
+    }
     this.options.emit({
       type: 'session.config.updated',
       sessionId: this.id,
@@ -355,6 +399,7 @@ export class AcpSession {
   }
 
   async close(): Promise<void> {
+    this.options.signal?.removeEventListener('abort', this.abort);
     await this.connection.close();
   }
 

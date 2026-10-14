@@ -11,7 +11,6 @@ import type {
 } from '@builderhelm/protocol';
 import { useQuery } from '@tanstack/react-query';
 import { QUOTA_PROVIDER_IDS } from '@builderhelm/protocol/accounts';
-import type { RuntimeCapability } from '@builderhelm/protocol/runtime';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { bootDictation } from '../voice/dictation.js';
@@ -20,6 +19,7 @@ import { deriveStatus } from '../routes/chat-status.js';
 import { ArrowUpIcon, SettingsIcon } from './rail-icons.js';
 import { ProfileMark } from './agent-roster.js';
 import { ModelPicker } from './model-picker.js';
+import { AgentAvailability } from './agent-availability.js';
 
 export function threadTitle(thread: AgentThread): string {
   return thread.title ?? 'Untitled thread';
@@ -203,7 +203,12 @@ export function ChatPane({
   const [connecting, setConnecting] = useState(false);
   const [showAllTurns, setShowAllTurns] = useState(false);
   const skipDraftSave = useRef(true);
-  const [runtimes, setRuntimes] = useState<readonly RuntimeCapability[]>([]);
+  const capabilities = useQuery({
+    queryKey: ['runtime-capabilities'],
+    queryFn: () => window.builderHelm.runtimes.capabilities(),
+    staleTime: 30_000,
+  });
+  const runtimes = capabilities.data?.runtimes ?? [];
   const sessionIdRef = useRef<string | null>(null);
   sessionIdRef.current = session?.sessionId ?? null;
   const transcriptEnd = useRef<HTMLDivElement>(null);
@@ -220,7 +225,7 @@ export function ChatPane({
     runtimes.find((item) => item.id === (profile?.agent.id ?? selected?.id)) ?? null;
   const terminalOnly =
     runtime !== null &&
-    runtime.tier === 'terminal' &&
+    runtime.transports.includes('pty') &&
     !runtime.transports.includes('acp');
   const accountProviderId =
     activeThread?.agent.id ?? profile?.agent.id ?? selected?.id ?? '';
@@ -313,19 +318,6 @@ export function ChatPane({
     if (draft.length === 0) sessionStorage.removeItem(composerDraftKey);
     else sessionStorage.setItem(composerDraftKey, draft);
   }, [draft, composerDraftKey]);
-
-  useEffect(() => {
-    let active = true;
-    void window.builderHelm.runtimes
-      .capabilities()
-      .then((snapshot) => {
-        if (active) setRuntimes(snapshot.runtimes);
-      })
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
-  }, []);
 
   // A new selection — from the roster, the Chats aside, or "New chat" —
   // drops the live session and loads that thread's stored transcript.
@@ -663,6 +655,9 @@ export function ChatPane({
           structured chat is not available.
         </p>
       )}
+      {activeThread === null && session === null && (
+        <AgentAvailability runtimes={runtimes} />
+      )}
 
       {/* Inline on its cell when that cell exists; fallback bar otherwise. */}
       {permission !== null && session !== null && !permissionHasCell && (
@@ -857,10 +852,27 @@ export function ChatPane({
                 >
                   {runnable.length === 0 && <option value="">No harness</option>}
                   {runnable.map((candidate) => (
-                    <option key={candidate.id} value={candidate.id}>
+                    <option
+                      key={candidate.id}
+                      value={candidate.id}
+                      disabled={!candidate.available}
+                    >
                       {candidate.label}
+                      {!candidate.available ? ' · command unavailable' : ''}
                     </option>
                   ))}
+                  {runtimes
+                    .filter(
+                      (runtime) =>
+                        runtime.transports.includes('pty') &&
+                        !runtime.transports.includes('acp') &&
+                        !runnable.some((candidate) => candidate.id === runtime.id),
+                    )
+                    .map((runtime) => (
+                      <option key={runtime.id} value={runtime.id} disabled>
+                        {runtime.label} · Code terminals only
+                      </option>
+                    ))}
                 </select>
               </label>
               {hasAccounts ? (

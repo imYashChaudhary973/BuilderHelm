@@ -18,6 +18,7 @@ const child = spawn(electronPath, [entry], {
 });
 
 let output = '';
+let timedOut = false;
 child.stdout.on('data', (chunk) => {
   output += chunk.toString();
 });
@@ -26,6 +27,7 @@ child.stderr.on('data', (chunk) => {
 });
 
 const timeout = setTimeout(() => {
+  timedOut = true;
   child.kill('SIGTERM');
   setTimeout(() => {
     if (child.exitCode === null && child.pid !== undefined) {
@@ -38,9 +40,16 @@ const timeout = setTimeout(() => {
   }, 2_000);
 }, 20_000);
 
-child.on('exit', () => {
+child.on('close', (code, signal) => {
   clearTimeout(timeout);
-  if (!output.includes('desktop.smoke_ready')) {
+  if (
+    timedOut ||
+    code !== 0 ||
+    signal !== null ||
+    !output.includes('desktop.smoke_ready') ||
+    !output.includes('core.stopped') ||
+    output.includes('desktop.shutdown_failed')
+  ) {
     process.stderr.write(output);
     process.exitCode = 1;
     return;

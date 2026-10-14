@@ -9,6 +9,8 @@ import { randomUUID } from 'node:crypto';
 
 import {
   agentSessionEventSchema,
+  agentConfigOptionSchema,
+  type AgentConfigOption,
   type AgentDescriptor,
   type AgentSessionEvent,
   type AgentThread,
@@ -16,6 +18,11 @@ import {
 import { z } from 'zod';
 
 const INDEX_KEY = 'agent.thread-index';
+const selectionSchema = agentConfigOptionSchema.pick({
+  id: true,
+  category: true,
+  value: true,
+});
 
 function eventsKey(id: string): string {
   return `agent.thread.${id}`;
@@ -37,6 +44,8 @@ const metaSchema = z
     /** Roster profile that started the thread; null for ad hoc threads. */
     profileId: z.string().max(64).nullable().default(null),
     accountRef: z.string().max(128).nullable().default(null),
+    instructions: z.string().max(20_000).default(''),
+    configOptions: z.array(selectionSchema).max(64).default([]),
     title: z.string().min(1).max(200).nullable(),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
@@ -71,6 +80,7 @@ export class AgentThreads {
     cwd: string,
     profileId: string | null = null,
     accountRef: string | null = null,
+    instructions = '',
   ): AgentThread {
     const now = new Date().toISOString();
     const meta: Meta = {
@@ -80,6 +90,8 @@ export class AgentThreads {
       cwd,
       profileId,
       accountRef,
+      instructions,
+      configOptions: [],
       title: null,
       createdAt: now,
       updatedAt: now,
@@ -91,6 +103,26 @@ export class AgentThreads {
 
   attach(id: string, acpSessionId: string): void {
     this.patch(id, (meta) => ({ ...meta, acpSessionId }));
+  }
+
+  context(id: string): {
+    instructions: string;
+    configOptions: readonly z.infer<typeof selectionSchema>[];
+  } {
+    const meta = this.loadIndex().find((entry) => entry.id === id);
+    return {
+      instructions: meta?.instructions ?? '',
+      configOptions: meta?.configOptions ?? [],
+    };
+  }
+
+  rememberConfig(id: string, options: readonly AgentConfigOption[]): void {
+    this.patch(id, (meta) => ({
+      ...meta,
+      configOptions: options
+        .filter((option) => ['model', 'mode', 'thought-level'].includes(option.category))
+        .map(({ id, category, value }) => ({ id, category, value })),
+    }));
   }
 
   events(id: string): AgentSessionEvent[] {
@@ -186,7 +218,14 @@ function firstLine(value: string): string | null {
 
 function toThread(meta: Meta): AgentThread {
   return {
-    ...meta,
+    id: meta.id,
+    acpSessionId: meta.acpSessionId,
+    profileId: meta.profileId,
+    accountRef: meta.accountRef,
+    cwd: meta.cwd,
+    title: meta.title,
+    createdAt: meta.createdAt,
+    updatedAt: meta.updatedAt,
     agent: { ...meta.agent, args: [...meta.agent.args] },
   };
 }

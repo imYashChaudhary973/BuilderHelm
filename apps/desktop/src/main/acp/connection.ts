@@ -16,7 +16,7 @@
  *   are client-hosted, and permission is an agent-to-client request. This is a
  *   peer connection, not a client stub.
  */
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 
 import { BuilderHelmError } from '@builderhelm/shared';
 
@@ -88,6 +88,8 @@ export class AcpConnection {
   private stderrTail = '';
   private nextId = 1;
   private closed = false;
+  private readonly completion: Promise<void>;
+  private closing: Promise<void> | undefined;
 
   constructor(private readonly options: AcpConnectionOptions) {
     this.child = spawn(options.command, [...options.args], {
@@ -96,7 +98,10 @@ export class AcpConnection {
       // AcpConnectionOptions.env and ADR 0008.
       env: { ...process.env, ...options.env },
       stdio: ['pipe', 'pipe', 'pipe'],
+      // The process group belongs to this connection, including CLI workers.
+      detached: process.platform !== 'win32',
     }) as ChildProcessWithoutNullStreams;
+    this.completion = new Promise((resolve) => this.child.once('close', () => resolve()));
 
     this.child.stdout.setEncoding('utf8');
     this.child.stdout.on('data', (chunk: string) => this.absorb(chunk));
@@ -140,6 +145,9 @@ export class AcpConnection {
         ),
       );
       this.closed = true;
+      // Clean workers while this parent's process group is still ours. Do not
+      // signal a stale PID when a naturally exited session is closed later.
+      if (process.platform !== 'win32') this.signal('SIGKILL');
       options.onExit(code, stderr);
     });
   }
@@ -193,23 +201,48 @@ export class AcpConnection {
 
   /** Graceful, then forced. An agent mid-tool-call will not always go quietly. */
   async close(graceMs = 2_000): Promise<void> {
-    if (this.closed) return;
-    this.child.stdin.end();
-    this.child.kill('SIGTERM');
-    await new Promise<void>((resolve) => {
-      const timer = setTimeout(() => {
-        this.child.kill('SIGKILL');
-        resolve();
-      }, graceMs);
-      timer.unref();
-      this.child.once('exit', () => {
-        clearTimeout(timer);
-        resolve();
-      });
-    });
+    this.closing ??= this.stop(graceMs);
+    await this.closing;
+  }
+
+  private async stop(graceMs: number): Promise<void> {
+    if (!this.closed) {
+      this.child.stdin.end();
+      this.signal('SIGTERM');
+    }
+    const timer = setTimeout(() => this.signal('SIGKILL'), graceMs);
+    try {
+      // SIGKILL being sent is not evidence of exit. Wait until exit callbacks
+      // and stdio have drained before the owner can close durable state.
+      await this.completion;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  private signal(signal: NodeJS.Signals): void {
+    const pid = this.child.pid;
+    if (pid === undefined) return;
+    if (process.platform === 'win32') {
+      execFile(
+        'taskkill',
+        ['/PID', String(pid), '/T', '/F'],
+        { windowsHide: true },
+        () => {},
+      );
+      return;
+    }
+    try {
+      process.kill(-pid, signal);
+      return;
+    } catch {
+      // The process group may already have exited.
+    }
+    this.child.kill(signal);
   }
 
   private write(message: JsonRpcRequest | JsonRpcNotification | JsonRpcResponse): void {
+    if (this.closed || this.closing !== undefined) return;
     const line = `${JSON.stringify(message)}\n`;
     this.child.stdin.write(line, (error) => {
       if (error === null || error === undefined) return;
@@ -293,7 +326,19 @@ export class AcpConnection {
             String(remoteError?.message),
           )
             ? 'Agent authentication required. Sign in using its own login flow.'
-            : 'The agent could not complete this request. Check its local CLI for details.',
+            : /rate.?limit|quota|insufficient.?(?:credit|balance)|credits? exhausted|usage limit/i.test(
+                  String(remoteError?.message),
+                )
+              ? 'The provider reported a usage limit. Check its quota or billing in its own CLI, then retry when available.'
+              : /model.*(?:unavailable|not found|not supported|does not exist)|unknown model|invalid model/i.test(
+                    String(remoteError?.message),
+                  )
+                ? 'The selected model is unavailable. Choose another model or check the provider in its own CLI.'
+                : /connection refused|network|offline|timed? ?out|econnreset|enotfound/i.test(
+                      String(remoteError?.message),
+                    )
+                  ? 'The provider connection failed. Check your connection and its local CLI before retrying.'
+                  : 'The agent could not complete this request. Check its local CLI for details.',
           {
             metadata: { code: remoteError?.code ?? null },
           },

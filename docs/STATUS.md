@@ -236,6 +236,36 @@ and remote clients are not exercised by this development-mode evidence.
 Live branch ledger. Ahead-counts are not independence proofs; re-verify
 positions against `origin/main` before any integration.
 
+### Desktop reliability — Oct 9, 2026
+
+- Branch: `feat/desktop-reliability`; not integrated.
+- Shutdown stops new agent starts, cancels pending approvals, drains owned ACP
+  processes and final events, then closes SQLite. Electron retries quit on the
+  next event-loop turn. The startup smoke now requires cleanup and exit code 0.
+- System provider accounts inherit the CLI's native environment. BuilderHelm
+  redirects configuration only for managed or attached logins; explicit System
+  selection removes an active-login override without replacing host environment.
+- New profile conversations snapshot standing instructions. Every prompt carries
+  that context. Model, mode, and effort persist per thread and are restored in
+  dependency order; unavailable or ignored selections fail visibly.
+- Runtime detection checks each transport executable. Agents and Chats explain
+  when Claude or Codex is available in Code but its ACP adapter is absent.
+- Code home exposes Isolated/Shared selection and launch errors. Editor keeps
+  the selected open file and unsaved draft across tool navigation.
+- Local evidence: repository checks, build, 647 tests (8 skipped), and desktop
+  smoke pass. Real-child regressions cover idle, streaming, approval, interrupted
+  handshake, forced exit, and surviving worker cleanup. Installed Claude/Codex
+  structured-output checks pass. Installed OpenCode follows profile instructions
+  and retains MiMo-V2.6-Flash Free after reopening the host database.
+- Native Electron verifies provider guidance and profile creation; quitting with
+  an idle OpenCode session exits and logs `core.stopped` without a database error.
+  Folder selection became unresponsive and subsequent native controls were stale
+  in the isolated automation session. Code failure/recovery, interactive Claude
+  login, Editor/Git navigation, and model restoration after a full desktop restart
+  remain acceptance gaps. No Claude/Codex ACP prompt was possible on this host:
+  `claude-agent-acp` and `codex-acp` are absent. Packaged, Windows/Linux, mobile,
+  remote, and hosted CI flows are not covered by these local results.
+
 ### ADE automations (Phase 7)
 
 - Feature: desktop-open schedules for Apify research / X publish.

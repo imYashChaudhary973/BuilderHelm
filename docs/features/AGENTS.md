@@ -22,6 +22,10 @@ command line.
 - Threads record the profile that started them; deleting a profile orphans its
   threads rather than destroying them, and any thread reopens after the agent
   is uninstalled.
+- New threads snapshot the profile's standing instructions and apply them to
+  every prompt. Existing threads keep their snapshot after profile edits.
+- Effective model, mode, and effort selections survive host restart; unavailable
+  selections fail visibly. See [conversation continuity](agent-connections.md#conversation-continuity).
 - The composer renders exactly the config options the agent advertises —
   model, thought-level, and mode categories as chips, remaining categories
   under one overflow chip. An agent that advertises nothing shows no chips.

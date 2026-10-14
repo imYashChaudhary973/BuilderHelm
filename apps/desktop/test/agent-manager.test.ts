@@ -263,13 +263,13 @@ describe('thread login binding', () => {
     const { helm, threads, setActive } = setupBound();
     const first = await helm.start(startInput);
     expect(threads.get(first.threadId)?.thread.accountRef).toBe('codex:personal');
-    await helm.closeAll();
+    await helm.close(first.sessionId);
     setActive('codex:work');
-    await helm.start({ ...startInput, threadId: first.threadId });
+    const resumed = await helm.start({ ...startInput, threadId: first.threadId });
     expect(vi.mocked(AcpSession.start).mock.calls.at(-1)?.[0].env).toEqual({
       CODEX_HOME: '/tmp/codex:personal',
     });
-    await helm.closeAll();
+    await helm.close(resumed.sessionId);
     const before = vi.mocked(AcpSession.start).mock.calls.length;
     await expect(
       helm.start({

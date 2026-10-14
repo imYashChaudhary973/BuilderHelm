@@ -666,6 +666,24 @@ export function BoardPage(): React.JSX.Element {
         <div className="vibeHome">
           <h1 id="space-home-title">Start vibe coding{named ? ` in ${folder}` : ''}</h1>
           <p>Choose an agent or open a simple terminal.</p>
+          <label className="wizardLabel" htmlFor="code-home-isolation">
+            Workspace isolation
+          </label>
+          <select
+            id="code-home-isolation"
+            aria-label="Workspace isolation"
+            value={isolation}
+            disabled={launch.isPending}
+            onChange={(event) => setIsolation(event.target.value as BoardIsolation)}
+          >
+            <option value="worktree">Isolated Git worktree per agent</option>
+            <option value="shared">Shared folder — agents edit the same files</option>
+          </select>
+          {error !== null && (
+            <p className="chatError" role="alert">
+              {error}
+            </p>
+          )}
           <div className="vibeAgents">
             {VIBE_AGENT_IDS.map((id) => {
               const entry = BOARD_AGENT_CATALOG.find((item) => item.id === id);

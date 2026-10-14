@@ -78,10 +78,14 @@ export interface AgentManagerOptions {
 export class AgentManager {
   private readonly sessions = new Map<string, Entry>();
   private readonly waiters = new Map<string, Waiter>();
+  private readonly shutdown = new AbortController();
+  private readonly starts = new Set<Promise<AgentSessionState>>();
+  private readonly closes = new Set<Promise<void>>();
+  private closing: Promise<void> | undefined;
 
   constructor(private readonly options: AgentManagerOptions) {}
 
-  async start(input: {
+  start(input: {
     agentId: string;
     cwd: string;
     threadId: string | null;
@@ -89,6 +93,19 @@ export class AgentManager {
     profileId: string | null;
     launch: RuntimeLaunch | null;
   }): Promise<AgentSessionState> {
+    if (this.shutdown.signal.aborted)
+      return Promise.reject(
+        new BuilderHelmError('INTEGRATION_OFFLINE', 'BuilderHelm is shutting down.'),
+      );
+    const pending = this.startSession(input);
+    this.starts.add(pending);
+    void pending.finally(() => this.starts.delete(pending)).catch(() => {});
+    return pending;
+  }
+
+  private async startSession(
+    input: Parameters<AgentManager['start']>[0],
+  ): Promise<AgentSessionState> {
     const existing = this.findLive(input.threadId);
     if (existing !== undefined) {
       const ref = this.options.threads.get(existing.threadId)?.thread.accountRef ?? null;
@@ -188,24 +205,35 @@ export class AgentManager {
             cwd,
             input.profileId,
             login?.accountRef ?? null,
+            profile?.instructions ?? '',
           )
         : stored.thread;
     const resumeSessionId = input.resumeSessionId ?? stored?.thread.acpSessionId ?? null;
+    const context = this.options.threads.context(thread.id);
+    let restoring = true;
 
     let entry: Entry | null = null;
     const session = await AcpSession.start({
       agent,
       cwd,
       resumeSessionId,
+      signal: this.shutdown.signal,
+      instructions: context.instructions,
       ...(login === null ? {} : { env: login.env }),
       emit: (event) => {
         this.options.threads.append(thread.id, event);
+        if (!restoring && event.type === 'session.config.updated')
+          this.options.threads.rememberConfig(thread.id, event.configOptions);
         if (entry !== null) applyToState(entry, event);
         this.options.emit(event);
         if (event.type === 'session.exited') this.sessions.delete(event.sessionId);
       },
       resolvePermission: async (request) => await this.decide(cwd, request),
     });
+    if (this.shutdown.signal.aborted) {
+      await session.close();
+      throw new BuilderHelmError('INTEGRATION_OFFLINE', 'BuilderHelm is shutting down.');
+    }
 
     const started: Entry = {
       session,
@@ -230,8 +258,30 @@ export class AgentManager {
     // Launch consistency: the selection rides the launch, and a runtime that
     // cannot honor it fails the start instead of quietly keeping its own
     // previous model. accountRef already bound the child env at spawn.
-    if (launch !== null) {
-      try {
+    try {
+      // A resume keeps the last effective selections, including mode. Never
+      // overwrite them with the defaults returned by session/load.
+      const order = ['model', 'mode', 'thought-level'];
+      for (const saved of [...context.configOptions].sort(
+        (a, b) => order.indexOf(a.category) - order.indexOf(b.category),
+      )) {
+        const option =
+          session.configSnapshot.find(
+            (candidate) =>
+              candidate.id === saved.id && candidate.category === saved.category,
+          ) ??
+          session.configSnapshot.find(
+            (candidate) => candidate.category === saved.category,
+          );
+        if (option === undefined)
+          throw new BuilderHelmError(
+            'VALIDATION_FAILED',
+            `The agent no longer offers the saved ${saved.category} selection. Start a new conversation to choose another.`,
+          );
+        if (option.value !== saved.value)
+          await session.setConfigOption(option.id, saved.value);
+      }
+      if (launch !== null && stored === null) {
         for (const [category, value] of [
           ['model', launch.model],
           ['thought-level', launch.effort],
@@ -251,13 +301,15 @@ export class AgentManager {
           if (option.value === value) continue;
           await session.setConfigOption(option.id, value);
         }
-      } catch (error) {
-        // A launch whose selection cannot be honored never leaves a
-        // half-started session behind.
-        this.sessions.delete(session.id);
-        await session.close().catch(() => {});
-        throw error;
       }
+      restoring = false;
+      this.options.threads.rememberConfig(thread.id, session.configSnapshot);
+    } catch (error) {
+      // A launch whose selection cannot be honored never leaves a
+      // half-started session behind.
+      this.sessions.delete(session.id);
+      await session.close().catch(() => {});
+      throw error;
     }
     return started.state;
   }
@@ -375,12 +427,24 @@ export class AgentManager {
     const entry = this.sessions.get(sessionId);
     if (entry === undefined) return;
     this.flushWaiters(sessionId, 'cancelled');
-    this.sessions.delete(sessionId);
-    await entry.session.close();
+    const pending = entry.session.close();
+    this.closes.add(pending);
+    try {
+      await pending;
+    } finally {
+      this.closes.delete(pending);
+      this.sessions.delete(sessionId);
+    }
   }
 
   /** Closes everything, for app shutdown. */
   async closeAll(): Promise<void> {
+    this.closing ??= this.shutdownSessions();
+    await this.closing;
+  }
+
+  private async shutdownSessions(): Promise<void> {
+    this.shutdown.abort();
     const entries = [...this.sessions.values()];
     this.sessions.clear();
     for (const [, waiter] of this.waiters) {
@@ -389,6 +453,8 @@ export class AgentManager {
     }
     this.waiters.clear();
     await Promise.all(entries.map(async (entry) => await entry.session.close()));
+    await Promise.all([...this.closes]);
+    await Promise.allSettled([...this.starts]);
   }
 
   private async decide(
@@ -400,6 +466,7 @@ export class AgentManager {
       readonly options: readonly AgentPermissionOption[];
     },
   ): Promise<AgentPermissionDecision> {
+    if (this.shutdown.signal.aborted) return 'cancelled';
     const entry = this.sessions.get(request.sessionId);
     const access = accessFromConfig(entry?.state.configOptions ?? []);
     const remembered = this.options.rules.lookup(cwd, request.toolCall.kind);

@@ -1,25 +1,14 @@
-import type { EditorEntry, EditorFile } from '@builderhelm/protocol/editor';
+import type { EditorEntry } from '@builderhelm/protocol/editor';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useSpaces } from '../space-store.js';
-
-interface OpenDoc {
-  readonly file: EditorFile;
-  readonly draft: string;
-}
-
-/**
- * Open documents live above the component instance: the editor unmounts on
- * tool-tab switches and resets on workspace switches, and neither may
- * discard unsaved drafts.
- */
-const openDocs = new Map<string, OpenDoc>();
-
-function docsInWorkspace(root: string | null): OpenDoc[] {
-  if (root === null) return [];
-  const prefix = `${root}/`;
-  return [...openDocs.values()].filter((doc) => doc.file.path.startsWith(prefix));
-}
+import {
+  activePathInWorkspace,
+  docsInWorkspace,
+  rememberActivePath,
+  rememberDocs,
+  type OpenDoc,
+} from '../editor-documents.js';
 
 const AUTOSAVE_KEY = 'builderhelm.editor.autosave';
 const WRAP_KEY = 'builderhelm.editor.wrap';
@@ -228,7 +217,9 @@ export function EditorSidebar(): React.JSX.Element {
   const spaces = useSpaces();
   const root = workspaceFolder(spaces);
   const [docs, setDocsState] = useState<OpenDoc[]>(() => docsInWorkspace(root));
-  const [activePath, setActivePath] = useState<string | null>(null);
+  const [activePath, setActivePathState] = useState<string | null>(() =>
+    activePathInWorkspace(root),
+  );
   const [error, setError] = useState<string | null>(null);
   const [hidden, setHidden] = useState(false);
   const [refresh, setRefresh] = useState(0);
@@ -244,26 +235,23 @@ export function EditorSidebar(): React.JSX.Element {
   const active = docs.find((doc) => doc.file.path === activePath) ?? null;
   const dirtyCount = docs.filter((doc) => doc.draft !== doc.file.text).length;
 
+  function setActivePath(path: string | null): void {
+    rememberActivePath(root, path);
+    setActivePathState(path);
+  }
+
   /** Mirrors the open documents into the component-surviving store. */
   function setDocs(update: (current: OpenDoc[]) => OpenDoc[]): void {
     setDocsState((current) => {
       const next = update(current);
-      for (const doc of next) openDocs.set(doc.file.path, doc);
-      if (root !== null) {
-        const prefix = `${root}/`;
-        for (const path of openDocs.keys()) {
-          if (path.startsWith(prefix) && !next.some((doc) => doc.file.path === path)) {
-            openDocs.delete(path);
-          }
-        }
-      }
+      rememberDocs(root, next);
       return next;
     });
   }
 
   useEffect(() => {
-    setDocs(() => docsInWorkspace(root));
-    setActivePath(null);
+    setDocsState(docsInWorkspace(root));
+    setActivePathState(activePathInWorkspace(root));
     setError(null);
     setQuery('');
     setHits([]);

@@ -49,6 +49,32 @@ describe('RuntimeCapabilityService', () => {
   const noVersion = async () => null;
   const okResolve = async (command: string) => `/usr/local/bin/${command}`;
 
+  it('checks each transport command instead of crediting a terminal CLI with a missing ACP adapter', async () => {
+    const service = new RuntimeCapabilityService(
+      [{ ...present, verified: 'orchestration-ready' }, acp],
+      {
+        resolve: async (command) => (command === 'codex' ? '/fixture/codex' : null),
+        runVersion: noVersion,
+      },
+    );
+    const [runtime] = (await service.snapshot()).runtimes;
+    expect(runtime).toMatchObject({ transports: ['pty'], tier: 'orchestration-ready' });
+    expect(runtime.detail).toContain('codex-acp');
+    expect(runtime.detail).toContain('Code terminals');
+  });
+
+  it('offers installed ACP independently of a missing terminal executable', async () => {
+    const service = new RuntimeCapabilityService([present, acp], {
+      resolve: async (command) => (command === 'codex-acp' ? '/fixture/codex-acp' : null),
+      runVersion: noVersion,
+    });
+    expect((await service.snapshot()).runtimes[0]).toMatchObject({
+      transports: ['acp'],
+      tier: 'structured-chat',
+      path: '/fixture/codex-acp',
+    });
+  });
+
   it('reports an absent command as unavailable without probing versions', async () => {
     const service = new RuntimeCapabilityService([present], {
       resolve: async () => null,
